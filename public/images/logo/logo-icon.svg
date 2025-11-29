@@ -1,0 +1,53 @@
+<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 103 103" width="103" height="103">
+	<title>logo-dark</title>
+	<defs>
+		<clipPath clipPathUnits="userSpaceOnUse" id="cp1">
+			<path d="m9.3 0h32v32.1h-32z"/>
+		</clipPath>
+		<clipPath clipPathUnits="userSpaceOnUse" id="cp2">
+			<path d="m70.1 0h32v32.1h-32z"/>
+		</clipPath>
+		<clipPath clipPathUnits="userSpaceOnUse" id="cp3">
+			<path d="m9.3 62h32v32.1h-32z"/>
+		</clipPath>
+		<clipPath clipPathUnits="userSpaceOnUse" id="cp4">
+			<path d="m70.1 62h32v32.1h-32z"/>
+		</clipPath>
+	</defs>
+	<style>
+		.s0 { fill: #ffffff } 
+	</style>
+	<g id="Capa_2">
+		<g id="Capa_1-2">
+			<g style="opacity: .4">
+				<g id="Clip-Path" clip-path="url(#cp1)">
+					<g>
+						<path fill-rule="evenodd" class="s0" d="m19 0l-9.7 9.7 22.3 22.4 9.7-9.7-22.3-22.4z"/>
+					</g>
+				</g>
+			</g>
+			<g style="opacity: .4">
+				<g id="Clip-Path" clip-path="url(#cp2)">
+					<g>
+						<path fill-rule="evenodd" class="s0" d="m102.1 9.7l-9.7-9.7-22.3 22.4 9.7 9.7 22.3-22.4z"/>
+					</g>
+				</g>
+			</g>
+			<g style="opacity: .4">
+				<g id="Clip-Path" clip-path="url(#cp3)">
+					<g>
+						<path fill-rule="evenodd" class="s0" d="m9.3 84.4l9.7 9.7 22.3-22.4-9.7-9.7-22.3 22.4z"/>
+					</g>
+				</g>
+			</g>
+			<g style="opacity: .4">
+				<g id="Clip-Path" clip-path="url(#cp4)">
+					<g>
+						<path fill-rule="evenodd" class="s0" d="m70.1 71.8l22.3 22.3 9.7-9.7-22.3-22.4-9.7 9.8z"/>
+					</g>
+				</g>
+			</g>
+			<path fill-rule="evenodd" class="s0" d="m43.5 34.9h24.4v24.4h-24.4z"/>
+		</g>
+	</g>
+</svg>

@@ -1,0 +1,80 @@
+.fc-event {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  max-width: 100% !important;
+  font-size: 0.85rem !important;
+  box-sizing: border-box !important;
+}
+
+/* Asegurar que los eventos no se expandan más allá de su celda */
+.fc-daygrid-event-harness {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-right: 0 !important;
+}
+
+/* Estilos específicos para eventos en la vista de mes */
+.fc-daygrid-block-event {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Contenedor del título del evento */
+.fc-event-title-container {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  width: 100% !important;
+}
+
+/* Título del evento */
+.fc-event-title {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  width: 100% !important;
+}
+
+/* Tiempo del evento */
+.fc-event-time {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* Contenedor de eventos del día */
+.fc-daygrid-day-events {
+  margin-bottom: 0 !important;
+  padding-top: 1px !important;
+  padding-bottom: 1px !important;
+}
+
+/* Forzar que los eventos no se expandan horizontalmente */
+.fc-h-event {
+  display: block !important;
+  max-width: 100% !important;
+  border-right-width: 0 !important;
+  border-left-width: 0 !important;
+}
+
+/* Asegurar que los eventos no se expandan más allá de su celda */
+.fc-daygrid-event {
+  position: relative !important;
+  z-index: 6 !important;
+  margin-top: 1px !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Asegurar que los eventos no se expandan más allá de su celda */
+.fc-daygrid-event-harness {
+  position: relative !important;
+  z-index: 6 !important;
+  margin-top: 1px !important;
+  max-width: 100% !important;
+  width: 100% !important;
+}
