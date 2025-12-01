@@ -116,6 +116,13 @@ export default function FilesNewMovements({ isOpen, onClose, file, onFileUpdate 
     }
 
     const handleNewMovement = async () => {
+        console.log("=== VALIDACIÓN GUARDAR MOVIMIENTO ===")
+        console.log("selectedType:", selectedType)
+        console.log("hasSubTypes:", hasSubTypes)
+        console.log("selectedSubType:", selectedSubType)
+        console.log("date:", date)
+        console.log("responsiblePerson:", responsiblePerson)
+        
         if (!selectedType) {
             alert("Por favor seleccione un tipo de movimiento")
             return
@@ -133,9 +140,11 @@ export default function FilesNewMovements({ isOpen, onClose, file, onFileUpdate 
 
         if (!responsiblePerson) {
             alert("Por favor seleccione un responsable")
+            console.log("ERROR: No hay responsable seleccionado")
             return
         }
 
+        console.log("=== TODAS LAS VALIDACIONES PASARON ===")
         setIsSubmitting(true)
         try {
             // Get the selected mode
@@ -148,6 +157,23 @@ export default function FilesNewMovements({ isOpen, onClose, file, onFileUpdate 
             const offsetMinutes = localDate.getTimezoneOffset()
             const adjustedDate = new Date(localDate.getTime() - (offsetMinutes * 60000))
 
+            const requestBody = {
+                mode: selectedMode?.value,
+                type: selectedType,
+                subtype: selectedSubType,
+                date: adjustedDate.toISOString(),
+                schedule,
+                status,
+                responsibleId: Number(responsiblePerson),
+                observation: observationAttachment,
+                customerName: file.case.customer.name,
+            }
+
+            console.log("=== ENVIANDO REQUEST ===")
+            console.log("URL:", CASES_FILES_MOVEMENTS_CREATE_ENDPOINT(file.case.id, Number(file.id)))
+            console.log("Body:", requestBody)
+            console.log("Token:", session?.user?.accessToken ? "Presente" : "Faltante")
+
             // Simulate API call
             const response = await fetch(
                 CASES_FILES_MOVEMENTS_CREATE_ENDPOINT(file.case.id, Number(file.id)),
@@ -157,22 +183,18 @@ export default function FilesNewMovements({ isOpen, onClose, file, onFileUpdate 
                         "Content-Type": "application/json",
                         Authorization: `Bearer ${session?.user?.accessToken}`,
                     },
-                    body: JSON.stringify({
-                        mode: selectedMode?.value,
-                        type: selectedType,
-                        subtype: selectedSubType,
-                        date: adjustedDate.toISOString(),
-                        schedule,
-                        status,
-                        responsibleId: Number(responsiblePerson),
-                        observation: observationAttachment,
-                        customerName: file.case.customer.name,
-                    }),
+                    body: JSON.stringify(requestBody),
                 }
             )
 
+            console.log("=== RESPUESTA DEL SERVIDOR ===")
+            console.log("Status:", response.status)
+            console.log("Ok:", response.ok)
+
             if (!response.ok) {
-                throw new Error("Error creating movement")
+                const errorText = await response.text()
+                console.log("Error response:", errorText)
+                throw new Error(`Error creating movement: ${response.status} - ${errorText}`)
             }
 
             const data = await response.json()
@@ -195,7 +217,13 @@ export default function FilesNewMovements({ isOpen, onClose, file, onFileUpdate 
             onFileUpdate(updatedFile)
             onClose()
         } catch (error) {
-            console.error("Error updating file:", error)
+            console.error("=== ERROR EN GUARDAR MOVIMIENTO ===")
+            console.error("Error completo:", error)
+            console.error("Mensaje:", error instanceof Error ? error.message : String(error))
+            
+            // Mostrar error específico al usuario
+            const errorMessage = error instanceof Error ? error.message : "Error desconocido al guardar el movimiento"
+            alert(`❌ Error: ${errorMessage}`)
         } finally {
             setIsSubmitting(false)
         }

@@ -130,6 +130,11 @@ export const CaseEditForm = ({ caseData, onSave, onCancel }: CaseEditFormProps) 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault()
 
+        console.log("=== GUARDANDO CASO ===")
+        console.log("Form data:", formData)
+
+        setIsLoading(true)
+
         // Preparar datos para envío con tipos correctos
         const submitData: Partial<Cases> = {
             title: formData.title,
@@ -145,7 +150,16 @@ export const CaseEditForm = ({ caseData, onSave, onCancel }: CaseEditFormProps) 
             internalLawyerId: formData.internalLawyerId,
         }
 
-        onSave(submitData)
+        console.log("Submit data:", submitData)
+
+        try {
+            onSave(submitData)
+            console.log("onSave ejecutado exitosamente")
+        } catch (error) {
+            console.error("Error en onSave:", error)
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     return (
@@ -341,7 +355,11 @@ export const CaseEditForm = ({ caseData, onSave, onCancel }: CaseEditFormProps) 
                     <Button variant="custom" onClick={onCancel}>
                         Cancelar
                     </Button>
-                    <Button variant="custom" disabled={isLoadingLawyers || isLoading} className="bg-[#09A4B5] text-white hover:bg-[#09A4B5]/85 dark:text-gray-900 py-2 px-2">
+                    <Button
+                        type="submit"
+                        variant="custom"
+                        disabled={isLoadingLawyers || isLoading}
+                        className="bg-[#09A4B5] text-white hover:bg-[#09A4B5]/85 dark:text-gray-900 py-2 px-2">
                         {isLoading ? (
                             <div className="flex items-center space-x-2">
                                 <Loader2 className="h-4 w-4 animate-spin text-white" />
