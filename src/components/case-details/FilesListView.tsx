@@ -73,9 +73,6 @@ export const FilesListView = ({ files, caseId, customer }: FilesListViewProps) =
                             Juzgado
                         </TableCell>
                         <TableCell isHeader className="w-[10%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">
-                            Etapa procesal
-                        </TableCell>
-                        <TableCell isHeader className="w-[10%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">
                             Estado del proceso
                         </TableCell>
                         <TableCell isHeader className="w-[1%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">
@@ -102,9 +99,6 @@ export const FilesListView = ({ files, caseId, customer }: FilesListViewProps) =
                             </TableCell>
                             <TableCell className="px-4 py-3 text-sm text-gray-700">
                                 {file.court?.charter || 'Sin juzgado asignado'}
-                            </TableCell>
-                            <TableCell className="px-4 py-3 text-sm text-gray-700">
-                                {getProceduralStageLabel(file.proceduralStageId, file.filetype)}
                             </TableCell>
                             <TableCell className="px-4 py-3 text-sm text-gray-700">
                                 {getStatusProcessLabel(file.statusProcessId)}
