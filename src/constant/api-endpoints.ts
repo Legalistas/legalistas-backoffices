@@ -139,6 +139,7 @@ export const CALCULATOR_CAUSES_LIST_ENDPOINT = `${API_BASE_URL}/statistics/cause
 
 // UPLOAD ENDPOINTS
 export const SETTINGS_JURISDICTIONS_ENDPOINT = `${API_BASE_URL}/settings/jurisdictions`;
+export const SETTINGS_JURISDICTIONS_EXPORT_EXCEL_ENDPOINT = `${API_BASE_URL}/settings/jurisdictions/export-excel`;
 export const UPLOAD_ENDPOINT = `${API_BASE_URL}/upload`;
 export const SETTINGS_HOLIDAY_ENDPOINT = `${API_BASE_URL}/settings/holidays`;
 export const SETTINGS_COUNTRIES_ENDPOINT = `${API_BASE_URL}/settings/countries`;
@@ -204,3 +205,42 @@ export const CLOSINGS_COUNT_ENDPOINT = `${API_BASE_URL}/closings/count`;
 // Individual closing endpoints
 export const CLOSING_BY_ID_ENDPOINT = (id: number) => 
   `${API_BASE_URL}/closings/${id}`;
+
+// ============================================================================
+// POSTS / BLOG MODULE - Sistema de Posts estilo WordPress
+// ============================================================================
+
+// Get all posts with filters, Create new post
+export const POSTS_ENDPOINT = `${API_BASE_URL}/posts`;
+
+// Get, update, delete post by ID
+export const POST_BY_ID_ENDPOINT = (id: number) => 
+  `${API_BASE_URL}/posts/${id}`;
+
+// Get post by slug
+export const POST_BY_SLUG_ENDPOINT = (slug: string) => 
+  `${API_BASE_URL}/posts/slug/${slug}`;
+
+// Get related posts
+export const POST_RELATED_ENDPOINT = (slug: string) => 
+  `${API_BASE_URL}/posts/slug/${slug}/related`;
+
+// Get posts by category
+export const POSTS_BY_CATEGORY_ENDPOINT = (slug: string) => 
+  `${API_BASE_URL}/posts/category/${slug}`;
+
+// Get posts by tag
+export const POSTS_BY_TAG_ENDPOINT = (slug: string) => 
+  `${API_BASE_URL}/posts/tag/${slug}`;
+
+// Get all categories
+export const POSTS_CATEGORIES_ENDPOINT = `${API_BASE_URL}/posts/categories`;
+
+// Get all tags
+export const POSTS_TAGS_ENDPOINT = `${API_BASE_URL}/posts/tags`;
+
+// Get recent posts
+export const POSTS_RECENT_ENDPOINT = `${API_BASE_URL}/posts/recent`;
+
+// Search posts
+export const POSTS_SEARCH_ENDPOINT = `${API_BASE_URL}/posts/search`;

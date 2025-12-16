@@ -3,12 +3,13 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useParams } from 'next/navigation'
-import { FileText, Users, DollarSign, StickyNote, Calculator } from 'lucide-react'
+import { FileText, Users, DollarSign, StickyNote, Calculator, FileCheck } from 'lucide-react'
 
 import FilesHeader from '@/components/files/FilesHeader'
 import FilesDetails from '@/components/files/FilesDetails'
 import FilesLiquidations from '@/components/files/FilesLiquidations'
 import FilesParts from '@/components/files/FilesParts'
+import FilesCedulas from '@/components/files/FilesCedulas'
 import FilesExpenses from '@/components/files/FilesExpenses'
 import FilesNotes from '@/components/files/FilesNotes'
 
@@ -62,6 +63,7 @@ export default function FilesContent() {
         { id: 'details', label: 'Detalles', icon: FileText },
         { id: 'liquidations', label: 'Liquidaciones LRT', icon: Calculator },
         { id: 'parts', label: 'Partes', icon: Users },
+        { id: 'cedulas', label: 'Cédulas Automáticas', icon: FileCheck },
         { id: 'expenses', label: 'Gastos', icon: DollarSign },
         { id: 'notes', label: 'Notas Internas', icon: StickyNote },
     ]
@@ -110,6 +112,18 @@ export default function FilesContent() {
                                     caseId={caseIdNum}
                                     fileId={fileIdNum}
                                     onPartsChange={(updatedParts) => fetchFileData()}
+                                />
+                            </div>
+                        )}
+                        {activeTab === 'cedulas' && file && (
+                            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                                <FilesCedulas
+                                    caseId={caseIdNum}
+                                    fileId={fileIdNum}
+                                    cedulas={file.filesCedulas || []}
+                                    parts={file.filesParts || []}
+                                    onCedulasChange={(updatedCedulas) => fetchFileData()}
+                                    onRefresh={fetchFileData}
                                 />
                             </div>
                         )}

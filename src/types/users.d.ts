@@ -28,21 +28,27 @@ export interface Addresses {
   countryId: number;
   stateId: number;
   city: string;
-  cp: string;
-  street: string;
+  cp: string | null;
+  street: string | null;
   streetNumber: string;
   description: string;
   isDefault: boolean;
-  state: {
+  country: {
     id: number;
     name: string;
+    prefix: string;
+    code: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+  state: {
+    id: number;
     countryId: number;
-    country: {
-      id: number;
-      name: string;
-      code: string;
-      phoneCode: string;
-    };
+    name: string;
+    isActive: boolean;
+    createdAt: string;
+    updatedAt: string;
   };
 }
 

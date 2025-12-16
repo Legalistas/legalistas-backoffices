@@ -147,6 +147,11 @@ export const ADMINISTRACION_ITEMS: NavItem[] = [
     path: "/admin/members",
   },
   {
+    icon: Pencil,
+    name: "Blog",
+    path: "/admin/posts",
+  },
+  {
     icon: Settings,
     name: "Configuración",
     path: "/admin/settings",
