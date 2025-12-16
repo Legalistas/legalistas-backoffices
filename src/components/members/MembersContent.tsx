@@ -362,6 +362,46 @@ export default function MembersContent() {
         [session?.user?.accessToken, fetchAllMembers, currentPage],
     )
 
+    const handleToggleBlock = useCallback(
+        async (userId: number, isBlocked: boolean) => {
+            const action = isBlocked ? "bloquear" : "desbloquear"
+            if (!confirm(`¿Estás seguro de que deseas ${action} este usuario?`)) {
+                return
+            }
+
+            try {
+                const response = await fetch(`${USERS_ENDPOINT}/${userId}/block`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${session?.user?.accessToken}`,
+                    },
+                    body: JSON.stringify({ isBlocked }),
+                })
+
+                if (!response.ok) {
+                    throw new Error(`Failed to ${action} user`)
+                }
+
+                const data = await response.json()
+                toast.success(data.message || `Usuario ${isBlocked ? "bloqueado" : "desbloqueado"} correctamente`)
+                
+                // Actualizar la lista de miembros localmente
+                setAllMembers(prev => 
+                    prev.map(member => 
+                        member.id === userId 
+                            ? { ...member, isBlocked } 
+                            : member
+                    )
+                )
+            } catch (error) {
+                console.error(`Error al ${action} el usuario:`, error)
+                toast.error(`Error al ${action} el usuario`)
+            }
+        },
+        [session?.user?.accessToken],
+    )
+
     const handleClearSearch = useCallback(() => {
         setSearchTerm("")
         setSelectedRoles([])
@@ -800,6 +840,7 @@ export default function MembersContent() {
                             handleClearSearch={handleClearSearch}
                             handleEdit={handleEdit}
                             handleDelete={handleDelete}
+                            handleToggleBlock={handleToggleBlock}
                             isLoading={isLoading}
                         />
                     </div>

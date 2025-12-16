@@ -34,6 +34,11 @@ export const authOptions: NextAuthOptions = {
 
           const data = await response.json();
 
+          // Verificar si la cuenta está bloqueada
+          if (response.status === 403 && data.blocked) {
+            throw new Error("Tu cuenta ha sido bloqueada. Contacta al administrador para más información.");
+          }
+
           if (data.status === "success") {
             const user = data.user;
 
@@ -93,6 +98,11 @@ export const authOptions: NextAuthOptions = {
           "🚀 ~ Respuesta de tu backend (GOOGLE_LOGIN_ENDPOINT):",
           data
         ); // ¡Verifica esta salida!
+
+        // Verificar si la cuenta está bloqueada
+        if (res.status === 403 && (data as any).blocked) {
+          throw new Error("Tu cuenta ha sido bloqueada. Contacta al administrador para más información.");
+        }
 
         if (res.ok && data.token && data.user) {
           // Mapea los datos de tu AuthResponse del backend al token JWT de NextAuth

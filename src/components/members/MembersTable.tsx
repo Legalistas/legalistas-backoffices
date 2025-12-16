@@ -1,5 +1,5 @@
 import { Table, TableHeader, TableRow, TableCell, TableBody } from "../ui/table";
-import { Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2, Lock, Unlock } from "lucide-react";
 import Button from "../ui/button/Button";
 import { User } from "@/types/users";
 
@@ -9,6 +9,7 @@ interface MembersTableProps {
     handleClearSearch: () => void
     handleEdit: (member: User) => void
     handleDelete: (id: number) => void
+    handleToggleBlock: (userId: number, isBlocked: boolean) => void
     isLoading?: boolean
 }
 
@@ -18,6 +19,7 @@ export default function MembersTable({
     handleClearSearch,
     handleEdit,
     handleDelete,
+    handleToggleBlock,
     isLoading
 }: MembersTableProps) {
     return (
@@ -89,12 +91,22 @@ export default function MembersTable({
                                             <Button
                                                 onClick={() => handleEdit(member)}
                                                 variant="outline"
+                                                title="Editar usuario"
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
                                             <Button
+                                                onClick={() => handleToggleBlock(member.id, !member.isBlocked)}
+                                                variant="outline"
+                                                className={member.isBlocked ? "text-red-600 hover:text-red-700" : ""}
+                                                title={member.isBlocked ? "Desbloquear usuario" : "Bloquear usuario"}
+                                            >
+                                                {member.isBlocked ? <Unlock className="h-4 w-4" /> : <Lock className="h-4 w-4" />}
+                                            </Button>
+                                            <Button
                                                 onClick={() => handleDelete(member.id)}
                                                 variant="outline"
+                                                title="Eliminar usuario"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>

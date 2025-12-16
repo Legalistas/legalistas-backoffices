@@ -5,6 +5,7 @@ export interface User {
   image: string;
   role: number;
   createdAt: Date;
+  isBlocked?: boolean;
   userProfile: Profile;
   userAddresses: Addresses[];
   roleUser: RoleUser[];
