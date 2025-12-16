@@ -122,6 +122,7 @@ export default function FilesContent() {
                                     fileId={fileIdNum}
                                     cedulas={file.filesCedulas || []}
                                     parts={file.filesParts || []}
+                                    fileData={file}
                                     onCedulasChange={(updatedCedulas) => fetchFileData()}
                                     onRefresh={fetchFileData}
                                 />

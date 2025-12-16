@@ -73,6 +73,17 @@ export const CASES_FILES_EXPENSES_DELETE_ENDPOINT = (
   expenseId: number
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/expenses/${expenseId}`;
 
+export const CASES_FILES_CEDULAS_ENDPOINT = (
+  caseId: number,
+  fileId: number
+) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/cedulas`;
+
+export const CASES_FILES_CEDULAS_BY_ID_ENDPOINT = (
+  caseId: number,
+  fileId: number,
+  cedulaId: number
+) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/cedulas/${cedulaId}`;
+
 export const CASES_CONSULTATIONS_GET_ALL_ENDPOINT = `${API_BASE_URL}/consultations`;
 export const CASES_CONSULTATIONS_MARK_ALL_READ_ENDPOINT = `${API_BASE_URL}/consultations/mark-all-read`;
 export const CASES_CONSULTATIONS_GET_BY_ID_ENDPOINT = (id: string | number) =>

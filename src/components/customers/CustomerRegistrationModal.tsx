@@ -247,7 +247,29 @@ export default function CustomerRegistrationModal({
                     birthDate: formattedBirthDate,
                     phone: editingCustomer.userProfile?.phone || "",
                 },
-                userAddresses: editingCustomer.userAddresses || [],
+                userAddresses: (editingCustomer.userAddresses || []).map(addr => ({
+                    id: addr.id,
+                    userId: addr.userId,
+                    countryId: addr.countryId,
+                    stateId: addr.stateId,
+                    city: addr.city,
+                    cp: addr.cp || "",
+                    street: addr.street || "",
+                    streetNumber: addr.streetNumber,
+                    description: addr.description,
+                    isDefault: addr.isDefault,
+                    state: {
+                        id: addr.state.id,
+                        name: addr.state.name,
+                        countryId: addr.state.countryId,
+                        country: {
+                            id: addr.country.id,
+                            name: addr.country.name,
+                            code: addr.country.code,
+                            phoneCode: addr.country.prefix
+                        }
+                    }
+                })),
                 roleUser: editingCustomer.roleUser || [],
                 street: editingCustomer.userAddresses?.[0]?.street || "",
                 streetNumber: editingCustomer.userAddresses?.[0]?.streetNumber || "",
