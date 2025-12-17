@@ -6,9 +6,9 @@ import Button from "@/components/ui/button/Button"
 import { Eye, EyeIcon as EyeClosed } from "lucide-react"
 import Link from "next/link"
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 export default function SignInForm() {
     const [showPassword, setShowPassword] = useState(false)
@@ -18,6 +18,16 @@ export default function SignInForm() {
     const [error, setError] = useState("")
     const [isLoading, setIsLoading] = useState(false)
     const router = useRouter()
+    const searchParams = useSearchParams()
+
+    // Capturar error de la URL si existe
+    useEffect(() => {
+        const errorParam = searchParams.get("error")
+        if (errorParam) {
+            const decodedError = decodeURIComponent(errorParam)
+            setError(decodedError)
+        }
+    }, [searchParams])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()

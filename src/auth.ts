@@ -35,8 +35,12 @@ export const authOptions: NextAuthOptions = {
           const data = await response.json();
 
           // Verificar si la cuenta está bloqueada
-          if (response.status === 403 && data.blocked) {
-            throw new Error("Tu cuenta ha sido bloqueada. Contacta al administrador para más información.");
+          if (response.status === 403 || data.blocked === true) {
+            throw new Error(data.message || "Tu cuenta ha sido bloqueada. Contacta al administrador para más información.");
+          }
+
+          if (!response.ok) {
+            throw new Error(data.message || "Credenciales inválidas");
           }
 
           if (data.status === "success") {
@@ -53,11 +57,15 @@ export const authOptions: NextAuthOptions = {
               permissions: user.permissionUser || [],
             };
           } else {
-            throw new Error(data.message || "Authentication failed");
+            throw new Error(data.message || "Error de autenticación");
           }
         } catch (error) {
           console.error("Error during login:", error);
-          throw new Error("Authentication failed");
+          // Preservar el mensaje de error original
+          if (error instanceof Error) {
+            throw error;
+          }
+          throw new Error("Error de autenticación");
         }
       },
     }),
@@ -100,8 +108,8 @@ export const authOptions: NextAuthOptions = {
         ); // ¡Verifica esta salida!
 
         // Verificar si la cuenta está bloqueada
-        if (res.status === 403 && (data as any).blocked) {
-          throw new Error("Tu cuenta ha sido bloqueada. Contacta al administrador para más información.");
+        if (res.status === 403 || (data as any).blocked === true) {
+          throw new Error((data as any).message || "Tu cuenta ha sido bloqueada. Contacta al administrador para más información.");
         }
 
         if (res.ok && data.token && data.user) {
@@ -156,6 +164,7 @@ export const authOptions: NextAuthOptions = {
   },
   pages: {
     signIn: "/signin",
+    error: "/signin", // Redirigir errores de vuelta al signin en lugar de /error
   },
   session: {
     strategy: "jwt", // ahora sí lo acepta como literal correcto
