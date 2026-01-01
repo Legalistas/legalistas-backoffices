@@ -221,6 +221,8 @@ export const CLOSING_BY_ID_ENDPOINT = (id: number) =>
 // POSTS / BLOG MODULE - Sistema de Posts estilo WordPress
 // ============================================================================
 
+
+//https://backend.legalistas.ar/api/v1/posts
 // Get all posts with filters, Create new post
 export const POSTS_ENDPOINT = `${API_BASE_URL}/posts`;
 

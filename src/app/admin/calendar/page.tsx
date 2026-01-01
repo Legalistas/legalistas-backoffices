@@ -52,6 +52,21 @@ export default function CalendarPage() {
     }
 
     const formattedHolidays = formatDebugInfo(debugInfo);
+    
+    // Filtrar solo los días festivos del año corriente
+    const currentYear = new Date().getFullYear();
+    const currentYearHolidays = formattedHolidays?.filter((holiday) => {
+        const parts = holiday.split(": ");
+        if (parts.length > 1) {
+            const date = parts[1];
+            // Intentar extraer el año de la fecha
+            const yearMatch = date.match(/\d{4}/);
+            if (yearMatch) {
+                return parseInt(yearMatch[0]) === currentYear;
+            }
+        }
+        return true; // Si no se puede determinar el año, incluirlo por defecto
+    });
 
     return (
         <div className="flex flex-col h-full">
@@ -94,7 +109,7 @@ export default function CalendarPage() {
                             </div>
 
                             {/* Información de días festivos */}
-                            {formattedHolidays && formattedHolidays.length > 0 && (
+                            {currentYearHolidays && currentYearHolidays.length > 0 && (
                                 <div className="border-t border-gray-200 mt-1">
                                     <div className="p-3">
                                         <div className="flex items-center gap-2 mb-2">
@@ -102,7 +117,7 @@ export default function CalendarPage() {
                                             <h3 className="text-sm font-medium text-green-700">Días festivos</h3>
                                         </div>
                                         <ul className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
-                                            {formattedHolidays.map((holiday, index) => {
+                                            {currentYearHolidays.map((holiday, index) => {
                                                 // Separar el nombre del día festivo de la fecha
                                                 const parts = holiday.split(": ");
                                                 const name = parts[0];
@@ -110,7 +125,7 @@ export default function CalendarPage() {
 
                                                 return (
                                                     <li key={index} className="flex items-start gap-2">
-                                                        <div className="h-2 w-2 rounded-full bg-green-500 mt-1.5 flex-shrink-0"></div>
+                                                        <div className="h-2 w-2 rounded-full bg-green-500 mt-1.5 shrink-0"></div>
                                                         <div>
                                                             <span className="text-xs font-medium text-gray-800">{name}</span>
                                                             {date && (
