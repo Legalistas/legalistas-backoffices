@@ -97,6 +97,8 @@ export default function KanbanBoard() {
     const [showAllLeads, setShowAllLeads] = useState(false)
     const [hideFinalColumns, setHideFinalColumns] = useState(true)
 
+    console.log("Current view:", session?.user?.role)
+
     // Check if current user has seller roles that can see all leads
     const canViewAllLeads = useMemo(() => {
         if (!session?.user?.role) return false
@@ -113,7 +115,8 @@ export default function KanbanBoard() {
             Role.ANALISTA_VENTAS,
             Role.ASISTENTE_LEGAL,
             Role.COORDINADOR_LEGAL,
-            Role.DIRECTOR_AREA_IT
+            Role.DIRECTOR_AREA_IT,
+            Role.DIRECTORA_AREA_MARKETING,
         ]
 
         return sellerRoles.some((role) => role === session.user.role)

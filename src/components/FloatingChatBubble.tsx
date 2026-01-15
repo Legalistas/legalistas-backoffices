@@ -22,13 +22,6 @@ export default function FloatingChatBubble({ position = "bottom-right", offset =
     // Verificar si estamos en la página de chat
     const isInChatPage = pathname?.includes('/chat')
 
-    console.log("🔮 BUBBLE: Current state", {
-        pathname,
-        isInChatPage,
-        unreadCount,
-        hasNewMessage,
-        recentChatsCount: recentChats.length
-    })
 
     // Usar valores fijos para la posición en lugar de clases dinámicas
     const getPositionStyles = () => {
