@@ -1,7 +1,8 @@
+
+import path from "path";
 import withPWA from "next-pwa";
 
 const nextConfig = {
-  /* config options here */
   images: {
     remotePatterns: [
       {
