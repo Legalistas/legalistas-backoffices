@@ -84,7 +84,7 @@ export default function BirthdayAlert() {
                     
                     {/* Logo de Legalistas */}
                     <div className="flex justify-center pt-6 pb-2">
-                        <div className="bg-white rounded-full p-3 shadow-lg animate-float">
+                        <div className="shadow-lg animate-float">
                             <Image
                                 src="/images/logo/logo-icon.svg"
                                 alt="Legalistas"
@@ -111,7 +111,7 @@ export default function BirthdayAlert() {
 
                         {/* Nombre destacado con gradiente animado */}
                         <div className="text-3xl font-extrabold mb-4 bg-gradient-to-r from-yellow-300 via-pink-300 to-cyan-300 bg-clip-text text-transparent animate-gradient-x bg-[length:200%_auto]">
-                            🌟 Martina Quinteros 🌟
+                            🌟 Martina 🌟
                         </div>
 
                         {/* Mensaje */}
