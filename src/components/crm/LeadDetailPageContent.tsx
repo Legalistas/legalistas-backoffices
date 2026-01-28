@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react"
 import { LEADS_ENDPOINT, LEADS_NOTES_DELETE_ENDPOINT, LEADS_NOTES_ENDPOINT, LEADS_NOTES_UPDATE_ENDPOINT } from "@/constant/api-endpoints"
 import type { Lead } from "@/types/crm"
 import Button from "../ui/button/Button"
-import { ArrowLeft, Briefcase, CheckCircle, Clock, Edit, FileText, Mail, Phone, User, XCircle } from 'lucide-react'
+import { ArrowLeft, Briefcase, CheckCircle, Clock, Edit, FileText, Globe, Mail, Phone, Share, Share2, User, XCircle } from 'lucide-react'
 import Badge from "../ui/badge/Badge"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card/Card"
 import { CRM_COLUMNS, SOURCE_CHANNEL } from "@/constant/crm"
@@ -26,6 +26,7 @@ import LeadDocuments from "./LeadDocuments"
 import AddDocumentButton from "./AddDocumentButton"
 import LeadFormDialog from "./LeadFormDialog"
 import Can from "../auth/Can"
+import Link from "next/link"
 
 
 export default function LeadDetailPageContent({ id }: { id: string }) {
@@ -138,7 +139,7 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
         switch (lead.status) {
             case "IN_PROGRESS":
                 return (
-                    <Badge className="bg-amber-500 text-white px-5">
+                    <Badge className="bg-gray-500 text-white px-5">
                         <Clock className="h-4 w-4 mr-2" />
                         En Progreso
                     </Badge>
@@ -379,6 +380,7 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
                     </div>
                     <Can role="asistente_legal" inverse>
                         <div className="ml-auto flex gap-2">
+
                             {getStatusBadge()}
                             <Button variant="custom" size="sm" onClick={() => handleEditLead(lead)} className="hover:bg-gray-300 hover:text-gray-800 transform transition duration-200 ease-in-out p-2 rounded-full">
                                 <Edit className="h-6 w-6" />
@@ -403,6 +405,10 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
                                     <div className="space-y-1">
                                         <p className="text-sm font-medium text-muted-foreground">Fecha de creación</p>
                                         <p>{formatDate(lead.createdAt)}</p>
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-sm font-medium text-muted-foreground">Fecha de accidente</p>
+                                        <p>{formatDate(lead.accidentDate)}</p>
                                     </div>
                                     <div className="space-y-1">
                                         <p className="text-sm font-medium text-muted-foreground">Canal de origen</p>
@@ -675,6 +681,39 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
                                     <AddDocumentButton lead={lead} onLeadUpdate={handleLeadUpdate} />
                                     <ScheduleMeetingButton lead={lead} onLeadUpdate={handleLeadUpdate} />
                                     <ChangeStageButton lead={lead} onLeadUpdate={handleLeadUpdate} />
+
+
+                                    <Button variant="outline" className="w-full flex justify-between items-center" size="sm">
+                                        <Link
+                                            href={`https://legalistas.ar/tramite/${lead.id}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                        >
+                                            <Globe className="h-4 w-4 mr-2" />
+                                            Web de trámite
+                                        </Link>
+                                    </Button>
+
+                                    {/* Botón compartir */}
+                                    <Button
+                                        variant="outline"
+                                        className="w-full flex justify-between items-center"
+                                        size="sm"
+                                        onClick={() => {
+                                            const url = `https://legalistas.ar/tramite/${lead.id}`;
+                                            const text = `Mirá el estado de tu trámite en Legalistas: ${url}`;
+                                            if (navigator.share) {
+                                                navigator.share({ title: 'Legalistas', text, url });
+                                            } else {
+                                                // WhatsApp fallback
+                                                window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+                                            }
+                                        }}
+                                    >
+                                        <Share2 className="h-4 w-4 ml-2" />
+                                        <span>Compartir Tramite</span>
+
+                                    </Button>
                                 </CardContent>
                             </Card>
                         </Can>

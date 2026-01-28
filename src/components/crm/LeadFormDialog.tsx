@@ -58,7 +58,8 @@ export default function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDia
         columnId: 1,
         notes: "",
         documentationComplete: false,
-        referentId: null as number | null
+        referentId: null as number | null,
+        accidentDate: ""
     })
     const router = useRouter()
     const [searchQuery, setSearchQuery] = useState("")
@@ -261,7 +262,8 @@ export default function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDia
                 columnId: lead.columnId || 1,
                 notes: lead.notes || "",
                 documentationComplete: lead.documentationComplete || false,
-                referentId: lead.referentId ?? null
+                referentId: lead.referentId ?? null,
+                accidentDate: lead.accidentDate ? lead.accidentDate.slice(0, 10) : ""
             })
             if (lead.user) {
                 setSearchQuery(lead.user.name)
@@ -280,7 +282,8 @@ export default function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDia
                 columnId: 1,
                 notes: "",
                 documentationComplete: false,
-                referentId: null
+                referentId: null,
+                accidentDate: ""
             })
             setSearchQuery("")
             setSelectedCustomerName("")
@@ -408,6 +411,7 @@ export default function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDia
                 notes: formData.notes || "",
                 documentationComplete: formData.documentationComplete || false,
                 referentId: formData.referentId ?? null,
+                accidentDate: formData.accidentDate || null,
             }
 
             console.log("Datos a enviar:", dataToSend)
@@ -688,6 +692,17 @@ export default function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDia
                                         </option>
                                     ))}
                                 </select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="accidentDate">Fecha de accidente</Label>
+                                <Input
+                                    id="accidentDate"
+                                    type="datetime-local"
+                                    value={formData.accidentDate || ""}
+                                    onChange={e => setFormData(prev => ({ ...prev, accidentDate: e.target.value }))}
+                                    className="w-full p-2 border border-gray-300 rounded-md"
+                                />
                             </div>
                         </div>
                     </div>

@@ -20,10 +20,13 @@ export interface Lead {
   notes?: string;
   priority?: string;
   documentationComplete?: boolean;
-  referentId?: number
+  referentId?: number;
   createdAt: string;
   updatedAt?: string;
   clientId?: string;
+  accidentDate?: string;
+  accepted?: boolean;
+  acceptedAt?: string;
   services: {
     values: number;
     label: string;

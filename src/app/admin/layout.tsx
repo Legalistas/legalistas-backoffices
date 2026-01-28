@@ -12,8 +12,6 @@ import { useRouter } from "next/navigation"
 import FloatingChatBubble from "@/components/FloatingChatBubble"
 import { ChatProvider } from "@/context/ChatContext"
 import { NotificationProvider } from "@/components/notification-provider"
-import ChristmasCard from "@/components/ui/ChristmasCard"
-import BirthdayAlert from "@/components/ui/BirthdayAlert"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
@@ -61,7 +59,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
           </div>
           <FloatingChatBubble />
-          <BirthdayAlert />
           <Toaster />
         </div>
       </NotificationProvider>
