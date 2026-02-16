@@ -418,22 +418,10 @@ export const NewFileModal = ({
                             className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                         >
                             <option value={0}>Seleccione la caducidad de instancia</option>
-                            <option value={1}>1 día</option>
-                            <option value={3}>3 días</option>
-                            <option value={7}>7 días</option>
-                            <option value={15}>15 días</option>
-                            <option value={30}>30 días</option>
-                            <option value={60}>60 días</option>
-                            <option value={90}>90 días</option>
-                            <option value={120}>120 días</option>
-                            <option value={150}>150 días</option>
-                            <option value={180}>180 días</option>
-                            <option value={210}>210 días</option>
-                            <option value={240}>240 días</option>
-                            <option value={270}>270 días</option>
-                            <option value={300}>300 días</option>
-                            <option value={330}>330 días</option>
-                            <option value={360}>360 días</option>
+                            <option value={3}>3 meses</option>
+                            <option value={6}>6 meses</option>
+                            <option value={9}>9 meses</option>
+                            <option value={12}>12 meses</option>
                         </select>
                     </div>
                 </div>

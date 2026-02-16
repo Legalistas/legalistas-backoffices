@@ -19,14 +19,34 @@ export interface CasesFiles {
   statusProcessId: number;
   startDate: string;
   instanceExpiration: string;
+  lastMovementDate?: string;
   endDate: string;
   createdAt: string;
   updatedAt: string;
   court: Court;
   case: Cases;
   filesParts: any[]; // Assuming filesParts is an array of any type
+  fileMovements?: CasesFilesMovement[];
   accidentDate?: string;
   instanceExpiration?: string;
+}
+
+export interface CasesFilesMovement {
+  id: number;
+  mode: number;
+  type: number;
+  subType?: number | null;
+  date: string;
+  schedule: number;
+  status: string;
+  observation: string;
+  createdAt: string;
+  responsiblePerson: {
+    id: number;
+    name: string;
+    email: string;
+    image?: string;
+  };
 }
 
 export interface Cases {

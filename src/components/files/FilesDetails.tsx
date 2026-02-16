@@ -79,42 +79,64 @@ export default function FilesDetails({ file }: FilesHeaderProps) {
                     </div>
                     <Separator />
                     <div>
-                        {file?.instanceExpiration && Number(file.instanceExpiration) > 0 && file?.startDate && (
+                        {file?.instanceExpiration && Number(file.instanceExpiration) > 0 && (file?.lastMovementDate || file?.startDate) && (
                             (() => {
-                                // Calcular fecha de vencimiento
-                                const startDate = new Date(file.startDate);
-                                const expirationDays = Number(file.instanceExpiration);
-                                const expirationDate = new Date(startDate.getTime() + expirationDays * 24 * 60 * 60 * 1000);
+                                // Usar lastMovementDate si existe (reinicia caducidad), sino startDate
+                                const baseDate = file.lastMovementDate 
+                                    ? new Date(file.lastMovementDate) 
+                                    : new Date(file.startDate!);
+                                
+                                // Caducidad en meses (6 meses por defecto)
+                                const expirationMonths = Number(file.instanceExpiration);
+                                const expirationDate = new Date(baseDate);
+                                expirationDate.setMonth(expirationDate.getMonth() + expirationMonths);
+                                
                                 const now = new Date();
                                 const diffMs = expirationDate.getTime() - now.getTime();
                                 const diffDays = Math.ceil(diffMs / (24 * 60 * 60 * 1000));
+                                const diffMonths = Math.floor(diffDays / 30); // Usar floor para no redondear hacia arriba
+                                
                                 let colorClass = "bg-green-100 text-green-800";
                                 let statusMsg = "";
                                 let mainMsg = "";
+                                
                                 if (diffDays < 0) {
+                                    // Vencida
                                     colorClass = "bg-red-100 text-red-700";
                                     mainMsg = `hace ${Math.abs(diffDays)} días`;
                                     statusMsg = "(¡Vencida!)";
-                                } else if (diffDays === 0) {
-                                    colorClass = "bg-yellow-100 text-yellow-800";
-                                    mainMsg = "vence hoy";
-                                    statusMsg = "";
-                                } else if (diffDays === 1) {
-                                    colorClass = "bg-yellow-100 text-yellow-800";
-                                    mainMsg = "mañana";
-                                    statusMsg = "(Próxima a vencer)";
-                                } else if (diffDays <= 3) {
-                                    colorClass = "bg-yellow-100 text-yellow-800";
+                                } else if (diffDays <= 5) {
+                                    // Últimos 5 días - CRÍTICO
+                                    colorClass = "bg-red-100 text-red-700";
+                                    mainMsg = diffDays === 0 ? "vence hoy" : diffDays === 1 ? "mañana" : `en ${diffDays} días`;
+                                    statusMsg = "(¡CRÍTICO!)";
+                                } else if (diffDays <= 30) {
+                                    // Último mes
+                                    colorClass = "bg-orange-100 text-orange-800";
                                     mainMsg = `en ${diffDays} días`;
-                                    statusMsg = "(Próxima a vencer)";
+                                    statusMsg = "(Último mes)";
+                                } else if (diffMonths <= Math.ceil(expirationMonths / 2)) {
+                                    // A mitad del plazo (3 meses para 6 meses)
+                                    colorClass = "bg-yellow-100 text-yellow-800";
+                                    mainMsg = `en ${diffMonths} meses`;
+                                    statusMsg = "(Mitad del plazo)";
                                 } else {
-                                    mainMsg = `en ${diffDays} días`;
+                                    // Normal
+                                    mainMsg = `en ${diffMonths} meses`;
                                 }
+                                
                                 return (
-                                    <span className={`ml-2 px-2 py-1 rounded flex items-center gap-1 font-semibold ${colorClass}`}>
-                                        <AlertTriangle className="w-4 h-4 mr-1 inline" />
-                                        Caducidad de instancia: {mainMsg} {statusMsg}
-                                    </span>
+                                    <div className="flex flex-col gap-1">
+                                        <span className={`px-2 py-1 rounded flex items-center gap-1 font-semibold ${colorClass}`}>
+                                            <AlertTriangle className="w-4 h-4 mr-1 inline" />
+                                            Caducidad de instancia: {mainMsg} {statusMsg}
+                                        </span>
+                                        {file.lastMovementDate && (
+                                            <span className="text-xs text-gray-500 ml-1">
+                                                Último movimiento: {new Date(file.lastMovementDate).toLocaleDateString('es-AR')}
+                                            </span>
+                                        )}
+                                    </div>
                                 );
                             })()
                         )}

@@ -10,6 +10,8 @@ export const FORGOT_PASSWORD_ENDPOINT = `${API_BASE_URL}/auth/forgot-password`;
 
 // LEGAL CASES
 export const CASES_ENDPOINT = `${API_BASE_URL}/cases`;
+export const CASES_EXPIRATION_ALERTS_ENDPOINT = `${API_BASE_URL}/cases/expiration-alerts`;
+
 export const CASES_NOTES_CREATE_ENDPOINT = (caseId: number) =>
   `${API_BASE_URL}/cases/${caseId}/notes`;
 export const CASES_NOTES_DELETE_ENDPOINT = (caseId: number, noteId: number) =>

@@ -25,6 +25,7 @@ import LeadActivity from "./LeadActivity"
 import LeadDocuments from "./LeadDocuments"
 import AddDocumentButton from "./AddDocumentButton"
 import LeadFormDialog from "./LeadFormDialog"
+import ClientPortalButton from "./ClientPortalButton"
 import Can from "../auth/Can"
 import Link from "next/link"
 
@@ -681,6 +682,7 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
                                     <AddDocumentButton lead={lead} onLeadUpdate={handleLeadUpdate} />
                                     <ScheduleMeetingButton lead={lead} onLeadUpdate={handleLeadUpdate} />
                                     <ChangeStageButton lead={lead} onLeadUpdate={handleLeadUpdate} />
+                                    <ClientPortalButton lead={lead} onLeadUpdate={handleLeadUpdate} />
 
 
                                     <Button variant="outline" className="w-full flex justify-between items-center" size="sm">

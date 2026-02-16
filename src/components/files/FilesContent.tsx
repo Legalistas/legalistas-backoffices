@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useParams } from 'next/navigation'
-import { FileText, Users, DollarSign, StickyNote, Calculator, FileCheck } from 'lucide-react'
+import { FileText, Users, DollarSign, StickyNote, Calculator, FileCheck, CalendarDays } from 'lucide-react'
 
 import FilesHeader from '@/components/files/FilesHeader'
 import FilesDetails from '@/components/files/FilesDetails'
@@ -12,6 +12,7 @@ import FilesParts from '@/components/files/FilesParts'
 import FilesCedulas from '@/components/files/FilesCedulas'
 import FilesExpenses from '@/components/files/FilesExpenses'
 import FilesNotes from '@/components/files/FilesNotes'
+import FilesMovements from '@/components/files/FilesMovements'
 
 import { CASES_FILES_BY_CASE_ID_ENDPOINT } from '@/constant/api-endpoints'
 import FilesSidebar from './FilesSidebar'
@@ -61,6 +62,7 @@ export default function FilesContent() {
 
     const tabs = [
         { id: 'details', label: 'Detalles', icon: FileText },
+        { id: 'movements', label: 'Movimientos', icon: CalendarDays },
         { id: 'liquidations', label: 'Liquidaciones LRT', icon: Calculator },
         { id: 'parts', label: 'Partes', icon: Users },
         { id: 'cedulas', label: 'Cédulas Automáticas', icon: FileCheck },
@@ -102,6 +104,14 @@ export default function FilesContent() {
                     {/* Tab Content */}
                     <div className="space-y-4">
                         {activeTab === 'details' && file && <FilesDetails file={file} />}
+                        {activeTab === 'movements' && file && (
+                            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+                                <FilesMovements
+                                    movements={file.fileMovements || []}
+                                    onNewMovement={() => setIsNewMovementOpen(true)}
+                                />
+                            </div>
+                        )}
                         {activeTab === 'liquidations' && file && (
                             <FilesLiquidations caseId={caseIdNum} fileId={fileIdNum} />
                         )}

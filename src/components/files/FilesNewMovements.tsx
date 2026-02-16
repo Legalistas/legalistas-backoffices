@@ -152,16 +152,16 @@ export default function FilesNewMovements({ isOpen, onClose, file, onFileUpdate 
                 ? FILES_MOVEMENTS_MODE.find((mode) => mode.value === 1)
                 : FILES_MOVEMENTS_MODE.find((mode) => mode.value === 2)
 
-            // Convertir la fecha a la zona horaria local antes de enviar
+            // Crear la fecha preservando la hora local que seleccionó el usuario
+            // El input datetime-local devuelve "2026-02-12T13:03"
+            // Lo convertimos a Date y luego a ISO para enviar al backend
             const localDate = new Date(date)
-            const offsetMinutes = localDate.getTimezoneOffset()
-            const adjustedDate = new Date(localDate.getTime() - (offsetMinutes * 60000))
-
+            
             const requestBody = {
                 mode: selectedMode?.value,
                 type: selectedType,
                 subtype: selectedSubType,
-                date: adjustedDate.toISOString(),
+                date: localDate.toISOString(), // Enviar como ISO (UTC)
                 schedule,
                 status,
                 responsibleId: Number(responsiblePerson),
