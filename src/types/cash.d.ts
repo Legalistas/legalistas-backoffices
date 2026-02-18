@@ -2,13 +2,15 @@ import { User } from "./users";
 
 export interface Transaction {
   id: number;
-  type: "income" | "expense";
+  type: "income" | "expense" | "transfer";
   subtype: string;
   userId: number;
+  userTransferId?: number | null;
   amount: number;
   date: string; // YYYY-MM-DD format
   description: string;
   user: User;
+  transferUser?: { id: number; name: string } | null;
 }
 
 export interface ClosedMonthReport {

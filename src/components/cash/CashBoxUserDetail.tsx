@@ -482,26 +482,20 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
                     let amountColorClass = ""
                     let displaySubtype = "" // Nueva variable para el subtipo a mostrar
 
-                    // Asegurarse de que los IDs sean números para la comparación
-                    const txUserId = Number(transaction.userId)
-                    const txUserTransferId = Number(transaction.userTransferId)
-                    const currentUserIdNum = Number(currentViewUserId)
-
                     if (transaction.type === "transfer") {
-                      displayType = "Transferencia" // El tipo siempre es "Transferencia" para transfers
-                      typeColorClass = "border-gray-500 text-gray-700" // Badge gris para transferencias
+                      displayType = "Transferencia"
 
-                      if (txUserId === currentUserIdNum) {
-                        // El usuario actual es el remitente (gasto)
-                        displaySubtype = `Envío a Usuario ${txUserTransferId}`
+                      if (transaction.subtype === "Enviado") {
+                        displaySubtype = transaction.description || "Transferencia enviada"
+                        typeColorClass = "border-red-500 text-red-700"
                         amountColorClass = "text-red-600"
-                      } else if (txUserTransferId === currentUserIdNum) {
-                        // El usuario actual es el receptor (ingreso)
-                        displaySubtype = `Recibido de Usuario ${txUserId}`
+                      } else if (transaction.subtype === "Recibido") {
+                        displaySubtype = transaction.description || "Transferencia recibida"
+                        typeColorClass = "border-green-500 text-green-700"
                         amountColorClass = "text-green-600"
                       } else {
-                        // Caso de fallback, aunque no debería ocurrir si los datos están bien filtrados
-                        displaySubtype = "Transferencia (no involucra a este usuario)"
+                        displaySubtype = transaction.description || "Transferencia"
+                        typeColorClass = "border-gray-500 text-gray-700"
                         amountColorClass = "text-gray-600"
                       }
                     } else {

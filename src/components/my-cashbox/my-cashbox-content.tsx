@@ -758,13 +758,12 @@ export default function MyCashboxContent() {
 
                                         if (transaction.type === "transfer") {
                                             if (transaction.subtype === "Enviado") {
-                                                displayType = "Gasto" // Outgoing transfer for current user
+                                                displayType = "Transferencia"
                                                 typeColorClass = "border-red-500 text-red-700"
                                             } else if (transaction.subtype === "Recibido") {
-                                                displayType = "Ingreso" // Incoming transfer for current user
+                                                displayType = "Transferencia"
                                                 typeColorClass = "border-green-500 text-green-700"
                                             } else {
-                                                // Fallback for transfers not directly involving current user (shouldn't happen if filtered correctly)
                                                 displayType = "Transferencia"
                                                 typeColorClass = "border-gray-500 text-gray-700"
                                             }

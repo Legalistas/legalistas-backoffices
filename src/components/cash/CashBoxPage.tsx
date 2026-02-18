@@ -105,13 +105,15 @@ export default function CashBoxPage() {
 
     // Filtra transacciones solo del mes/año seleccionado
     const transaccionesMes = useMemo(() => {
-        return transactions.filter((t) => {
-            const d = new Date(toISODate(t.date));
-            return (
-                d.getUTCMonth() + 1 === Number(selectedMonth) &&
-                d.getUTCFullYear() === Number(selectedYear)
-            );
-        });
+        return transactions
+            .filter((t) => {
+                const d = new Date(toISODate(t.date));
+                return (
+                    d.getUTCMonth() + 1 === Number(selectedMonth) &&
+                    d.getUTCFullYear() === Number(selectedYear)
+                );
+            })
+            .sort((a, b) => new Date(toISODate(b.date)).getTime() - new Date(toISODate(a.date)).getTime());
     }, [transactions, selectedMonth, selectedYear]);
 
     // Estado para la paginación de movimientos del mes
@@ -1125,12 +1127,18 @@ export default function CashBoxPage() {
                                                         {new Date(toISODate(t.date)).toLocaleDateString('es-AR', { timeZone: 'UTC' })}
                                                     </TableCell>
                                                     <TableCell className="px-4 py-3 text-sm text-gray-700">
-                                                        <Badge variant="light" color={t.type === "income" ? "success" : "error"} size="sm">
-                                                            {t.type === "income" ? "Ingreso" : "Gasto"}
+                                                        <Badge
+                                                            variant="light"
+                                                            color={t.type === "income" ? "success" : t.type === "transfer" ? "info" : "error"}
+                                                            size="sm"
+                                                        >
+                                                            {t.type === "income" ? "Ingreso" : t.type === "transfer" ? "Transferencia" : "Gasto"}
                                                         </Badge>
                                                     </TableCell>
                                                     <TableCell className="px-4 py-3 text-sm text-gray-700">
-                                                        {getSubtypeLabel(t.type, t.subtype)}
+                                                        {t.type === "transfer"
+                                                            ? `Enviado a ${t.transferUser?.name || `Usuario ${t.userTransferId}`}`
+                                                            : getSubtypeLabel(t.type, t.subtype)}
                                                     </TableCell>
                                                     <TableCell className="px-4 py-3 text-sm text-gray-700">
                                                         <div className="flex items-center gap-2">
@@ -1153,7 +1161,7 @@ export default function CashBoxPage() {
                                                     <TableCell
                                                         className={cn(
                                                             "text-right font-medium px-4 py-3 text-sm text-gray-700",
-                                                            t.type === "income" ? "text-green-600" : "text-red-600",
+                                                            t.type === "income" ? "text-green-600" : t.type === "transfer" ? "text-orange-500" : "text-red-600",
                                                         )}
                                                     >
                                                         {formatCurrency(t.amount)}
