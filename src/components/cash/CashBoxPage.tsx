@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react"
 import type { CalculatedUserBalance, ClosedMonthReport, Transaction } from "@/types/cash"
+import dynamic from "next/dynamic"
+import type ApexCharts from "react-apexcharts"
+
+const ReactApexChart = dynamic(() => import("react-apexcharts"), { ssr: false })
 
 import {
     Calculator,
@@ -643,6 +647,109 @@ export default function CashBoxPage() {
         return balance;
     }, [transactions, saldoInicialMes, accumulatedBalanceDate, selectedMonth, selectedYear]);
 
+    // ── Gráficos ──────────────────────────────────────────────────────────────
+    const [chartView, setChartView] = useState<"month" | "year" | "user">("month")
+
+    const formatCurrencyShort = (v: number) => {
+        if (v >= 1_000_000) return `$${(v / 1_000_000).toFixed(1)}M`
+        if (v >= 1_000) return `$${(v / 1_000).toFixed(0)}k`
+        return `$${v}`
+    }
+
+    const chartDataByMonth = useMemo(() => {
+        const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+        const income = Array(12).fill(0)
+        const expenses = Array(12).fill(0)
+        allTransactions.forEach((t) => {
+            if (t.type === "transfer") return
+            const d = new Date(toISODate(t.date))
+            if (d.getUTCFullYear() !== Number(selectedYear)) return
+            const m = d.getUTCMonth()
+            if (t.type === "income") income[m] += Number(t.amount)
+            else if (t.type === "expense") expenses[m] += Number(t.amount)
+        })
+        return {
+            options: {
+                chart: { type: "bar" as const, fontFamily: "inherit", toolbar: { show: false } },
+                plotOptions: { bar: { columnWidth: "55%", borderRadius: 3 } },
+                colors: ["#10b981", "#ef4444"],
+                dataLabels: { enabled: false },
+                legend: { position: "top" as const, fontFamily: "inherit" },
+                xaxis: { categories: MONTHS, axisBorder: { show: false }, axisTicks: { show: false } },
+                yaxis: { labels: { formatter: formatCurrencyShort } },
+                tooltip: {
+                    y: { formatter: (v: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(v) },
+                },
+                grid: { borderColor: "#f1f1f1", strokeDashArray: 4 },
+            } as ApexCharts.ApexOptions,
+            series: [
+                { name: "Ingresos", data: income },
+                { name: "Egresos", data: expenses },
+            ],
+        }
+    }, [allTransactions, selectedYear])
+
+    const chartDataByYear = useMemo(() => {
+        const yearMap: Record<string, { income: number; expenses: number }> = {}
+        allTransactions.forEach((t) => {
+            if (t.type === "transfer") return
+            const d = new Date(toISODate(t.date))
+            const y = String(d.getUTCFullYear())
+            if (!yearMap[y]) yearMap[y] = { income: 0, expenses: 0 }
+            if (t.type === "income") yearMap[y].income += Number(t.amount)
+            else if (t.type === "expense") yearMap[y].expenses += Number(t.amount)
+        })
+        const sortedYears = Object.keys(yearMap).sort()
+        return {
+            options: {
+                chart: { type: "bar" as const, fontFamily: "inherit", toolbar: { show: false } },
+                plotOptions: { bar: { columnWidth: "55%", borderRadius: 3 } },
+                colors: ["#10b981", "#ef4444"],
+                dataLabels: { enabled: false },
+                legend: { position: "top" as const, fontFamily: "inherit" },
+                xaxis: { categories: sortedYears, axisBorder: { show: false }, axisTicks: { show: false } },
+                yaxis: { labels: { formatter: formatCurrencyShort } },
+                tooltip: {
+                    y: { formatter: (v: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(v) },
+                },
+                grid: { borderColor: "#f1f1f1", strokeDashArray: 4 },
+            } as ApexCharts.ApexOptions,
+            series: [
+                { name: "Ingresos", data: sortedYears.map((y) => yearMap[y].income) },
+                { name: "Egresos", data: sortedYears.map((y) => yearMap[y].expenses) },
+            ],
+        }
+    }, [allTransactions])
+    const chartDataByUser = useMemo(() => {
+        const users = calculatedUserBalances.filter((u) => u.income > 0 || u.expenses > 0)
+        return {
+            options: {
+                chart: { type: "bar" as const, fontFamily: "inherit", toolbar: { show: false } },
+                plotOptions: { bar: { columnWidth: "55%", borderRadius: 3 } },
+                colors: ["#10b981", "#ef4444"],
+                dataLabels: { enabled: false },
+                legend: { position: "top" as const, fontFamily: "inherit" },
+                xaxis: {
+                    categories: users.map((u) => u.name.split(" ")[0]), // primer nombre para q entre
+                    axisBorder: { show: false },
+                    axisTicks: { show: false },
+                    labels: { rotate: -30, style: { fontSize: "11px" } },
+                },
+                yaxis: { labels: { formatter: formatCurrencyShort } },
+                tooltip: {
+                    x: { formatter: (_: number, opts: { dataPointIndex: number }) => users[opts.dataPointIndex]?.name ?? "" },
+                    y: { formatter: (v: number) => new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(v) },
+                },
+                grid: { borderColor: "#f1f1f1", strokeDashArray: 4 },
+            } as ApexCharts.ApexOptions,
+            series: [
+                { name: "Ingresos", data: users.map((u) => u.income) },
+                { name: "Egresos", data: users.map((u) => u.expenses) },
+            ],
+        }
+    }, [calculatedUserBalances])
+    // ──────────────────────────────────────────────────────────────────────────
+
     const handleDeleteTransaction = async (id: number) => {
         const response = await fetch(`${CASH_ENDPOINT}/movements/${id}`, {
             method: "DELETE",
@@ -1206,15 +1313,74 @@ export default function CashBoxPage() {
                     </CardContent>
                 </Card>
 
-                {/* Gráfico de Cajas Placeholder */}
+                {/* Gráfico Ingresos vs Egresos */}
                 <Card className="bg-white shadow-sm border border-gray-200">
-                    <CardHeader>
-                        <CardTitle>Gráfico de Cajas</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <CardTitle>Ingresos vs Egresos</CardTitle>
+                        <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs font-medium">
+                            <button
+                                onClick={() => setChartView("month")}
+                                className={cn(
+                                    "px-3 py-1.5 transition-colors",
+                                    chartView === "month"
+                                        ? "bg-[#09A4B5] text-white"
+                                        : "bg-white text-gray-600 hover:bg-gray-50"
+                                )}
+                            >
+                                Por Mes
+                            </button>
+                            <button
+                                onClick={() => setChartView("year")}
+                                className={cn(
+                                    "px-3 py-1.5 transition-colors",
+                                    chartView === "year"
+                                        ? "bg-[#09A4B5] text-white"
+                                        : "bg-white text-gray-600 hover:bg-gray-50"
+                                )}
+                            >
+                                Por Año
+                            </button>
+                            <button
+                                onClick={() => setChartView("user")}
+                                className={cn(
+                                    "px-3 py-1.5 transition-colors",
+                                    chartView === "user"
+                                        ? "bg-[#09A4B5] text-white"
+                                        : "bg-white text-gray-600 hover:bg-gray-50"
+                                )}
+                            >
+                                Por Usuario
+                            </button>
+                        </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="h-64 bg-muted/50 rounded-lg flex items-center justify-center text-muted-foreground">
-                            Área para el gráfico de transacciones (Ingresos vs. Gastos)
-                        </div>
+                        {chartView === "month" && (
+                            <ReactApexChart
+                                key={`month-${selectedYear}`}
+                                options={chartDataByMonth.options}
+                                series={chartDataByMonth.series}
+                                type="bar"
+                                height={280}
+                            />
+                        )}
+                        {chartView === "year" && (
+                            <ReactApexChart
+                                key="year"
+                                options={chartDataByYear.options}
+                                series={chartDataByYear.series}
+                                type="bar"
+                                height={280}
+                            />
+                        )}
+                        {chartView === "user" && (
+                            <ReactApexChart
+                                key="user"
+                                options={chartDataByUser.options}
+                                series={chartDataByUser.series}
+                                type="bar"
+                                height={280}
+                            />
+                        )}
                     </CardContent>
                 </Card>
             </div>
