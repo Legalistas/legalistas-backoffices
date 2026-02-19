@@ -53,6 +53,7 @@ export default function CashBoxPage() {
     const [allTransactions, setAllTransactions] = useState<Transaction[]>([]) // Nuevo estado para todas las transacciones (cerradas y no cerradas)
     const [closedMonths, setClosedMonths] = useState<ClosedMonthReport[]>([])
     const [apiUsers, setApiUsers] = useState<User[]>([]) // Nuevo estado para los usuarios de la API
+    const [userTransfers, setUserTransfers] = useState<{ id: number; fromUserId: number; toUserId: number; amount: number; createdAt: string }[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
@@ -191,6 +192,11 @@ export default function CashBoxPage() {
                     }))
                     : []
                 setAllTransactions(allFormattedTransactions) // Nuevo estado para todas las transacciones
+
+                // Cargar transferencias entre usuarios
+                if (Array.isArray(result.userTransfers)) {
+                    setUserTransfers(result.userTransfers)
+                }
 
                 // Asegurarse de que los cierres de mes sean un array y formatear fechas
                 const formattedClosedMonths = Array.isArray(result.closedMonths)
@@ -466,6 +472,29 @@ export default function CashBoxPage() {
 
                 if (type === "income") userBalance.income += amount;
                 else if (type === "expense") userBalance.expenses += amount;
+                else if (type === "transfer") userBalance.expenses += amount; // transferencias enviadas → gasto del emisor
+            });
+
+            // Transferencias recibidas → ingreso del receptor
+            userTransfers.forEach(t => {
+                const amount = Number(t.amount) || 0;
+
+                let userBalance = userMap.get(t.toUserId);
+                if (!userBalance) {
+                    const toUser = apiUsers.find(u => u.id === t.toUserId);
+                    userMap.set(t.toUserId, {
+                        id: t.toUserId,
+                        name: toUser?.name || `Usuario ${t.toUserId}`,
+                        avatar: toUser?.image
+                            ? (toUser.image.startsWith("http") ? toUser.image : `${process.env.NEXT_PUBLIC_BACKEND_URL}${toUser.image}`)
+                            : "/placeholder.svg",
+                        totalBalance: 0,
+                        income: 0,
+                        expenses: 0,
+                    });
+                    userBalance = userMap.get(t.toUserId)!;
+                }
+                userBalance.income += amount;
             });
 
             userMap.forEach(userBalance => {
@@ -483,7 +512,7 @@ export default function CashBoxPage() {
         };
 
         calculateUserBalances();
-    }, [apiUsers, allTransactions]);
+    }, [apiUsers, allTransactions, userTransfers]);
 
     const currentYear = new Date().getFullYear()
     const years = Array.from({ length: 10 }, (_, i) => String(currentYear - 5 + i)) // Last 5 years, current, next 4
