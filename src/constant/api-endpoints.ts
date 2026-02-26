@@ -113,6 +113,7 @@ export const CASES_CONSULTATIONS_MESSAGES_ENDPOINT = (caseId: number) =>
 
 // Customers
 export const CUSTOMERS_ENDPOINT = `${API_BASE_URL}/customers`;
+export const CUSTOMERS_EXPORT_ENDPOINT = `${API_BASE_URL}/customers/export`;
 export const USERS_ENDPOINT = `${API_BASE_URL}/users`;
 export const LAWYERS_ENDPOINT = `${API_BASE_URL}/users/lawyers`;
 export const SELLERS_ENDPOINT = `${API_BASE_URL}/users/sellers`;

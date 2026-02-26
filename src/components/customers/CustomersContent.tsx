@@ -3,10 +3,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { User } from "@/types/users";
 import { toast } from "sonner";
-import { CUSTOMERS_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
+import { CUSTOMERS_ENDPOINT, CUSTOMERS_EXPORT_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
 import { fetchData } from "next-auth/client/_utils";
 import Button from "../ui/button/Button";
-import { Filter, Loader2, Plus, Search } from "lucide-react";
+import { Filter, Loader2, Plus, Search, Sheet } from "lucide-react";
 import Input from "../ui/input/Input";
 import CustomersTable from "./CustomersTable";
 import { Pagination } from "../ui/pagination/Pagination";
@@ -41,6 +41,7 @@ export default function CustomersContent() {
     const [customerModalOpen, setCustomerModalOpen] = useState(false)
     const [editingCustomer, setEditingCustomer] = useState<User | null>(null)
     const [modalMode, setModalMode] = useState<"create" | "edit">("create")
+    const [isExporting, setIsExporting] = useState(false)
 
     // Use refs to track if this is the initial render
     const isInitialRender = useRef(true)
@@ -240,6 +241,34 @@ export default function CustomersContent() {
         await fetchCustomers()
     }
 
+    const handleExport = async () => {
+        try {
+            setIsExporting(true)
+            const response = await fetch(CUSTOMERS_EXPORT_ENDPOINT, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${session?.user?.accessToken}`,
+                },
+            })
+            if (!response.ok) throw new Error("Error al exportar")
+            const blob = await response.blob()
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement("a")
+            link.href = url
+            const fecha = new Date().toISOString().split("T")[0]
+            link.download = `clientes_${fecha}.xlsx`
+            document.body.appendChild(link)
+            link.click()
+            link.remove()
+            window.URL.revokeObjectURL(url)
+            toast.success("Clientes exportados correctamente")
+        } catch {
+            toast.error("Error al exportar clientes")
+        } finally {
+            setIsExporting(false)
+        }
+    }
+
     // Loading state
     if (loading && allCustomers.length === 0 && !hasSearched) {
         return (
@@ -268,15 +297,30 @@ export default function CustomersContent() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <h1 className="text-3xl font-bold tracking-tight text-black dark:text-gray-100">Clientes</h1>
-                    <Button
-                        variant="custom"
-                        size="sm"
-                        className="flex items-center gap-2 bg-[#09A4B5] text-white hover:bg-[#09A4B5]/80 hover:text-gray-dark p-2"
-                        onClick={() => setCustomerModalOpen(true)}
-                    >
-                        <Plus className="h-4 w-4" />
-                        Nuevo cliente
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex items-center gap-2 p-2"
+                            onClick={handleExport}
+                            disabled={isExporting}
+                            title="Exportar clientes a Excel"
+                        >
+                            {isExporting
+                                ? <Loader2 className="h-4 w-4 animate-spin" />
+                                : <Sheet className="h-4 w-4" />}
+                            {isExporting ? "Exportando..." : "Exportar"}
+                        </Button>
+                        <Button
+                            variant="custom"
+                            size="sm"
+                            className="flex items-center gap-2 bg-[#09A4B5] text-white hover:bg-[#09A4B5]/80 hover:text-gray-dark p-2"
+                            onClick={() => setCustomerModalOpen(true)}
+                        >
+                            <Plus className="h-4 w-4" />
+                            Nuevo cliente
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Filters */}

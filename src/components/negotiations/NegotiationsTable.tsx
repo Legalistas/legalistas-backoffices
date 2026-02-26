@@ -75,7 +75,10 @@ export function NegotiationsTable({ viewMode, columnConfig, onColumnChange }: Ne
   useEffect(() => {
     // Función local para evitar dependencias problemáticas
     const fetchData = async () => {
-      if (!session?.user?.role || !session?.user?.accessToken) return;
+      if (!session?.user?.role || !session?.user?.accessToken) {
+        setIsLoading(false)
+        return;
+      }
 
       setIsLoading(true)
       setError(null)
@@ -91,7 +94,7 @@ export function NegotiationsTable({ viewMode, columnConfig, onColumnChange }: Ne
         if (statusParam) {
           params.append('status', statusParam);
         }
-        params.append('limit', '1000000');
+        params.append('limit', '5000');
 
         // Si es abogado, agregar filtro
         if (isLawyer && userId) {

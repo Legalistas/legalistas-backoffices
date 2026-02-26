@@ -59,3 +59,4 @@ export const proceduralStageNames = {
   14: "LINK",
   15: "ARCHIVO",
 } as const;
+

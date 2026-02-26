@@ -88,7 +88,7 @@ export default function AddNewNegotiation() {
                 const url = buildFilteredUrl(
                     NEGOTIATIONS_NEGOTIABLE_CAUSES_ENDPOINT,
                     permissions,
-                    { limit: "100000" }
+                    { limit: "5000" }
                 );
 
                 const response = await fetch(url, {

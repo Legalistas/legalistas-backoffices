@@ -51,18 +51,16 @@ export function AreaTabs({ areas, activeAreaId, onSelectArea, onAddArea, onUpdat
     }
 
     return (
-        <div className="relative flex items-center gap-2 px-3 py-2 overflow-x-auto flex-nowrap">
+        <div className="flex items-center gap-2 border-b border-border bg-transparent px-2">
             {/* Tab "Todas" */}
             <button
                 onClick={() => onSelectArea(null)}
                 className={cn(
-                    "flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-colors whitespace-nowrap ring-1 ring-border bg-muted hover:bg-muted/70 focus:outline-none focus:ring-2 focus:ring-[#09A4B5]",
+                    "flex items-center gap-2 px-4 py-2 text-base font-semibold rounded-lg transition-colors whitespace-nowrap border-none shadow-none bg-gray-100 hover:bg-[#09A4B5]/10 focus:outline-none focus:ring-2 focus:ring-[#09A4B5]",
                     activeAreaId === null
-                        ? "bg-[#09A4B5] text-white ring-[#09A4B5] shadow-md"
-                        : "text-foreground"
+                        ? "bg-[#09A4B5] text-white shadow-md"
+                        : "text-gray-700"
                 )}
-                aria-pressed={activeAreaId === null}
-                title="Ver todas las áreas"
             >
                 Todas las Áreas
             </button>
@@ -71,47 +69,33 @@ export function AreaTabs({ areas, activeAreaId, onSelectArea, onAddArea, onUpdat
             {areas.map((area) => (
                 <div
                     key={area.id}
-                    onClick={() => onSelectArea(area.id)}
                     className={cn(
-                        "group cursor-pointer flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-colors whitespace-nowrap ring-1",
+                        "group flex items-center gap-1 px-3 py-2 text-base font-semibold rounded-lg transition-colors whitespace-nowrap border-none shadow-none",
                         activeAreaId === area.id
-                            ? "bg-[#09A4B5] text-white ring-[#09A4B5] shadow-md"
-                            : "text-foreground bg-muted ring-border hover:bg-muted/70"
+                            ? "bg-[#09A4B5] text-white shadow-md"
+                            : "text-gray-700 bg-gray-100 hover:bg-[#09A4B5]/10"
                     )}
-                    title={`Área: ${area.nombre}`}
                 >
-                    <div
-                        className={cn(
-                            "w-2.5 h-2.5 rounded-full shrink-0 mr-1 ring-2",
-                            activeAreaId === area.id ? "ring-white/80" : "ring-background"
-                        )}
-                        style={{ backgroundColor: area.color }}
-                    />
+                    <div className="w-2.5 h-2.5 rounded-full shrink-0 mr-1" style={{ backgroundColor: area.color }} />
 
                     {editingId === area.id ? (
                         <div className="flex items-center gap-1">
                             <Input
                                 value={editingName}
                                 onChange={(e) => setEditingName(e.target.value)}
-                                className="h-7 w-28 text-xs"
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") saveEditing()
-                                    if (e.key === "Escape") {
-                                        setEditingId(null)
-                                        setEditingName("")
-                                    }
-                                }}
+                                className="h-6 w-24 text-xs"
+                                onKeyDown={(e) => e.key === "Enter" && saveEditing()}
                             />
-                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => { saveEditing() }} title="Guardar">
+                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={saveEditing}>
                                 <Check className="h-3 w-3" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => { setEditingId(null); setEditingName("") }} title="Cancelar">
-                                <X className="h-3 w-3" />
                             </Button>
                         </div>
                     ) : (
                         <>
-                            <span className="select-none">{area.nombre}</span>
+                            <button onClick={() => onSelectArea(area.id)} className="focus:outline-none">
+                                {area.nombre}
+                            </button>
+
                             <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <Button
                                     variant="ghost"
@@ -119,8 +103,8 @@ export function AreaTabs({ areas, activeAreaId, onSelectArea, onAddArea, onUpdat
                                     className="h-5 w-5 text-muted-foreground hover:text-foreground"
                                     onClick={() => {
                                         startEditing(area)
+
                                     }}
-                                    title="Renombrar área"
                                 >
                                     <Pencil className="h-3 w-3" />
                                 </Button>
@@ -131,7 +115,6 @@ export function AreaTabs({ areas, activeAreaId, onSelectArea, onAddArea, onUpdat
                                     onClick={() => {
                                         onDeleteArea(area.id);
                                     }}
-                                    title="Eliminar área"
                                 >
                                     <X className="h-3 w-3" />
                                 </Button>
@@ -144,7 +127,7 @@ export function AreaTabs({ areas, activeAreaId, onSelectArea, onAddArea, onUpdat
             {/* Botón agregar área */}
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="ml-auto shrink-0 gap-1.5">
+                    <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground ml-1">
                         <Plus className="h-4 w-4" />
                         Nueva Área
                     </Button>

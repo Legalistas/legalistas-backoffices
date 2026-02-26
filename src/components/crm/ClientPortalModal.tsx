@@ -20,7 +20,7 @@ import { toast } from "sonner"
 import type { Lead } from "@/types/crm"
 import Button from "@/components/ui/button/Button"
 
-const LANDING_URL = process.env.NEXT_PUBLIC_LANDING_URL || "https://legalistas.com.ar"
+const LANDING_URL = process.env.NEXT_PUBLIC_LANDING_URL || "https://legalistas.ar"
 
 interface ClientPortalModalProps {
     isOpen: boolean
