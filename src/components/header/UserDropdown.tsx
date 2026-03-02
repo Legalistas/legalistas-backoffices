@@ -29,15 +29,12 @@ const UserDropdown = ({ data }: UserDropdownProps) => {
                 className="flex items-center dropdown-toggle text-gray-700 dark:text-gray-400"
             >
                 <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-
                     {data?.user?.image ? (
                         <Image
                             src={
-                                data?.user?.image
-                                    ? (data.user.image.startsWith('http')
-                                        ? data.user.image
-                                        : `${process.env.NEXT_PUBLIC_BACKEND_URL}${data.user.image}`)
-                                    : "/images/placeholder.svg"
+                                data.user.image.startsWith('http')
+                                    ? data.user.image
+                                    : `${process.env.NEXT_PUBLIC_BACKEND_URL}${data.user.image}`
                             }
                             alt={data?.user?.name || "User Avatar"}
                             width={45}
@@ -45,9 +42,16 @@ const UserDropdown = ({ data }: UserDropdownProps) => {
                             quality={100}
                             priority
                             className="h-full w-full aspect-square object-cover"
+                            onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                target.parentElement!.innerHTML = '<div class="h-full w-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center rounded-full"><svg class="h-7 w-7 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg></div>';
+                            }}
                         />
                     ) : (
-                        <User className="h-12 w-12 text-gray-500" />
+                        <div className="h-full w-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center rounded-full">
+                            <User className="h-7 w-7 text-gray-500" />
+                        </div>
                     )}
                 </span>
                 <span className="block mr-1 font-medium text-theme-sm">

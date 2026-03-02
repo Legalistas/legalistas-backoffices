@@ -7,6 +7,7 @@ export const GOOGLE_LOGIN_ENDPOINT = `${API_BASE_URL}/auth/google`;
 export const REGISTER_ENDPOINT = `${API_BASE_URL}/auth/register`;
 export const LOGOUT_ENDPOINT = `${API_BASE_URL}/auth/logout`;
 export const FORGOT_PASSWORD_ENDPOINT = `${API_BASE_URL}/auth/forgot-password`;
+export const SESSION_PAUSE_ENDPOINT = `${API_BASE_URL}/auth/session-pause`;
 export const SESSION_END_ENDPOINT = `${API_BASE_URL}/auth/session-end`;
 
 // Activity Logs Endpoints

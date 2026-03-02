@@ -308,12 +308,22 @@ export default function ActivityLogsContent() {
                         <div className="flex items-center gap-2">
                           {log.user?.image ? (
                             <img
-                              src={log.user.image}
+                              src={
+                                log.user.image.startsWith('http')
+                                  ? log.user.image
+                                  : `${process.env.NEXT_PUBLIC_BACKEND_URL}${log.user.image}`
+                              }
                               alt={log.user.name}
                               className="h-7 w-7 rounded-full object-cover"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                const initial = log.user?.name?.charAt(0).toUpperCase() ?? "?";
+                                target.style.display = 'none';
+                                target.insertAdjacentHTML('afterend', `<div class="h-7 w-7 rounded-full bg-brand-500/20 flex items-center justify-center text-xs font-bold text-brand-500">${initial}</div>`);
+                              }}
                             />
                           ) : (
-                            <div className="h-7 w-7 rounded-full bg-[#09A4B5]/20 flex items-center justify-center text-xs font-bold text-[#09A4B5]">
+                            <div className="h-7 w-7 rounded-full bg-brand-500/20 flex items-center justify-center text-xs font-bold text-brand-500">
                               {log.user?.name?.charAt(0).toUpperCase() ?? "?"}
                             </div>
                           )}

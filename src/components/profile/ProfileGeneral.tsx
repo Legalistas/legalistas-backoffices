@@ -71,11 +71,9 @@ export default function ProfileGeneral({
                         {userData.image && !imageError ? (
                             <Image
                                 src={
-                                    userData.image
-                                        ? (userData.image.startsWith('http')
-                                            ? userData.image
-                                            : `${process.env.NEXT_PUBLIC_BACKEND_URL}${userData.image}`)
-                                        : "/images/placeholder.svg"
+                                    userData.image.startsWith('http')
+                                        ? userData.image
+                                        : `${process.env.NEXT_PUBLIC_BACKEND_URL}${userData.image}`
                                 }
                                 alt={userData.name || "User Avatar"}
                                 width={192}
