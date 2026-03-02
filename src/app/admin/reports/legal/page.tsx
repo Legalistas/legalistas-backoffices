@@ -277,19 +277,18 @@ export default function LegalReportsPage() {
     // ── Podio top 3 abogados ────────────────────────────────────────────────────
     // Posición visual: izquierda=#2, centro=#1, derecha=#3
     const top3 = casesByLawyer.slice(0, 3)
+    const PODIUM_CONFIG = [
+        { rank: 1, icon: <Trophy key="t" className="h-7 w-7 text-yellow-400" />, height: "h-28", color: "bg-yellow-50 ring-2 ring-yellow-300" },
+        { rank: 2, icon: <Medal key="m" className="h-6 w-6 text-gray-400" />, height: "h-20", color: "bg-gray-100" },
+        { rank: 3, icon: <Award key="a" className="h-6 w-6 text-amber-600" />, height: "h-16", color: "bg-amber-50" },
+    ]
+    // Orden visual: 2º izquierda, 1º centro, 3º derecha
     const podiumSlots = top3.length >= 3
-        ? [
-            { lawyer: top3[1], rank: 2, icon: <Medal className="h-6 w-6 text-gray-400" />, height: "h-20", color: "bg-gray-100" },
-            { lawyer: top3[0], rank: 1, icon: <Trophy className="h-7 w-7 text-yellow-400" />, height: "h-28", color: "bg-yellow-50 ring-2 ring-yellow-300" },
-            { lawyer: top3[2], rank: 3, icon: <Award className="h-6 w-6 text-amber-600" />, height: "h-16", color: "bg-amber-50" },
-          ]
-        : top3.map((lawyer, i) => ({
+        ? [top3[1], top3[0], top3[2]].map((lawyer, pos) => ({
             lawyer,
-            rank: i + 1,
-            icon: [<Trophy className="h-7 w-7 text-yellow-400" />, <Medal className="h-6 w-6 text-gray-400" />][i] ?? <Award className="h-6 w-6 text-amber-600" />,
-            height: ["h-28", "h-20"][i] ?? "h-16",
-            color: ["bg-yellow-50 ring-2 ring-yellow-300", "bg-gray-100"][i] ?? "bg-amber-50",
+            ...PODIUM_CONFIG[pos === 0 ? 1 : pos === 1 ? 0 : 2],
           }))
+        : top3.map((lawyer, i) => ({ lawyer, ...PODIUM_CONFIG[i] }))
 
     return (
         <div className="flex flex-col gap-6">
