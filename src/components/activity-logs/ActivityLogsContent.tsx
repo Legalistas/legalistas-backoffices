@@ -1,12 +1,15 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import Image from "next/image"
 import { useSession } from "next-auth/react"
 import { useSearchParams, useRouter } from "next/navigation"
 import {
   ACTIVITY_LOGS_ENDPOINT,
   ACTIVITY_LOGS_STATS_ENDPOINT,
   ACTIVITY_LOGS_BY_USER_ENDPOINT,
+  USERS_ENDPOINT,
+  SETTINGS_ROLES_ENDPOINT,
 } from "@/constant/api-endpoints"
 import {
   Monitor,
@@ -20,9 +23,56 @@ import {
   RefreshCw,
   Wifi,
   WifiOff,
+  X,
 } from "lucide-react"
 import Badge from "@/components/ui/badge/Badge"
 import { Pagination } from "@/components/ui/pagination/Pagination"
+import { Autocomplete } from "@/components/ui/Autocomplete"
+import type { User } from "@/types/users"
+
+// Roles internos del equipo - SOLO ESTOS deben mostrarse
+const INTERNAL_TEAM_ROLES = [
+    "admin",
+    "director_general_ceo",
+    "gerente_general_coo",
+    "directora_area_legal",
+    "coordinador_legal",
+    "abogado_representante",
+    "abogado_interno",
+    "asistente_legal",
+    "director_area_it",
+    "coordinador_it",
+    "administrador_sistemas",
+    "desarrollador_software",
+    "soporte_tecnico",
+    "directora_area_ventas",
+    "coordinador_ventas",
+    "gerente_ventas",
+    "ejecutivo_ventas",
+    "representante_ventas",
+    "analista_ventas",
+    "directora_area_marketing",
+    "coordinador_marketing",
+    "director_marketing",
+    "especialista_marketing_digital",
+    "disenador_grafico",
+    "investigador_mercado",
+    "gestor_contenidos",
+    "directora_area_contable",
+    "coordinador_financiero",
+    "director_financiero",
+    "contador_senior",
+    "analista_financiero",
+    "tesorero",
+    "auditor_interno"
+]
+
+interface Role {
+  id: number
+  name: string
+  slug?: string
+  displayName: string
+}
 
 interface ActivityLog {
   id: number
@@ -42,6 +92,15 @@ interface ActivityLog {
     name: string
     email: string
     image: string | null
+    roleUser?: Array<{
+      roleId: number
+      role: {
+        id: number
+        name: string
+        slug?: string
+        displayName: string
+      }
+    }>
   }
 }
 
@@ -104,8 +163,66 @@ export default function ActivityLogsContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
+  
+  // Estados para filtros
+  const [users, setUsers] = useState<User[]>([])
+  const [roles, setRoles] = useState<Role[]>([])
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null)
+  const [selectedRoleId, setSelectedRoleId] = useState<string>("")  
 
   const accessToken = (session?.user as any)?.accessToken
+
+  // Fetch usuarios con roles internos
+  const fetchUsers = useCallback(async () => {
+    if (!accessToken) return
+    try {
+      const response = await fetch(`${USERS_ENDPOINT}?limit=1000000`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      if (!response.ok) return
+      const data = await response.json()
+      
+      // Filtrar solo usuarios con roles internos
+      const filteredUsers = data.data.filter((user: User) => {
+        return user.roleUser.some((roleUser) => {
+          const roleIdentifier = (roleUser.role.name || roleUser.role.name).toLowerCase()
+          return INTERNAL_TEAM_ROLES.includes(roleIdentifier)
+        })
+      })
+      
+      setUsers(filteredUsers)
+    } catch (err) {
+      console.error("Error fetching users:", err)
+    }
+  }, [accessToken])
+  
+  // Fetch roles internos
+  const fetchRoles = useCallback(async () => {
+    if (!accessToken) return
+    try {
+      const response = await fetch(`${SETTINGS_ROLES_ENDPOINT}?limit=10000`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+      if (!response.ok) return
+      const data = await response.json()
+      
+      // Filtrar solo roles internos
+      const filteredRoles = (data.data || []).filter((role: Role) => {
+        const roleIdentifier = (role.slug || role.name).toLowerCase()
+        return INTERNAL_TEAM_ROLES.includes(roleIdentifier)
+      })
+      
+      setRoles(filteredRoles)
+    } catch (err) {
+      console.error("Error fetching roles:", err)
+    }
+  }, [accessToken])
 
   const fetchStats = useCallback(async () => {
     if (!accessToken) return
@@ -129,6 +246,15 @@ export default function ActivityLogsContent() {
           const u = new URL(ACTIVITY_LOGS_ENDPOINT)
           u.searchParams.set("page", String(page))
           u.searchParams.set("limit", "20")
+          
+          // Agregar filtros si están seleccionados
+          if (selectedUserId) {
+            u.searchParams.set("userId", String(selectedUserId))
+          }
+          if (selectedRoleId) {
+            u.searchParams.set("roleId", selectedRoleId)
+          }
+          
           url = u.toString()
         }
 
@@ -143,17 +269,35 @@ export default function ActivityLogsContent() {
           setTotal(data.length)
           setTotalPages(1)
         } else {
-          setLogs(data.data)
-          setTotal(data.meta.total)
-          setTotalPages(data.meta.totalPages)
+          // Si hay filtros aplicados, filtrar en el cliente también
+          let filteredData = data.data || []
+          
+          if (selectedUserId) {
+            filteredData = filteredData.filter((log: ActivityLog) => log.userId === selectedUserId)
+          }
+          
+          if (selectedRoleId) {
+            filteredData = filteredData.filter((log: ActivityLog) => {
+              return log.user?.roleUser?.some((ru: any) => ru.roleId === Number(selectedRoleId))
+            })
+          }
+          
+          setLogs(filteredData)
+          setTotal(filteredData.length)
+          setTotalPages(Math.ceil(filteredData.length / 20))
         }
       } catch {
       } finally {
         setIsLoading(false)
       }
     },
-    [accessToken, filterUserId]
+    [accessToken, filterUserId, selectedUserId, selectedRoleId]
   )
+
+  useEffect(() => {
+    fetchUsers()
+    fetchRoles()
+  }, [fetchUsers, fetchRoles])
 
   useEffect(() => {
     fetchLogs(currentPage)
@@ -163,6 +307,12 @@ export default function ActivityLogsContent() {
   const handleRefresh = () => {
     fetchLogs(currentPage)
     if (!filterUserId) fetchStats()
+  }
+  
+  const handleClearFilters = () => {
+    setSelectedUserId(null)
+    setSelectedRoleId("")
+    setCurrentPage(1)
   }
 
   return (
@@ -197,6 +347,59 @@ export default function ActivityLogsContent() {
           Actualizar
         </button>
       </div>
+
+      {/* Filtros */}
+      {!filterUserId && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filtros</h3>
+              {(selectedUserId || selectedRoleId) && (
+                <button
+                  onClick={handleClearFilters}
+                  className="flex items-center gap-1 text-xs text-brand-500 hover:text-brand-600"
+                >
+                  <X className="h-3 w-3" />
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Filtro por Usuario */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Filtrar por Usuario
+                </label>
+                <Autocomplete
+                  options={users}
+                  value={selectedUserId}
+                  onSelect={setSelectedUserId}
+                  placeholder="Selecciona un usuario..."
+                />
+              </div>
+              
+              {/* Filtro por Rol */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Filtrar por Rol
+                </label>
+                <select
+                  value={selectedRoleId}
+                  onChange={(e) => setSelectedRoleId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                >
+                  <option value="">Todos los roles</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id.toString()}>
+                      {role.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats Cards - solo cuando no hay filtro por usuario */}
       {!filterUserId && stats && (
@@ -307,19 +510,18 @@ export default function ActivityLogsContent() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {log.user?.image ? (
-                            <img
+                            <Image
                               src={
                                 log.user.image.startsWith('http')
                                   ? log.user.image
                                   : `${process.env.NEXT_PUBLIC_BACKEND_URL}${log.user.image}`
                               }
                               alt={log.user.name}
-                              className="h-7 w-7 rounded-full object-cover"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
+                              width={28}
+                              height={28}
+                              className="rounded-full object-cover"
+                              onError={() => {
                                 const initial = log.user?.name?.charAt(0).toUpperCase() ?? "?";
-                                target.style.display = 'none';
-                                target.insertAdjacentHTML('afterend', `<div class="h-7 w-7 rounded-full bg-brand-500/20 flex items-center justify-center text-xs font-bold text-brand-500">${initial}</div>`);
                               }}
                             />
                           ) : (

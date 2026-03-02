@@ -5,9 +5,47 @@ import { useState, useEffect } from "react"
 import { useSession } from "next-auth/react"
 import { SETTINGS_ROLES_ENDPOINT } from "@/constant/api-endpoints"
 
+// Roles internos del equipo - SOLO ESTOS deben mostrarse
+const INTERNAL_TEAM_ROLES = [
+    "admin",
+    "director_general_ceo",
+    "gerente_general_coo",
+    "directora_area_legal",
+    "coordinador_legal",
+    "abogado_representante",
+    "abogado_interno",
+    "asistente_legal",
+    "director_area_it",
+    "coordinador_it",
+    "administrador_sistemas",
+    "desarrollador_software",
+    "soporte_tecnico",
+    "directora_area_ventas",
+    "coordinador_ventas",
+    "gerente_ventas",
+    "ejecutivo_ventas",
+    "representante_ventas",
+    "analista_ventas",
+    "directora_area_marketing",
+    "coordinador_marketing",
+    "director_marketing",
+    "especialista_marketing_digital",
+    "disenador_grafico",
+    "investigador_mercado",
+    "gestor_contenidos",
+    "directora_area_contable",
+    "coordinador_financiero",
+    "director_financiero",
+    "contador_senior",
+    "analista_financiero",
+    "tesorero",
+    "auditor_interno"
+]
+
 interface Role {
     id: number
     name: string
+    slug?: string
     displayName: string
     description: string | null
     createdAt: string
@@ -66,9 +104,10 @@ const RoleMultiSelect: React.FC<RoleMultiSelectProps> = ({
 
                 const data = await response.json()
 
-                // Filtrar roles excluyendo los IDs del 34 al 39
+                // Filtrar solo roles internos del equipo
                 const filteredRoles = (data.data || []).filter((role: Role) => {
-                    return role.id < 34 || role.id > 39
+                    const roleIdentifier = (role.slug || role.name).toLowerCase()
+                    return INTERNAL_TEAM_ROLES.includes(roleIdentifier)
                 })
                 setRoles(filteredRoles)
                 // Convert filtered roles to options format

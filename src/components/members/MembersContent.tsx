@@ -14,6 +14,43 @@ import MembersTable from "./MembersTable"
 import RoleMultiSelect from "./RoleMultiSelect"
 import { Modal } from "../ui/modal/Modal"
 
+// Roles internos del equipo - SOLO ESTOS deben mostrarse en el listado de miembros
+const INTERNAL_TEAM_ROLES = [
+    "admin",
+    "director_general_ceo",
+    "gerente_general_coo",
+    "directora_area_legal",
+    "coordinador_legal",
+    "abogado_representante",
+    "abogado_interno",
+    "asistente_legal",
+    "director_area_it",
+    "coordinador_it",
+    "administrador_sistemas",
+    "desarrollador_software",
+    "soporte_tecnico",
+    "directora_area_ventas",
+    "coordinador_ventas",
+    "gerente_ventas",
+    "ejecutivo_ventas",
+    "representante_ventas",
+    "analista_ventas",
+    "directora_area_marketing",
+    "coordinador_marketing",
+    "director_marketing",
+    "especialista_marketing_digital",
+    "disenador_grafico",
+    "investigador_mercado",
+    "gestor_contenidos",
+    "directora_area_contable",
+    "coordinador_financiero",
+    "director_financiero",
+    "contador_senior",
+    "analista_financiero",
+    "tesorero",
+    "auditor_interno"
+]
+
 // Roles de clientes - NO son parte del equipo
 const CLIENT_ROLES = [
     "cliente",
@@ -32,9 +69,6 @@ const LAWYER_ROLES = [
     "abogado_interno",
     "asistente_legal"
 ]
-
-// Excluir de miembros del equipo (solo clientes)
-const EXCLUDED_FROM_TEAM = CLIENT_ROLES
 
 interface ApiResponse {
     data: User[]
@@ -104,8 +138,8 @@ export default function MembersContent() {
             if (CLIENT_ROLES.includes(roleIdentifier)) {
                 stats.clients++
             }
-            // Contar miembros del equipo (no clientes)
-            else {
+            // Contar miembros del equipo interno (solo roles permitidos)
+            else if (INTERNAL_TEAM_ROLES.includes(roleIdentifier)) {
                 stats.total++
 
                 // Contar abogados
@@ -128,12 +162,12 @@ export default function MembersContent() {
 
         // Filtrar por tab activo
         if (activeTab === "all") {
-            // Solo miembros del equipo (excluir clientes)
+            // Solo miembros del equipo interno (roles permitidos)
             filtered = filtered.filter((member) => {
                 const roleSlug = member.roleUser?.[0]?.role?.slug?.toLowerCase() || ""
                 const roleName = member.roleUser?.[0]?.role?.name?.toLowerCase() || ""
                 const roleIdentifier = roleSlug || roleName
-                return !CLIENT_ROLES.includes(roleIdentifier)
+                return INTERNAL_TEAM_ROLES.includes(roleIdentifier)
             })
         } else {
             filtered = filtered.filter((member) => {
@@ -143,12 +177,12 @@ export default function MembersContent() {
                 
                 switch (activeTab) {
                     case "lawyers":
-                        return LAWYER_ROLES.includes(roleIdentifier)
+                        return LAWYER_ROLES.includes(roleIdentifier) && INTERNAL_TEAM_ROLES.includes(roleIdentifier)
                     case "clients":
                         return CLIENT_ROLES.includes(roleIdentifier)
                     case "staff":
-                        // Staff = miembros del equipo que no son abogados ni clientes
-                        return !LAWYER_ROLES.includes(roleIdentifier) && !CLIENT_ROLES.includes(roleIdentifier)
+                        // Staff = miembros del equipo que no son abogados
+                        return INTERNAL_TEAM_ROLES.includes(roleIdentifier) && !LAWYER_ROLES.includes(roleIdentifier)
                     default:
                         return true
                 }
@@ -262,7 +296,12 @@ export default function MembersContent() {
 
             if (response.ok) {
                 const result = await response.json()
-                setAvailableRoles(result.data || [])
+                // Filtrar solo roles internos del equipo
+                const internalRoles = (result.data || []).filter((role: any) => {
+                    const roleSlug = role.slug?.toLowerCase() || role.name?.toLowerCase() || ""
+                    return INTERNAL_TEAM_ROLES.includes(roleSlug)
+                })
+                setAvailableRoles(internalRoles)
             }
         } catch (error) {
             console.error("Error fetching roles:", error)
