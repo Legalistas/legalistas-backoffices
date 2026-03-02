@@ -30,6 +30,11 @@ export const MENU_ITEMS: NavItem[] = [
     name: "Panel Principal",
     path: "/admin/dashboard",
   },
+  {
+    name: "Calendario",
+    icon: CalendarDays,
+    path: "/admin/calendar",
+  },
   // {
   //   icon: Bell,
   //   name: "Notificaciones",
@@ -81,15 +86,6 @@ export const LEGALES_ITEMS: NavItem[] = [
     path: "/admin/consultations",
   },
   {
-    name: "Calendario",
-    icon: CalendarDays,
-    path: "/admin/calendar",
-  },
-];
-
-// CONTABLE section
-export const CONTABLE_ITEMS: NavItem[] = [
-  {
     icon: ArrowRightLeft,
     name: "Negociaciones",
     path: "/admin/negotiation",
@@ -99,6 +95,10 @@ export const CONTABLE_ITEMS: NavItem[] = [
     name: "Gestor de Cierres",
     path: "/admin/closing-manager",
   },
+];
+
+// CONTABLE section
+export const CONTABLE_ITEMS: NavItem[] = [
   {
     icon: Landmark,
     name: "Caja Principal",
@@ -126,8 +126,7 @@ export const ESTADISTICAS_ITEMS: NavItem[] = [
 ];
 
 // SOPORTE section
-export const SOPORTE_ITEMS: NavItem[] = [
-];
+export const SOPORTE_ITEMS: NavItem[] = [];
 
 // ADMINISTRACION section
 export const ADMINISTRACION_ITEMS: NavItem[] = [
