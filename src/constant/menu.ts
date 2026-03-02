@@ -30,11 +30,6 @@ export const MENU_ITEMS: NavItem[] = [
     name: "Panel Principal",
     path: "/admin/dashboard",
   },
-  {
-    icon: Bot,
-    name: "LexIA",
-    path: "/admin/lexia",
-  },
   // {
   //   icon: Bell,
   //   name: "Notificaciones",
@@ -132,11 +127,6 @@ export const ESTADISTICAS_ITEMS: NavItem[] = [
 
 // SOPORTE section
 export const SOPORTE_ITEMS: NavItem[] = [
-  {
-    icon: Ticket,
-    name: "Tickets",
-    path: "/admin/support",
-  },
 ];
 
 // ADMINISTRACION section
