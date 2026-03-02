@@ -154,6 +154,7 @@ export const STATISTICS_CRM_DASHBOARD_SC_ENDPOINT = `${API_BASE_URL}/statistics/
 export const STATISTICS_CRM_DASHBOARD_STATES_ENDPOINT = `${API_BASE_URL}/statistics/crm-states`;
 
 export const STATISTICS_LAW_DASHBOARD_ENDPOINT = `${API_BASE_URL}/statistics/causes-overview`;
+export const STATISTICS_LEGAL_OVERVIEW_ENDPOINT = `${API_BASE_URL}/statistics/legal-overview`;
 export const RECENT_CASES_ENDPOINT = `${API_BASE_URL}/statistics/recent-cases`;
 export const STATISTICS_MOVEMENTS_ENDPOINT = `${API_BASE_URL}/statistics/movements`;
 export const STATISTICS_EVENTS_ENDPOINT = `${API_BASE_URL}/statistics/events`;
