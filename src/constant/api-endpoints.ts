@@ -176,6 +176,8 @@ export const CHAT_READ_ENDPOINT = (userId: number) =>
   `${API_BASE_URL}/chat/messages/${userId}/read`;
 
 export const CALENDARS_EVENTS_ENDPOINT = `${API_BASE_URL}/calendar`;
+export const CALENDAR_EVENT_BY_ID_ENDPOINT = (id: string | number) =>
+  `${API_BASE_URL}/calendar/${id}`;
 
 export const NOTIFICATIONS_ENDPOINT = (userId: number) =>
   `${API_BASE_URL}/notifications/${userId}`;

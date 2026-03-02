@@ -2,23 +2,22 @@
 export const toDateTimeLocalFormat = (isoString: string): string => {
   if (!isoString) return "";
 
-  // Si ya tiene formato YYYY-MM-DDThh:mm, lo devolvemos
+  // Fecha-only (YYYY-MM-DD): NO usar new Date() porque el navegador la
+  // parsea como UTC midnight y en zonas UTC- queda el día anterior.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoString)) {
+    const now = new Date();
+    return `${isoString}T${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  }
+
+  // Ya tiene formato YYYY-MM-DDThh:mm (sin zona), devolver los primeros 16 chars
   if (isoString.includes("T") && isoString.length >= 16) {
-    // Asegurarnos de que tenga el formato correcto (YYYY-MM-DDThh:mm)
     return isoString.substring(0, 16);
   }
 
-  // Si solo es una fecha (YYYY-MM-DD), añadimos la hora actual
+  // Fallback: parsear con Date y usar métodos locales (no toISOString que es UTC)
   const date = new Date(isoString);
   if (isNaN(date.getTime())) return "";
-
-  // Formato YYYY-MM-DDThh:mm
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0"
-  )}-${String(date.getDate()).padStart(2, "0")}T${String(
-    date.getHours()
-  ).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}T${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 };
 
 // Función auxiliar para normalizar fechas - versión simplificada

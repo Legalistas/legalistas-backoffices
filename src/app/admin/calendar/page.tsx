@@ -11,11 +11,11 @@ import { EllipsisVertical, Plus, Download, Filter, Trash, Calendar, Info } from 
 export default function CalendarPage() {
     const [dropdownOpen, setDropdownOpen] = useState(false)
     const [debugInfo, setDebugInfo] = useState<string | null>(null)
+    const [newEventTrigger, setNewEventTrigger] = useState(0)
 
-    // Función para manejar la creación de un nuevo evento
+    // Incrementar el trigger abre el modal en CalendarView
     const handleNewEvent = () => {
-        // Esta función se pasará a CalendarView
-        console.log("Crear nuevo evento desde el botón principal")
+        setNewEventTrigger((prev) => prev + 1)
     }
 
     // Función para exportar el calendario
@@ -148,7 +148,11 @@ export default function CalendarPage() {
 
             {/* Componente del calendario */}
             <div className="flex flex-row gap-3 mb-6 w-full">
-                <CalendarView onNewEvent={handleNewEvent} onDebugInfoChange={setDebugInfo} />
+                <CalendarView
+                    onNewEvent={handleNewEvent}
+                    triggerNewEvent={newEventTrigger}
+                    onDebugInfoChange={setDebugInfo}
+                />
             </div>
         </div>
     )

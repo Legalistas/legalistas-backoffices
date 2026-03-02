@@ -5,17 +5,22 @@ import FullCalendar from "@fullcalendar/react"
 import dayGridPlugin from "@fullcalendar/daygrid"
 import timeGridPlugin from "@fullcalendar/timegrid"
 import interactionPlugin from "@fullcalendar/interaction"
+import listPlugin from "@fullcalendar/list"
 import esLocale from "@fullcalendar/core/locales/es"
 import { Card } from "../ui/card/Card"
 import { formatTime } from "@/constant/calendar"
 import { EventModal } from "./EventModal"
-import { CALENDARS_EVENTS_ENDPOINT, SETTINGS_HOLIDAY_ENDPOINT } from "@/constant/api-endpoints"
+import {
+    CALENDARS_EVENTS_ENDPOINT,
+    CALENDAR_EVENT_BY_ID_ENDPOINT,
+    SETTINGS_HOLIDAY_ENDPOINT,
+} from "@/constant/api-endpoints"
 import { useSession } from "next-auth/react"
 import type { EventInput, EventSourceInput } from "@fullcalendar/core"
-import { dot } from "node:test/reporters"
-import { Dot } from "lucide-react"
+import { Video } from "lucide-react"
 
-// Interfaz para los días festivos de la API
+// ── Tipos ──────────────────────────────────────────────────────────────────
+
 interface HolidayApiData {
     id: number
     title: string
@@ -24,18 +29,11 @@ interface HolidayApiData {
     updatedAt: string
 }
 
-// Interfaz para la respuesta de la API
 interface ApiResponse {
     data: HolidayApiData[]
-    meta: {
-        total: number
-        page: number
-        limit: number
-        totalPages: number
-    }
+    meta: { total: number; page: number; limit: number; totalPages: number }
 }
 
-// Interfaz para los eventos del calendario
 interface CalendarEvent extends EventInput {
     id?: string
     title: string
@@ -49,25 +47,41 @@ interface CalendarEvent extends EventInput {
     textColor?: string
     backgroundColor?: string
     borderColor?: string
-    isHoliday?: boolean // Añadimos esta propiedad para identificar días festivos
+    isHoliday?: boolean
 }
 
-// Interfaz para los eventos que se pasan al modal
 interface EventModalData {
     id?: string
     title?: string
     start?: string
     end?: string
     allDay?: boolean
+    meetLink?: string
+    description?: string
+    color?: string
 }
 
-// Props para el componente CalendarView
 interface CalendarViewProps {
     onNewEvent?: () => void
     onDebugInfoChange?: (info: string | null) => void
+    triggerNewEvent?: number
 }
 
-const CalendarView = ({ onNewEvent, onDebugInfoChange }: CalendarViewProps) => {
+// ── Helpers ────────────────────────────────────────────────────────────────
+
+function formatDateForCalendar(dateStr: string): string {
+    if (!dateStr) return ""
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+    try {
+        return new Date(dateStr).toISOString().split("T")[0]
+    } catch {
+        return dateStr
+    }
+}
+
+// ── Componente ─────────────────────────────────────────────────────────────
+
+const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps) => {
     const { data: session } = useSession()
     const [events, setEvents] = useState<CalendarEvent[]>([])
     const [holidays, setHolidays] = useState<CalendarEvent[]>([])
@@ -80,214 +94,175 @@ const CalendarView = ({ onNewEvent, onDebugInfoChange }: CalendarViewProps) => {
     const [isNewEvent, setIsNewEvent] = useState(false)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [holidaysInfo, setHolidaysInfo] = useState<string | null>(null)
-    const [rawApiResponse, setRawApiResponse] = useState<any>(null)
 
-    // Referencia al componente FullCalendar
     const calendarRef = useRef<any>(null)
-
-    // Estado para controlar si los eventos ya se han procesado
     const [eventsProcessed, setEventsProcessed] = useState(false)
 
-    // Actualizar la información de depuración en el componente padre
+    const authHeaders = useCallback(
+        () => ({
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.user?.accessToken}`,
+        }),
+        [session?.user?.accessToken]
+    )
+
     useEffect(() => {
-        if (onDebugInfoChange) {
-            onDebugInfoChange(holidaysInfo)
-        }
+        if (onDebugInfoChange) onDebugInfoChange(holidaysInfo)
     }, [holidaysInfo, onDebugInfoChange])
 
-    // Función para mostrar mensajes de error
+    // Abrir modal de nuevo evento cuando el padre incrementa el trigger
+    useEffect(() => {
+        if (!triggerNewEvent) return
+        const today = new Date()
+        const dateStr = today.toISOString().split("T")[0]
+        const hh = String(today.getHours()).padStart(2, "0")
+        const mm = String(today.getMinutes()).padStart(2, "0")
+        setSelectedEvent({
+            title: "",
+            start: `${dateStr}T${hh}:${mm}`,
+            allDay: true,
+            color: "#3b82f6",
+        })
+        setIsNewEvent(true)
+        setDialogOpen(true)
+    }, [triggerNewEvent])
+
     const showError = (message: string) => {
         setErrorMessage(message)
         setTimeout(() => setErrorMessage(null), 3000)
     }
 
-    // Función para convertir fechas ISO a formato YYYY-MM-DD
-    const formatDateForCalendar = (dateStr: string): string => {
-        if (!dateStr) return ""
-        // Si la fecha ya está en formato YYYY-MM-DD, devolverla tal cual
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr
+    // ── Verificar festivos ──────────────────────────────────────────────────
 
-        try {
-            // Intentar crear un objeto Date y extraer solo la parte de la fecha
-            const date = new Date(dateStr)
-            return date.toISOString().split("T")[0]
-        } catch (e) {
-            console.error("Error al formatear fecha:", e)
-            return dateStr
-        }
-    }
+    const isHolidayDate = useCallback(
+        (dateStr: string): boolean => {
+            const formatted = formatDateForCalendar(dateStr)
+            return holidays.some((h) => {
+                const hDate =
+                    typeof h.start === "string"
+                        ? formatDateForCalendar(h.start)
+                        : formatDateForCalendar((h.start as Date).toISOString())
+                return hDate === formatted
+            })
+        },
+        [holidays]
+    )
 
-    // Función personalizada para verificar si una fecha es un día festivo
-    const isHolidayDate = (dateStr: string): boolean => {
-        // Convertir la fecha a formato YYYY-MM-DD para comparación
-        const formattedDate = formatDateForCalendar(dateStr)
-
-        // Verificar si la fecha coincide con algún día festivo
-        return holidays.some((holiday) => {
-            const holidayDate =
-                typeof holiday.start === "string"
-                    ? formatDateForCalendar(holiday.start)
-                    : formatDateForCalendar(holiday.start.toISOString())
-            return holidayDate === formattedDate
-        })
-    }
-
-    // Función personalizada para verificar si un evento es un día festivo
     const isHolidayEvent = (event: any): boolean => {
-        // Si el evento tiene la propiedad isHoliday, usarla directamente
-        if (event.extendedProps && event.extendedProps.isHoliday !== undefined) {
-            return event.extendedProps.isHoliday
-        }
-
-        // Si el evento tiene la propiedad className que incluye "holiday-event", es un día festivo
-        if (event.classNames && event.classNames.includes("holiday-event")) {
-            return true
-        }
-
-        // Si el evento tiene la propiedad display como "background", es un día festivo
-        if (event.display === "background") {
-            return true
-        }
-
-        // Por defecto, no es un día festivo
+        if (event.extendedProps?.isHoliday !== undefined) return event.extendedProps.isHoliday
+        if (event.classNames?.includes("holiday-event")) return true
+        if (event.display === "background") return true
         return false
     }
 
-    // Modifica la función fetchEvents para procesar correctamente los datos de la API
+    // ── Fetch eventos ───────────────────────────────────────────────────────
+
     const fetchEvents = useCallback(async () => {
         if (!session?.user?.accessToken) return
-
         setIsLoadingEvents(true)
         setEventsError(null)
 
         try {
-            const response = await fetch(`${CALENDARS_EVENTS_ENDPOINT}`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${session?.user?.accessToken}`,
-                },
-                // Añadir cache: 'no-store' para evitar problemas de caché
+            const res = await fetch(CALENDARS_EVENTS_ENDPOINT, {
+                headers: authHeaders(),
                 cache: "no-store",
             })
+            if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
 
-            if (!response.ok) {
-                throw new Error(`Error al obtener eventos: ${response.status} ${response.statusText}`)
-            }
-
-            const apiResponse = await response.json()
-            console.log("Respuesta completa de la API:", apiResponse)
-            setRawApiResponse(apiResponse)
+            const apiResponse = await res.json()
 
             if (apiResponse.data && Array.isArray(apiResponse.data)) {
-                // Procesar correctamente los eventos de la API
-                const formattedEvents = apiResponse.data.map((event: any) => {
-                    console.log("Procesando evento:", event)
-
-                    // Para eventos de todo el día, usar solo la fecha sin la parte de tiempo
-                    const startDate = event.allDay ? formatDateForCalendar(event.start) : event.start
-                    const endDate = event.end ? (event.allDay ? formatDateForCalendar(event.end) : event.end) : undefined
+                const formatted: CalendarEvent[] = apiResponse.data.map((ev: any) => {
+                    const color = ev.backgroundColor || "#3b82f6"
+                    const startDate = ev.allDay
+                        ? formatDateForCalendar(ev.start)
+                        : ev.start
+                    const endDate = ev.end
+                        ? ev.allDay
+                            ? formatDateForCalendar(ev.end)
+                            : ev.end
+                        : undefined
 
                     return {
-                        id: String(event.id),
-                        title: event.title,
+                        id: String(ev.id),
+                        title: ev.title,
                         start: startDate,
                         end: endDate,
-                        allDay: true, // Forzar allDay a true para todos los eventos
-                        backgroundColor: event.backgroundColor || "transparent", // Fondo transparente
-                        textColor: event.textColor || "#ffffff",
-                        isHoliday: false, // Marcar explícitamente como NO día festivo
-                        editable: true, // Hacer explícitamente editable
+                        allDay: ev.allDay ?? true,
+                        // Fondo transparente → el eventContent controla el color
+                        backgroundColor: "transparent",
+                        borderColor: "transparent",
+                        textColor: ev.textColor || "#ffffff",
+                        isHoliday: false,
+                        editable: true,
+                        extendedProps: {
+                            color,
+                            meetLink: ev.meetLink ?? null,
+                            description: ev.description ?? null,
+                            isHoliday: false,
+                        },
                     }
                 })
 
-                console.log("Eventos formateados para FullCalendar:", formattedEvents)
-
-                // Guardar los eventos en el estado
-                setEvents(formattedEvents)
-
-                // Marcar que los eventos se han procesado
+                setEvents(formatted)
                 setEventsProcessed(true)
 
-                // Forzar la actualización del calendario si existe la referencia
                 if (calendarRef.current) {
-                    const calendarApi = calendarRef.current.getApi()
-                    calendarApi.removeAllEvents()
-                    formattedEvents.forEach((event: any) => {
-                        calendarApi.addEvent(event)
-                    })
+                    const api = calendarRef.current.getApi()
+                    api.removeAllEvents()
+                    formatted.forEach((ev) => api.addEvent(ev))
                 }
             } else {
-                console.error("Formato de respuesta de API inesperado:", apiResponse)
-                setEventsError("Formato de respuesta de API inesperado")
+                setEventsError("Formato de respuesta inesperado")
             }
-        } catch (error) {
-            console.error("Error al cargar eventos:", error)
-            setEventsError(error instanceof Error ? error.message : "Error desconocido al cargar eventos")
+        } catch (err) {
+            setEventsError(err instanceof Error ? err.message : "Error desconocido")
         } finally {
             setIsLoadingEvents(false)
         }
-    }, [session?.user?.accessToken])
+    }, [session?.user?.accessToken, authHeaders])
 
-    // Función para obtener los días festivos desde la API
+    // ── Fetch festivos ──────────────────────────────────────────────────────
+
     const fetchHolidays = useCallback(async () => {
         setIsLoadingHolidays(true)
         setHolidaysError(null)
 
         try {
-            const response = await fetch(`${SETTINGS_HOLIDAY_ENDPOINT}`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${session?.user?.accessToken}`,
-                },
-                // Añadir cache: 'no-store' para evitar problemas de caché
+            const res = await fetch(SETTINGS_HOLIDAY_ENDPOINT, {
+                headers: authHeaders(),
                 cache: "no-store",
             })
+            if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
 
-            if (!response.ok) {
-                throw new Error(`Error al obtener días festivos: ${response.status} ${response.statusText}`)
-            }
+            const apiResponse: ApiResponse = await res.json()
+            const formatted: CalendarEvent[] = apiResponse.data
+                .filter((h) => h.date)
+                .map((h) => ({
+                    id: String(h.id),
+                    title: h.title,
+                    start: formatDateForCalendar(h.date),
+                    allDay: true,
+                    className: "holiday-event",
+                    editable: false,
+                    display: "background",
+                    color: "#fecaca",
+                    textColor: "#b91c1c",
+                    isHoliday: true,
+                }))
 
-            const apiResponse: ApiResponse = await response.json()
-
-            // Transformar los datos de la API al formato que espera FullCalendar
-            const formattedHolidays: CalendarEvent[] = apiResponse.data
-                .filter((holiday) => holiday.date) // Asegurarse de que date existe
-                .map((holiday) => {
-                    // Asegurarse de que la fecha esté en formato YYYY-MM-DD
-                    const holidayDate = formatDateForCalendar(holiday.date)
-
-                    return {
-                        id: String(holiday.id), // Convertir el ID numérico a string
-                        title: holiday.title,
-                        start: holidayDate, // Usar solo la parte de la fecha
-                        allDay: true,
-                        className: "holiday-event",
-                        editable: false,
-                        display: "background", // Mostrar como fondo
-                        color: "#ffebee", // Fondo rojo claro
-                        textColor: "#b71c1c", // Texto rojo oscuro
-                        isHoliday: true, // Marcar explícitamente como día festivo
-                    }
-                })
-
-            // Guardar información de depuración
-            const holidaysInfo = formattedHolidays.map((h) => `${h.title}: ${h.start}`).join(", ")
-            setHolidaysInfo(`Días festivos: ${holidaysInfo}`)
-
-            console.log("Días festivos formateados:", formattedHolidays)
-            setHolidays(formattedHolidays)
-        } catch (error) {
-            console.error("Error al cargar días festivos:", error)
-            setHolidaysError(error instanceof Error ? error.message : "Error desconocido al cargar días festivos")
+            setHolidaysInfo(
+                `Días festivos: ${formatted.map((h) => `${h.title}: ${h.start}`).join(", ")}`
+            )
+            setHolidays(formatted)
+        } catch (err) {
+            setHolidaysError(err instanceof Error ? err.message : "Error desconocido")
             setHolidays([])
         } finally {
             setIsLoadingHolidays(false)
         }
-    }, [session?.user?.accessToken])
+    }, [session?.user?.accessToken, authHeaders])
 
-    // Cargar días festivos y eventos al montar el componente
     useEffect(() => {
         if (session?.user?.accessToken) {
             fetchHolidays()
@@ -295,20 +270,9 @@ const CalendarView = ({ onNewEvent, onDebugInfoChange }: CalendarViewProps) => {
         }
     }, [fetchHolidays, fetchEvents, session?.user?.accessToken])
 
-    // Añade un useEffect para mostrar información de depuración sobre los eventos cargados
-    useEffect(() => {
-        if (events.length > 0) {
-            console.log(`Se han cargado ${events.length} eventos:`, events)
-        }
-    }, [events])
+    // ── Handlers de clic ────────────────────────────────────────────────────
 
-    // Modifica la función handleEventClick para convertir Date a string si es necesario
     const handleEventClick = (info: any) => {
-        console.log("Evento clickeado:", info.event)
-        console.log("Es día festivo:", isHolidayEvent(info.event))
-        console.log("Propiedades extendidas:", info.event.extendedProps)
-
-        // Verificar si el evento es un día festivo
         if (isHolidayEvent(info.event)) {
             showError("No se pueden editar los días festivos")
             return
@@ -320,47 +284,43 @@ const CalendarView = ({ onNewEvent, onDebugInfoChange }: CalendarViewProps) => {
             start: info.event.startStr,
             end: info.event.endStr,
             allDay: info.event.allDay,
+            meetLink: info.event.extendedProps?.meetLink ?? "",
+            description: info.event.extendedProps?.description ?? "",
+            color: info.event.extendedProps?.color ?? "#3b82f6",
         })
         setIsNewEvent(false)
         setDialogOpen(true)
     }
 
-    function handleDateClick(info: any) {
-        // Verificar si la fecha es un día festivo
+    const handleDateClick = (info: any) => {
         if (isHolidayDate(info.dateStr)) {
             showError("No se pueden crear eventos en días festivos")
             return
         }
 
-        // Crear fecha con hora actual para el datetime-local
         const now = new Date()
-        const hours = String(now.getHours()).padStart(2, "0")
-        const minutes = String(now.getMinutes()).padStart(2, "0")
-        const dateWithTime = `${info.dateStr}T${hours}:${minutes}`
+        const hh = String(now.getHours()).padStart(2, "0")
+        const mm = String(now.getMinutes()).padStart(2, "0")
 
         setSelectedEvent({
             title: "",
-            start: dateWithTime,
+            start: `${info.dateStr}T${hh}:${mm}`,
             allDay: true,
+            color: "#3b82f6",
         })
         setIsNewEvent(true)
         setDialogOpen(true)
     }
 
-    function handleSelect(info: any) {
-        // Verificar si el rango seleccionado incluye un día festivo
-        const startDate = new Date(info.startStr)
-        const endDate = new Date(info.endStr)
-
-        // Verificar cada día en el rango
-        const currentDate = new Date(startDate)
-        while (currentDate < endDate) {
-            const dateStr = currentDate.toISOString().split("T")[0]
-            if (isHolidayDate(dateStr)) {
-                showError("El rango seleccionado incluye días festivos")
+    const handleSelect = (info: any) => {
+        const current = new Date(info.startStr)
+        const end = new Date(info.endStr)
+        while (current < end) {
+            if (isHolidayDate(current.toISOString().split("T")[0])) {
+                showError("El rango incluye días festivos")
                 return
             }
-            currentDate.setDate(currentDate.getDate() + 1)
+            current.setDate(current.getDate() + 1)
         }
 
         setSelectedEvent({
@@ -368,100 +328,134 @@ const CalendarView = ({ onNewEvent, onDebugInfoChange }: CalendarViewProps) => {
             start: info.startStr,
             end: info.endStr,
             allDay: info.allDay,
+            color: "#3b82f6",
         })
         setIsNewEvent(true)
         setDialogOpen(true)
     }
 
-    const createNewEvent = () => {
-        const today = new Date()
-        const dateStr = today.toISOString().split("T")[0]
-        const hours = String(today.getHours()).padStart(2, "0")
-        const minutes = String(today.getMinutes()).padStart(2, "0")
-        const dateWithTime = `${dateStr}T${hours}:${minutes}`
+    // ── Guardar evento (API) ────────────────────────────────────────────────
 
-        setSelectedEvent({
-            title: "",
-            start: dateWithTime,
-            allDay: true,
-        })
-        setIsNewEvent(true)
-        setDialogOpen(true)
-
-        // Si hay un callback externo, también lo llamamos
-        if (onNewEvent) {
-            onNewEvent()
-        }
-    }
-
-    const handleSaveEvent = (updatedEvent: EventModalData) => {
-        // Verificar si la fecha del evento es un día festivo
+    const handleSaveEvent = async (updatedEvent: EventModalData) => {
         if (updatedEvent.start && isHolidayDate(updatedEvent.start)) {
             showError("No se pueden guardar eventos en días festivos")
             return
         }
 
-        // Convertir el evento actualizado al formato CalendarEvent
-        const calendarEvent: CalendarEvent = {
-            id: updatedEvent.id,
-            title: updatedEvent.title || "",
-            start: updatedEvent.start || "",
-            end: updatedEvent.end,
-            allDay: updatedEvent.allDay,
-            backgroundColor: "#3788d8",
-            borderColor: "",
+        const color = updatedEvent.color || "#3b82f6"
+
+        const body = {
+            title: updatedEvent.title,
+            start: updatedEvent.allDay
+                ? updatedEvent.start
+                : updatedEvent.start,
+            end: updatedEvent.end || null,
+            allDay: updatedEvent.allDay ?? true,
+            backgroundColor: color,
+            borderColor: color,
             textColor: "#ffffff",
-            isHoliday: false, // Marcar explícitamente como NO día festivo
-            editable: true, // Hacer explícitamente editable
+            meetLink: updatedEvent.meetLink || null,
+            description: updatedEvent.description || null,
         }
 
-        setEvents((prev) => {
+        try {
+            let savedId = updatedEvent.id
+
             if (isNewEvent) {
-                // Add new event
-                return [...prev, calendarEvent]
-            } else {
-                // Update existing event
-                return prev.map((e) => (e.id === selectedEvent?.id ? calendarEvent : e))
+                const res = await fetch(CALENDARS_EVENTS_ENDPOINT, {
+                    method: "POST",
+                    headers: authHeaders(),
+                    body: JSON.stringify(body),
+                })
+                if (!res.ok) throw new Error("Error al crear evento")
+                const json = await res.json()
+                savedId = String(json.data.id)
+            } else if (updatedEvent.id) {
+                const res = await fetch(CALENDAR_EVENT_BY_ID_ENDPOINT(updatedEvent.id), {
+                    method: "PUT",
+                    headers: authHeaders(),
+                    body: JSON.stringify(body),
+                })
+                if (!res.ok) throw new Error("Error al actualizar evento")
             }
-        })
+
+            // Actualizar estado local
+            const calendarEvent: CalendarEvent = {
+                id: savedId,
+                title: updatedEvent.title || "",
+                start: updatedEvent.start || "",
+                end: updatedEvent.end,
+                allDay: updatedEvent.allDay,
+                backgroundColor: "transparent",
+                borderColor: "transparent",
+                textColor: "#ffffff",
+                isHoliday: false,
+                editable: true,
+                extendedProps: {
+                    color,
+                    meetLink: updatedEvent.meetLink || null,
+                    description: updatedEvent.description || null,
+                    isHoliday: false,
+                },
+            }
+
+            setEvents((prev) =>
+                isNewEvent
+                    ? [...prev, calendarEvent]
+                    : prev.map((e) => (e.id === selectedEvent?.id ? calendarEvent : e))
+            )
+        } catch (err) {
+            showError(err instanceof Error ? err.message : "Error al guardar evento")
+        }
+
         setDialogOpen(false)
     }
 
-    const handleDeleteEvent = () => {
+    // ── Eliminar evento (API) ───────────────────────────────────────────────
+
+    const handleDeleteEvent = async () => {
         if (!isNewEvent && selectedEvent?.id) {
-            setEvents((prev) => prev.filter((e) => e.id !== selectedEvent.id))
+            try {
+                const res = await fetch(CALENDAR_EVENT_BY_ID_ENDPOINT(selectedEvent.id), {
+                    method: "DELETE",
+                    headers: authHeaders(),
+                })
+                if (!res.ok) throw new Error("Error al eliminar evento")
+                setEvents((prev) => prev.filter((e) => e.id !== selectedEvent.id))
+            } catch (err) {
+                showError(err instanceof Error ? err.message : "Error al eliminar evento")
+            }
         }
         setDialogOpen(false)
     }
 
-    // Combinar eventos y días festivos para FullCalendar
+    // ── Render ──────────────────────────────────────────────────────────────
+
     const calendarEvents: EventSourceInput = [...events, ...holidays]
 
     return (
         <Card className="w-full h-full p-4">
-            {/* Mostrar mensaje de carga o error de eventos */}
-            {isLoadingEvents && (
-                <div className="text-center py-2 mb-4 bg-blue-50 text-blue-700 rounded">Cargando eventos...</div>
+            {/* Cargando */}
+            {(isLoadingEvents || isLoadingHolidays) && (
+                <div className="flex items-center gap-2 text-sm py-2 mb-3 px-3 bg-blue-50 text-blue-700 rounded-lg">
+                    <div className="h-3 w-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                    Cargando calendario...
+                </div>
             )}
 
             {eventsError && (
-                <div className="text-center py-2 mb-4 bg-red-50 text-red-700 rounded">
-                    Error al cargar eventos: {eventsError}
-                    <button onClick={fetchEvents} className="ml-2 underline">
+                <div className="flex items-center justify-between py-2 mb-3 px-3 bg-red-50 text-red-700 rounded-lg text-sm">
+                    <span>Error al cargar eventos: {eventsError}</span>
+                    <button onClick={fetchEvents} className="underline ml-2 hover:text-red-900">
                         Reintentar
                     </button>
                 </div>
             )}
 
-            {/* Mostrar mensaje de carga o error de días festivos */}
-            {isLoadingHolidays && (
-                <div className="text-center py-2 mb-4 bg-blue-50 text-blue-700 rounded">Cargando días festivos...</div>
-            )}
-
             {holidaysError && (
-                <div className="text-center py-2 mb-4 bg-red-50 text-red-700 rounded">
-                    Error al cargar días festivos: {holidaysError}
-                    <button onClick={fetchHolidays} className="ml-2 underline">
+                <div className="flex items-center justify-between py-2 mb-3 px-3 bg-red-50 text-red-700 rounded-lg text-sm">
+                    <span>Error al cargar días festivos: {holidaysError}</span>
+                    <button onClick={fetchHolidays} className="underline ml-2 hover:text-red-900">
                         Reintentar
                     </button>
                 </div>
@@ -469,18 +463,25 @@ const CalendarView = ({ onNewEvent, onDebugInfoChange }: CalendarViewProps) => {
 
             <FullCalendar
                 ref={calendarRef}
-                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+                plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
                 initialView="dayGridMonth"
                 headerToolbar={{
                     left: "prev,next today",
                     center: "title",
-                    right: "dayGridMonth,timeGridWeek,timeGridDay",
+                    right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek",
                 }}
+                buttonText={{
+                    today: "Hoy",
+                    month: "Mes",
+                    week: "Semana",
+                    day: "Día",
+                    list: "Agenda",
+                }}
+                firstDay={0}
+                fixedWeekCount={false}
+                showNonCurrentDates={false}
                 events={calendarEvents}
-                selectAllow={(selectInfo) => {
-                    return !isHolidayDate(selectInfo.startStr)
-                }}
-
+                selectAllow={(sel) => !isHolidayDate(sel.startStr)}
                 editable={true}
                 selectable={true}
                 eventClick={handleEventClick}
@@ -488,85 +489,80 @@ const CalendarView = ({ onNewEvent, onDebugInfoChange }: CalendarViewProps) => {
                 select={handleSelect}
                 locales={[esLocale]}
                 locale="es"
-                timeZone="local" // Usar la zona horaria local
-                eventClassNames={(arg) => {
-                    // Verificar si el evento es un día festivo
-                    if (isHolidayEvent(arg.event)) {
-                        return ["holiday-event", "bg-red-100", "text-red-800", "border-red-300", "cursor-default"]
-                    }
-                    return []
-                }}
+                timeZone="local"
+                eventClassNames={(arg) =>
+                    isHolidayEvent(arg.event) ? ["holiday-event"] : ["fc-custom-event"]
+                }
                 dayCellClassNames={(arg) => {
-                    // Convertir la fecha de la celda a formato YYYY-MM-DD
-                    const cellDateStr = arg.date.toISOString().split("T")[0]
-
-                    // Verificar si la fecha es un día festivo
-                    if (isHolidayDate(cellDateStr)) {
-                        return ["holiday-cell", "bg-red-50", "cursor-not-allowed"]
-                    }
-                    return []
+                    const d = arg.date.toISOString().split("T")[0]
+                    return isHolidayDate(d) ? ["holiday-cell"] : []
                 }}
-                // Personalizar el contenido de los eventos
                 eventContent={(eventInfo) => {
-                    // No personalizar eventos de días festivos
+                    // Festivos — fondo gestionado por FullCalendar (display: background)
                     if (isHolidayEvent(eventInfo.event)) {
                         return (
                             <div
-                                className="font-medium text-red-800 truncate w-full"
-                                style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}
-                                title={eventInfo.event.title} // Añadir tooltip
+                                className="text-xs font-medium text-red-700 truncate w-full px-1"
+                                title={eventInfo.event.title}
                             >
                                 {eventInfo.event.title}
                             </div>
                         )
                     }
 
-                    const { title, start, allDay, backgroundColor, textColor } = eventInfo.event
+                    const { title, start, allDay } = eventInfo.event
+                    const color =
+                        eventInfo.event.extendedProps?.color ||
+                        eventInfo.event.backgroundColor ||
+                        "#3b82f6"
+                    const hasMeet = !!eventInfo.event.extendedProps?.meetLink
 
-                    // Si es un evento de todo el día, no mostramos la hora
-                    if (allDay) {
+                    // Vista Agenda
+                    if (eventInfo.view.type === "listWeek") {
                         return (
-                            <div
-                                className="flex items-center font-normal truncate w-full text-gray-800 dark:text-white"
-                                style={{
-                                    overflow: "hidden",
-                                    textOverflow: "ellipsis",
-                                    whiteSpace: "nowrap",
-                                    maxWidth: "100%",
-                                    backgroundColor: backgroundColor || "transparent",
-                                }}
-                                title={title}
-                            >
-                                <Dot className="h-6 w-6 flex-shrink-0" style={{ color: textColor || "#3788d8" }} />
-                                {title}
+                            <div className="flex items-center gap-2 py-0.5 w-full">
+                                <span
+                                    className="h-2.5 w-2.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: color }}
+                                />
+                                <span className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
+                                    {title}
+                                </span>
+                                {hasMeet && <Video className="h-3.5 w-3.5 text-green-600 shrink-0" />}
                             </div>
                         )
                     }
 
-                    // Para eventos con hora específica
-                    const timeStr = start ? formatTime(start.toISOString()) : ""
-                    const fullTitle = timeStr ? `${timeStr} - ${title}` : title
+                    // Todo el día o con hora
+                    const timeStr = !allDay && start ? formatTime((start as Date).toISOString()) : ""
 
                     return (
                         <div
-                            className="flex items-center font-normal truncate w-full text-gray-800 dark:text-white"
-                            style={{
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                                whiteSpace: "nowrap",
-                                maxWidth: "100%",
-                                backgroundColor: backgroundColor || "transparent",
-                            }}
-                            title={fullTitle} // Añadir tooltip
+                            className="fc-event-row flex items-center gap-1 w-full px-1.5 py-0.5 rounded"
+                            title={timeStr ? `${timeStr} — ${title}` : title}
                         >
-                            <Dot className="h-6 w-6 flex-shrink-0" style={{ color: textColor || "#3788d8" }} />{fullTitle}
+                            <span
+                                className="h-2 w-2 rounded-full shrink-0"
+                                style={{ backgroundColor: color }}
+                            />
+                            <span className="text-xs font-medium truncate flex-1 text-gray-700">
+                                {timeStr && (
+                                    <span className="text-gray-400 mr-1">{timeStr}</span>
+                                )}
+                                {title}
+                            </span>
+                            {hasMeet && (
+                                <Video className="h-3 w-3 shrink-0 text-green-600 opacity-70" />
+                            )}
                         </div>
                     )
                 }}
-                // Configuración para evitar que los eventos se expandan horizontalmente
-                dayMaxEventRows={true}
-                dayMaxEvents={true}
-                // Deshabilitar arrastrar y soltar para eventos de días festivos
+                dayMaxEvents={3}
+                moreLinkContent={(arg) => (
+                    <span className="text-xs font-semibold text-blue-600 px-1">
+                        +{arg.num} ver más
+                    </span>
+                )}
                 eventDragStart={(info) => {
                     if (isHolidayEvent(info.event)) {
                         info.jsEvent.preventDefault()
@@ -575,29 +571,18 @@ const CalendarView = ({ onNewEvent, onDebugInfoChange }: CalendarViewProps) => {
                     }
                     return true
                 }}
-                // Evitar que se puedan soltar eventos en días festivos
                 eventDrop={(info) => {
                     if (isHolidayDate(info.event.startStr)) {
                         info.revert()
                         showError("No se pueden mover eventos a días festivos")
                     }
                 }}
-                // Evento que se dispara cuando el calendario está listo
                 datesSet={() => {
-                    // Si los eventos ya se han procesado, forzar la actualización del calendario
                     if (eventsProcessed && calendarRef.current) {
-                        const calendarApi = calendarRef.current.getApi()
-                        calendarApi.removeAllEvents()
-
-                        // Añadir todos los eventos al calendario
-                        events.forEach((event) => {
-                            calendarApi.addEvent(event)
-                        })
-
-                        // Añadir los días festivos al calendario
-                        holidays.forEach((holiday) => {
-                            calendarApi.addEvent(holiday)
-                        })
+                        const api = calendarRef.current.getApi()
+                        api.removeAllEvents()
+                        events.forEach((ev) => api.addEvent(ev))
+                        holidays.forEach((h) => api.addEvent(h))
                     }
                 }}
             />
@@ -612,8 +597,10 @@ const CalendarView = ({ onNewEvent, onDebugInfoChange }: CalendarViewProps) => {
                 validateDate={(date) => !isHolidayDate(date)}
             />
 
+            {/* Toast error */}
             {errorMessage && (
-                <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50">
+                <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2.5 rounded-lg shadow-lg z-50 text-sm flex items-center gap-2 animate-in fade-in slide-in-from-bottom-2">
+                    <span className="h-2 w-2 rounded-full bg-white/70 shrink-0" />
                     {errorMessage}
                 </div>
             )}
