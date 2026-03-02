@@ -1,7 +1,8 @@
 import { Table, TableHeader, TableRow, TableCell, TableBody } from "../ui/table";
-import { Pencil, Trash2, Lock, Unlock } from "lucide-react";
+import { Pencil, Trash2, Lock, Unlock, Activity } from "lucide-react";
 import Button from "../ui/button/Button";
 import { User } from "@/types/users";
+import { useRouter } from "next/navigation";
 
 interface MembersTableProps {
     members: User[];
@@ -22,6 +23,8 @@ export default function MembersTable({
     handleToggleBlock,
     isLoading
 }: MembersTableProps) {
+    const router = useRouter()
+
     return (
         <div>
             <Table className="w-full min-w-[800px]">
@@ -94,6 +97,14 @@ export default function MembersTable({
                                                 title="Editar usuario"
                                             >
                                                 <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                onClick={() => router.push(`/admin/activity-logs?userId=${member.id}&userName=${encodeURIComponent(member.name)}`)}
+                                                variant="outline"
+                                                title="Ver historial de sesiones"
+                                                className="text-brand-500 hover:text-brand-500/80"
+                                            >
+                                                <Activity className="h-4 w-4" />
                                             </Button>
                                             <Button
                                                 onClick={() => handleToggleBlock(member.id, !member.isBlocked)}

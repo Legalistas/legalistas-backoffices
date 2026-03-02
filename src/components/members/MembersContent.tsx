@@ -2,10 +2,11 @@
 import type React from "react"
 import { useRef, useState, useEffect, useCallback, useMemo } from "react"
 import Button from "../ui/button/Button"
-import { Plus, Search, Filter, Users, Scale, Briefcase, UserCog } from "lucide-react"
+import { Plus, Search, Filter, Users, Scale, Briefcase, UserCog, Activity } from "lucide-react"
 import Input from "../ui/input/Input"
 import { Pagination } from "../ui/pagination/Pagination"
 import { useSession } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { USERS_ENDPOINT, SETTINGS_ROLES_ENDPOINT, SETTINGS_COUNTRIES_ENDPOINT } from "@/constant/api-endpoints"
 import type { User } from "@/types/users"
 import { toast } from "sonner"
@@ -56,6 +57,7 @@ interface MemberStats {
 
 export default function MembersContent() {
     const { data: session } = useSession()
+    const router = useRouter()
     const [allMembers, setAllMembers] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [currentPage, setCurrentPage] = useState(1)
@@ -538,20 +540,32 @@ export default function MembersContent() {
                 {/* Header */}
                 <div className="flex items-center justify-between">
                     <h1 className="text-3xl font-bold tracking-tight text-black dark:text-gray-100">Miembros</h1>
-                    <Button
-                        type="button"
-                        variant="custom"
-                        size="sm"
-                        onClick={() => {
-                            setEditingMember(null)
-                            setModalMode("create")
-                            setClientModalOpen(true)
-                        }}
-                        className="flex items-center gap-2 bg-[#09A4B5] text-white hover:bg-[#09A4B5]/80 hover:text-gray-dark p-2"
-                    >
-                        <Plus className="h-4 w-4" />
-                        Nuevo miembro
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push("/admin/activity-logs")}
+                            className="flex items-center gap-2 border-gray-300 text-gray-600 hover:bg-gray-50 p-2"
+                        >
+                            <Activity className="h-4 w-4" />
+                            Historial de sesiones
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="custom"
+                            size="sm"
+                            onClick={() => {
+                                setEditingMember(null)
+                                setModalMode("create")
+                                setClientModalOpen(true)
+                            }}
+                            className="flex items-center gap-2 bg-[#09A4B5] text-white hover:bg-[#09A4B5]/80 hover:text-gray-dark p-2"
+                        >
+                            <Plus className="h-4 w-4" />
+                            Nuevo miembro
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Stats Cards */}

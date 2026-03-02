@@ -55,6 +55,7 @@ export const authOptions: NextAuthOptions = {
               role: user.roleUser[0].role.name,
               roleDetails: user.roleUser[0].role,
               permissions: user.permissionUser || [],
+              activityLogId: data.activityLogId || null,
             };
           } else {
             throw new Error(data.message || "Error de autenticación");
@@ -122,6 +123,7 @@ export const authOptions: NextAuthOptions = {
           token.role = data.user.role;
           // token.roleDetails = data.user.roleDetails; // Si tu backend lo devuelve, asegúrate de que AuthResponse lo incluya
           token.permissions = data.user.permissions;
+          token.activityLogId = (data as any).activityLogId || null;
         } else {
           // Maneja errores del backend o si la respuesta no tiene la estructura esperada
           console.error(
@@ -143,6 +145,7 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
         token.roleDetails = user.roleDetails; // Asumiendo que CredentialsProvider's authorize devuelve esto
         token.permissions = user.permissions;
+        token.activityLogId = user.activityLogId || null;
       }
 
       return token;
@@ -158,6 +161,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role;
         session.user.roleDetails = token.roleDetails; // Asegúrate de que esto se mapee desde el token si lo necesitas
         session.user.permissions = token.permissions;
+        session.user.activityLogId = token.activityLogId;
       }
       return session;
     },

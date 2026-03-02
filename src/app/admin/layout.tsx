@@ -12,11 +12,14 @@ import { useRouter } from "next/navigation"
 import FloatingChatBubble from "@/components/FloatingChatBubble"
 import { ChatProvider } from "@/context/ChatContext"
 import { NotificationProvider } from "@/components/notification-provider"
+import { useSessionTracker } from "@/hooks/useSessionTracker"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const { isExpanded, isHovered, isMobileOpen } = useSidebar()
   const router = useRouter()
+
+  useSessionTracker()
 
   useEffect(() => {
     if (status === "unauthenticated") {

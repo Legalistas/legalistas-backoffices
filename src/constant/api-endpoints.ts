@@ -7,6 +7,13 @@ export const GOOGLE_LOGIN_ENDPOINT = `${API_BASE_URL}/auth/google`;
 export const REGISTER_ENDPOINT = `${API_BASE_URL}/auth/register`;
 export const LOGOUT_ENDPOINT = `${API_BASE_URL}/auth/logout`;
 export const FORGOT_PASSWORD_ENDPOINT = `${API_BASE_URL}/auth/forgot-password`;
+export const SESSION_END_ENDPOINT = `${API_BASE_URL}/auth/session-end`;
+
+// Activity Logs Endpoints
+export const ACTIVITY_LOGS_ENDPOINT = `${API_BASE_URL}/activity-logs`;
+export const ACTIVITY_LOGS_STATS_ENDPOINT = `${API_BASE_URL}/activity-logs/stats`;
+export const ACTIVITY_LOGS_BY_USER_ENDPOINT = (userId: number) =>
+  `${API_BASE_URL}/activity-logs/user/${userId}`;
 
 // LEGAL CASES
 export const CASES_ENDPOINT = `${API_BASE_URL}/cases`;
