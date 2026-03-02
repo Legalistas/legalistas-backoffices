@@ -400,6 +400,8 @@ export default function ActivityLogsContent() {
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
+              totalItems={total}
+              itemsPerPage={20}
               onPageChange={setCurrentPage}
             />
           </div>
