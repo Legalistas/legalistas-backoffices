@@ -64,7 +64,9 @@ export default function CashBoxPage() {
     // Form states for new movement
     const [newType, setNewType] = useState<string>("") // Cambiado a string para incluir "transfer"
     const [newSubtype, setNewSubtype] = useState<string>("")
-    const [newUser, setNewUser] = useState<number | null>(null)
+    // Para transferencias: usuario origen y destino
+    const [newUserFrom, setNewUserFrom] = useState<number | null>(null)
+    const [newUserTo, setNewUserTo] = useState<number | null>(null)
     const [newAmount, setNewAmount] = useState<string>("")
     const [newDate, setNewDate] = useState<string>(new Date().toISOString().substring(0, 10))
     const [newDescription, setNewDescription] = useState<string>("")
@@ -139,8 +141,13 @@ export default function CashBoxPage() {
     }, [transaccionesMes, movementsPage]);
 
     // Define esta nueva función para manejar la selección del usuario desde el Autocomplete
-    const handleUserSelect = useCallback((selectedUserId: number | null) => {
-        setNewUser(selectedUserId)
+    // Manejo para usuario origen
+    const handleUserFromSelect = useCallback((selectedUserId: number | null) => {
+        setNewUserFrom(selectedUserId)
+    }, [])
+    // Manejo para usuario destino
+    const handleUserToSelect = useCallback((selectedUserId: number | null) => {
+        setNewUserTo(selectedUserId)
     }, [])
 
     // Añade esta función auxiliar para obtener el label del subtipo
@@ -286,26 +293,38 @@ export default function CashBoxPage() {
 
     const handleAddMovement = async () => {
         const amount = Number.parseFloat(newAmount)
+        let valid = true
+        let errorMsg = "Por favor, completa todos los campos y asegúrate de que el monto sea válido y un usuario esté seleccionado."
 
-        // Determina el userId final a usar: si newUser está seleccionado, úsalo; de lo contrario, usa session.user.id
-        const finalUserId = newUser !== null ? newUser : session?.user?.id
-        const isSubtypeRequired = newType !== "transfer"
-        if (
-            !newType ||
-            (isSubtypeRequired && !newSubtype) ||
-            finalUserId === null || // Ahora verificamos finalUserId
-            isNaN(amount) ||
-            amount <= 0 ||
-            !newDate ||
-            !newDescription
-        ) {
-            toast.error(
-                "Por favor, completa todos los campos y asegúrate de que el monto sea válido y un usuario esté seleccionado.",
-            )
+        if (!newType || isNaN(amount) || amount <= 0 || !newDate || !newDescription) valid = false
+
+        if (newType === "transfer") {
+            if (newUserFrom === null || newUserTo === null || newUserFrom === newUserTo) {
+                valid = false
+                errorMsg = "Selecciona usuario de origen y destino distintos."
+            }
+        } else {
+            if (!newSubtype || newUserFrom === null) valid = false
+        }
+
+        if (!valid) {
+            toast.error(errorMsg)
             return
         }
 
         setLoading(true)
+
+        const payload: any = {
+            type: newType as "income" | "expense" | "transfer",
+            subtype: newType !== "transfer" ? newSubtype : undefined,
+            userId: newType === "transfer" ? newUserFrom : newUserFrom,
+            amount: amount,
+            date: new Date(newDate),
+            description: newDescription,
+        }
+        if (newType === "transfer") {
+            payload.userTransferId = newUserTo
+        }
 
         const response = await fetch(`${CASH_ENDPOINT}/movements`, {
             method: "POST",
@@ -313,28 +332,22 @@ export default function CashBoxPage() {
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${session?.user?.accessToken}`,
             },
-            body: JSON.stringify({
-                type: newType as "income" | "expense", // Aseguramos el tipo para la Server Action
-                subtype: newSubtype,
-                userId: finalUserId, // Usamos el userId determinado
-                amount: amount,
-                date: new Date(newDate),
-                description: newDescription,
-            }),
+            body: JSON.stringify(payload),
         })
 
         const result = await response.json()
 
         if (result.success) {
-            setNewType("") // Resetear el tipo
+            setNewType("")
             setNewSubtype("")
-            setNewUser(null)
+            setNewUserFrom(null)
+            setNewUserTo(null)
             setNewAmount("")
             setNewDescription("")
             setNewDate(new Date().toISOString().substring(0, 10))
-            setIsRegisterMovementModalOpen(false) // Close modal
+            setIsRegisterMovementModalOpen(false)
             toast.success(result.message)
-            await loadData() // Recargar datos para obtener los movimientos actualizados
+            await loadData()
         } else {
             toast.error(`Error al registrar movimiento: ${result.message}`)
         }
@@ -921,16 +934,42 @@ export default function CashBoxPage() {
                                             />
                                         </div>
                                     )}
-                                <div className="space-y-2">
-                                    <Label htmlFor="movement-user">Usuario</Label>
-                                    <Autocomplete
-                                        id="movement-user"
-                                        value={newUser} // Pasa el ID del usuario seleccionado
-                                        onSelect={handleUserSelect} // Usa la nueva función de manejo
-                                        options={apiUsers} // Pasa la lista completa de usuarios
-                                        placeholder="Nombre del usuario"
-                                    />
-                                </div>
+                                {/* Selección de usuario origen y destino solo para transferencias */}
+                                {newType === "transfer" ? (
+                                    <>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="movement-user-from">Usuario Origen</Label>
+                                            <Autocomplete
+                                                id="movement-user-from"
+                                                value={newUserFrom}
+                                                onSelect={handleUserFromSelect}
+                                                options={apiUsers}
+                                                placeholder="Selecciona usuario origen"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="movement-user-to">Usuario Destino</Label>
+                                            <Autocomplete
+                                                id="movement-user-to"
+                                                value={newUserTo}
+                                                onSelect={handleUserToSelect}
+                                                options={apiUsers}
+                                                placeholder="Selecciona usuario destino"
+                                            />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <Label htmlFor="movement-user-from">Usuario</Label>
+                                        <Autocomplete
+                                            id="movement-user-from"
+                                            value={newUserFrom}
+                                            onSelect={handleUserFromSelect}
+                                            options={apiUsers}
+                                            placeholder="Nombre del usuario"
+                                        />
+                                    </div>
+                                )}
                                 <div className="space-y-2">
                                     <Label htmlFor="movement-amount">Monto</Label>
                                     <Input
