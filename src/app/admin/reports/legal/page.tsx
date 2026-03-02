@@ -77,6 +77,7 @@ interface LegalData {
     statsCards: StatsCards
     filesByProcessType: FileByProcessType[]
     casesByLawyer: LawyerStat[]
+    casesByLawyerChart: LawyerStat[]
     casesByStatus: CaseByStatus[]
     monthlyTrend: MonthlyItem[]
     filesByType: FileByType[]
@@ -111,7 +112,12 @@ export default function LegalReportsPage() {
     const [data, setData] = useState<LegalData | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+    const [lawyerMonth, setLawyerMonth] = useState("")
+    const [trendFilter, setTrendFilter] = useState("all")
+    const [processFilter, setProcessFilter] = useState("all")
+    const [lawyerChartMonth, setLawyerChartMonth] = useState("")
 
+    // Carga inicial de todos los datos
     useEffect(() => {
         if (!session?.user?.accessToken) return
         setLoading(true)
@@ -131,6 +137,78 @@ export default function LegalReportsPage() {
             .finally(() => setLoading(false))
     }, [session?.user?.accessToken])
 
+    // Actualizar solo tendencia mensual cuando cambia trendFilter
+    useEffect(() => {
+        if (!session?.user?.accessToken || !data) return
+        const params = new URLSearchParams()
+        if (trendFilter !== "all") params.append("trendFilter", trendFilter)
+        const url = `${STATISTICS_LEGAL_OVERVIEW_ENDPOINT}?${params.toString()}`
+        fetch(url, {
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.user.accessToken}`,
+            },
+            cache: "no-store",
+        })
+            .then((r) => r.json())
+            .then((newData) => setData(prev => prev ? { ...prev, monthlyTrend: newData.monthlyTrend } : null))
+            .catch(console.error)
+    }, [trendFilter])
+
+    // Actualizar solo expedientes por tipo de proceso cuando cambia processFilter
+    useEffect(() => {
+        if (!session?.user?.accessToken || !data) return
+        const params = new URLSearchParams()
+        if (processFilter !== "all") params.append("processFilter", processFilter)
+        const url = `${STATISTICS_LEGAL_OVERVIEW_ENDPOINT}?${params.toString()}`
+        fetch(url, {
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.user.accessToken}`,
+            },
+            cache: "no-store",
+        })
+            .then((r) => r.json())
+            .then((newData) => setData(prev => prev ? { ...prev, filesByProcessType: newData.filesByProcessType } : null))
+            .catch(console.error)
+    }, [processFilter])
+
+    // Actualizar solo ranking de abogados (tabla) cuando cambia lawyerMonth
+    useEffect(() => {
+        if (!session?.user?.accessToken || !data) return
+        const params = new URLSearchParams()
+        if (lawyerMonth) params.append("lawyerMonth", lawyerMonth)
+        const url = `${STATISTICS_LEGAL_OVERVIEW_ENDPOINT}?${params.toString()}`
+        fetch(url, {
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.user.accessToken}`,
+            },
+            cache: "no-store",
+        })
+            .then((r) => r.json())
+            .then((newData) => setData(prev => prev ? { ...prev, casesByLawyer: newData.casesByLawyer } : null))
+            .catch(console.error)
+    }, [lawyerMonth])
+
+    // Actualizar solo gráfico de causas por abogado cuando cambia lawyerChartMonth
+    useEffect(() => {
+        if (!session?.user?.accessToken || !data) return
+        const params = new URLSearchParams()
+        if (lawyerChartMonth) params.append("lawyerChartMonth", lawyerChartMonth)
+        const url = `${STATISTICS_LEGAL_OVERVIEW_ENDPOINT}?${params.toString()}`
+        fetch(url, {
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${session.user.accessToken}`,
+            },
+            cache: "no-store",
+        })
+            .then((r) => r.json())
+            .then((newData) => setData(prev => prev ? { ...prev, casesByLawyerChart: newData.casesByLawyerChart } : null))
+            .catch(console.error)
+    }, [lawyerChartMonth])
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-64">
@@ -147,7 +225,7 @@ export default function LegalReportsPage() {
         )
     }
 
-    const { statsCards, filesByProcessType, casesByLawyer, casesByStatus, monthlyTrend, filesByType, filesByJurisdiction, filesByCourt } = data
+    const { statsCards, filesByProcessType, casesByLawyer, casesByLawyerChart, casesByStatus, monthlyTrend, filesByType, filesByJurisdiction, filesByCourt } = data
 
     // ── Series de gráficos ──────────────────────────────────────────────────────
 
@@ -210,7 +288,7 @@ export default function LegalReportsPage() {
         plotOptions: { bar: { borderRadius: 4, columnWidth: "55%", distributed: true } },
         colors: CHART_COLORS,
         xaxis: {
-            categories: casesByLawyer.map((l) => l.name.split(" ")[0]),
+            categories: casesByLawyerChart.map((l) => l.name.split(" ")[0]),
             labels: { style: { fontSize: "11px" } },
         },
         yaxis: { labels: { formatter: (v) => String(Math.round(v)) } },
@@ -219,12 +297,12 @@ export default function LegalReportsPage() {
         grid: { strokeDashArray: 4, borderColor: "#e5e7eb" },
         tooltip: {
             custom: ({ dataPointIndex }: any) => {
-                const l = casesByLawyer[dataPointIndex]
+                const l = casesByLawyerChart[dataPointIndex]
                 return `<div class="px-3 py-2 text-sm"><b>${l.name}</b><br/>${l.count} causas</div>`
             },
         },
     }
-    const lawyerSeries = [{ name: "Causas", data: casesByLawyer.map((l) => l.count) }]
+    const lawyerSeries = [{ name: "Causas", data: casesByLawyerChart.map((l) => l.count) }]
 
     const statusOptions: ApexOptions = {
         chart: { type: "donut" },
@@ -273,6 +351,18 @@ export default function LegalReportsPage() {
         name: "Expedientes",
         data: filesByCourt.map((c) => ({ x: c.name, y: c.count })),
     }]
+
+    // ── Opciones de mes para el selector del ranking ────────────────────────────
+    const now = new Date()
+    const monthOptions = Array.from({ length: 12 }, (_, i) => {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        return {
+            value: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+            label: d.toLocaleDateString("es-AR", { month: "short", year: "numeric" }),
+        }
+    })
+
+    const lawyerTotal = casesByLawyer.reduce((acc, l) => acc + l.count, 0)
 
     // ── Podio top 3 abogados ────────────────────────────────────────────────────
     // Posición visual: izquierda=#2, centro=#1, derecha=#3
@@ -347,9 +437,21 @@ export default function LegalReportsPage() {
             {/* Tendencia mensual + Tipo de expediente */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <div className="xl:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
-                        Tendencia de Causas — Últimos 12 meses
-                    </h3>
+                    <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            Tendencia de Causas — Últimos 12 meses
+                        </h3>
+                        <select
+                            value={trendFilter}
+                            onChange={(e) => setTrendFilter(e.target.value)}
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                            <option value="all">Todos</option>
+                            <option value="active">Solo Activos</option>
+                            <option value="archived">Archivados</option>
+                            <option value="closed">Cerrados</option>
+                        </select>
+                    </div>
                     <ApexChart
                         type="area"
                         options={trendOptions}
@@ -376,9 +478,22 @@ export default function LegalReportsPage() {
 
             {/* Expedientes por Tipo de Proceso */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
-                    Expedientes por Tipo de Proceso
-                </h3>
+                <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                        Expedientes por Tipo de Proceso
+                    </h3>
+                    <select
+                        value={processFilter}
+                        onChange={(e) => setProcessFilter(e.target.value)}
+                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    >
+                        <option value="all">Todos</option>
+                        <option value="7">Últimos 7 días</option>
+                        <option value="15">Últimos 15 días</option>
+                        <option value="30">Últimos 30 días</option>
+                        <option value="90">Últimos 90 días</option>
+                    </select>
+                </div>
                 {filesByProcessType.length > 0 ? (
                     <ApexChart
                         type="bar"
@@ -395,9 +510,21 @@ export default function LegalReportsPage() {
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                 {/* Ranking */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-5">
-                        Ranking de Abogados por Causas Asignadas
-                    </h3>
+                    <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
+                        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            Ranking de Abogados — Causas Activas
+                        </h3>
+                        <select
+                            value={lawyerMonth}
+                            onChange={(e) => setLawyerMonth(e.target.value)}
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                            <option value="">Todos los meses</option>
+                            {monthOptions.map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                        </select>
+                    </div>
 
                     {/* Podio top 3 */}
                     {top3.length >= 2 && (
@@ -445,8 +572,8 @@ export default function LegalReportsPage() {
                                                 {lawyer.count}
                                             </td>
                                             <td className="py-2 text-right text-xs text-gray-500 pr-1">
-                                                {statsCards.totalCases > 0
-                                                    ? ((lawyer.count / statsCards.totalCases) * 100).toFixed(1)
+                                                {lawyerTotal > 0
+                                                    ? ((lawyer.count / lawyerTotal) * 100).toFixed(1)
                                                     : 0}%
                                             </td>
                                         </tr>
@@ -503,11 +630,23 @@ export default function LegalReportsPage() {
             </div>
 
             {/* Gráfico de barras abogados */}
-            {casesByLawyer.length > 0 && (
+            {casesByLawyerChart.length > 0 && (
                 <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
-                        Causas por Abogado
-                    </h3>
+                    <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200">
+                            Causas por Abogado
+                        </h3>
+                        <select
+                            value={lawyerChartMonth}
+                            onChange={(e) => setLawyerChartMonth(e.target.value)}
+                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        >
+                            <option value="">Todos los meses</option>
+                            {monthOptions.map((m) => (
+                                <option key={m.value} value={m.value}>{m.label}</option>
+                            ))}
+                        </select>
+                    </div>
                     <ApexChart
                         type="bar"
                         options={lawyerOptions}
