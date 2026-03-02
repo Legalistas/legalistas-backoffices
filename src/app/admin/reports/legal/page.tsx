@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import type { ApexOptions } from "apexcharts"
 import { useSession } from "next-auth/react"
 import { STATISTICS_LEGAL_OVERVIEW_ENDPOINT } from "@/constant/api-endpoints"
+import { FILES_TYPE } from "@/constant/causes"
 import {
     Briefcase,
     FileText,
@@ -59,6 +60,19 @@ interface FileByType {
     count: number
 }
 
+interface JurisdictionStat {
+    jurisdictionId: number
+    name: string
+    count: number
+}
+
+interface CourtStat {
+    courtId: number
+    name: string
+    charter: string
+    count: number
+}
+
 interface LegalData {
     statsCards: StatsCards
     filesByProcessType: FileByProcessType[]
@@ -66,6 +80,8 @@ interface LegalData {
     casesByStatus: CaseByStatus[]
     monthlyTrend: MonthlyItem[]
     filesByType: FileByType[]
+    filesByJurisdiction: JurisdictionStat[]
+    filesByCourt: CourtStat[]
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -131,7 +147,7 @@ export default function LegalReportsPage() {
         )
     }
 
-    const { statsCards, filesByProcessType, casesByLawyer, casesByStatus, monthlyTrend, filesByType } = data
+    const { statsCards, filesByProcessType, casesByLawyer, casesByStatus, monthlyTrend, filesByType, filesByJurisdiction, filesByCourt } = data
 
     // ── Series de gráficos ──────────────────────────────────────────────────────
 
@@ -151,9 +167,13 @@ export default function LegalReportsPage() {
     }
     const trendSeries = [{ name: "Causas creadas", data: monthlyTrend.map((m) => m.count) }]
 
+    const fileTypeLabels = filesByType.map((f) => {
+        const match = FILES_TYPE.find((t) => String(t.value) === String(f.filetype))
+        return match ? match.label : `Tipo ${f.filetype}`
+    })
     const fileTypeOptions: ApexOptions = {
         chart: { type: "donut" },
-        labels: filesByType.map((f) => f.filetype),
+        labels: fileTypeLabels,
         colors: ["#3b82f6", "#10b981", "#f59e0b"],
         legend: { position: "bottom", fontSize: "12px" },
         dataLabels: { formatter: (v: number) => `${v.toFixed(1)}%` },
@@ -217,16 +237,59 @@ export default function LegalReportsPage() {
     }
     const statusSeries = casesByStatus.map((s) => s.count)
 
+    const hBarBase: ApexOptions = {
+        chart: { type: "bar", toolbar: { show: false } },
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: "65%" } },
+        grid: { strokeDashArray: 4, borderColor: "#e5e7eb" },
+        dataLabels: { enabled: true, style: { fontSize: "11px" } },
+        xaxis: { labels: { style: { fontSize: "11px" } } },
+    }
+
+    const jurisdictionOptions: ApexOptions = {
+        ...hBarBase,
+        colors: ["#8b5cf6"],
+        tooltip: { y: { formatter: (v) => `${v} expedientes` } },
+    }
+    const jurisdictionSeries = [{
+        name: "Expedientes",
+        data: filesByJurisdiction.map((j) => ({ x: j.name, y: j.count })),
+    }]
+
+    const courtOptions: ApexOptions = {
+        ...hBarBase,
+        colors: ["#14b8a6"],
+        yaxis: {
+            labels: {
+                style: { fontSize: "10px" },
+                formatter: (v: any) => {
+                    const s = String(v)
+                    return s.length > 35 ? s.substring(0, 33) + "…" : s
+                },
+            },
+        },
+        tooltip: { y: { formatter: (v) => `${v} expedientes` } },
+    }
+    const courtSeries = [{
+        name: "Expedientes",
+        data: filesByCourt.map((c) => ({ x: c.name, y: c.count })),
+    }]
+
     // ── Podio top 3 abogados ────────────────────────────────────────────────────
+    // Posición visual: izquierda=#2, centro=#1, derecha=#3
     const top3 = casesByLawyer.slice(0, 3)
-    const podiumOrder = top3.length >= 3 ? [top3[1], top3[0], top3[2]] : top3
-    const podiumIcons = [
-        <Medal className="h-6 w-6 text-gray-400" />,
-        <Trophy className="h-7 w-7 text-yellow-400" />,
-        <Award className="h-6 w-6 text-amber-600" />,
-    ]
-    const podiumHeights = ["h-20", "h-28", "h-16"]
-    const podiumColors = ["bg-gray-100", "bg-yellow-50 ring-2 ring-yellow-300", "bg-amber-50"]
+    const podiumSlots = top3.length >= 3
+        ? [
+            { lawyer: top3[1], rank: 2, icon: <Medal className="h-6 w-6 text-gray-400" />, height: "h-20", color: "bg-gray-100" },
+            { lawyer: top3[0], rank: 1, icon: <Trophy className="h-7 w-7 text-yellow-400" />, height: "h-28", color: "bg-yellow-50 ring-2 ring-yellow-300" },
+            { lawyer: top3[2], rank: 3, icon: <Award className="h-6 w-6 text-amber-600" />, height: "h-16", color: "bg-amber-50" },
+          ]
+        : top3.map((lawyer, i) => ({
+            lawyer,
+            rank: i + 1,
+            icon: [<Trophy className="h-7 w-7 text-yellow-400" />, <Medal className="h-6 w-6 text-gray-400" />][i] ?? <Award className="h-6 w-6 text-amber-600" />,
+            height: ["h-28", "h-20"][i] ?? "h-16",
+            color: ["bg-yellow-50 ring-2 ring-yellow-300", "bg-gray-100"][i] ?? "bg-amber-50",
+          }))
 
     return (
         <div className="flex flex-col gap-6">
@@ -340,23 +403,20 @@ export default function LegalReportsPage() {
                     {/* Podio top 3 */}
                     {top3.length >= 2 && (
                         <div className="flex items-end justify-center gap-3 mb-6">
-                            {podiumOrder.map((lawyer, idx) => {
-                                const rank = podiumOrder.indexOf(lawyer) === 1 ? 1 : podiumOrder.indexOf(lawyer) === 0 ? 2 : 3
-                                return (
-                                    <div key={lawyer.id} className="flex flex-col items-center gap-1 flex-1 max-w-[120px]">
-                                        {podiumIcons[rank - 1]}
-                                        <div className={`w-full rounded-t-lg ${podiumHeights[rank - 1]} ${podiumColors[rank - 1]} flex items-center justify-center flex-col`}>
-                                            <span className="text-lg font-bold text-gray-800">
-                                                {lawyer.count}
-                                            </span>
-                                        </div>
-                                        <span className="text-xs text-center font-medium text-gray-600 leading-tight">
-                                            {lawyer.name}
+                            {podiumSlots.map(({ lawyer, rank, icon, height, color }) => (
+                                <div key={lawyer.id} className="flex flex-col items-center gap-1 flex-1 max-w-30">
+                                    {icon}
+                                    <div className={`w-full rounded-t-lg ${height} ${color} flex items-center justify-center`}>
+                                        <span className="text-lg font-bold text-gray-800">
+                                            {lawyer.count}
                                         </span>
-                                        <span className="text-[10px] text-gray-400">#{rank}</span>
                                     </div>
-                                )
-                            })}
+                                    <span className="text-xs text-center font-medium text-gray-600 leading-tight">
+                                        {lawyer.name}
+                                    </span>
+                                    <span className="text-[10px] text-gray-400">#{rank}</span>
+                                </div>
+                            ))}
                         </div>
                     )}
 
@@ -457,6 +517,41 @@ export default function LegalReportsPage() {
                     />
                 </div>
             )}
+
+            {/* Jurisdicción + Radicación */}
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
+                        Expedientes por Jurisdicción
+                    </h3>
+                    {filesByJurisdiction.length > 0 ? (
+                        <ApexChart
+                            type="bar"
+                            options={jurisdictionOptions}
+                            series={jurisdictionSeries}
+                            height={Math.max(220, filesByJurisdiction.length * 42)}
+                        />
+                    ) : (
+                        <EmptyState />
+                    )}
+                </div>
+
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-4">
+                        Expedientes por Radicación (Juzgado)
+                    </h3>
+                    {filesByCourt.length > 0 ? (
+                        <ApexChart
+                            type="bar"
+                            options={courtOptions}
+                            series={courtSeries}
+                            height={Math.max(220, filesByCourt.length * 38)}
+                        />
+                    ) : (
+                        <EmptyState />
+                    )}
+                </div>
+            </div>
         </div>
     )
 }
