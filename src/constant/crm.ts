@@ -87,7 +87,8 @@ export const SERVICES_TYPE: ServiceType[] = [
   { id: 3, value: 3, label: "Jubilaciones" },
   { id: 4, value: 4, label: "Sucesiones" },
   { id: 5, value: 5, label: "Daños y Materiales" },
-  { id: 6, value: 6, label: "Despidos" },
+  { id: 6, value: 6, label: "Civil" },
+  { id: 7, value: 7, label: "Ejecutivos" },
 ];
 
 export const LOG_TYPES: LOGType[] = [
