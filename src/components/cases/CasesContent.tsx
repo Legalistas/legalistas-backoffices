@@ -313,8 +313,8 @@ export default function CasesContent() {
           url.searchParams.append("toDate", toDate)
         }
 
-        // Si el usuario es REFERENTES, forzar filtro por su propio ID como responsibleLawyer
-        if (session?.user?.role === Role.REFERENTES && session?.user?.id) {
+        // Si el usuario es ABOGADO_REPRESENTANTE, forzar filtro por su propio ID como responsibleLawyer
+        if (session?.user?.role === Role.ABOGADO_REPRESENTANTE && session?.user?.id) {
           url.searchParams.delete("representativeLawyerId")
           url.searchParams.append("representativeLawyerId", session.user.id.toString())
         }
@@ -406,8 +406,8 @@ export default function CasesContent() {
       if (fromDateApi) url.searchParams.append("fromDate", fromDateApi)
       if (toDateApi) url.searchParams.append("toDate", toDateApi)
 
-      // Si el usuario es REFERENTES, forzar filtro por su propio ID como responsibleLawyer
-      if (session?.user?.role === Role.REFERENTES && session?.user?.id) {
+      // Si el usuario es ABOGADO_REPRESENTANTE, forzar filtro por su propio ID como responsibleLawyer
+      if (session?.user?.role === Role.ABOGADO_REPRESENTANTE && session?.user?.id) {
         url.searchParams.delete("representativeLawyerId")
         url.searchParams.append("representativeLawyerId", session.user.id.toString())
       }
