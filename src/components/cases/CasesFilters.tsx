@@ -15,6 +15,7 @@ import {
     UserCheck,
     List,
     Check,
+    FileDown,
 } from "lucide-react"
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/ui/input/Input"
@@ -49,6 +50,9 @@ interface CasesFiltersProps {
     handleViewModeChange: (mode: "card" | "list") => void
     showArchivedOnly: boolean // Updated prop name
     setShowArchivedOnly: (checked: boolean) => void // Updated setter prop name
+    showAll: boolean
+    setShowAll: (checked: boolean) => void
+    onExportExcel: () => void
     responsibleLawyerTypes?: LawyerOption[]
     lawyerInternalTypes?: LawyerOption[]
 }
@@ -74,6 +78,9 @@ export const CasesFilters = ({
     handleViewModeChange,
     showArchivedOnly, // Updated prop name
     setShowArchivedOnly, // Updated setter prop name
+    showAll,
+    setShowAll,
+    onExportExcel,
     responsibleLawyerTypes,
     lawyerInternalTypes,
 }: CasesFiltersProps) => {
@@ -212,7 +219,8 @@ export const CasesFilters = ({
         if (selectedRepresentativeLawyer && selectedRepresentativeLawyer.length > 0) count++
         if (selectedInternalLawyer && selectedInternalLawyer.length > 0) count++
         if (dateFrom || dateTo) count++
-        if (showArchivedOnly) count++ // Include the new filter in active filters count
+        if (showArchivedOnly) count++
+        if (showAll) count++
         return count
     }, [
         selectedService,
@@ -222,6 +230,7 @@ export const CasesFilters = ({
         dateFrom,
         dateTo,
         showArchivedOnly,
+        showAll,
     ])
 
     // Handle clicks outside of dropdowns
@@ -645,17 +654,45 @@ export const CasesFilters = ({
                     )}
                 </Button>
 
-                {/* Show Archived Switch */}
+                {/* Mostrar Todos Switch */}
                 <div className="flex items-center gap-2 h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-700">
-                    <span className="text-sm">Mostrar Archivados/Cerrados</span>
+                    <span className="text-sm font-medium">Mostrar todos</span>
                     <Switch
-                        id="show-archived-switch"
-                        defaultChecked={showArchivedOnly} // Updated prop
-                        onChange={setShowArchivedOnly} // Updated setter
+                        id="show-all-switch"
+                        defaultChecked={showAll}
+                        onChange={(checked) => {
+                            setShowAll(checked)
+                            if (checked) setShowArchivedOnly(false)
+                        }}
                         color="gray"
                         label=""
                     />
                 </div>
+
+                {/* Show Archived Switch */}
+                <div className={`flex items-center gap-2 h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-700 ${showAll ? "opacity-40 pointer-events-none" : ""}`}>
+                    <span className="text-sm">Solo Cerrados</span>
+                    <Switch
+                        id="show-archived-switch"
+                        defaultChecked={showArchivedOnly}
+                        onChange={(checked) => {
+                            setShowArchivedOnly(checked)
+                            if (checked) setShowAll(false)
+                        }}
+                        color="gray"
+                        label=""
+                    />
+                </div>
+
+                {/* Export Excel Button */}
+                <Button
+                    variant="outline"
+                    className="flex h-11 items-center gap-2 px-3 border-gray-200 bg-white text-gray-700 hover:bg-green-50 hover:border-green-400 hover:text-green-700"
+                    onClick={onExportExcel}
+                >
+                    <FileDown className="h-4 w-4" />
+                    <span className="text-sm">Exportar Excel</span>
+                </Button>
             </div>
 
             {/* Active Filters Display */}
@@ -715,10 +752,18 @@ export const CasesFilters = ({
                             </button>
                         </span>
                     )}
-                    {showArchivedOnly && ( // Display badge for the new filter
+                    {showArchivedOnly && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-800">
-                            Solo Archivados
+                            Solo Cerrados
                             <button onClick={() => setShowArchivedOnly(false)} className="text-gray-600 hover:text-gray-800">
+                                <X className="h-3 w-3" />
+                            </button>
+                        </span>
+                    )}
+                    {showAll && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-teal-100 px-2 py-1 text-xs text-teal-800">
+                            Mostrando todos
+                            <button onClick={() => setShowAll(false)} className="text-teal-600 hover:text-teal-800">
                                 <X className="h-3 w-3" />
                             </button>
                         </span>

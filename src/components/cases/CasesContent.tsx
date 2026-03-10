@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import { toast } from "sonner"
 import { Loader2, Plus } from "lucide-react"
+import * as XLSX from "xlsx"
 import { DataNotFound } from "../common/DataNotFound"
 import { CasesHeader } from "./CasesHeader"
 import { CasesFilters } from "./CasesFilters"
@@ -52,6 +53,7 @@ export default function CasesContent() {
   const [dateFrom, setDateFrom] = useState<string>("")
   const [dateTo, setDateTo] = useState<string>("")
   const [showArchivedOnly, setShowArchivedOnly] = useState(false) // Renamed state
+  const [showAll, setShowAll] = useState(false) // Mostrar todos los casos sin filtro de etapa
 
   // Lawyer states
   const [responsibleLawyerTypes, setResponsibleLawyerTypes] = useState<LawyerOption[]>([])
@@ -75,11 +77,13 @@ export default function CasesContent() {
     dateFrom: string
     dateTo: string
     showArchivedOnly: boolean
+    showAll: boolean
     currentPage: number
   }) => {
     try {
       const filtersToSave = {
         ...filters,
+        showAll: filters.showAll ?? false,
         timestamp: Date.now(), // Agregar timestamp para validación
       }
       localStorage.setItem('casesFilters', JSON.stringify(filtersToSave))
@@ -125,6 +129,7 @@ export default function CasesContent() {
         dateFrom: searchParams.get("dateFrom") || "",
         dateTo: searchParams.get("dateTo") || "",
         showArchivedOnly: searchParams.get("showArchivedOnly") === "true",
+        showAll: searchParams.get("showAll") === "true",
       }
     }
 
@@ -147,6 +152,7 @@ export default function CasesContent() {
       setDateFrom(filters.dateFrom || "")
       setDateTo(filters.dateTo || "")
       setShowArchivedOnly(filters.showArchivedOnly || false)
+      setShowAll(filters.showAll || false)
 
       return filters
     }
@@ -237,6 +243,7 @@ export default function CasesContent() {
       representativeLawyerIds?: string[],
       internalLawyerIds?: string[],
       showArchivedCasesOnly?: boolean, // Updated parameter name
+      showAllCases?: boolean,
     ) => {
       try {
         setIsLoading(true)
@@ -255,7 +262,9 @@ export default function CasesContent() {
           url.searchParams.append("servicesId", serviceId.toString())
         }
 
-        if (stageId !== undefined) {
+        if (showAllCases) {
+          // Mostrar todos los casos sin filtro de etapa
+        } else if (stageId !== undefined) {
           // Si se seleccionó una etapa específica del dropdown, esa tiene prioridad.
           url.searchParams.append("stageId", stageId.toString())
         } else if (showArchivedCasesOnly) {
@@ -265,8 +274,6 @@ export default function CasesContent() {
         } else {
           // Si no se seleccionó una etapa específica Y el switch "Mostrar Archivados" está OFF,
           // entonces se EXCLUYEN los casos con stageId 6 (se muestran 1,2,3,4,5).
-          // IMPORTANTE: Asegúrate de que tu backend soporta el parámetro 'excludeStageId'.
-          // Si no lo soporta, necesitarás ajustar la lógica del backend o filtrar en el frontend.
           url.searchParams.append("excludeStageId", "6")
         }
 
@@ -362,6 +369,88 @@ export default function CasesContent() {
     [session?.user?.accessToken],
   )
 
+  // ──────────────────────────────────────────────────────────
+  // Exportar a Excel
+  // ──────────────────────────────────────────────────────────
+  const handleExportExcel = useCallback(async () => {
+    try {
+      toast.info("Preparando exportación...")
+      const url = new URL(`${CASES_ENDPOINT}`, window.location.origin)
+      url.searchParams.append("page", "1")
+      url.searchParams.append("limit", "9999")
+
+      if (searchTerm) url.searchParams.append("search", searchTerm)
+      if (selectedService !== undefined) url.searchParams.append("servicesId", selectedService.toString())
+
+      if (showAll) {
+        // Sin filtro de etapa
+      } else if (selectedStage !== undefined) {
+        url.searchParams.append("stageId", selectedStage.toString())
+      } else if (showArchivedOnly) {
+        url.searchParams.append("stageId", "6")
+      } else {
+        url.searchParams.append("excludeStageId", "6")
+      }
+
+      selectedRepresentativeLawyer.forEach((id) => url.searchParams.append("representativeLawyerId", id))
+      selectedInternalLawyer.forEach((id) => url.searchParams.append("internalLawyerId", id))
+
+      const fromDateApi = formatDateForApi(dateFrom)
+      const toDateApi = formatDateForApi(dateTo)
+      if (fromDateApi) url.searchParams.append("fromDate", fromDateApi)
+      if (toDateApi) url.searchParams.append("toDate", toDateApi)
+
+      const response = await fetch(url.toString(), {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.user?.accessToken}`,
+        },
+      })
+
+      if (!response.ok) throw new Error("Error al obtener datos para exportar")
+
+      const result: ApiResponse = await response.json()
+      const data = result.data
+
+      if (!data || data.length === 0) {
+        toast.warning("No hay casos para exportar con los filtros actuales")
+        return
+      }
+
+      const rows = data.map((c) => ({
+        "N° Caso": c.number ?? "",
+        Título: c.title ?? "",
+        Cliente: c.customer?.name ?? "",
+        "Abogado Representante": c.responsibleLawyer?.name ?? "",
+        "Abogado Interno": c.internalLawyer?.name ?? "",
+        Etapa: c.stageId !== undefined ? String(c.stageId) : "",
+        Servicio: c.servicesId !== undefined ? String(c.servicesId) : "",
+        "Fecha de creación": c.createdAt ? new Date(c.createdAt).toLocaleDateString("es-AR") : "",
+      }))
+
+      const ws = XLSX.utils.json_to_sheet(rows)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, "Casos")
+      XLSX.writeFile(wb, `casos_${new Date().toISOString().split("T")[0]}.xlsx`)
+      toast.success(`Exportación completada: ${data.length} casos`)
+    } catch (error) {
+      console.error("Error al exportar:", error)
+      toast.error("Error al exportar los casos")
+    }
+  }, [
+    session?.user?.accessToken,
+    searchTerm,
+    selectedService,
+    selectedStage,
+    selectedRepresentativeLawyer,
+    selectedInternalLawyer,
+    dateFrom,
+    dateTo,
+    showArchivedOnly,
+    showAll,
+    formatDateForApi,
+  ])
+
   // Load view mode preference once on component mount
   useEffect(() => {
     const savedViewMode = localStorage.getItem("casosViewMode")
@@ -388,6 +477,7 @@ export default function CasesContent() {
       dateFrom?: string
       dateTo?: string
       showArchivedOnly?: boolean
+      showAll?: boolean
     }) => {
       const params = new URLSearchParams()
 
@@ -407,6 +497,7 @@ export default function CasesContent() {
       if (filters.dateFrom) params.set("dateFrom", filters.dateFrom)
       if (filters.dateTo) params.set("dateTo", filters.dateTo)
       if (filters.showArchivedOnly) params.set("showArchivedOnly", "true")
+      if (filters.showAll) params.set("showAll", "true")
 
       const newURL = params.toString() ? `?${params.toString()}` : window.location.pathname
       router.replace(newURL, { scroll: false })
@@ -421,6 +512,7 @@ export default function CasesContent() {
         dateFrom: filters.dateFrom || "",
         dateTo: filters.dateTo || "",
         showArchivedOnly: filters.showArchivedOnly || false,
+        showAll: filters.showAll || false,
         currentPage: filters.page || 1,
       })
     },
@@ -465,6 +557,7 @@ export default function CasesContent() {
         selectedRepresentativeLawyer,
         selectedInternalLawyer,
         showArchivedOnly,
+        showAll,
       )
       isInitialRender.current = false
     }
@@ -493,6 +586,7 @@ export default function CasesContent() {
         dateFrom: dateFrom,
         dateTo: dateTo,
         showArchivedOnly: showArchivedOnly,
+        showAll: showAll,
       })
 
       fetchCases(
@@ -505,6 +599,7 @@ export default function CasesContent() {
         selectedRepresentativeLawyer,
         selectedInternalLawyer,
         showArchivedOnly,
+        showAll,
       )
       setCurrentPage(1) // Reset to first page when search term changes
     }, 500) // 500ms debounce
@@ -524,6 +619,7 @@ export default function CasesContent() {
     dateFrom,
     dateTo,
     showArchivedOnly,
+    showAll,
     updateURL,
     fetchCases,
     formatDateForApi
@@ -539,6 +635,7 @@ export default function CasesContent() {
     setDateFrom("")
     setDateTo("")
     setShowArchivedOnly(false) // Reset the switch
+    setShowAll(false) // Reset the show all switch
     setCurrentPage(1) // Also reset current page
 
     // Limpiar localStorage también
@@ -578,6 +675,7 @@ export default function CasesContent() {
           selectedRepresentativeLawyer,
           selectedInternalLawyer,
           showArchivedOnly,
+          showAll,
         )
       } catch (error) {
         console.error("Error al eliminar el caso:", error)
@@ -596,6 +694,7 @@ export default function CasesContent() {
       dateFrom,
       dateTo,
       showArchivedOnly,
+      showAll,
       fetchCases
     ],
   )
@@ -613,8 +712,22 @@ export default function CasesContent() {
       dateFrom: dateFrom,
       dateTo: dateTo,
       showArchivedOnly: showArchivedOnly,
+      showAll: showAll,
     })
-  }, [searchTerm, selectedService, selectedStage, selectedRepresentativeLawyer, selectedInternalLawyer, dateFrom, dateTo, showArchivedOnly, updateURL])
+    // Llamar fetchCases directamente para que el cambio de página haga la petición
+    fetchCases(
+      page,
+      searchTerm,
+      selectedService,
+      selectedStage,
+      formatDateForApi(dateFrom),
+      formatDateForApi(dateTo),
+      selectedRepresentativeLawyer,
+      selectedInternalLawyer,
+      showArchivedOnly,
+      showAll,
+    )
+  }, [searchTerm, selectedService, selectedStage, selectedRepresentativeLawyer, selectedInternalLawyer, dateFrom, dateTo, showArchivedOnly, showAll, updateURL, fetchCases, formatDateForApi])
 
   // Agregar efecto para guardar filtros cuando cambien
   useEffect(() => {
@@ -628,6 +741,7 @@ export default function CasesContent() {
         dateFrom,
         dateTo,
         showArchivedOnly,
+        showAll,
         currentPage,
       })
     }
@@ -640,6 +754,7 @@ export default function CasesContent() {
     dateFrom,
     dateTo,
     showArchivedOnly,
+    showAll,
     currentPage,
     saveFiltersToStorage
   ])
@@ -653,7 +768,8 @@ export default function CasesContent() {
     (selectedInternalLawyer && selectedInternalLawyer.length > 0) ||
     dateFrom ||
     dateTo ||
-    showArchivedOnly,
+    showArchivedOnly ||
+    showAll,
   )
 
   // Loading state
@@ -708,6 +824,9 @@ export default function CasesContent() {
           lawyerInternalTypes={lawyerInternalTypes}
           showArchivedOnly={showArchivedOnly} // Pass the updated prop
           setShowArchivedOnly={setShowArchivedOnly} // Pass the updated setter
+          showAll={showAll}
+          setShowAll={setShowAll}
+          onExportExcel={handleExportExcel}
         />
       </div>
 
