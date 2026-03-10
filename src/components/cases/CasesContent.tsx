@@ -313,6 +313,12 @@ export default function CasesContent() {
           url.searchParams.append("toDate", toDate)
         }
 
+        // Si el usuario es REFERENTES, forzar filtro por su propio ID como responsibleLawyer
+        if (session?.user?.role === Role.REFERENTES && session?.user?.id) {
+          url.searchParams.delete("representativeLawyerId")
+          url.searchParams.append("representativeLawyerId", session.user.id.toString())
+        }
+
         console.log("Final URL:", url.toString())
 
         const response = await fetch(url.toString(), {
@@ -366,7 +372,7 @@ export default function CasesContent() {
         setIsLoading(false)
       }
     },
-    [session?.user?.accessToken],
+    [session?.user?.accessToken, session?.user?.role, session?.user?.id],
   )
 
   // ──────────────────────────────────────────────────────────
@@ -399,6 +405,12 @@ export default function CasesContent() {
       const toDateApi = formatDateForApi(dateTo)
       if (fromDateApi) url.searchParams.append("fromDate", fromDateApi)
       if (toDateApi) url.searchParams.append("toDate", toDateApi)
+
+      // Si el usuario es REFERENTES, forzar filtro por su propio ID como responsibleLawyer
+      if (session?.user?.role === Role.REFERENTES && session?.user?.id) {
+        url.searchParams.delete("representativeLawyerId")
+        url.searchParams.append("representativeLawyerId", session.user.id.toString())
+      }
 
       const response = await fetch(url.toString(), {
         headers: {

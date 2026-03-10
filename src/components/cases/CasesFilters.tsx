@@ -22,6 +22,8 @@ import Input from "@/components/ui/input/Input"
 import { servicesType, stageCases } from "@/lib/constant"
 import { getServiceName, getStatusName } from "@/lib/functions"
 import Switch from "@/components/ui/switch/Switch" // Ensure this import path is correct
+import { Can } from "@/components/auth/Can"
+import { Role } from "@/constant/user"
 
 interface LawyerOption {
     id: string
@@ -655,19 +657,28 @@ export const CasesFilters = ({
                 </Button>
 
                 {/* Mostrar Todos Switch */}
-                <div className="flex items-center gap-2 h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-700">
-                    <span className="text-sm font-medium">Mostrar todos</span>
-                    <Switch
-                        id="show-all-switch"
-                        defaultChecked={showAll}
-                        onChange={(checked) => {
-                            setShowAll(checked)
-                            if (checked) setShowArchivedOnly(false)
-                        }}
-                        color="gray"
-                        label=""
-                    />
-                </div>
+                <Can role={[
+                    Role.ADMINISTRATOR,
+                    Role.DIRECTOR_GENERAL_CEO,
+                    Role.GERENTE_GENERAL_COO,
+                    Role.DIRECTORA_AREA_LEGAL,
+                    Role.COORDINADOR_LEGAL,
+                    Role.ASISTENTE_LEGAL,
+                ]}>
+                    <div className="flex items-center gap-2 h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-700">
+                        <span className="text-sm font-medium">Mostrar todos</span>
+                        <Switch
+                            id="show-all-switch"
+                            defaultChecked={showAll}
+                            onChange={(checked) => {
+                                setShowAll(checked)
+                                if (checked) setShowArchivedOnly(false)
+                            }}
+                            color="gray"
+                            label=""
+                        />
+                    </div>
+                </Can>
 
                 {/* Show Archived Switch */}
                 <div className={`flex items-center gap-2 h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-700 ${showAll ? "opacity-40 pointer-events-none" : ""}`}>
