@@ -20,8 +20,8 @@ export const servicesType: ServiceType[] = [
   { id: 4, value: 4, label: "Sucesiones" },
   { id: 5, value: 5, label: "Daños y materiales" },
   { id: 6, value: 6, label: "Despidos" },
-  { id: 6, value: 6, label: "Civil" },
-  { id: 7, value: 7, label: "Ejecutivos" },
+  { id: 7, value: 7, label: "Civil" },
+  { id: 8, value: 8, label: "Ejecutivos" },
 ];
 
 export const stageCases: StageType[] = [

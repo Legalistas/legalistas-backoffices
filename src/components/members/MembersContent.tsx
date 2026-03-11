@@ -109,6 +109,8 @@ export default function MembersContent() {
     const [clientModalOpen, setClientModalOpen] = useState(false)
     const [editingMember, setEditingMember] = useState<User | null>(null)
     const [modalMode, setModalMode] = useState<"create" | "edit">("create")
+    const [newMemberPassword, setNewMemberPassword] = useState("")
+    const [confirmPassword, setConfirmPassword] = useState("")
     const [availableRoles, setAvailableRoles] = useState<any[]>([])
     const [availableCountries, setAvailableCountries] = useState<any[]>([])
     const [availableStates, setAvailableStates] = useState<any[]>([])
@@ -484,9 +486,110 @@ export default function MembersContent() {
 
     const handleEdit = useCallback((contact: User) => {
         setEditingMember(contact)
+        setNewMemberPassword("")
+        setConfirmPassword("")
         setModalMode("edit")
         setClientModalOpen(true)
     }, [])
+
+    const handleCreateMember = useCallback(
+        async () => {
+            if (!editingMember) {
+                toast.error("No hay datos para crear")
+                return
+            }
+
+            // Validaciones
+            if (!editingMember.name?.trim()) {
+                toast.error("El nombre es requerido")
+                return
+            }
+            if (!editingMember.email?.trim()) {
+                toast.error("El email es requerido")
+                return
+            }
+            if (!newMemberPassword) {
+                toast.error("La contraseña es requerida")
+                return
+            }
+            if (newMemberPassword.length < 6) {
+                toast.error("La contraseña debe tener al menos 6 caracteres")
+                return
+            }
+            if (newMemberPassword !== confirmPassword) {
+                toast.error("Las contraseñas no coinciden")
+                return
+            }
+            if (!editingMember.roleUser?.[0]?.roleId) {
+                toast.error("Debes seleccionar un rol")
+                return
+            }
+
+            try {
+                const createData = {
+                    name: editingMember.name,
+                    email: editingMember.email,
+                    password: newMemberPassword,
+                    image: editingMember.image || "",
+                    role: editingMember.roleUser?.[0]?.roleId,
+                    userProfile: {
+                        birthDate: editingMember.userProfile?.birthDate || new Date().toISOString(),
+                        docType: editingMember.userProfile?.docType || 1,
+                        docNumber: editingMember.userProfile?.docNumber || "",
+                        gender: editingMember.userProfile?.gender || 1,
+                        phone: editingMember.userProfile?.phone || "",
+                    },
+                    userAddresses: editingMember.userAddresses && editingMember.userAddresses.length > 0 
+                        ? editingMember.userAddresses.map(addr => ({
+                            street: addr.street || "",
+                            streetNumber: addr.streetNumber || "",
+                            city: addr.city || "",
+                            stateId: addr.stateId || 1,
+                            countryId: addr.countryId || 1,
+                            cp: addr.cp || "",
+                            description: addr.description || "",
+                            isDefault: addr.isDefault !== undefined ? addr.isDefault : true
+                        }))
+                        : [{
+                            street: "",
+                            streetNumber: "",
+                            city: "",
+                            stateId: 1,
+                            countryId: 1,
+                            cp: "",
+                            description: "",
+                            isDefault: true
+                        }]
+                }
+
+                const response = await fetch(`${USERS_ENDPOINT}`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${session?.user?.accessToken}`,
+                    },
+                    body: JSON.stringify(createData),
+                })
+
+                if (!response.ok) {
+                    const errorData = await response.json()
+                    throw new Error(errorData.message || "Error al crear el miembro")
+                }
+
+                toast.success("Miembro creado correctamente")
+                setClientModalOpen(false)
+                setEditingMember(null)
+                setNewMemberPassword("")
+                setConfirmPassword("")
+                setModalMode("create")
+                await fetchAllMembers(currentPage)
+            } catch (error) {
+                console.error("Error creating member:", error)
+                toast.error(error instanceof Error ? error.message : "Error al crear el miembro")
+            }
+        },
+        [editingMember, newMemberPassword, confirmPassword, session?.user?.accessToken, fetchAllMembers, currentPage],
+    )
 
     const handleClientUpdated = useCallback(
         async (updatedMember: User | null) => {
@@ -595,7 +698,33 @@ export default function MembersContent() {
                             variant="custom"
                             size="sm"
                             onClick={() => {
-                                setEditingMember(null)
+                                // Inicializar un nuevo miembro vacío
+                                setEditingMember({
+                                    id: 0,
+                                    name: "",
+                                    email: "",
+                                    image: "",
+                                    userProfile: {
+                                        phone: "",
+                                        docType: 1,
+                                        docNumber: "",
+                                        gender: 1,
+                                        birthDate: new Date().toISOString(),
+                                    },
+                                    userAddresses: [{
+                                        street: "",
+                                        streetNumber: "",
+                                        city: "",
+                                        stateId: 0,
+                                        countryId: 0,
+                                        cp: "",
+                                        description: "",
+                                        isDefault: true
+                                    }],
+                                    roleUser: []
+                                } as any)
+                                setNewMemberPassword("")
+                                setConfirmPassword("")
                                 setModalMode("create")
                                 setClientModalOpen(true)
                             }}
@@ -917,6 +1046,8 @@ export default function MembersContent() {
                 onClose={() => {
                     setClientModalOpen(false)
                     setEditingMember(null)
+                    setNewMemberPassword("")
+                    setConfirmPassword("")
                     setModalMode("create")
                 }}
                 className="max-w-2xl"
@@ -927,7 +1058,11 @@ export default function MembersContent() {
                     </h2>
                     <form onSubmit={(e) => {
                         e.preventDefault()
-                        handleClientUpdated(editingMember)
+                        if (modalMode === "create") {
+                            handleCreateMember()
+                        } else {
+                            handleClientUpdated(editingMember)
+                        }
                     }} className="space-y-6">
                         {/* Grid de información básica */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1002,6 +1137,39 @@ export default function MembersContent() {
                                     ))}
                                 </select>
                             </div>
+
+                            {/* Campos de contraseña - solo en modo crear */}
+                            {modalMode === "create" && (
+                                <>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Contraseña *
+                                        </label>
+                                        <Input
+                                            type="password"
+                                            value={newMemberPassword}
+                                            onChange={(e) => setNewMemberPassword(e.target.value)}
+                                            className="w-full"
+                                            placeholder="Mínimo 6 caracteres"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                            Confirmar Contraseña *
+                                        </label>
+                                        <Input
+                                            type="password"
+                                            value={confirmPassword}
+                                            onChange={(e) => setConfirmPassword(e.target.value)}
+                                            className="w-full"
+                                            placeholder="Repite la contraseña"
+                                        />
+                                        {confirmPassword && newMemberPassword !== confirmPassword && (
+                                            <p className="text-xs text-red-500 mt-1">Las contraseñas no coinciden</p>
+                                        )}
+                                    </div>
+                                </>
+                            )}
                         </div>
 
                         {/* Sección de ubicación */}
@@ -1129,6 +1297,8 @@ export default function MembersContent() {
                                 onClick={() => {
                                     setClientModalOpen(false)
                                     setEditingMember(null)
+                                    setNewMemberPassword("")
+                                    setConfirmPassword("")
                                     setModalMode("create")
                                 }}
                             >
