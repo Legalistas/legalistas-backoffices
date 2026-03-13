@@ -17,12 +17,7 @@ export const CaseHeader = ({ title, number, currentStep, steps }: CaseHeaderProp
 
   const handleBackClick = () => {
     // Usar router.back() para mantener el estado anterior (filtros, paginación, etc.)
-    if (window.history.length > 1) {
-      router.back()
-    } else {
-      // Si no hay historial (acceso directo), ir a legal-cases
-      router.push("/admin/legal-cases")
-    }
+    router.push("/admin/legal-cases")
   }
 
   return (
@@ -33,25 +28,11 @@ export const CaseHeader = ({ title, number, currentStep, steps }: CaseHeaderProp
             <ArrowLeft className="h-4 w-4" />
             Volver
           </Button>
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-bold tracking-tight truncate text-gray-dark dark:text-gray-100">
-            {`Caso #${number} - ${title}`}
-          </h1>
         </div>
 
-        {/* Versión móvil - simplificada */}
-        <div className="sm:hidden w-full overflow-x-auto pb-2">
-          <StatusProgressBar
-            steps={steps.map((step) => step.split(" ")[0])} // Solo muestra la primera palabra en móvil
-            currentStep={currentStep}
-            className="w-full"
-          />
-        </div>
-
-        {/* Versión tablet y desktop */}
-        <div className="hidden sm:flex sm:justify-end sm:shrink-0">
-          <div className="w-full max-w-md lg:max-w-lg xl:max-w-xl">
-            <StatusProgressBar steps={steps} currentStep={currentStep} className="w-full" />
-          </div>
+        {/* Progress bar */}
+        <div className="flex-1 min-w-0">
+          <StatusProgressBar steps={steps} currentStep={currentStep} className="w-full" />
         </div>
       </div>
     </div>

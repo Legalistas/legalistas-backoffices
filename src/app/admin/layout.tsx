@@ -28,13 +28,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, [status, router])
 
   // Show loading state while checking authentication
-  if (status === "loading") {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-lg font-semibold">Cargando...</p>
-      </div>
-    )
-  }
+  // if (status === "loading") {
+  //   return (
+  //     <div className="flex items-center justify-center min-h-screen">
+  //       <p className="text-lg font-semibold">Cargando...</p>
+  //     </div>
+  //   )
+  // }
 
   // Prevent layout rendering without session
   // This is just a fallback, the middleware should handle this

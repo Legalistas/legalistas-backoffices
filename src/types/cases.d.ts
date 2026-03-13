@@ -3,6 +3,7 @@ export interface User {
   name: string;
   email: string;
   image: string;
+  userProfile?: { phone?: string };
 }
 
 export interface CasesFiles {
@@ -15,6 +16,7 @@ export interface CasesFiles {
   observation: string;
   cuij: string;
   courtId: number;
+  jurisdictionId?: number | null;
   typeProcessId: number;
   statusProcessId: number;
   startDate: string;
@@ -29,6 +31,98 @@ export interface CasesFiles {
   fileMovements?: CasesFilesMovement[];
   accidentDate?: string;
   instanceExpiration?: string;
+}
+
+export interface CaseEvent {
+  id: number;
+  caseId: number;
+  fileId?: number | null;
+  type: number;
+  subType?: number | null;
+  title?: string | null;
+  date: string;
+  time?: string | null;
+  location?: string | null;
+  observation?: string | null;
+  status: string;
+  schedule: number;
+  responsibleId: number;
+  createdAt: string;
+  updatedAt: string;
+  file?: {
+    id: number;
+    title: string;
+    cuij?: string;
+  } | null;
+  responsiblePerson: {
+    id: number;
+    name: string;
+    email: string;
+    image?: string;
+  };
+}
+
+export interface CaseDeadline {
+  id: number;
+  caseId: number;
+  fileId?: number | null;
+  jurisdictionId: number;
+  deadlineTypeId?: number | null;
+  type?: string | null;
+  title: string;
+  description?: string | null;
+  responsibleId: number;
+  mode: string;
+  notificationDate?: string | null;
+  daysCount?: number | null;
+  daysType?: string | null;
+  dueDate: string;
+  dueTime?: string | null;
+  advanceNoticeDays: number;
+  schedule: number;
+  calculationDetail?: {
+    tipo_dias: string;
+    cantidad_dias: number;
+    fecha_notificacion: string;
+    fecha_inicio_computo: string;
+    fecha_original_vencimiento: string | null;
+    dias_habiles_contados: number;
+    fines_semana_excluidos: number;
+    feriados_excluidos: { fecha: string; descripcion: string }[];
+    prorrogado_por_inhabil: boolean;
+    calculado_at: string;
+  } | null;
+  adjustmentReason?: string | null;
+  adjustedAt?: string | null;
+  originalDueDate?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  file?: {
+    id: number;
+    title: string;
+    cuij?: string;
+  } | null;
+  responsiblePerson: {
+    id: number;
+    name: string;
+    email: string;
+    image?: string;
+  };
+  jurisdiction: {
+    id: number;
+    name: string;
+  };
+  deadlineType?: {
+    id: number;
+    code: string;
+    name: string;
+    daysCount: number;
+    daysType: string;
+    article?: string | null;
+    extendable: boolean;
+    peremptory: boolean;
+  } | null;
 }
 
 export interface CasesFilesMovement {

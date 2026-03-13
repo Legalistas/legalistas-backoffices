@@ -2,12 +2,34 @@
 "use client"
 
 import { CaseConsultationMessages, CaseConsultations } from "@/types/cases"
-import { Clipboard, File, Plus, Send, FileText, FileImage, FileArchive, FileCode, MessageCircleCode, EyeClosed, Ban } from "lucide-react"
+import { 
+    File, Plus, Send, FileText, FileImage, FileArchive, FileCode, 
+    MessageSquare, X, Clock, CheckCircle2, XCircle, ChevronRight,
+    Paperclip, ArrowDown, User, Building2
+} from "lucide-react"
 import { BASE_URL, CASES_CONSULTATIONS_MESSAGES_ENDPOINT, CASES_CONSULTATIONS_MARK_READ_ENDPOINT, CASES_CONSULTATIONS_CLOSE_ENDPOINT } from "@/constant/api-endpoints"
 import { useState, useEffect, useRef, useCallback } from "react"
 import { useSession } from "next-auth/react"
 import Button from "../ui/button/Button"
 import CreateConsultationForm from "./CreateConsultationForm"
+
+const STATUS_CONFIG = {
+    PENDING: { 
+        label: "Pendiente", 
+        color: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
+        icon: Clock 
+    },
+    OPEN: { 
+        label: "Abierta", 
+        color: "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800",
+        icon: CheckCircle2 
+    },
+    CLOSED: { 
+        label: "Cerrada", 
+        color: "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800",
+        icon: XCircle 
+    },
+}
 
 interface ConsultationsViewProps {
     consultations: CaseConsultations[]
@@ -21,11 +43,8 @@ export default function ConsultationsView({
     onCreateConsultation,
 }: ConsultationsViewProps) {
     const [closeError, setCloseError] = useState<string | null>(null);
-
-    // Estado para mostrar el formulario de nueva consulta
     const [showCreateForm, setShowCreateForm] = useState(false);
 
-    // Mantener la consulta seleccionada tras F5 usando localStorage
     const [selectedConsultation, setSelectedConsultation] = useState<CaseConsultations | null>(() => {
         if (typeof window !== 'undefined') {
             const savedId = localStorage.getItem('selectedConsultationId');
@@ -36,21 +55,6 @@ export default function ConsultationsView({
         }
         return null;
     });
-
-
-    // Devuelve el texto legible del status
-    const getStatusText = (status: CaseConsultations["status"]) => {
-        switch (status) {
-            case "PENDING":
-                return "pendiente"
-            case "OPEN":
-                return "abierta"
-            case "CLOSED":
-                return "cerrada"
-            default:
-                return "desconocida"
-        }
-    }
 
     const { data: session } = useSession()
 
@@ -239,246 +243,407 @@ export default function ConsultationsView({
         document.body.removeChild(link)
     }
 
+    const formatDate = (dateStr: string) => {
+        return new Date(dateStr).toLocaleDateString("es-AR", { 
+            day: "2-digit", 
+            month: "2-digit", 
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        })
+    }
+
+    const formatShortDate = (dateStr: string) => {
+        const date = new Date(dateStr)
+        const now = new Date()
+        const diffMs = now.getTime() - date.getTime()
+        const diffHours = diffMs / (1000 * 60 * 60)
+        
+        if (diffHours < 24) {
+            return date.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+        }
+        if (diffHours < 48) {
+            return "Ayer"
+        }
+        return date.toLocaleDateString("es-AR", { day: "2-digit", month: "short" })
+    }
+
+    const sortedConsultations = [...consultations].sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+
+    const pendingCount = consultations.filter(c => c.status === "PENDING").length
+    const openCount = consultations.filter(c => c.status === "OPEN").length
 
     return (
-        <div className="flex h-full bg-white rounded-lg shadow-lg overflow-hidden">
-            {/* Sidebar con lista de consultas */}
-            <div className="w-1/3 border-r border-gray-200 bg-gray-50">
-                <div className="flex items-center justify-between p-4">
-                    <h2 className="text-lg font-semibold">Consultas del caso</h2>
-                    {/* Botón solo para admin/responsable, aquí se asume que siempre se muestra. Puedes condicionar por rol si lo necesitas. */}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowCreateForm(true)}
-                        className="ml-2"
-                    >
-                        Nueva Consulta
-                    </Button>
-                </div>
-                {/* Formulario para crear nueva consulta */}
-                {showCreateForm && (
-                    <div className="p-4">
-                        <CreateConsultationForm
-                            caseId={Number(caseId)}
-                            onSuccess={() => { setShowCreateForm(false); if (typeof window !== 'undefined') window.location.reload(); }}
-                            onCancel={() => setShowCreateForm(false)}
-                        />
-                    </div>
-                )}
-                <ul>
-                    {consultations.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((consultation) => (
-                        <li
-                            key={`consultation-${consultation.id}`}
-                            onClick={() => handleSelectConsultation(consultation)}
-                            className={`p-4 cursor-pointer hover:bg-gray-100 ${selectedConsultation?.id === consultation.id ? "bg-blue-100" : ""}`}
-                        >
-                            <div className="flex justify-between items-center">
-                                <span className="font-medium">{consultation.title}</span>
-                                <span
-                                    className={`text-xs px-2 py-1 rounded uppercase ${consultation.status === "OPEN"
-                                        ? "bg-green-100 text-green-700"
-                                        : consultation.status === "PENDING"
-                                            ? "bg-yellow-100 text-yellow-700"
-                                            : "bg-red-100 text-red-700"}`}
-                                >
-                                    {getStatusText(consultation.status)}
-                                </span>
-                                {/* Indicador de mensajes no leídos */}
-                                {typeof (consultation as any).unreadMessages === 'number' && (consultation as any).unreadMessages > 0 && (
-                                    <span className="ml-2 bg-blue-500 text-white rounded-full px-2 py-0.5 text-xs font-bold" title="Mensajes no leídos">
-                                        {(consultation as any).unreadMessages}
-                                    </span>
-                                )}
-                            </div>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Creada el {new Date(consultation.createdAt).toLocaleString()}
-                            </p>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-
-            {/* Panel de mensajes */}
-            <div className="w-2/3 flex flex-col">
-                {selectedConsultation ? (
-                    <>
-                        {/* Header */}
-                        <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                            <button
-                                className="text-xs text-gray-400 underline hover:text-gray-600 mt-2 md:mt-0"
-                                onClick={handleDeselectConsultation}
-                                title="Cerrar panel de consulta"
-                            >
-                                Cerrar panel
-                            </button>
-                            <div>
-                                <h3 className="font-semibold text-lg">{selectedConsultation.title}</h3>
-                                <p className="text-sm text-gray-500">
-                                    Consulta creada el {new Date(selectedConsultation.createdAt).toLocaleString()}
-                                </p>
-                            </div>
+        <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+            <div className="flex h-[600px]">
+                {/* Sidebar - Lista de consultas */}
+                <div className="w-[340px] border-r border-gray-200 dark:border-gray-700 flex flex-col bg-gray-50/50 dark:bg-gray-800/50">
+                    {/* Header del sidebar */}
+                    <div className="px-4 py-4 border-b border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                <span className={`text-xs px-2 py-1 rounded uppercase ${selectedConsultation.status === "OPEN"
-                                    ? "bg-green-100 text-green-700"
-                                    : selectedConsultation.status === "PENDING"
-                                        ? "bg-yellow-100 text-yellow-700"
-                                        : "bg-red-100 text-red-700"}`}>{getStatusText(selectedConsultation.status)}</span>
-                                {selectedConsultation.status === "OPEN" && (
-                                    <Button
-                                        variant="outline"
-                                        size="icon"
-                                        onClick={handleCloseConsultation}
-                                        className=""
-                                        title="Cerrar consulta"
-                                    >
-                                        <Ban className="h-4 w-4" />
-                                    </Button>
-                                )}
+                                <MessageSquare className="h-5 w-5 text-gray-400" />
+                                <h3 className="text-md font-semibold text-gray-900 dark:text-gray-100">Consultas</h3>
                             </div>
+                            <button 
+                                onClick={() => setShowCreateForm(true)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                            >
+                                <Plus className="h-3.5 w-3.5" />
+                                Nueva
+                            </button>
                         </div>
-
-                        {/* Archivos generales de la consulta */}
-                        {selectedConsultation.files && selectedConsultation.files.length > 0 && (
-                            <div className="p-4 border-b border-gray-200 bg-gray-50">
-                                <h4 className="font-medium text-gray-700 mb-2">Archivos adjuntos a la consulta</h4>
-                                <ul className="space-y-1 text-sm">
-                                    {selectedConsultation.files.map((file) => (
-                                        <li key={`file-${file.id}`}> 
-                                            <button
-                                                type="button"
-                                                onClick={() => downloadFile(file.filePath, file.fileName)}
-                                                className="flex items-center gap-2 text-blue-600 hover:underline"
-                                            >
-                                                {getFileIcon(file.extension)}
-                                                {file.fileName} ({file.extension.toUpperCase()})
-                                            </button>
-                                        </li>
-                                    ))}
-                                </ul>
+                        {consultations.length > 0 && (
+                            <div className="flex items-center gap-2 text-xs text-gray-500">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
+                                    <Clock className="h-3 w-3" />
+                                    {pendingCount} pendientes
+                                </span>
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    {openCount} abiertas
+                                </span>
                             </div>
                         )}
+                    </div>
 
-                        {/* Lista de mensajes */}
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4 h-[300px]">
-                            {selectedConsultation.messages?.map(
-                                (message: CaseConsultationMessages, index: number) => (
-                                    <div
-                                        key={message.id ? `msg-${message.id}` : `msg-idx-${index}`}
-                                        className={`flex ${message.sender === "user" ? "justify-start" : "justify-end"
-                                            }`}
-                                    >
+                    {/* Formulario de nueva consulta */}
+                    {showCreateForm && (
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                            <CreateConsultationForm
+                                caseId={Number(caseId)}
+                                onSuccess={() => { setShowCreateForm(false); if (typeof window !== 'undefined') window.location.reload(); }}
+                                onCancel={() => setShowCreateForm(false)}
+                            />
+                        </div>
+                    )}
+
+                    {/* Lista de consultas */}
+                    <div className="flex-1 overflow-y-auto">
+                        {consultations.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full px-4 py-10">
+                                <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-3">
+                                    <MessageSquare className="h-6 w-6 text-gray-400" />
+                                </div>
+                                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Sin consultas</p>
+                                <p className="text-xs text-gray-400 text-center mb-3">No hay consultas del cliente aún.</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                {sortedConsultations.map((consultation) => {
+                                    const statusConfig = STATUS_CONFIG[consultation.status] || STATUS_CONFIG.PENDING
+                                    const StatusIcon = statusConfig.icon
+                                    const isSelected = selectedConsultation?.id === consultation.id
+                                    const unreadCount = (consultation as any).unreadMessages || 0
+                                    const lastMessage = consultation.messages?.[consultation.messages.length - 1]
+
+                                    return (
                                         <div
-                                            className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.sender === "user"
-                                                ? "bg-[#3B82F6] text-white"
-                                                : "bg-gray-100 text-gray-900"
-                                                }`}
+                                            key={consultation.id}
+                                            onClick={() => handleSelectConsultation(consultation)}
+                                            className={`px-4 py-3 cursor-pointer transition-colors ${
+                                                isSelected 
+                                                    ? "bg-brand-50 dark:bg-brand-900/20 border-l-2 border-brand-500" 
+                                                    : "hover:bg-gray-100 dark:hover:bg-gray-700/50 border-l-2 border-transparent"
+                                            }`}
                                         >
-                                            <p className="text-sm">{message.content}</p>
-                                            <p
-                                                className={`text-xs mt-1 ${message.sender === "user" ? "text-blue-100" : "text-gray-500"
-                                                    }`}
-                                            >
-                                                {`Enviado el ${new Date(message.timestamp).toLocaleString()}`}
-                                            </p>
-
-                                            {message.files && message.files.length > 0 && (
-                                                <div className="mt-2 space-y-2">
-                                                    {message.files.map((file) => (
-                                                        <button
-                                                            key={`msgfile-${file.id}`}
-                                                            type="button"
-                                                            onClick={() => downloadFile(file.filePath, file.fileName)}
-                                                            className="flex items-center gap-2 text-xs underline"
-                                                        >
-                                                            {getFileIcon(file.extension)} {file.fileName} ({Math.round(file.fileSize / 1024)} KB)
-                                                        </button>
-                                                    ))}
+                                            <div className="flex items-start gap-3">
+                                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                                                    consultation.status === "PENDING" 
+                                                        ? "bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800" 
+                                                        : consultation.status === "OPEN"
+                                                            ? "bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800"
+                                                            : "bg-gray-50 dark:bg-gray-700 border border-gray-100 dark:border-gray-600"
+                                                }`}>
+                                                    <StatusIcon className={`h-4 w-4 ${
+                                                        consultation.status === "PENDING" 
+                                                            ? "text-amber-500" 
+                                                            : consultation.status === "OPEN"
+                                                                ? "text-green-500"
+                                                                : "text-gray-400"
+                                                    }`} />
                                                 </div>
-                                            )}
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <h4 className={`text-sm font-medium truncate ${
+                                                            isSelected 
+                                                                ? "text-brand-700 dark:text-brand-300" 
+                                                                : "text-gray-900 dark:text-gray-100"
+                                                        }`}>
+                                                            {consultation.title}
+                                                        </h4>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            {unreadCount > 0 && (
+                                                                <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-brand-500 rounded-full">
+                                                                    {unreadCount}
+                                                                </span>
+                                                            )}
+                                                            <span className="text-[10px] text-gray-400">
+                                                                {formatShortDate(consultation.createdAt)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    {lastMessage && (
+                                                        <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 truncate">
+                                                            {lastMessage.sender === "user" ? "Cliente: " : "Tú: "}
+                                                            {lastMessage.content || "Archivo adjunto"}
+                                                        </p>
+                                                    )}
+                                                    <span className={`inline-flex items-center gap-1 mt-1.5 px-2 py-0.5 rounded text-[10px] font-medium border ${statusConfig.color}`}>
+                                                        {statusConfig.label}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Panel de mensajes */}
+                <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
+                    {selectedConsultation ? (
+                        <>
+                            {/* Header del chat */}
+                            <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-100 dark:border-brand-800 flex items-center justify-center">
+                                            <MessageSquare className="h-5 w-5 text-brand-500" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                                {selectedConsultation.title}
+                                            </h3>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                Creada el {formatDate(selectedConsultation.createdAt)}
+                                            </p>
                                         </div>
                                     </div>
-                                )
-                            )}
-                            {/* Ref para scroll automático */}
-                            <div ref={messagesEndRef} />
-                        </div>
-                        {/* Botón para bajar al último mensaje (simula 'unread') */}
-                        <div className="flex justify-end px-4 pb-2">
-                            <button
-                                type="button"
-                                onClick={scrollToLastMessage}
-                                className="text-xs text-blue-600 underline hover:text-blue-800"
-                                title="Ir al último mensaje"
-                            >
-                                Ir al último mensaje
-                            </button>
-                        </div>
-
-                        {/* Input de mensaje + archivos */}
-                        <div className="p-4 border-t border-gray-200 bg-gray-50">
-                            <div className="relative flex items-end">
-                                <textarea
-                                    placeholder="Escribe tu mensaje aquí..."
-                                    className="flex-1 border border-gray-300 rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 pr-24 h-32 resize"
-                                    value={messageContent}
-                                    onChange={(e) => setMessageContent(e.target.value)}
-                                    style={{ resize: "none" }}
-                                />
-                                <input
-                                    type="file"
-                                    multiple
-                                    onChange={(e) => setAttachedFiles(e.target.files)}
-                                    className="hidden"
-                                    id="fileUpload"
-                                />
-                                <div className="absolute right-2 bottom-2 flex flex-col items-end gap-2">
-                                    {/* Archivos seleccionados para adjuntar */}
-                                    {attachedFiles && attachedFiles.length > 0 && (
-                                        <div className="mb-1 max-w-xs flex flex-col items-end">
-                                            <ul className="bg-gray-100 rounded px-2 py-1 text-xs text-gray-700 shadow border border-gray-200">
-                                                {Array.from(attachedFiles).map((file, idx) => (
-                                                    <li key={idx} className="flex items-center gap-1">
-                                                        {getFileIcon(file.name.split('.').pop() || '')}
-                                                        <span className="truncate max-w-[120px]">{file.name}</span>
-                                                        <span className="text-gray-400">({Math.round(file.size / 1024)} KB)</span>
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    )}
-                                    <div className="flex gap-1">
-                                        <label
-                                            htmlFor="fileUpload"
-                                            className="cursor-pointer p-2 bg-gray-200 rounded hover:bg-gray-300 transition"
-                                            title="Adjuntar archivos"
-                                        >
-                                            <Plus className="h-4 w-4" />
-                                        </label>
+                                    <div className="flex items-center gap-2">
+                                        {(() => {
+                                            const statusConfig = STATUS_CONFIG[selectedConsultation.status] || STATUS_CONFIG.PENDING
+                                            const StatusIcon = statusConfig.icon
+                                            return (
+                                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border ${statusConfig.color}`}>
+                                                    <StatusIcon className="h-3.5 w-3.5" />
+                                                    {statusConfig.label}
+                                                </span>
+                                            )
+                                        })()}
+                                        {selectedConsultation.status === "OPEN" && (
+                                            <button
+                                                onClick={handleCloseConsultation}
+                                                className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors"
+                                                title="Cerrar consulta"
+                                            >
+                                                <XCircle className="h-4 w-4" />
+                                            </button>
+                                        )}
                                         <button
-                                            onClick={handleSendMessage}
-                                            disabled={sending}
-                                            className="bg-blue-600 text-white p-2 rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 flex items-center"
-                                            title="Enviar mensaje"
+                                            onClick={handleDeselectConsultation}
+                                            className="p-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-500 transition-colors"
+                                            title="Cerrar panel"
                                         >
-                                            <Send className="h-4 w-4" />
+                                            <X className="h-4 w-4" />
                                         </button>
                                     </div>
                                 </div>
+
+                                {/* Archivos de la consulta */}
+                                {selectedConsultation.files && selectedConsultation.files.length > 0 && (
+                                    <div className="mt-3 flex items-center gap-2 flex-wrap">
+                                        <Paperclip className="h-3.5 w-3.5 text-gray-400" />
+                                        {selectedConsultation.files.map((file) => (
+                                            <button
+                                                key={file.id}
+                                                onClick={() => downloadFile(file.filePath, file.fileName)}
+                                                className="inline-flex items-center gap-1.5 px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                            >
+                                                {getFileIcon(file.extension)}
+                                                <span className="truncate max-w-[120px]">{file.fileName}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Mensajes */}
+                            <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-gray-50/50 dark:bg-gray-900/20">
+                                {selectedConsultation.messages?.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-full">
+                                        <div className="w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-3">
+                                            <MessageSquare className="h-6 w-6 text-gray-400" />
+                                        </div>
+                                        <p className="text-sm text-gray-500">No hay mensajes aún</p>
+                                    </div>
+                                ) : (
+                                    selectedConsultation.messages?.map((message: CaseConsultationMessages, index: number) => {
+                                        const isUser = message.sender === "user"
+                                        return (
+                                            <div
+                                                key={message.id || `msg-${index}`}
+                                                className={`flex ${isUser ? "justify-start" : "justify-end"}`}
+                                            >
+                                                <div className={`flex items-end gap-2 max-w-[70%] ${isUser ? "flex-row" : "flex-row-reverse"}`}>
+                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                                                        isUser 
+                                                            ? "bg-gray-200 dark:bg-gray-600" 
+                                                            : "bg-brand-100 dark:bg-brand-900/30"
+                                                    }`}>
+                                                        <User className={`h-4 w-4 ${
+                                                            isUser ? "text-gray-600 dark:text-gray-300" : "text-brand-600 dark:text-brand-400"
+                                                        }`} />
+                                                    </div>
+                                                    <div className={`rounded-2xl px-4 py-2.5 ${
+                                                        isUser 
+                                                            ? "bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-bl-md" 
+                                                            : "bg-brand-500 text-white rounded-br-md"
+                                                    }`}>
+                                                        {message.content && (
+                                                            <p className={`text-sm ${isUser ? "text-gray-900 dark:text-gray-100" : "text-white"}`}>
+                                                                {message.content}
+                                                            </p>
+                                                        )}
+                                                        {message.files && message.files.length > 0 && (
+                                                            <div className="mt-2 space-y-1.5">
+                                                                {message.files.map((file) => (
+                                                                    <button
+                                                                        key={file.id}
+                                                                        onClick={() => downloadFile(file.filePath, file.fileName)}
+                                                                        className={`flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-lg transition-colors ${
+                                                                            isUser 
+                                                                                ? "bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500" 
+                                                                                : "bg-white/20 hover:bg-white/30"
+                                                                        }`}
+                                                                    >
+                                                                        {getFileIcon(file.extension)}
+                                                                        <span className="truncate max-w-[140px]">{file.fileName}</span>
+                                                                        <span className="text-[10px] opacity-70">
+                                                                            ({Math.round(file.fileSize / 1024)} KB)
+                                                                        </span>
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        <p className={`text-[10px] mt-1.5 ${
+                                                            isUser ? "text-gray-400" : "text-white/70"
+                                                        }`}>
+                                                            {formatDate(message.timestamp)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })
+                                )}
+                                <div ref={messagesEndRef} />
+                            </div>
+
+                            {/* Botón scroll */}
+                            <div className="flex justify-center py-1 bg-gray-50/50 dark:bg-gray-900/20 border-t border-gray-100 dark:border-gray-700">
+                                <button
+                                    onClick={scrollToLastMessage}
+                                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-brand-500 transition-colors"
+                                >
+                                    <ArrowDown className="h-3 w-3" />
+                                    Ir al último mensaje
+                                </button>
+                            </div>
+
+                            {/* Input de mensaje */}
+                            {selectedConsultation.status !== "CLOSED" && (
+                                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+                                    {/* Archivos adjuntos preview */}
+                                    {attachedFiles && attachedFiles.length > 0 && (
+                                        <div className="mb-3 flex items-center gap-2 flex-wrap">
+                                            {Array.from(attachedFiles).map((file, idx) => (
+                                                <div 
+                                                    key={idx} 
+                                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs"
+                                                >
+                                                    {getFileIcon(file.name.split('.').pop() || '')}
+                                                    <span className="truncate max-w-[100px] text-gray-700 dark:text-gray-300">
+                                                        {file.name}
+                                                    </span>
+                                                    <span className="text-gray-400">
+                                                        ({Math.round(file.size / 1024)} KB)
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    <div className="flex items-end gap-2">
+                                        <div className="flex-1 relative">
+                                            <textarea
+                                                placeholder="Escribe tu mensaje..."
+                                                className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
+                                                rows={2}
+                                                value={messageContent}
+                                                onChange={(e) => setMessageContent(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault()
+                                                        handleSendMessage()
+                                                    }
+                                                }}
+                                            />
+                                        </div>
+                                        <input
+                                            type="file"
+                                            multiple
+                                            onChange={(e) => setAttachedFiles(e.target.files)}
+                                            className="hidden"
+                                            id="fileUpload"
+                                        />
+                                        <label
+                                            htmlFor="fileUpload"
+                                            className="p-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-500 transition-colors cursor-pointer"
+                                            title="Adjuntar archivo"
+                                        >
+                                            <Paperclip className="h-5 w-5" />
+                                        </label>
+                                        <button
+                                            onClick={handleSendMessage}
+                                            disabled={sending || (!messageContent && !attachedFiles)}
+                                            className="p-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            title="Enviar mensaje"
+                                        >
+                                            <Send className="h-5 w-5" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedConsultation.status === "CLOSED" && (
+                                <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                                    <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+                                        <XCircle className="h-4 w-4" />
+                                        Esta consulta está cerrada
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="flex-1 flex items-center justify-center bg-gray-50/50 dark:bg-gray-900/20">
+                            <div className="flex flex-col items-center justify-center px-8 py-14 text-center">
+                                <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+                                    <MessageSquare className="h-8 w-8 text-gray-400" />
+                                </div>
+                                <h3 className="text-lg font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Selecciona una consulta
+                                </h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+                                    Elige una consulta de la lista para ver los mensajes y responder al cliente.
+                                </p>
                             </div>
                         </div>
-                    </>
-                ) : (
-                    <div className="flex-1 flex items-center justify-center text-gray-500">
-                        <div className="flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 p-8 text-center">
-                            <MessageCircleCode className="h-10 w-10 text-gray-500" />
-                            <h3 className="mb-2 text-lg font-medium">Selecciona una consulta</h3>
-                            <p className="mb-4 mt-2 text-sm text-gray-500">
-                                Elige una consulta de la lista para ver los mensajes y archivos asociados.
-                            </p>
-                        </div>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </div>
     )

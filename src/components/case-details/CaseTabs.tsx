@@ -1,56 +1,54 @@
 "use client"
 
-import { use, useState, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs/Tabs"
 import type { CaseLogs, CasesFiles, CasesNotes, CaseConsultations, CasesDocuments } from "@/types/cases"
-import { EmptyFilesState } from "./EmptyFilesState"
-import { FilesCardView } from "./FilesCardView"
 import { FilesListView } from "./FilesListView"
 import { NotesView } from "./NotesView"
-import { EmptyNotesState } from "./EmptyNotesState"
 import CaseLogsComponent from "./CaseLogsComponent"
 import { useRouter, useSearchParams } from "next/navigation"
 import ConsultationsView from "./ConsultationsView"
 import CaseDocuments from "./CaseDocuments"
+import { EventosView } from "./EventosView"
+import { PlazosView } from "./PlazosView"
+import { LiquidacionView } from "./LiquidacionView"
+import { PartesView } from "./PartesView"
+import { GastosView } from "./GastosView"
+import { CedulasView } from "./CedulasView"
 
 interface CaseTabsProps {
   activeTab: string
   onTabChange: (tab: string) => void
-  files: CasesFiles[]
   notes: CasesNotes[]
   logs: CaseLogs[]
   documents?: CasesDocuments[]
   consultation: CaseConsultations[]
   caseId: string
-  viewMode: "card" | "list"
-  fileTypeFilter: number
   filteredFiles: CasesFiles[]
   onAddNewFile: () => void
-  onClearFilter: () => void
   onNotesUpdated?: () => void
   customer: {
     name: string
   }
+  responsibleLawyer?: { id: number; name: string; image?: string | null } | null
+  internalLawyer?: { id: number; name: string; image?: string | null } | null
 }
 
 export const CaseTabs = ({
   activeTab,
   onTabChange,
-  files,
   notes = [],
   logs = [],
   consultation = [],
   documents = [],
   caseId,
-  viewMode,
-  fileTypeFilter,
   filteredFiles,
   onAddNewFile,
-  onClearFilter,
   customer,
   onNotesUpdated = () => { },
+  responsibleLawyer,
+  internalLawyer,
 }: CaseTabsProps) => {
-  const [isCreatingNote, setIsCreatingNote] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const [tab, setTab] = useState(() => searchParams.get("tab") || activeTab)
@@ -73,73 +71,79 @@ export const CaseTabs = ({
   }
 
   const handleNoteCreated = () => {
-    setIsCreatingNote(false)
     onNotesUpdated()
     router.push(`/admin/legal-cases/${caseId}`)
-  }
-
-  const handleAddNewNote = () => {
-    setIsCreatingNote(true)
   }
 
   const handleDocumentLoad = () => {
     router.refresh()
   }
 
+  const tabContentClass = "bg-white dark:bg-gray-800 text-gray-dark dark:text-gray-100"
 
   return (
     <Tabs defaultValue={tab} onValueChange={handleTabChange} className="w-full">
-      <TabsList className="w-full bg-white dark:bg-gray-800 text-gray-dark dark:text-gray-100 p-2">
+      <TabsList className="w-full bg-white dark:bg-gray-800 text-gray-dark dark:text-gray-100 p-2 overflow-x-auto">
         <TabsTrigger value="files">Expedientes</TabsTrigger>
-        <TabsTrigger value="consultations">
-          Consultas
-        </TabsTrigger>
-        <TabsTrigger value="notes">Notas</TabsTrigger>
+        <TabsTrigger value="eventos">Eventos</TabsTrigger>
+        <TabsTrigger value="plazos">Plazos</TabsTrigger>
         <TabsTrigger value="documents">Documentos</TabsTrigger>
-        <TabsTrigger value="record">Historial</TabsTrigger>
+        <TabsTrigger value="notes">Notas</TabsTrigger>
+        <TabsTrigger value="liquidacion">Liquidación</TabsTrigger>
+        <TabsTrigger value="partes">Partes</TabsTrigger>
+        <TabsTrigger value="gastos">Gastos</TabsTrigger>
+        <TabsTrigger value="cedulas">Cédulas</TabsTrigger>
+        <TabsTrigger value="consultations">Consultas</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="files" className="bg-white dark:bg-gray-800 text-gray-dark dark:text-gray-100">
-        {!files || files.length === 0 ? (
-          <EmptyFilesState
-            noFiles={true}
-            fileTypeFilter={fileTypeFilter}
-            onAddNewFile={onAddNewFile}
-            onClearFilter={onClearFilter}
-          />
-        ) : filteredFiles.length === 0 ? (
-          <EmptyFilesState
-            noFiles={false}
-            fileTypeFilter={fileTypeFilter}
-            onAddNewFile={onAddNewFile}
-            onClearFilter={onClearFilter}
-          />
-        ) : viewMode === "list" ? (
-          <FilesListView files={filteredFiles} caseId={caseId} customer={customer} />
-        ) : (
-          <FilesCardView files={filteredFiles} caseId={caseId} customer={customer} />
-        )}
+      {/* 1. Expedientes */}
+      <TabsContent value="files" className={tabContentClass}>
+        <FilesListView files={filteredFiles} caseId={caseId} customer={customer} onAddNewFile={onAddNewFile} />
       </TabsContent>
 
-      <TabsContent value="consultations" className="bg-white dark:bg-gray-800 text-gray-dark dark:text-gray-100">
-        <ConsultationsView consultations={consultation} caseId={caseId} onCreateConsultation={handleCreateConsultation} />
+      {/* 2. Eventos */}
+      <TabsContent value="eventos" className={tabContentClass}>
+        <EventosView files={filteredFiles} caseId={caseId} responsibleLawyer={responsibleLawyer} internalLawyer={internalLawyer} />
       </TabsContent>
 
-      <TabsContent value="notes" className="bg-white dark:bg-gray-800 text-gray-dark dark:text-gray-100">
-        {isCreatingNote || (notes && notes.length > 0) ? (
-          <NotesView notes={notes} caseId={caseId} onNoteCreated={handleNoteCreated} />
-        ) : (
-          <EmptyNotesState onAddNewNote={handleAddNewNote} />
-        )}
+      {/* 3. Plazos */}
+      <TabsContent value="plazos" className={tabContentClass}>
+        <PlazosView files={filteredFiles} caseId={caseId} responsibleLawyer={responsibleLawyer} internalLawyer={internalLawyer} />
       </TabsContent>
 
-
-      <TabsContent value="documents" className="bg-white dark:bg-gray-800 text-gray-dark dark:text-gray-100">
+      {/* 4. Documentos */}
+      <TabsContent value="documents" className={tabContentClass}>
         <CaseDocuments documents={documents} caseId={caseId} onDocumentLoad={handleDocumentLoad} />
       </TabsContent>
 
-      <TabsContent value="record" className="bg-white dark:bg-gray-800 text-gray-dark dark:text-gray-100">
-        <CaseLogsComponent logs={logs} />
+      {/* 5. Notas */}
+      <TabsContent value="notes" className={tabContentClass}>
+        <NotesView notes={notes} caseId={caseId} onNoteCreated={handleNoteCreated} responsibleLawyer={responsibleLawyer} internalLawyer={internalLawyer} />
+      </TabsContent>
+
+      {/* 6. Liquidación */}
+      <TabsContent value="liquidacion" className={tabContentClass}>
+        <LiquidacionView />
+      </TabsContent>
+
+      {/* 7. Partes */}
+      <TabsContent value="partes" className={tabContentClass}>
+        <PartesView />
+      </TabsContent>
+
+      {/* 8. Gastos */}
+      <TabsContent value="gastos" className={tabContentClass}>
+        <GastosView />
+      </TabsContent>
+
+      {/* 9. Cédulas */}
+      <TabsContent value="cedulas" className={tabContentClass}>
+        <CedulasView />
+      </TabsContent>
+
+      {/* 10. Consultas */}
+      <TabsContent value="consultations" className={tabContentClass}>
+        <ConsultationsView consultations={consultation} caseId={caseId} onCreateConsultation={handleCreateConsultation} />
       </TabsContent>
     </Tabs>
   )

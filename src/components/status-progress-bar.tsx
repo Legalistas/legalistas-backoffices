@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { Check, ChevronRight } from "lucide-react"
 
 interface StatusProgressBarProps {
   steps: string[]
@@ -7,40 +8,60 @@ interface StatusProgressBarProps {
 }
 
 export function StatusProgressBar({ steps, currentStep, className }: StatusProgressBarProps) {
-  // Convert currentStep to number if it's a string
   const currentStepNumber = typeof currentStep === "string" ? Number.parseInt(currentStep, 10) : currentStep
 
   return (
-    <div className={cn("w-full overflow-hidden", className)}>
-      <div className="flex items-center w-full">
+    <div className={cn("w-full", className)}>
+      <div className="flex items-center gap-1">
         {steps.map((step, index) => {
           const stepNumber = index + 1
+          const isCompleted = stepNumber < currentStepNumber
+          const isCurrent = stepNumber === currentStepNumber
           const isActive = stepNumber <= currentStepNumber
           const isLast = stepNumber === steps.length
 
           return (
-            <div key={index} className="flex-1 min-w-0 relative">
+            <div key={index} className="flex items-center gap-1">
               {/* Step */}
               <div
                 className={cn(
-                  "relative flex items-center justify-center h-10 text-sm font-medium transition-colors duration-300",
-                  isActive ? "bg-[#09a4b5] text-white" : "bg-gray-200 text-gray-600",
-                  index === 0 ? "rounded-l-lg" : "",
-                  isLast ? "rounded-r-lg" : "",
-                  "px-2"
+                  "flex items-center gap-1.5 px-2 py-1 rounded-full transition-all duration-300",
+                  isCurrent
+                    ? "bg-[#09a4b5] text-white"
+                    : isCompleted
+                      ? "bg-[#09a4b5]/10 text-[#09a4b5]"
+                      : "bg-gray-100 text-gray-400 dark:bg-gray-700/50 dark:text-gray-500"
                 )}
               >
-                <span className="truncate text-center text-xs sm:text-sm leading-tight">{step}</span>
+                {/* Circle indicator */}
+                <div
+                  className={cn(
+                    "shrink-0 flex items-center justify-center rounded-full",
+                    isCurrent
+                      ? "h-5 w-5 bg-white/20"
+                      : isCompleted
+                        ? "h-5 w-5 bg-[#09a4b5] text-white"
+                        : "h-5 w-5 bg-gray-200 dark:bg-gray-600"
+                  )}
+                >
+                  {isCompleted ? (
+                    <Check className="h-3 w-3" strokeWidth={3} />
+                  ) : (
+                    <span className="text-[10px] font-bold">{stepNumber}</span>
+                  )}
+                </div>
+
+                {/* Label */}
+                <span className="text-[11px] font-medium whitespace-nowrap">{step}</span>
               </div>
 
-              {/* Connector Arrow */}
+              {/* Chevron separator */}
               {!isLast && (
-                <div
-                  className="absolute right-0 top-1/2 transform -translate-y-1/2 w-3 h-3 rotate-45 z-10"
-                  style={{
-                    backgroundColor: isActive ? "rgb(9, 164, 181)" : "rgb(229, 231, 235)",
-                    marginRight: "-6px",
-                  }}
+                <ChevronRight
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0",
+                    isActive && !isCurrent ? "text-[#09a4b5]" : "text-gray-300 dark:text-gray-600"
+                  )}
                 />
               )}
             </div>

@@ -7,10 +7,10 @@ import * as XLSX from "xlsx"
 import { DataNotFound } from "../common/DataNotFound"
 import { CasesHeader } from "./CasesHeader"
 import { CasesFilters } from "./CasesFilters"
-import { CasesCardView } from "./CasesCardView"
 import { CasesListView } from "./CasesListView"
+import { CasesKanbanView } from "./CasesKanbanView"
 import type { Cases } from "@/types/cases"
-import { CASES_ENDPOINT, LAWYERS_ENDPOINT } from "@/constant/api-endpoints"
+import { CASES_ENDPOINT, CASES_NOTES_CREATE_ENDPOINT, LAWYERS_ENDPOINT } from "@/constant/api-endpoints"
 import { useSession } from "next-auth/react"
 import { Pagination } from "../ui/pagination/Pagination"
 import { Role } from "@/constant/user"
@@ -38,7 +38,7 @@ export default function CasesContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [searchTerm, setSearchTerm] = useState("")
-  const [viewMode, setViewMode] = useState<"card" | "list">("list")
+  const [viewMode, setViewMode] = useState<"list" | "kanban">("list")
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -244,12 +244,13 @@ export default function CasesContent() {
       internalLawyerIds?: string[],
       showArchivedCasesOnly?: boolean, // Updated parameter name
       showAllCases?: boolean,
+      isKanbanMode?: boolean,
     ) => {
       try {
         setIsLoading(true)
         const url = new URL(`${CASES_ENDPOINT}`, window.location.origin)
-        url.searchParams.append("page", page.toString())
-        url.searchParams.append("limit", "10")
+        url.searchParams.append("page", isKanbanMode ? "1" : page.toString())
+        url.searchParams.append("limit", isKanbanMode ? "1000" : "10")
 
         if (search) {
           url.searchParams.append("search", search)
@@ -262,19 +263,17 @@ export default function CasesContent() {
           url.searchParams.append("servicesId", serviceId.toString())
         }
 
-        if (showAllCases) {
-          // Mostrar todos los casos sin filtro de etapa
-        } else if (stageId !== undefined) {
-          // Si se seleccionó una etapa específica del dropdown, esa tiene prioridad.
+        if (stageId !== undefined) {
+          // Etapa específica del dropdown siempre tiene prioridad
           url.searchParams.append("stageId", stageId.toString())
         } else if (showArchivedCasesOnly) {
-          // Si no se seleccionó una etapa específica Y el switch "Mostrar Archivados" está ON,
-          // entonces se muestran SÓLO los casos con stageId 6 (Archivados/Cerrados).
-          url.searchParams.append("stageId", "6")
+          // Archivados: solo stageId 7
+          url.searchParams.append("stageId", "7")
+        } else if (showAllCases) {
+          // Mostrar todos: sin filtro de etapa
         } else {
-          // Si no se seleccionó una etapa específica Y el switch "Mostrar Archivados" está OFF,
-          // entonces se EXCLUYEN los casos con stageId 6 (se muestran 1,2,3,4,5).
-          url.searchParams.append("excludeStageId", "6")
+          // Por defecto: excluir archivados (stageId 7)
+          url.searchParams.append("excludeStageId", "7")
         }
 
         // Debug logs
@@ -313,10 +312,23 @@ export default function CasesContent() {
           url.searchParams.append("toDate", toDate)
         }
 
-        // Si el usuario es ABOGADO_REPRESENTANTE, forzar filtro por su propio ID como responsibleLawyer
+        // Si el usuario es ABOGADO_REPRESENTANTE, siempre filtrar por su propio ID
         if (session?.user?.role === Role.ABOGADO_REPRESENTANTE && session?.user?.id) {
           url.searchParams.delete("representativeLawyerId")
           url.searchParams.append("representativeLawyerId", session.user.id.toString())
+        }
+
+        // "Mis Casos": cuando showAll está OFF, filtrar por el usuario logueado
+        if (!showAllCases && session?.user?.id) {
+          const userId = session.user.id.toString()
+          if (session.user.role === Role.ASISTENTE_LEGAL) {
+            url.searchParams.delete("internalLawyerId")
+            url.searchParams.append("internalLawyerId", userId)
+          } else if (session.user.role !== Role.ABOGADO_REPRESENTANTE) {
+            // Admin, Director, Coordinador, etc: filtrar como responsable o interno
+            url.searchParams.delete("lawyerId")
+            url.searchParams.append("lawyerId", userId)
+          }
         }
 
         console.log("Final URL:", url.toString())
@@ -388,14 +400,14 @@ export default function CasesContent() {
       if (searchTerm) url.searchParams.append("search", searchTerm)
       if (selectedService !== undefined) url.searchParams.append("servicesId", selectedService.toString())
 
-      if (showAll) {
-        // Sin filtro de etapa
-      } else if (selectedStage !== undefined) {
+      if (selectedStage !== undefined) {
         url.searchParams.append("stageId", selectedStage.toString())
       } else if (showArchivedOnly) {
-        url.searchParams.append("stageId", "6")
+        url.searchParams.append("stageId", "7")
+      } else if (showAll) {
+        // Sin filtro de etapa
       } else {
-        url.searchParams.append("excludeStageId", "6")
+        url.searchParams.append("excludeStageId", "7")
       }
 
       selectedRepresentativeLawyer.forEach((id) => url.searchParams.append("representativeLawyerId", id))
@@ -410,6 +422,13 @@ export default function CasesContent() {
       if (session?.user?.role === Role.ABOGADO_REPRESENTANTE && session?.user?.id) {
         url.searchParams.delete("representativeLawyerId")
         url.searchParams.append("representativeLawyerId", session.user.id.toString())
+      }
+
+      // Si el usuario es ASISTENTE_LEGAL (abogado interno) y showAll está OFF,
+      // filtrar por su propio ID como internalLawyer
+      if (session?.user?.role === Role.ASISTENTE_LEGAL && session?.user?.id && !showAll) {
+        url.searchParams.delete("internalLawyerId")
+        url.searchParams.append("internalLawyerId", session.user.id.toString())
       }
 
       const response = await fetch(url.toString(), {
@@ -466,16 +485,35 @@ export default function CasesContent() {
   // Load view mode preference once on component mount
   useEffect(() => {
     const savedViewMode = localStorage.getItem("casosViewMode")
-    if (savedViewMode === "card" || savedViewMode === "list") {
-      setViewMode(savedViewMode as "card" | "list")
+    if (savedViewMode === "list" || savedViewMode === "kanban") {
+      setViewMode(savedViewMode as "list" | "kanban")
     }
   }, [])
 
   // Save view mode preference
-  const handleViewModeChange = useCallback((mode: "card" | "list") => {
+  const handleViewModeChange = useCallback((mode: "list" | "kanban") => {
     setViewMode(mode)
     localStorage.setItem("casosViewMode", mode)
   }, [])
+
+  // Refetch when viewMode changes
+  useEffect(() => {
+    if (!isInitialRender.current && hasLoadedFromStorage.current) {
+      fetchCases(
+        viewMode === "kanban" ? 1 : currentPage,
+        searchTerm,
+        selectedService,
+        selectedStage,
+        formatDateForApi(dateFrom),
+        formatDateForApi(dateTo),
+        selectedRepresentativeLawyer,
+        selectedInternalLawyer,
+        showArchivedOnly,
+        showAll,
+        viewMode === "kanban",
+      )
+    }
+  }, [viewMode])
 
   // Function to update URL with current filters
   const updateURL = useCallback(
@@ -570,10 +608,11 @@ export default function CasesContent() {
         selectedInternalLawyer,
         showArchivedOnly,
         showAll,
+        viewMode === "kanban",
       )
       isInitialRender.current = false
     }
-  }, [responsibleLawyerTypes, lawyerInternalTypes, hasLoadedFromStorage, currentPage, searchTerm, selectedService, selectedStage, dateFrom, dateTo, selectedRepresentativeLawyer, selectedInternalLawyer, showArchivedOnly, fetchCases, formatDateForApi])
+  }, [responsibleLawyerTypes, lawyerInternalTypes, hasLoadedFromStorage, currentPage, searchTerm, selectedService, selectedStage, dateFrom, dateTo, selectedRepresentativeLawyer, selectedInternalLawyer, showArchivedOnly, fetchCases, formatDateForApi, viewMode])
 
   // Handle search term changes with debouncing - MEJORADO
   useEffect(() => {
@@ -612,6 +651,7 @@ export default function CasesContent() {
         selectedInternalLawyer,
         showArchivedOnly,
         showAll,
+        viewMode === "kanban",
       )
       setCurrentPage(1) // Reset to first page when search term changes
     }, 500) // 500ms debounce
@@ -688,6 +728,7 @@ export default function CasesContent() {
           selectedInternalLawyer,
           showArchivedOnly,
           showAll,
+          viewMode === "kanban",
         )
       } catch (error) {
         console.error("Error al eliminar el caso:", error)
@@ -707,7 +748,167 @@ export default function CasesContent() {
       dateTo,
       showArchivedOnly,
       showAll,
-      fetchCases
+      fetchCases,
+      viewMode,
+    ],
+  )
+
+  const handleStageChange = useCallback(
+    async (caseId: number, newStageId: number) => {
+      try {
+        const response = await fetch(`${CASES_ENDPOINT}/${caseId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.user?.accessToken}`,
+          },
+          body: JSON.stringify({ stageId: newStageId }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to update stage")
+        }
+
+        toast.success("Etapa actualizada correctamente")
+        fetchCases(
+          currentPage,
+          searchTerm,
+          selectedService,
+          selectedStage,
+          formatDateForApi(dateFrom),
+          formatDateForApi(dateTo),
+          selectedRepresentativeLawyer,
+          selectedInternalLawyer,
+          showArchivedOnly,
+          showAll,
+          viewMode === "kanban",
+        )
+      } catch (error) {
+        console.error("Error al actualizar la etapa:", error)
+        toast.error("Error al actualizar la etapa")
+      }
+    },
+    [
+      session?.user?.accessToken,
+      currentPage,
+      searchTerm,
+      selectedService,
+      selectedStage,
+      selectedRepresentativeLawyer,
+      selectedInternalLawyer,
+      formatDateForApi,
+      dateFrom,
+      dateTo,
+      showArchivedOnly,
+      showAll,
+      fetchCases,
+      viewMode,
+    ],
+  )
+
+  const handleResultChange = useCallback(
+    async (caseId: number, newResult: string) => {
+      try {
+        const response = await fetch(`${CASES_ENDPOINT}/${caseId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.user?.accessToken}`,
+          },
+          body: JSON.stringify({ status: newResult }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to update result")
+        }
+
+        toast.success("Estado actualizado correctamente")
+        fetchCases(
+          currentPage,
+          searchTerm,
+          selectedService,
+          selectedStage,
+          formatDateForApi(dateFrom),
+          formatDateForApi(dateTo),
+          selectedRepresentativeLawyer,
+          selectedInternalLawyer,
+          showArchivedOnly,
+          showAll,
+          viewMode === "kanban",
+        )
+      } catch (error) {
+        console.error("Error al actualizar el estado:", error)
+        toast.error("Error al actualizar el estado")
+      }
+    },
+    [
+      session?.user?.accessToken,
+      currentPage,
+      searchTerm,
+      selectedService,
+      selectedStage,
+      selectedRepresentativeLawyer,
+      selectedInternalLawyer,
+      formatDateForApi,
+      dateFrom,
+      dateTo,
+      showArchivedOnly,
+      showAll,
+      fetchCases,
+      viewMode,
+    ],
+  )
+
+  const handleNoteCreate = useCallback(
+    async (caseId: number, note: string) => {
+      try {
+        const response = await fetch(CASES_NOTES_CREATE_ENDPOINT(caseId), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.user?.accessToken}`,
+          },
+          body: JSON.stringify({ title: "Observación", note }),
+        })
+
+        if (!response.ok) {
+          throw new Error("Failed to create note")
+        }
+
+        toast.success("Observación guardada correctamente")
+        fetchCases(
+          currentPage,
+          searchTerm,
+          selectedService,
+          selectedStage,
+          formatDateForApi(dateFrom),
+          formatDateForApi(dateTo),
+          selectedRepresentativeLawyer,
+          selectedInternalLawyer,
+          showArchivedOnly,
+          showAll,
+          viewMode === "kanban",
+        )
+      } catch (error) {
+        console.error("Error al guardar la observación:", error)
+        toast.error("Error al guardar la observación")
+      }
+    },
+    [
+      session?.user?.accessToken,
+      currentPage,
+      searchTerm,
+      selectedService,
+      selectedStage,
+      selectedRepresentativeLawyer,
+      selectedInternalLawyer,
+      formatDateForApi,
+      dateFrom,
+      dateTo,
+      showArchivedOnly,
+      showAll,
+      fetchCases,
+      viewMode,
     ],
   )
 
@@ -738,8 +939,9 @@ export default function CasesContent() {
       selectedInternalLawyer,
       showArchivedOnly,
       showAll,
+      viewMode === "kanban",
     )
-  }, [searchTerm, selectedService, selectedStage, selectedRepresentativeLawyer, selectedInternalLawyer, dateFrom, dateTo, showArchivedOnly, showAll, updateURL, fetchCases, formatDateForApi])
+  }, [searchTerm, selectedService, selectedStage, selectedRepresentativeLawyer, selectedInternalLawyer, dateFrom, dateTo, showArchivedOnly, showAll, updateURL, fetchCases, formatDateForApi, viewMode])
 
   // Agregar efecto para guardar filtros cuando cambien
   useEffect(() => {
@@ -849,19 +1051,26 @@ export default function CasesContent() {
         </div>
       )}
 
-      {viewMode === "card" ? (
-        <CasesCardView cases={cases} hasActiveFilters={hasActiveFilters} handleClearSearch={handleClearSearch} />
+      {viewMode === "kanban" ? (
+        <CasesKanbanView
+          cases={cases}
+          onStageChange={handleStageChange}
+          onResultChange={handleResultChange}
+        />
       ) : (
         <CasesListView
           cases={cases}
           hasActiveFilters={hasActiveFilters}
           handleClearSearch={handleClearSearch}
           handleDelete={handleDelete}
+          onStageChange={handleStageChange}
+          onResultChange={handleResultChange}
+          onNoteCreate={handleNoteCreate}
         />
       )}
 
-      {/* 🔧 Mostrar paginación mejorada */}
-      {pagination.totalPages > 1 && (
+      {/* 🔧 Mostrar paginación mejorada - solo en vista lista */}
+      {viewMode === "list" && pagination.totalPages > 1 && (
         <div className="mt-6">
           <Pagination
             currentPage={pagination.page}

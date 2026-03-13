@@ -9,13 +9,13 @@ import {
     Filter,
     ListFilterIcon as ListFilterPlus,
     Search,
-    LayoutGrid,
     X,
     Users,
     UserCheck,
     List,
     Check,
     FileDown,
+    Columns,
 } from "lucide-react"
 import Button from "@/components/ui/button/Button"
 import Input from "@/components/ui/input/Input"
@@ -48,8 +48,8 @@ interface CasesFiltersProps {
     setDateTo: (date: string) => void
     hasActiveFilters: boolean
     handleClearSearch: () => void
-    viewMode: "card" | "list"
-    handleViewModeChange: (mode: "card" | "list") => void
+    viewMode: "list" | "kanban"
+    handleViewModeChange: (mode: "list" | "kanban") => void
     showArchivedOnly: boolean // Updated prop name
     setShowArchivedOnly: (checked: boolean) => void // Updated setter prop name
     showAll: boolean
@@ -637,26 +637,35 @@ export const CasesFilters = ({
                     )}
                 </div>
 
-                {/* View Mode Toggle */}
-                <Button
-                    variant="outline"
-                    className="flex h-11 items-center justify-center px-3 border-gray-200 bg-transparent"
-                    onClick={() => handleViewModeChange(viewMode === "list" ? "card" : "list")}
-                >
-                    {viewMode === "list" ? (
-                        <>
-                            <LayoutGrid className="h-4 w-4 text-gray-700" />
-                            <span className="text-gray-700 text-sm sr-only">Grid</span>
-                        </>
-                    ) : (
-                        <>
-                            <List className="h-4 w-4 text-gray-700" />
-                            <span className="text-gray-700 text-sm sr-only">List</span>
-                        </>
-                    )}
-                </Button>
+                {/* View Mode Toggle Group */}
+                <div className="flex h-11 items-center rounded-lg border border-gray-200 bg-white overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={() => handleViewModeChange("list")}
+                        className={`flex items-center justify-center px-3 h-full transition-colors ${
+                            viewMode === "list"
+                                ? "bg-primary text-white"
+                                : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                        title="Vista de lista"
+                    >
+                        <List className="h-4 w-4" />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => handleViewModeChange("kanban")}
+                        className={`flex items-center justify-center px-3 h-full border-l border-gray-200 transition-colors ${
+                            viewMode === "kanban"
+                                ? "bg-primary text-white"
+                                : "text-gray-600 hover:bg-gray-100"
+                        }`}
+                        title="Vista Kanban"
+                    >
+                        <Columns className="h-4 w-4" />
+                    </button>
+                </div>
 
-                {/* Mostrar Todos Switch */}
+                {/* Mis Casos / Todos toggle */}
                 <Can role={[
                     Role.ADMINISTRATOR,
                     Role.DIRECTOR_GENERAL_CEO,
@@ -665,24 +674,38 @@ export const CasesFilters = ({
                     Role.COORDINADOR_LEGAL,
                     Role.ASISTENTE_LEGAL,
                 ]}>
-                    <div className="flex items-center gap-2 h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-700">
-                        <span className="text-sm font-medium">Mostrar todos</span>
-                        <Switch
-                            id="show-all-switch"
-                            defaultChecked={showAll}
-                            onChange={(checked) => {
-                                setShowAll(checked)
-                                if (checked) setShowArchivedOnly(false)
+                    <div className="inline-flex h-11 rounded-lg border border-gray-200 bg-gray-100 p-1">
+                        <button
+                            onClick={() => {
+                                setShowAll(false)
                             }}
-                            color="gray"
-                            label=""
-                        />
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                                !showAll
+                                    ? "bg-white text-gray-900 shadow-sm"
+                                    : "text-gray-500 hover:text-gray-700"
+                            }`}
+                        >
+                            Mis Casos
+                        </button>
+                        <button
+                            onClick={() => {
+                                setShowAll(true)
+                                setShowArchivedOnly(false)
+                            }}
+                            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+                                showAll
+                                    ? "bg-brand-500 text-white shadow-sm"
+                                    : "text-gray-500 hover:text-gray-700"
+                            }`}
+                        >
+                            Todos
+                        </button>
                     </div>
                 </Can>
 
                 {/* Show Archived Switch */}
                 <div className={`flex items-center gap-2 h-11 px-3 rounded-lg border border-gray-200 bg-white text-gray-700 ${showAll ? "opacity-40 pointer-events-none" : ""}`}>
-                    <span className="text-sm">Solo Cerrados</span>
+                    <span className="text-sm">Solo Archivados</span>
                     <Switch
                         id="show-archived-switch"
                         defaultChecked={showArchivedOnly}
@@ -765,7 +788,7 @@ export const CasesFilters = ({
                     )}
                     {showArchivedOnly && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-800">
-                            Solo Cerrados
+                            Solo Archivados
                             <button onClick={() => setShowArchivedOnly(false)} className="text-gray-600 hover:text-gray-800">
                                 <X className="h-3 w-3" />
                             </button>

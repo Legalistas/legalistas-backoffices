@@ -449,7 +449,6 @@ export default function LegalReportsPage() {
                             <option value="all">Todos</option>
                             <option value="active">Solo Activos</option>
                             <option value="archived">Archivados</option>
-                            <option value="closed">Cerrados</option>
                         </select>
                     </div>
                     <ApexChart

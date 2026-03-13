@@ -1,11 +1,12 @@
 import { LucideProps } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode } from "react";
 
 export interface SubNavItem {
   name: string;
   path: string;
   pro?: boolean;
   new?: boolean;
+  roles?: string[];
 }
 
 export interface NavItem {
@@ -16,4 +17,12 @@ export interface NavItem {
     | ComponentType<React.SVGProps<SVGSVGElement>>;
   path?: string;
   subItems?: SubNavItem[];
+  roles?: string[];
+}
+
+export interface MenuSection {
+  label: string;
+  type: string;
+  items: NavItem[];
+  roles?: string[];
 }

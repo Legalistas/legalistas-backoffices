@@ -1,5 +1,8 @@
 import { Role } from "@/constant/user";
 
+export const STUDIO_NAME = "Legalistas";
+export const STUDIO_PHONE = "+54 9 11 0000-0000";
+
 type ServiceType = {
   id: number;
   value: number;
@@ -25,13 +28,88 @@ export const servicesType: ServiceType[] = [
 ];
 
 export const stageCases: StageType[] = [
-  { id: 1, value: 1, label: "Documentación Pendiente" },
-  { id: 2, value: 2, label: "Caso En Trámite" },
-  { id: 3, value: 3, label: "Cierre Logrado" },
-  { id: 4, value: 4, label: "Cobrado" },
-  { id: 5, value: 5, label: "Experiencia" },
-  { id: 6, value: 6, label: "Cerrado" },
+  { id: 1, value: 1, label: "Documentación" },
+  { id: 2, value: 2, label: "Administrativo" },
+  { id: 3, value: 3, label: "Judicial" },
+  { id: 4, value: 4, label: "Incapacidad" },
+  { id: 5, value: 5, label: "Cierre" },
+  { id: 6, value: 6, label: "Experiencia" },
+  { id: 7, value: 7, label: "Archivado" },
 ];
+
+export const stageDefaultMessages: Record<number, string> = {
+  1: `Hola {{nombre}} 👋
+
+Queríamos contarte que ya comenzamos a trabajar en tu caso (Expediente Nº {{numero_causa}}).
+
+En este momento estamos recopilando toda la documentación necesaria para avanzar correctamente.
+
+Si llegamos a necesitar algún dato o documento adicional, te lo vamos a pedir por este medio.
+
+Cualquier duda podés escribirnos cuando quieras.
+Equipo {{estudio}}`,
+
+  2: `Hola {{nombre}} 👋
+
+Te actualizamos sobre tu caso (Expediente Nº {{numero_causa}}).
+
+Actualmente se encuentra en etapa *administrativa*. Estamos realizando las gestiones correspondientes ante el organismo competente para que el trámite avance.
+
+Seguimos trabajando en esto y te avisaremos ante cualquier novedad.
+
+Equipo {{estudio}}`,
+
+  3: `Hola {{nombre}} 👋
+
+Queríamos informarte que tu caso (Expediente Nº {{numero_causa}}) *ya ingresó a etapa judicial*.
+
+Esto significa que el proceso fue iniciado ante el juzgado correspondiente y comenzará el trámite judicial.
+
+Te iremos informando cada avance importante.
+
+Equipo {{estudio}}`,
+
+  4: `Hola {{nombre}} 👋
+
+Tu caso (Expediente Nº {{numero_causa}}) se encuentra en la etapa de *determinación de incapacidad*.
+
+En los próximos pasos se realizarán las pericias médicas correspondientes.
+
+Cuando tengamos información sobre turnos o fechas te lo comunicaremos inmediatamente.
+
+Equipo {{estudio}}`,
+
+  5: `Hola {{nombre}} 👋
+
+Te contamos que tu caso (Expediente Nº {{numero_causa}}) se encuentra en su etapa final.
+
+Estamos realizando las últimas gestiones necesarias para llegar a la resolución definitiva.
+
+Apenas tengamos novedades importantes te vamos a avisar.
+
+Equipo {{estudio}}`,
+
+  6: `Hola {{nombre}} 👋
+
+Nos alegra informarte que tu caso (Expediente Nº {{numero_causa}}) *ha sido resuelto*.
+
+Agradecemos mucho la confianza que depositaste en nosotros para acompañarte durante todo el proceso.
+
+Si querés, podés compartir tu experiencia con nuestro estudio. Nos ayuda muchísimo.
+
+Muchas gracias 🙌
+Equipo {{estudio}}`,
+
+  7: `Hola {{nombre}} 👋
+
+Te informamos que tu caso (Expediente Nº {{numero_causa}}) ha sido archivado.
+
+Si en algún momento necesitás realizar una consulta o retomar el tema, podés comunicarte con nosotros sin problema.
+
+Estamos para ayudarte.
+
+Equipo {{estudio}}`,
+};
 
 export const filesType = [
   { id: 1, value: 1, label: "Administrativo" },

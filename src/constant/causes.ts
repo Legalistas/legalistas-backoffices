@@ -60,7 +60,7 @@ export const STATUS_PROCESS = [
   { id: 39, value: "Cobro de Honorarios" },
   { id: 40, value: "Moroso en pago" },
   { id: 41, value: "Satisfaccion Cliente" },
-  { id: 42, value: "Cerrado" },
+  { id: 42, value: "Archivado" },
 ];
 
 export const FILES_TYPE = [
@@ -115,6 +115,50 @@ export const FILES_MOVEMENTS_STATUS_OPTIONS = [
 
 // Schedule options
 export const FILES_MOVEMENTS_SCHEDULE_OPTIONS = [
+  { value: "no", label: "No" },
+  { value: "si", label: "Si" },
+];
+
+// ============================================================================
+// CASE EVENTS - Tipos de eventos (solo Audiencia y Pericia)
+// ============================================================================
+export const CASE_EVENTS_TYPE = [
+  {
+    id: 1,
+    value: 1,
+    label: "Audiencia",
+    subType: [
+      { id: 1, value: 1, label: "Homologación" },
+      { id: 2, value: 2, label: "Trámite" },
+      { id: 3, value: 3, label: "AVC" },
+      { id: 4, value: 4, label: "Ratificación" },
+      { id: 5, value: 5, label: "Testimonial" },
+      { id: 6, value: 6, label: "Confesional" },
+      { id: 7, value: 7, label: "Reconocimiento" },
+    ],
+  },
+  {
+    id: 2,
+    value: 2,
+    label: "Pericia",
+    subType: [
+      { id: 1, value: 1, label: "Pericia SRT" },
+      { id: 2, value: 2, label: "Pericia JPM (Privada)" },
+      { id: 3, value: 3, label: "Pericia Oficial (Judicial)" },
+      { id: 4, value: 4, label: "Pericia Psicológica" },
+      { id: 5, value: 5, label: "Otras Pericias" },
+    ],
+  },
+];
+
+export const CASE_EVENTS_STATUS_OPTIONS = [
+  { value: "pendiente", label: "Pendiente" },
+  { value: "completado", label: "Completado" },
+  { value: "cancelado", label: "Cancelado" },
+  { value: "reprogramado", label: "Reprogramado" },
+];
+
+export const CASE_EVENTS_SCHEDULE_OPTIONS = [
   { value: "no", label: "No" },
   { value: "si", label: "Si" },
 ];

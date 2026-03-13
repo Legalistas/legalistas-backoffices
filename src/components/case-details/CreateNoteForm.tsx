@@ -2,11 +2,10 @@
 
 import { useState } from "react"
 import { useSession } from "next-auth/react"
-import Button from "@/components/ui/button/Button"
 import { toast } from "sonner"
 import { CASES_NOTES_CREATE_ENDPOINT } from "@/constant/api-endpoints"
 import { useRouter } from "next/navigation"
-import { Loader2, Plus } from "lucide-react"
+import { Loader2, Send } from "lucide-react"
 
 interface CreateNoteFormProps {
     caseId: string
@@ -14,6 +13,7 @@ interface CreateNoteFormProps {
     onSuccess: () => void
     customContent?: string
     onContentChange?: (content: string) => void
+    mentionedUserIds?: number[]
 }
 
 export const CreateNoteForm = ({
@@ -22,12 +22,16 @@ export const CreateNoteForm = ({
     onSuccess,
     customContent = "",
     onContentChange,
+    mentionedUserIds = [],
 }: CreateNoteFormProps) => {
     const { data: session } = useSession()
     const [isSubmitting, setIsSubmitting] = useState(false)
     const router = useRouter()
+
     const handleSubmit = async () => {
-        if (!customContent.trim()) {
+        // Strip HTML tags to check if there's actual content
+        const textOnly = customContent.replace(/<[^>]*>/g, "").trim()
+        if (!textOnly) {
             toast.error("Por favor, escribe una nota antes de guardar")
             return
         }
@@ -43,6 +47,7 @@ export const CreateNoteForm = ({
                 body: JSON.stringify({
                     note: customContent,
                     userId: session?.user?.id,
+                    mentionedUserIds,
                 }),
             })
 
@@ -62,24 +67,25 @@ export const CreateNoteForm = ({
         }
     }
 
+    const textOnly = customContent.replace(/<[^>]*>/g, "").trim()
+
     return (
-        <Button
+        <button
             onClick={handleSubmit}
-            disabled={isSubmitting || !customContent.trim()}
-            variant="custom"
-                className="bg-[#09A4B5] text-white hover:bg-[#09A4B5]/85 dark:text-gray-900 py-2 px-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isSubmitting || !textOnly}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-500/85 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
             {isSubmitting ? (
-                <div className="flex items-center space-x-2">
+                <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span>Guardando...</span>
-                </div>
+                </>
             ) : (
-                <div className="flex items-center space-x-2">
-                    <Plus className="h-4 w-4" />
-                    <span>Guardar nota</span>
-                </div>
+                <>
+                    <Send className="h-4 w-4" />
+                    <span>Publicar</span>
+                </>
             )}
-        </Button>
+        </button>
     )
 }

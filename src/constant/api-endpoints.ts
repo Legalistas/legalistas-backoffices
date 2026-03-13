@@ -119,6 +119,18 @@ export const CASES_CONSULTATIONS_DELETE_ENDPOINT = (
 export const CASES_CONSULTATIONS_MESSAGES_ENDPOINT = (caseId: number) =>
   `${API_BASE_URL}/cases/${caseId}/consultation/sendMessages`;
 
+// CASE EVENTS
+export const CASE_EVENTS_ENDPOINT = (caseId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/events`;
+export const CASE_EVENT_BY_ID_ENDPOINT = (caseId: number, eventId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/events/${eventId}`;
+
+// CASE DEADLINES
+export const CASE_DEADLINES_ENDPOINT = (caseId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/deadlines`;
+export const CASE_DEADLINE_BY_ID_ENDPOINT = (caseId: number, deadlineId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/deadlines/${deadlineId}`;
+
 // Customers
 export const CUSTOMERS_ENDPOINT = `${API_BASE_URL}/customers`;
 export const CUSTOMERS_EXPORT_ENDPOINT = `${API_BASE_URL}/customers/export`;
@@ -160,6 +172,14 @@ export const STATISTICS_MOVEMENTS_ENDPOINT = `${API_BASE_URL}/statistics/movemen
 export const STATISTICS_EVENTS_ENDPOINT = `${API_BASE_URL}/statistics/events`;
 export const CALCULATOR_CAUSES_LIST_ENDPOINT = `${API_BASE_URL}/statistics/cause-calculator`;
 
+// DASHBOARD ENDPOINTS
+export const DASHBOARD_LEGAL_STATS_ENDPOINT = `${API_BASE_URL}/dashboard/legal-stats`;
+
+// TASKS ENDPOINTS
+export const TASKS_ENDPOINT = `${API_BASE_URL}/tasks`;
+export const TASKS_CASES_ENDPOINT = `${API_BASE_URL}/tasks/cases`;
+export const TASK_BY_ID_ENDPOINT = (id: number) => `${API_BASE_URL}/tasks/${id}`;
+
 // UPLOAD ENDPOINTS
 export const SETTINGS_JURISDICTIONS_ENDPOINT = `${API_BASE_URL}/settings/jurisdictions`;
 export const SETTINGS_JURISDICTIONS_EXPORT_EXCEL_ENDPOINT = `${API_BASE_URL}/settings/jurisdictions/export-excel`;
@@ -167,6 +187,7 @@ export const UPLOAD_ENDPOINT = `${API_BASE_URL}/upload`;
 export const SETTINGS_HOLIDAY_ENDPOINT = `${API_BASE_URL}/settings/holidays`;
 export const SETTINGS_COUNTRIES_ENDPOINT = `${API_BASE_URL}/settings/countries`;
 export const SETTINGS_ROLES_ENDPOINT = `${API_BASE_URL}/settings/roles`;
+export const SETTINGS_DEADLINE_TYPES_ENDPOINT = `${API_BASE_URL}/settings/deadline-types`;
 
 // CHAT ENDPOINTS
 export const CHAT_MESSAGES_ENDPOINT = `${API_BASE_URL}/chat/messages`;

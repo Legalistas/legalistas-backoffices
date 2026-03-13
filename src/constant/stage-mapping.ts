@@ -1,39 +1,41 @@
-// Mapeo de valores del select a etapas principales
+// Mapeo de valores del select a etapas principales (7 etapas)
 export const stageMapping = {
-  1: 1, // DOCUMENTACIÓN PENDIENTE -> ETAPA 1
-  2: 1, // POR INICIAR -> ETAPA 1
-  3: 2, // EXPEDIENTE INICIADO -> ETAPA 2
-  4: 2, // FECHA DE LA PRIMERA AUDIENCIA / FECHA DEL DICTAMEN EXPERTO -> ETAPA 2
-  5: 2, // GESTIÓN DE ESTUDIOS MÉDICOS / IMPULSO PROCESAL -> ETAPA 2 ⭐ ESTE ES TU CASO
-  6: 2, // EN ESPERA DE RESOLUCIÓN -> ETAPA 2
-  7: 2, // FECHA DE LA AUDIENCIA DE HOMOLOGACIÓN -> ETAPA 2
-  8: 2, // NEGOCIACIÓN EN TRÁMITE -> ETAPA 2
-  9: 3, // ACUERDO -> ETAPA 3
-  10: 3, // RATIFICADO -> ETAPA 3
-  11: 3, // ORDEN DE PAGO SOLICITADA -> ETAPA 3
-  12: 4, // COBRO DE HONORARIOS -> ETAPA 4
-  13: 5, // PRIMER MENSAJE DE SATISFACCIÓN -> ETAPA 5
-  14: 5, // LINK -> ETAPA 5
-  15: 6, // ARCHIVO -> ETAPA 6
+  1: 1, // DOCUMENTACIÓN PENDIENTE -> DOCUMENTACIÓN
+  2: 1, // POR INICIAR -> DOCUMENTACIÓN
+  3: 2, // EXPEDIENTE INICIADO -> ADMINISTRATIVO
+  4: 2, // FECHA DE LA PRIMERA AUDIENCIA / FECHA DEL DICTAMEN EXPERTO -> ADMINISTRATIVO
+  5: 3, // GESTIÓN DE ESTUDIOS MÉDICOS / IMPULSO PROCESAL -> JUDICIAL
+  6: 3, // EN ESPERA DE RESOLUCIÓN -> JUDICIAL
+  7: 3, // FECHA DE LA AUDIENCIA DE HOMOLOGACIÓN -> JUDICIAL
+  8: 4, // NEGOCIACIÓN EN TRÁMITE -> INCAPACIDAD
+  9: 5, // ACUERDO -> CIERRE
+  10: 5, // RATIFICADO -> CIERRE
+  11: 5, // ORDEN DE PAGO SOLICITADA -> CIERRE
+  12: 5, // COBRO DE HONORARIOS -> CIERRE
+  13: 6, // PRIMER MENSAJE DE SATISFACCIÓN -> EXPERIENCIA
+  14: 6, // LINK -> EXPERIENCIA
+  15: 7, // ARCHIVO -> ARCHIVADO
 } as const;
 
 // Definición de las etapas principales
 export const mainSteps = [
-  "Documentación P...", // Versión corta para móvil
-  "Caso En Trámite",
-  "Cierre Logrado",
-  "Cobrado",
+  "Documentación",
+  "Administrativo",
+  "Judicial",
+  "Incapacidad",
+  "Cierre",
   "Experiencia",
-  "Cerrado",
+  "Archivado",
 ];
 
 export const mainStepsComplete = [
-  "DOCUMENTACIÓN PENDIENTE",
-  "CASO EN TRÁMITE",
-  "CIERRE LOGRADO",
-  "COBRADO",
-  "EXPERIENCIA (CX)",
-  "CERRADO",
+  "DOCUMENTACIÓN",
+  "ADMINISTRATIVO",
+  "JUDICIAL",
+  "INCAPACIDAD",
+  "CIERRE",
+  "EXPERIENCIA",
+  "ARCHIVADO",
 ];
 
 // Función para obtener la etapa principal basada en el valor del select

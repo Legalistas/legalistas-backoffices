@@ -20,6 +20,8 @@ import { CASES_ENDPOINT } from "@/constant/api-endpoints"
 import { useSession } from "next-auth/react"
 import { getCurrentMainStage, mainSteps } from "@/constant/stage-mapping"
 
+import { CaseStatsSidebar } from "@/components/case-details/CaseStatsSidebar"
+
 export default function CasesDetailsPage() {
   const router = useRouter()
   const params = useParams()
@@ -34,7 +36,6 @@ export default function CasesDetailsPage() {
   const [activeTab, setActiveTab] = useState("files")
 
   const [fileTypeFilter, setFileTypeFilter] = useState(0) // 0 for "todos"
-  const [viewMode, setViewMode] = useState<"card" | "list">("card")
   const [isFilterSelectOpen, setIsFilterSelectOpen] = useState(false)
 
   const [newFiles, setNewFiles] = useState({
@@ -155,20 +156,6 @@ export default function CasesDetailsPage() {
     setDialogOpen(true)
   }, [fileTypeFilter])
 
-  // Load view mode preference
-  useEffect(() => {
-    const savedViewMode = localStorage.getItem("expedientesViewMode")
-    if (savedViewMode === "card" || savedViewMode === "list") {
-      setViewMode(savedViewMode as "card" | "list")
-    }
-  }, [])
-
-  // Save view mode preference
-  const handleViewModeChange = useCallback((mode: "card" | "list") => {
-    setViewMode(mode)
-    localStorage.setItem("expedientesViewMode", mode)
-  }, [])
-
   const handleSaveEdit = useCallback(
     async (updatedCase: Partial<Cases>) => {
       try {
@@ -213,13 +200,13 @@ export default function CasesDetailsPage() {
     // Aquí iría la lógica para crear un nuevo expediente
     console.log("Creating new file:", fileData)
     toast.success("Nuevo expediente creado exitosamente")
-    
+
     setDialogOpen(false)
   }, [])
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[400px] flex-col items-center justify-center">
+      <div className="flex min-h-100 flex-col items-center justify-center">
         <Loader2 className="h-10 w-10 animate-spin text-primary" />
       </div>
     )
@@ -256,39 +243,50 @@ export default function CasesDetailsPage() {
       {editMode ? (
         <CaseEditForm caseData={cases} onSave={handleSaveEdit} onCancel={() => setEditMode(false)} />
       ) : (
-        <CaseDetails caseData={cases} onEdit={() => setEditMode(true)} onDelete={() => setConfirmDeleteOpen(true)} />
+        <CaseDetails caseData={cases} onEdit={() => setEditMode(true)} onDelete={() => setConfirmDeleteOpen(true)} onCaseUpdated={fetchCaseData} />
       )}
 
-      <FileFilters
-        fileTypeFilter={fileTypeFilter}
-        viewMode={viewMode}
-        isFilterSelectOpen={isFilterSelectOpen}
-        onFilterChange={(value) => {
-          setFileTypeFilter(value)
-          setIsFilterSelectOpen(false)
-        }}
-        onViewModeChange={handleViewModeChange}
-        onToggleFilterSelect={() => setIsFilterSelectOpen(!isFilterSelectOpen)}
-        onAddNewFile={handleOpenDialog}
-      />
+      <div className="grid grid-cols-12 gap-6">
+        {/* Main content — 8 columns */}
+        <div className="col-span-12 lg:col-span-9">
+          {/* <FileFilters
+            fileTypeFilter={fileTypeFilter}
+            viewMode={viewMode}
+            isFilterSelectOpen={isFilterSelectOpen}
+            onFilterChange={(value) => {
+              setFileTypeFilter(value)
+              setIsFilterSelectOpen(false)
+            }}
+            onViewModeChange={handleViewModeChange}
+            onToggleFilterSelect={() => setIsFilterSelectOpen(!isFilterSelectOpen)}
+            onAddNewFile={handleOpenDialog}
+          /> */}
 
-      <div className="mb-4">
-        <CaseTabs
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          files={cases.files || []}
-          notes={cases.notes || []}
-          consultation={cases.consultation || []}
-          logs={cases.logs || []}
-          caseId={params.caseId as string}
-          viewMode={viewMode}
-          fileTypeFilter={fileTypeFilter}
-          filteredFiles={filteredFiles()}
-          onAddNewFile={handleOpenDialog}
-          onClearFilter={() => setFileTypeFilter(0)}
-          customer={cases.customer}
-          onNotesUpdated={fetchCaseData} // This should trigger a refetch of all case data
-        />
+          <div className="mb-4">
+            <CaseTabs
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              notes={cases.notes || []}
+              consultation={cases.consultation || []}
+              logs={cases.logs || []}
+              documents={cases.documents || []}
+              caseId={params.caseId as string}
+              filteredFiles={filteredFiles()}
+              onAddNewFile={handleOpenDialog}
+              customer={cases.customer}
+              responsibleLawyer={cases.responsibleLawyer}
+              internalLawyer={cases.internalLawyer}
+              onNotesUpdated={fetchCaseData}
+            />
+          </div>
+        </div>
+
+        {/* Sidebar — 4 columns */}
+        <div className="col-span-12 lg:col-span-3">
+          <div className="sticky top-4">
+            <CaseStatsSidebar caseData={cases} />
+          </div>
+        </div>
       </div>
 
       <DeleteConfirmationModal

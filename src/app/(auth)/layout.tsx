@@ -20,9 +20,9 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
     }
   }, [status, router]);
 
-  if (status === "loading") {
-    return <div className="flex items-center justify-center h-screen">Cargando...</div>;
-  }
+  // if (status === "loading") {
+  //   return <div className="flex items-center justify-center h-screen">Cargando...</div>;
+  // }
 
   return (
     <div className="relative p-6 bg-white z-1 dark:bg-gray-900 sm:p-0">

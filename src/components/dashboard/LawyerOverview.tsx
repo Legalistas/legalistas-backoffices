@@ -91,7 +91,7 @@ export function LawyerOverview() {
             try {
                 const url = `${STATISTICS_LAW_DASHBOARD_ENDPOINT}/${session.user.id}?${queryParams}`;
                 console.log('API URL:', url); // Debug
-                
+
                 const res = await fetch(url, {
                     headers: {
                         Authorization: `Bearer ${session.user.accessToken}`,
