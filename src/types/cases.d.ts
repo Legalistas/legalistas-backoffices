@@ -33,6 +33,46 @@ export interface CasesFiles {
   instanceExpiration?: string;
 }
 
+export interface CasePart {
+  id: number;
+  caseId: number;
+  fileId?: number | null;
+  partyType: string;
+  name: string;
+  personType: string;
+  documentType: string;
+  documentNumber?: string | null;
+  countryId?: number | null;
+  stateId?: number | null;
+  city?: string | null;
+  postalCode?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  sponsoringLawyer?: string | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+  updatedAt: string;
+  country?: { id: number; name: string } | null;
+  state?: { id: number; name: string } | null;
+  file?: { id: number; title: string } | null;
+}
+
+export interface CaseExpense {
+  id: number;
+  caseId: number;
+  fileId?: number | null;
+  description?: string | null;
+  amount: number;
+  date?: string | null;
+  category?: string | null;
+  userId: number;
+  createdAt: string;
+  updatedAt: string;
+  file?: { id: number; title: string } | null;
+  user?: { id: number; name: string } | null;
+}
+
 export interface CaseEvent {
   id: number;
   caseId: number;

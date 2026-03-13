@@ -88,14 +88,14 @@ export const CaseStatsSidebar = ({ caseData }: CaseStatsSidebarProps) => {
                     </div>
                 </div>
 
-                {/* Monto Liquidación */}
+                {/* Finanzas */}
                 <div className="px-5 py-4 border-t border-gray-100">
-                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Monto Liquidación</h4>
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Finanzas</h4>
                     <div className="space-y-2.5">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <DollarSign className="h-4 w-4 text-gray-400" />
-                                <span>Ingresos</span>
+                                <span>Liquidación Pretendida</span>
                             </div>
                             <span className="text-sm font-semibold text-gray-900">
                                 ${(0).toLocaleString("es-AR")}
@@ -104,7 +104,7 @@ export const CaseStatsSidebar = ({ caseData }: CaseStatsSidebarProps) => {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 text-sm text-gray-600">
                                 <Hash className="h-4 w-4 text-gray-400" />
-                                <span>Movimientos</span>
+                                <span>Gastos del caso</span>
                             </div>
                             <span className="text-sm font-semibold text-blue-600">{totalMovements}</span>
                         </div>

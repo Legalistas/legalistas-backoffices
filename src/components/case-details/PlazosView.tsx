@@ -9,6 +9,20 @@ import Button from "@/components/ui/button/Button"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
 import { CASE_DEADLINES_ENDPOINT, CASE_DEADLINE_BY_ID_ENDPOINT, SETTINGS_JURISDICTIONS_ENDPOINT, SETTINGS_DEADLINE_TYPES_ENDPOINT } from "@/constant/api-endpoints"
+import { TYPES_PROCCESS } from "@/constant/causes"
+
+// Armar label del expediente con carátula: "Actor C/ Demandado S/ TipoProceso — CUIJ"
+const getFileLabel = (f: any, customerName?: string): string => {
+    const parts = f.parts || []
+    const actor = parts.find((p: any) => p.partyType === "actor" || p.partyType === "demandante")
+    const demandado = parts.find((p: any) => p.partyType === "demandado")
+    const actorName = actor?.name || customerName || ""
+    const demandadoName = demandado?.name || (actorName ? "Sin partes" : "")
+    const partesLabel = actorName ? `${actorName} C/ ${demandadoName}` : ""
+    const processType = f.typeProcessId ? TYPES_PROCCESS.find((t: any) => t.id === f.typeProcessId)?.value : ""
+    const caratula = partesLabel ? `${partesLabel}${processType ? ` S/ ${processType}` : ""}` : f.title || `Expediente #${f.id}`
+    return `${caratula}${f.cuij ? ` — ${f.cuij}` : ""}`
+}
 
 interface DeadlineType {
     id: number
@@ -47,9 +61,10 @@ interface PlazosViewProps {
     caseId: string
     responsibleLawyer?: LawyerInfo | null
     internalLawyer?: LawyerInfo | null
+    customerName?: string
 }
 
-export const PlazosView = ({ files, caseId, responsibleLawyer, internalLawyer }: PlazosViewProps) => {
+export const PlazosView = ({ files, caseId, responsibleLawyer, internalLawyer, customerName }: PlazosViewProps) => {
     const { data: session } = useSession()
     const [deadlines, setDeadlines] = useState<CaseDeadline[]>([])
     const [loading, setLoading] = useState(true)
@@ -110,8 +125,8 @@ export const PlazosView = ({ files, caseId, responsibleLawyer, internalLawyer }:
     const selectedFileLabel = useMemo(() => {
         const f = files.find((file) => String(file.id) === String(form.fileId))
         if (!f) return "Seleccionar expediente"
-        return `Exp. #${f.id} — ${f.title || getProcessTypeLabel(f.typeProcessId)}`
-    }, [form.fileId, files])
+        return getFileLabel(f, customerName)
+    }, [form.fileId, files, customerName])
 
     const searchedFiles = useMemo(() => {
         if (!fileSearch) return files
@@ -1002,7 +1017,7 @@ export const PlazosView = ({ files, caseId, responsibleLawyer, internalLawyer }:
                                                 onClick={() => { const jId = file.jurisdictionId || file.court?.jurisdiction?.id; setForm({ ...form, fileId: file.id, jurisdictionId: jId ? String(jId) : "" }); setIsFileDropdownOpen(false); setFileSearch("") }}
                                                 className={`w-full text-left px-2.5 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-600 truncate ${String(form.fileId) === String(file.id) ? "bg-brand-500/10 text-brand-500" : "text-gray-700 dark:text-gray-200"}`}
                                             >
-                                                Exp. #{file.id} — {file.title || getProcessTypeLabel(file.typeProcessId)}
+                                                {getFileLabel(file, customerName)}
                                             </button>
                                         ))}
                                     </div>

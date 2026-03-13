@@ -103,12 +103,12 @@ export const CaseTabs = ({
 
       {/* 2. Eventos */}
       <TabsContent value="eventos" className={tabContentClass}>
-        <EventosView files={filteredFiles} caseId={caseId} responsibleLawyer={responsibleLawyer} internalLawyer={internalLawyer} />
+        <EventosView files={filteredFiles} caseId={caseId} responsibleLawyer={responsibleLawyer} internalLawyer={internalLawyer} customerName={customer?.name} />
       </TabsContent>
 
       {/* 3. Plazos */}
       <TabsContent value="plazos" className={tabContentClass}>
-        <PlazosView files={filteredFiles} caseId={caseId} responsibleLawyer={responsibleLawyer} internalLawyer={internalLawyer} />
+        <PlazosView files={filteredFiles} caseId={caseId} responsibleLawyer={responsibleLawyer} internalLawyer={internalLawyer} customerName={customer?.name} />
       </TabsContent>
 
       {/* 4. Documentos */}
@@ -128,17 +128,17 @@ export const CaseTabs = ({
 
       {/* 7. Partes */}
       <TabsContent value="partes" className={tabContentClass}>
-        <PartesView />
+        <PartesView caseId={caseId} files={filteredFiles} customerName={customer?.name} />
       </TabsContent>
 
       {/* 8. Gastos */}
       <TabsContent value="gastos" className={tabContentClass}>
-        <GastosView />
+        <GastosView caseId={caseId} files={filteredFiles} customerName={customer?.name} />
       </TabsContent>
 
       {/* 9. Cédulas */}
       <TabsContent value="cedulas" className={tabContentClass}>
-        <CedulasView />
+        <CedulasView caseId={caseId} files={filteredFiles} customerName={customer?.name} />
       </TabsContent>
 
       {/* 10. Consultas */}

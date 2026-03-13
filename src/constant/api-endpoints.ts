@@ -83,6 +83,13 @@ export const CASES_FILES_EXPENSES_DELETE_ENDPOINT = (
   expenseId: number
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/expenses/${expenseId}`;
 
+export const CASE_CEDULAS_ENDPOINT = (caseId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/cedulas`;
+
+export const CASE_CEDULA_BY_ID_ENDPOINT = (caseId: number, cedulaId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/cedulas/${cedulaId}`;
+
+// Legacy: cédulas a nivel expediente (usado por FilesCedulas)
 export const CASES_FILES_CEDULAS_ENDPOINT = (
   caseId: number,
   fileId: number
@@ -118,6 +125,18 @@ export const CASES_CONSULTATIONS_DELETE_ENDPOINT = (
 
 export const CASES_CONSULTATIONS_MESSAGES_ENDPOINT = (caseId: number) =>
   `${API_BASE_URL}/cases/${caseId}/consultation/sendMessages`;
+
+// CASE PARTS (Partes del Caso)
+export const CASE_PARTS_ENDPOINT = (caseId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/parts`;
+export const CASE_PART_BY_ID_ENDPOINT = (caseId: number, partId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/parts/${partId}`;
+
+// CASE EXPENSES (Gastos del Caso)
+export const CASE_EXPENSES_ENDPOINT = (caseId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/expenses`;
+export const CASE_EXPENSE_BY_ID_ENDPOINT = (caseId: number, expenseId: number) =>
+  `${API_BASE_URL}/cases/${caseId}/expenses/${expenseId}`;
 
 // CASE EVENTS
 export const CASE_EVENTS_ENDPOINT = (caseId: number) =>

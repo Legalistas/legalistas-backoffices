@@ -9,7 +9,7 @@ import Button from "@/components/ui/button/Button"
 import { toast } from "sonner"
 import { useSession } from "next-auth/react"
 import { CASE_EVENTS_ENDPOINT, CASE_EVENT_BY_ID_ENDPOINT } from "@/constant/api-endpoints"
-import { CASE_EVENTS_TYPE } from "@/constant/causes"
+import { CASE_EVENTS_TYPE, TYPES_PROCCESS } from "@/constant/causes"
 import Switch from "@/components/ui/switch/Switch"
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
@@ -24,6 +24,19 @@ const TYPE_CONFIG: Record<number, { label: string; icon: typeof FileText; color:
     2: { label: "Pericia", icon: FileText, color: "bg-purple-50 text-purple-700 border-purple-200" },
 }
 
+// Armar label del expediente con carátula: "Actor C/ Demandado S/ TipoProceso — CUIJ"
+const getFileLabel = (f: any, customerName?: string): string => {
+    const parts = f.parts || []
+    const actor = parts.find((p: any) => p.partyType === "actor" || p.partyType === "demandante")
+    const demandado = parts.find((p: any) => p.partyType === "demandado")
+    const actorName = actor?.name || customerName || ""
+    const demandadoName = demandado?.name || (actorName ? "Sin partes" : "")
+    const partesLabel = actorName ? `${actorName} C/ ${demandadoName}` : ""
+    const processType = f.typeProcessId ? TYPES_PROCCESS.find((t: any) => t.id === f.typeProcessId)?.value : ""
+    const caratula = partesLabel ? `${partesLabel}${processType ? ` S/ ${processType}` : ""}` : f.title || `Expediente #${f.id}`
+    return `${caratula}${f.cuij ? ` — ${f.cuij}` : ""}`
+}
+
 interface LawyerInfo {
     id: number
     name: string
@@ -35,9 +48,10 @@ interface EventosViewProps {
     caseId: string
     responsibleLawyer?: LawyerInfo | null
     internalLawyer?: LawyerInfo | null
+    customerName?: string
 }
 
-export const EventosView = ({ files, caseId, responsibleLawyer, internalLawyer }: EventosViewProps) => {
+export const EventosView = ({ files, caseId, responsibleLawyer, internalLawyer, customerName }: EventosViewProps) => {
     const { data: session } = useSession()
     const [events, setEvents] = useState<CaseEvent[]>([])
     const [loading, setLoading] = useState(true)
@@ -77,7 +91,7 @@ export const EventosView = ({ files, caseId, responsibleLawyer, internalLawyer }
     const selectedFileLabel = useMemo(() => {
         const f = files.find((file) => String(file.id) === String(newEvent.fileId))
         if (!f) return "Seleccionar expediente"
-        return `Exp. #${f.id} — ${f.title || getProcessTypeLabel(f.typeProcessId)}`
+        return getFileLabel(f, customerName)
     }, [newEvent.fileId, files])
 
     const searchedFiles = useMemo(() => {
@@ -400,7 +414,7 @@ export const EventosView = ({ files, caseId, responsibleLawyer, internalLawyer }
                         {/* Expediente */}
                         {event.file && (
                             <p className="mt-2 text-sm text-gray-400">
-                                Exp. #{event.file.id} — {event.file.title || "Sin título"}
+                                {getFileLabel(event.file, customerName)}
                             </p>
                         )}
                     </div>
@@ -612,9 +626,8 @@ export const EventosView = ({ files, caseId, responsibleLawyer, internalLawyer }
                                                         onClick={() => { setNewEvent({ ...newEvent, fileId: file.id }); setIsFileDropdownOpen(false) }}
                                                         className={`w-full flex flex-col px-3 py-2.5 text-left hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0 ${String(newEvent.fileId) === String(file.id) ? "bg-[#09A4B5]/5" : ""}`}
                                                     >
-                                                        <span className="text-xs font-medium text-gray-900">Exp. #{file.id}</span>
-                                                        <span className="text-[11px] text-gray-500 truncate">
-                                                            {file.title || getProcessTypeLabel(file.typeProcessId)}
+                                                        <span className="text-xs font-medium text-gray-900 truncate">
+                                                            {getFileLabel(file, customerName)}
                                                         </span>
                                                     </button>
                                                 ))}
