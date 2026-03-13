@@ -154,7 +154,7 @@ export const MENU_ITEMS: NavItem[] = [
     icon: User,
     name: "Miembros",
     path: "/admin/members",
-    roles: SUPERADMIN,
+    roles: LEGAL_INTERNO,
   },
   {
     icon: Pencil,

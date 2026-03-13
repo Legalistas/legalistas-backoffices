@@ -306,12 +306,6 @@ export const FilesListView = ({ files, caseId, customer, onAddNewFile }: FilesLi
                                         </TableCell>
                                         <TableCell className="px-4 py-3">
                                             <div className="flex items-center justify-end gap-1">
-                                                <Link
-                                                    href={`/admin/legal-cases/${caseId}/files/${file.id}`}
-                                                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-400 hover:bg-gray-100 hover:text-blue-600 transition-colors"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Link>
                                                 <button
                                                     onClick={(e) => {
                                                         e.preventDefault()
