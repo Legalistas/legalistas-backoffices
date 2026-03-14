@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useSession } from "next-auth/react"
 import Button from "@/components/ui/button/Button"
-import { Edit2, Eye, Trash2, ArrowUpDown, ArrowUp, ArrowDown, Building } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select/SelectComposed"
+import { Edit2, Eye, Trash2, ArrowUpDown, ArrowUp, ArrowDown, MoreHorizontal, ChevronRight, AlertTriangle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Table, TableHeader, TableBody, TableRow, TableCell } from "@/components/ui/table"
 import { NegotiationFilters } from "./NegotiationFilters"
@@ -13,12 +12,56 @@ import {
   NEGOTIATIONS_ENDPOINT,
   NEGOTIATION_BY_ID_ENDPOINT,
   NEGOTIATION_OFFERS_ENDPOINT,
-  NEGOTIATION_ACCEPT_OFFER_ENDPOINT
+  NEGOTIATION_ACCEPT_OFFER_ENDPOINT,
 } from "@/constant/api-endpoints"
-import type { Oferta, Negotiation, ViewMode } from "@/types/negotiations"
-import { Role } from "@/constant/user"
-import { useRolePermissions, buildFilteredUrl } from "@/hooks/useRolePermissions"
+import type { Negotiation, ViewMode, NegotiationStatus } from "@/types/negotiations"
+import { useRolePermissions } from "@/hooks/useRolePermissions"
 import type { ColumnConfig } from "./ColumnSelector"
+
+// ============================================================================
+// Map ViewMode → NegotiationStatus
+// ============================================================================
+const VALID_TRANSITIONS: Record<NegotiationStatus, { value: NegotiationStatus; label: string }[]> = {
+  INICIAR: [
+    { value: "CURSO", label: "Pasar a En Curso" },
+    { value: "PERDIDAS", label: "Marcar como Perdida" },
+  ],
+  CURSO: [
+    { value: "SUSPENSO", label: "Suspender" },
+    { value: "FINALIZADAS", label: "Finalizar" },
+    { value: "PERDIDAS", label: "Marcar como Perdida" },
+  ],
+  SUSPENSO: [
+    { value: "CURSO", label: "Reanudar (En Curso)" },
+    { value: "PERDIDAS", label: "Marcar como Perdida" },
+  ],
+  FINALIZADAS: [],
+  PERDIDAS: [],
+}
+
+const STATUS_BADGE_STYLES: Record<NegotiationStatus, string> = {
+  INICIAR: "bg-blue-100 text-blue-700",
+  CURSO: "bg-emerald-100 text-emerald-700",
+  SUSPENSO: "bg-amber-100 text-amber-700",
+  FINALIZADAS: "bg-green-100 text-green-700",
+  PERDIDAS: "bg-red-100 text-red-700",
+}
+
+const VIEW_TO_STATUS: Record<ViewMode, NegotiationStatus> = {
+  iniciar: "INICIAR",
+  curso: "CURSO",
+  suspenso: "SUSPENSO",
+  finalizadas: "FINALIZADAS",
+  perdidas: "PERDIDAS",
+}
+
+const STATUS_LABELS: Record<NegotiationStatus, string> = {
+  INICIAR: "Iniciar",
+  CURSO: "En Curso",
+  SUSPENSO: "Suspenso",
+  FINALIZADAS: "Finalizada",
+  PERDIDAS: "Perdida",
+}
 
 interface FilterState {
   searchTerm: string
@@ -26,19 +69,17 @@ interface FilterState {
   abogadoContraparte: string
   lesion: string
   estado: string
-  rangoMonto: {
-    min: string
-    max: string
-  }
+  rangoMonto: { min: string; max: string }
 }
 
 interface NegotiationsTableProps {
-  viewMode: "esperando" | "en-curso" | "finalizadas"
+  viewMode: ViewMode
   columnConfig: ColumnConfig[]
   onColumnChange: (columns: ColumnConfig[]) => void
+  onDataChange?: () => void
 }
 
-export function NegotiationsTable({ viewMode, columnConfig, onColumnChange }: NegotiationsTableProps) {
+export function NegotiationsTable({ viewMode, columnConfig, onColumnChange, onDataChange }: NegotiationsTableProps) {
   const { data: session } = useSession()
   const permissions = useRolePermissions()
   const [negotiations, setNegotiations] = useState<Negotiation[]>([])
@@ -48,362 +89,50 @@ export function NegotiationsTable({ viewMode, columnConfig, onColumnChange }: Ne
     abogadoContraparte: "",
     lesion: "",
     estado: "",
-    rangoMonto: {
-      min: "",
-      max: ""
-    }
+    rangoMonto: { min: "", max: "" },
   })
-  const [sortConfig, setSortConfig] = useState<{
-    key: keyof Negotiation | 'ultimaOferta'
-    direction: 'asc' | 'desc'
-  } | null>(null)
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: "asc" | "desc" } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedNegotiation, setSelectedNegotiation] = useState<Negotiation | null>(null)
   const [showPujaModal, setShowPujaModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [nuevoMonto, setNuevoMonto] = useState("")
-  const [nuevaFecha, setNuevaFecha] = useState("")
+  const [offerNotes, setOfferNotes] = useState("")
+  const [openDropdownId, setOpenDropdownId] = useState<number | null>(null)
+  const [showStatusSubmenu, setShowStatusSubmenu] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement | null>(null)
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Memoizar los valores de permisos para evitar re-renders constantes
-  const isLawyer = permissions.isLawyer;
-  const userId = permissions.getUserId();
-  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const fetchDataRef = useRef<() => void>(() => { });
+  const isLawyer = permissions.isLawyer
+  const userId = permissions.getUserId()
 
-  // Fetch negotiations from API con debounce
-  useEffect(() => {
-    // Función local para evitar dependencias problemáticas
-    const fetchData = async () => {
-      if (!session?.user?.role || !session?.user?.accessToken) {
-        setIsLoading(false)
-        return;
-      }
-
-      setIsLoading(true)
-      setError(null)
-      try {
-        const statusParam = viewMode === "esperando" ? "ESPERANDO" :
-          viewMode === "en-curso" ? "EN_NEGOCIACION" :
-            viewMode === "finalizadas" ? "FINALIZADA" : ""
-
-        // Construir URL base
-        let url = NEGOTIATIONS_ENDPOINT;
-        const params = new URLSearchParams();
-
-        if (statusParam) {
-          params.append('status', statusParam);
-        }
-        params.append('limit', '5000');
-
-        // Si es abogado, agregar filtro
-        if (isLawyer && userId) {
-          params.append('lawyerId', userId.toString());
-        }
-
-        if (params.toString()) {
-          url += `?${params.toString()}`;
-        }
-
-        const response = await fetch(url, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.user?.accessToken}`,
-          },
-        })
-
-        if (!response.ok) throw new Error("Error al cargar negociaciones")
-
-        const data = await response.json()
-
-        // Transform API data to match component structure
-        const transformedData: Negotiation[] = data.data.map((neg: any) => ({
-          id: neg.id,
-          causa: neg.title,
-          expediente: neg.caseFile?.title || "",
-          abogadoContraparte: neg.contraparteLawyer || "",
-          abogadoInterno: neg.lawyer?.name || "",
-          lesion: neg.lesion || "",
-          incLegalistas: neg.incLegalistas ? parseFloat(neg.incLegalistas) : null,
-          deArt: neg.deArt || null,
-          liquidacion100: neg.liquidacion100 ? parseFloat(neg.liquidacion100) : null,
-          liquidacion80: neg.liquidacion80 ? parseFloat(neg.liquidacion80) : null,
-          ofertas: neg.offers?.map((offer: any) => ({
-            tipo: offer.type,
-            monto: parseFloat(offer.amount),
-            fecha: new Date(offer.date).toISOString().split('T')[0],
-            aceptada: offer.accepted,
-          })) || [],
-          estado: neg.status,
-          lawyerId: neg.lawyer?.id || null,
-        }))
-
-        // Filtro adicional del lado del cliente si es necesario (para casos donde el backend no filtre correctamente)
-        let filteredData = transformedData;
-        if (isLawyer && userId) {
-          filteredData = transformedData.filter(neg =>
-            neg.lawyerId === userId ||
-            neg.abogadoInterno === session.user?.name
-          );
-        }
-
-        setNegotiations(filteredData)
-      } catch (err) {
-        console.error("Error fetching negotiations:", err)
-        setError("Error al cargar las negociaciones")
-        setNegotiations([])
-      } finally {
-        setIsLoading(false)
-      }
+  // ─── Fetch negotiations ───
+  const fetchNegotiations = useCallback(async () => {
+    if (!session?.user?.accessToken) {
+      setIsLoading(false)
+      return
     }
 
-    // Guardar referencia a fetchData
-    fetchDataRef.current = fetchData;
-
-    // Limpiar timeout anterior si existe
-    if (fetchTimeoutRef.current) {
-      clearTimeout(fetchTimeoutRef.current);
-    }
-
-    // Ejecutar fetch con un pequeño delay para evitar llamadas múltiples
-    fetchTimeoutRef.current = setTimeout(() => {
-      fetchData();
-    }, 100);
-
-    // Cleanup
-    return () => {
-      if (fetchTimeoutRef.current) {
-        clearTimeout(fetchTimeoutRef.current);
-      }
-    };
-  }, [session?.user?.accessToken, session?.user?.role, session?.user?.name, viewMode, isLawyer, userId])
-
-  // Aplicar filtros y ordenamiento
-  const filteredNegotiations = useMemo(() => {
-    const filtered = negotiations.filter((neg) => {
-      // Filtro por estado del viewMode
-      if (viewMode === "esperando" && neg.estado !== "ESPERANDO") return false
-      if (viewMode === "en-curso" && neg.estado !== "EN_NEGOCIACION") return false
-      if (viewMode === "finalizadas" && neg.estado !== "FINALIZADA") return false
-
-      // Filtro de búsqueda
-      if (filters.searchTerm) {
-        const searchLower = filters.searchTerm.toLowerCase()
-        const searchFields = [
-          neg.causa,
-          neg.expediente,
-          neg.abogadoContraparte,
-          neg.abogadoInterno,
-          neg.lesion
-        ].map(field => (field || "").toLowerCase())
-
-        if (!searchFields.some(field => field.includes(searchLower))) {
-          return false
-        }
-      }
-
-      // Filtro por abogado interno
-      if (filters.abogadoInterno && neg.abogadoInterno !== filters.abogadoInterno) {
-        return false
-      }
-
-      // Filtro por abogado contraparte
-      if (filters.abogadoContraparte && neg.abogadoContraparte !== filters.abogadoContraparte) {
-        return false
-      }
-
-      // Filtro por lesión
-      if (filters.lesion && neg.lesion !== filters.lesion) {
-        return false
-      }
-
-      // Filtro por rango de monto
-      if (filters.rangoMonto.min || filters.rangoMonto.max) {
-        const ultimaOferta = getUltimaOferta(neg)
-        if (ultimaOferta) {
-          const monto = ultimaOferta.monto
-          if (filters.rangoMonto.min && monto < parseFloat(filters.rangoMonto.min)) {
-            return false
-          }
-          if (filters.rangoMonto.max && monto > parseFloat(filters.rangoMonto.max)) {
-            return false
-          }
-        }
-      }
-
-      return true
-    })
-
-    // Aplicar ordenamiento
-    if (sortConfig) {
-      filtered.sort((a, b) => {
-        let aValue: any
-        let bValue: any
-
-        if (sortConfig.key === 'ultimaOferta') {
-          aValue = getUltimaOferta(a)?.monto || 0
-          bValue = getUltimaOferta(b)?.monto || 0
-        } else {
-          aValue = a[sortConfig.key as keyof Negotiation]
-          bValue = b[sortConfig.key as keyof Negotiation]
-        }
-
-        // Convertir a string para comparación segura
-        aValue = String(aValue || "").toLowerCase()
-        bValue = String(bValue || "").toLowerCase()
-
-        if (aValue < bValue) {
-          return sortConfig.direction === 'asc' ? -1 : 1
-        }
-        if (aValue > bValue) {
-          return sortConfig.direction === 'asc' ? 1 : -1
-        }
-        return 0
-      })
-    }
-
-    return filtered
-  }, [negotiations, viewMode, filters, sortConfig])
-
-  // Obtener valores únicos para los filtros
-  const uniqueValues = useMemo(() => {
-    return {
-      abogadosInternos: [...new Set(negotiations.map(neg => neg.abogadoInterno).filter(Boolean))],
-      abogadosContraparte: [...new Set(negotiations.map(neg => neg.abogadoContraparte).filter(Boolean))],
-      lesiones: [...new Set(negotiations.map(neg => neg.lesion).filter(Boolean))]
-    }
-  }, [negotiations])
-
-  const getUltimaOferta = (neg: Negotiation) => {
-    const aceptada = neg.ofertas.find((o) => o.aceptada)
-    return aceptada || neg.ofertas[neg.ofertas.length - 1] || null
-  }
-
-  const handleFiltersChange = (newFilters: FilterState) => {
-    setFilters(newFilters)
-  }
-
-  const handleClearFilters = () => {
-    setFilters({
-      searchTerm: "",
-      abogadoInterno: "",
-      abogadoContraparte: "",
-      lesion: "",
-      estado: "",
-      rangoMonto: {
-        min: "",
-        max: ""
-      }
-    })
-  }
-
-  const handleSort = (key: keyof Negotiation | 'ultimaOferta') => {
-    let direction: 'asc' | 'desc' = 'asc'
-
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc'
-    }
-
-    setSortConfig({ key, direction })
-  }
-
-  const getSortIcon = (key: keyof Negotiation | 'ultimaOferta') => {
-    if (!sortConfig || sortConfig.key !== key) {
-      return <ArrowUpDown className="w-4 h-4" />
-    }
-
-    return sortConfig.direction === 'asc' ?
-      <ArrowUp className="w-4 h-4" /> :
-      <ArrowDown className="w-4 h-4" />
-  }
-
-  const isColumnVisible = (columnId: string) => {
-    const column = columnConfig.find(col => col.id === columnId)
-    return column ? column.visible : true
-  }
-
-  const formatCurrency = (value: number | null) => {
-    if (!value) return "-"
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-      minimumFractionDigits: 0,
-    }).format(value)
-  }
-
-  const formatPercentage = (value: number | null) => {
-    if (!value) return "-"
-    return `${value}%`
-  }
-
-  const handleVerPuja = (neg: Negotiation) => {
-    setSelectedNegotiation(neg)
-    setShowPujaModal(true)
-  }
-
-  const handleBorrar = async (id: number) => {
-    if (!confirm("¿Estás seguro de eliminar esta negociación?")) return
+    setIsLoading(true)
+    setError(null)
 
     try {
-      const response = await fetch(NEGOTIATION_BY_ID_ENDPOINT(id), {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.user?.accessToken}`,
-        },
-      })
-
-      if (!response.ok) throw new Error("Error al eliminar la negociación")
-
-      // Remove from local state
-      setNegotiations(negotiations.filter((n) => n.id !== id))
-      alert("Negociación eliminada exitosamente")
-    } catch (err) {
-      console.error("Error deleting negotiation:", err)
-      alert("Error al eliminar la negociación")
-    }
-  }
-
-  const handleEditar = (neg: Negotiation) => {
-    setSelectedNegotiation(neg)
-    setShowEditModal(true)
-  }
-
-  const handleEditSuccess = async () => {
-    // Refresh data after successful edit
-    setShowEditModal(false)
-    setSelectedNegotiation(null)
-    
-    // Trigger re-fetch by updating a dependency
-    if (!session?.user?.accessToken) return
-
-    try {
-      const statusParam = viewMode === "esperando" ? "ESPERANDO" :
-        viewMode === "en-curso" ? "EN_NEGOCIACION" :
-          viewMode === "finalizadas" ? "FINALIZADA" : ""
-
-      let url = NEGOTIATIONS_ENDPOINT;
-      const params = new URLSearchParams();
-
-      if (statusParam) {
-        params.append('status', statusParam);
-      }
-      params.append('limit', '1000000');
+      const params = new URLSearchParams()
+      params.append("status", VIEW_TO_STATUS[viewMode])
+      params.append("limit", "5000")
 
       if (isLawyer && userId) {
-        params.append('lawyerId', userId.toString());
+        params.append("lawyerId", userId.toString())
       }
 
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
+      const url = `${NEGOTIATIONS_ENDPOINT}?${params.toString()}`
 
       const response = await fetch(url, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.user?.accessToken}`,
+          Authorization: `Bearer ${session.user.accessToken}`,
         },
       })
 
@@ -411,283 +140,323 @@ export function NegotiationsTable({ viewMode, columnConfig, onColumnChange }: Ne
 
       const data = await response.json()
 
-      const transformedData: Negotiation[] = data.data.map((neg: any) => ({
+      // Transform API data — datos del caso vienen en `neg.case`
+      const transformed: Negotiation[] = (data.data || []).map((neg: any) => ({
         id: neg.id,
-        causa: neg.title,
-        expediente: neg.caseFile?.title || "",
-        abogadoContraparte: neg.contraparteLawyer || "",
-        abogadoInterno: neg.lawyer?.name || "",
-        lesion: neg.lesion || "",
+        caseId: neg.caseId,
+        contraparteLawyer: neg.contraparteLawyer || null,
         incLegalistas: neg.incLegalistas ? parseFloat(neg.incLegalistas) : null,
-        deArt: neg.deArt || null,
+        deArt: neg.deArt ? parseFloat(neg.deArt) : null,
         liquidacion100: neg.liquidacion100 ? parseFloat(neg.liquidacion100) : null,
         liquidacion80: neg.liquidacion80 ? parseFloat(neg.liquidacion80) : null,
-        ofertas: neg.offers?.map((offer: any) => ({
+        lastOfferAmount: neg.lastOfferAmount ? parseFloat(neg.lastOfferAmount) : null,
+        lastOfferSource: neg.lastOfferSource || null,
+        agreedAmount: neg.agreedAmount ? parseFloat(neg.agreedAmount) : null,
+        notes: neg.notes || null,
+        status: neg.status,
+        case: {
+          id: neg.case?.id,
+          title: neg.case?.title || null,
+          number: neg.case?.number || null,
+          injury: neg.case?.injury || null,
+          responsibleLawyer: neg.case?.responsibleLawyer || null,
+          internalLawyer: neg.case?.internalLawyer || null,
+          customer: neg.case?.customer || null,
+          parts: neg.case?.parts || [],
+        },
+        offers: (neg.offers || []).map((offer: any) => ({
+          id: offer.id,
           tipo: offer.type,
           monto: parseFloat(offer.amount),
-          fecha: new Date(offer.date).toISOString().split('T')[0],
+          fecha: new Date(offer.date).toLocaleDateString("es-AR"),
           aceptada: offer.accepted,
-        })) || [],
-        estado: neg.status,
-        lawyerId: neg.lawyer?.id || null,
+          notes: offer.notes || null,
+        })),
+        closingId: neg.closing?.id || null,
       }))
 
-      let filteredData = transformedData;
-      if (isLawyer && userId) {
-        filteredData = transformedData.filter(neg =>
-          neg.lawyerId === userId ||
-          neg.abogadoInterno === session.user?.name
-        );
-      }
-
-      setNegotiations(filteredData)
+      setNegotiations(transformed)
     } catch (err) {
-      console.error("Error refreshing negotiations:", err)
+      console.error("Error fetching negotiations:", err)
+      setError("Error al cargar las negociaciones")
+      setNegotiations([])
+    } finally {
+      setIsLoading(false)
+    }
+  }, [session?.user?.accessToken, viewMode, isLawyer, userId])
+
+  useEffect(() => {
+    if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current)
+    fetchTimeoutRef.current = setTimeout(fetchNegotiations, 100)
+    return () => {
+      if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current)
+    }
+  }, [fetchNegotiations])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdownId(null)
+        setShowStatusSubmenu(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  // ─── Filters & sort ───
+  const filteredNegotiations = useMemo(() => {
+    const filtered = negotiations.filter((neg) => {
+      if (filters.searchTerm) {
+        const s = filters.searchTerm.toLowerCase()
+        const fields = [
+          neg.case.title,
+          neg.case.responsibleLawyer?.name,
+          neg.case.internalLawyer?.name,
+          neg.contraparteLawyer,
+          neg.case.injury,
+        ]
+        if (!fields.some((f) => (f || "").toLowerCase().includes(s))) return false
+      }
+      if (filters.abogadoInterno && neg.case.internalLawyer?.name !== filters.abogadoInterno) return false
+      if (filters.abogadoContraparte && neg.contraparteLawyer !== filters.abogadoContraparte) return false
+      if (filters.lesion && neg.case.injury !== filters.lesion) return false
+      if (filters.rangoMonto.min || filters.rangoMonto.max) {
+        const monto = neg.lastOfferAmount || 0
+        if (filters.rangoMonto.min && monto < parseFloat(filters.rangoMonto.min)) return false
+        if (filters.rangoMonto.max && monto > parseFloat(filters.rangoMonto.max)) return false
+      }
+      return true
+    })
+
+    if (sortConfig) {
+      filtered.sort((a, b) => {
+        let aVal: any
+        let bVal: any
+
+        switch (sortConfig.key) {
+          case "causa": aVal = a.case.title; bVal = b.case.title; break
+          case "abogadoRepresentante": aVal = a.case.responsibleLawyer?.name; bVal = b.case.responsibleLawyer?.name; break
+          case "abogadoInterno": aVal = a.case.internalLawyer?.name; bVal = b.case.internalLawyer?.name; break
+          case "abogadoContraparte": aVal = a.contraparteLawyer; bVal = b.contraparteLawyer; break
+          case "lesion": aVal = a.case.injury; bVal = b.case.injury; break
+          case "incLegalistas": aVal = a.incLegalistas || 0; bVal = b.incLegalistas || 0; break
+          case "deArt": aVal = a.deArt || 0; bVal = b.deArt || 0; break
+          case "liquidacion100": aVal = a.liquidacion100 || 0; bVal = b.liquidacion100 || 0; break
+          case "liquidacion80": aVal = a.liquidacion80 || 0; bVal = b.liquidacion80 || 0; break
+          case "ultimaOferta": aVal = a.lastOfferAmount || 0; bVal = b.lastOfferAmount || 0; break
+          default: return 0
+        }
+
+        const aStr = String(aVal || "").toLowerCase()
+        const bStr = String(bVal || "").toLowerCase()
+        if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1
+        if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1
+        return 0
+      })
+    }
+
+    return filtered
+  }, [negotiations, filters, sortConfig])
+
+  const uniqueValues = useMemo(() => ({
+    abogadosInternos: [...new Set(negotiations.map((n) => n.case.internalLawyer?.name).filter(Boolean))] as string[],
+    abogadosContraparte: [...new Set(negotiations.map((n) => n.contraparteLawyer).filter(Boolean))] as string[],
+    lesiones: [...new Set(negotiations.map((n) => n.case.injury).filter(Boolean))] as string[],
+  }), [negotiations])
+
+  // ─── Helpers ───
+  const formatCurrency = (value: number | null) => {
+    if (!value) return "-"
+    return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 0 }).format(value)
+  }
+
+  const formatPercentage = (value: number | null) => (!value ? "-" : `${value}%`)
+
+  const isColumnVisible = (id: string) => {
+    const col = columnConfig.find((c) => c.id === id)
+    return col ? col.visible : true
+  }
+
+  const handleSort = (key: string) => {
+    setSortConfig((prev) =>
+      prev?.key === key && prev.direction === "asc"
+        ? { key, direction: "desc" }
+        : { key, direction: "asc" }
+    )
+  }
+
+  const getSortIcon = (key: string) => {
+    if (!sortConfig || sortConfig.key !== key) return <ArrowUpDown className="w-4 h-4" />
+    return sortConfig.direction === "asc" ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+  }
+
+  // ─── Actions ───
+  const handleDelete = async (id: number) => {
+    if (!confirm("¿Estás seguro de eliminar esta negociación?")) return
+    try {
+      const response = await fetch(NEGOTIATION_BY_ID_ENDPOINT(id), {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.user?.accessToken}` },
+      })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.message || "Error al eliminar")
+      }
+      setNegotiations((prev) => prev.filter((n) => n.id !== id))
+      onDataChange?.()
+    } catch (err: any) {
+      alert(err.message || "Error al eliminar la negociación")
     }
   }
 
-  const updateNegotiationStatus = async (id: number, status: "ESPERANDO" | "EN_NEGOCIACION" | "FINALIZADA") => {
+  const handleStatusChange = async (id: number, newStatus: NegotiationStatus) => {
+    if (newStatus === "FINALIZADAS") {
+      if (!confirm("Esto generará un cierre automático. ¿Continuar?")) return
+    }
     try {
       const response = await fetch(NEGOTIATION_BY_ID_ENDPOINT(id), {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.user?.accessToken}`,
-        },
-        body: JSON.stringify({ status }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.user?.accessToken}` },
+        body: JSON.stringify({ status: newStatus }),
       })
-
-      if (!response.ok) throw new Error("Error al actualizar la negociación")
-
-      // Update local state
-      setNegotiations(negotiations.map(n => n.id === id ? { ...n, estado: status } : n))
-      alert("Estado actualizado exitosamente")
-    } catch (err) {
-      console.error("Error updating negotiation:", err)
-      alert("Error al actualizar la negociación")
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.message || "Error al actualizar estado")
+      }
+      await fetchNegotiations()
+      onDataChange?.()
+    } catch (err: any) {
+      alert(err.message || "Error al actualizar el estado")
     }
   }
 
-  const handleAgregarOferta = async (tipo: "ASEGURADORA" | "LEGALISTAS") => {
-    if (!selectedNegotiation || !nuevoMonto || !nuevaFecha) {
-      alert("Por favor complete todos los campos")
+  const handleAddOffer = async (tipo: "ASEGURADORA" | "LEGALISTAS") => {
+    if (!selectedNegotiation || !nuevoMonto) {
+      alert("Por favor complete el monto")
       return
     }
-
     try {
-      const response = await fetch(
-        NEGOTIATION_OFFERS_ENDPOINT(selectedNegotiation.id),
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.user?.accessToken}`,
-          },
-          body: JSON.stringify({
-            type: tipo,
-            amount: Number.parseFloat(nuevoMonto),
-          }),
-        }
-      )
-
+      const response = await fetch(NEGOTIATION_OFFERS_ENDPOINT(selectedNegotiation.id), {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.user?.accessToken}` },
+        body: JSON.stringify({ type: tipo, amount: parseFloat(nuevoMonto), notes: offerNotes || null }),
+      })
       if (!response.ok) throw new Error("Error al crear la oferta")
 
-      // Reload negotiations to get updated data
-      const statusParam = viewMode === "esperando" ? "ESPERANDO" :
-        viewMode === "en-curso" ? "EN_NEGOCIACION" :
-          viewMode === "finalizadas" ? "FINALIZADA" : ""
-
-      const url = statusParam
-        ? `${NEGOTIATIONS_ENDPOINT}?status=${statusParam}&limit=1000`
-        : `${NEGOTIATIONS_ENDPOINT}?limit=1000`
-
-      const reloadResponse = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.user?.accessToken}`,
-        },
-      })
-
-      if (reloadResponse.ok) {
-        const data = await reloadResponse.json()
-        const transformedData: Negotiation[] = data.data.map((neg: any) => ({
-          id: neg.id,
-          causa: neg.title,
-          expediente: neg.caseFile?.title || "",
-          abogadoContraparte: neg.contraparteLawyer || "",
-          abogadoInterno: neg.lawyer?.name || "",
-          lesion: neg.lesion || "",
-          incLegalistas: neg.incLegalistas ? parseFloat(neg.incLegalistas) : null,
-          deArt: neg.deArt || null,
-          liquidacion100: neg.liquidacion100 ? parseFloat(neg.liquidacion100) : null,
-          liquidacion80: neg.liquidacion80 ? parseFloat(neg.liquidacion80) : null,
-          ofertas: neg.offers?.map((offer: any) => ({
-            tipo: offer.type,
-            monto: parseFloat(offer.amount),
-            fecha: new Date(offer.date).toISOString().split('T')[0],
-            aceptada: offer.accepted,
-          })) || [],
-          estado: neg.status,
-        }))
-        setNegotiations(transformedData)
-
-        // Update selected negotiation
-        const updated = transformedData.find(n => n.id === selectedNegotiation.id)
-        if (updated) setSelectedNegotiation(updated)
-      }
-
-      // Limpiar inputs
       setNuevoMonto("")
-      setNuevaFecha("")
+      setOfferNotes("")
+      await fetchNegotiations()
+      onDataChange?.()
+
+      // Refresh selected negotiation
+      const updated = negotiations.find((n) => n.id === selectedNegotiation.id)
+      if (updated) {
+        // Re-fetch the single negotiation for modal
+        const detailRes = await fetch(NEGOTIATION_BY_ID_ENDPOINT(selectedNegotiation.id), {
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.user?.accessToken}` },
+        })
+        if (detailRes.ok) {
+          const detail = await detailRes.json()
+          const neg = detail.data
+          setSelectedNegotiation({
+            ...selectedNegotiation,
+            lastOfferAmount: neg.lastOfferAmount ? parseFloat(neg.lastOfferAmount) : null,
+            lastOfferSource: neg.lastOfferSource,
+            offers: (neg.offers || []).map((o: any) => ({
+              id: o.id,
+              tipo: o.type,
+              monto: parseFloat(o.amount),
+              fecha: new Date(o.date).toLocaleDateString("es-AR"),
+              aceptada: o.accepted,
+              notes: o.notes || null,
+            })),
+          })
+        }
+      }
     } catch (err) {
-      console.error("Error adding offer:", err)
       alert("Error al agregar la oferta")
     }
   }
 
-  const handleAceptarOferta = async (index: number) => {
+  const handleAcceptOffer = async (offerId: number) => {
     if (!selectedNegotiation) return
+    if (!confirm("¿Aceptar esta oferta? Esto finalizará la negociación y generará un cierre automático.")) return
 
-    const ofertaToAccept = selectedNegotiation.ofertas[index]
-    if (!ofertaToAccept) return
-
-    // We need the offer ID from the backend, but we don't have it in the current structure
-    // For now, we'll need to get it from the offers array
-    // This assumes offers are in the same order as returned from API
     try {
-      // First, get the full negotiation details to get offer IDs
-      const detailResponse = await fetch(
-        NEGOTIATION_BY_ID_ENDPOINT(selectedNegotiation.id),
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.user?.accessToken}`,
-          },
-        }
-      )
-
-      if (!detailResponse.ok) throw new Error("Error al obtener detalles")
-      const detailData = await detailResponse.json()
-      const offerId = detailData.data.offers[index]?.id
-
-      if (!offerId) throw new Error("No se encontró el ID de la oferta")
-
-      // Accept the offer
-      const response = await fetch(
-        NEGOTIATION_ACCEPT_OFFER_ENDPOINT(selectedNegotiation.id, offerId),
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.user?.accessToken}`,
-          },
-        }
-      )
-
-      if (!response.ok) throw new Error("Error al aceptar la oferta")
-
-      // Reload negotiations
-      const statusParam = viewMode === "esperando" ? "ESPERANDO" :
-        viewMode === "en-curso" ? "EN_NEGOCIACION" :
-          viewMode === "finalizadas" ? "FINALIZADA" : ""
-
-      const url = statusParam
-        ? `${NEGOTIATIONS_ENDPOINT}?status=${statusParam}&limit=1000`
-        : `${NEGOTIATIONS_ENDPOINT}?limit=1000`
-
-      const reloadResponse = await fetch(url, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.user?.accessToken}`,
-        },
+      const response = await fetch(NEGOTIATION_ACCEPT_OFFER_ENDPOINT(selectedNegotiation.id, offerId), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.user?.accessToken}` },
       })
-
-      if (reloadResponse.ok) {
-        const data = await reloadResponse.json()
-        const transformedData: Negotiation[] = data.data.map((neg: any) => ({
-          id: neg.id,
-          causa: neg.title,
-          expediente: neg.caseFile?.title || "",
-          abogadoContraparte: neg.contraparteLawyer || "",
-          abogadoInterno: neg.lawyer?.name || "",
-          lesion: neg.lesion || "",
-          incLegalistas: neg.incLegalistas ? parseFloat(neg.incLegalistas) : null,
-          deArt: neg.deArt || null,
-          liquidacion100: neg.liquidacion100 ? parseFloat(neg.liquidacion100) : null,
-          liquidacion80: neg.liquidacion80 ? parseFloat(neg.liquidacion80) : null,
-          ofertas: neg.offers?.map((offer: any) => ({
-            tipo: offer.type,
-            monto: parseFloat(offer.amount),
-            fecha: new Date(offer.date).toISOString().split('T')[0],
-            aceptada: offer.accepted,
-          })) || [],
-          estado: neg.status,
-        }))
-        setNegotiations(transformedData)
-
-        // Update selected negotiation
-        const updated = transformedData.find(n => n.id === selectedNegotiation.id)
-        if (updated) setSelectedNegotiation(updated)
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.message || "Error al aceptar")
       }
-    } catch (err) {
-      console.error("Error accepting offer:", err)
-      alert("Error al aceptar la oferta")
+      setShowPujaModal(false)
+      setSelectedNegotiation(null)
+      await fetchNegotiations()
+      onDataChange?.()
+      alert("Oferta aceptada. Negociación finalizada y cierre creado.")
+    } catch (err: any) {
+      alert(err.message || "Error al aceptar la oferta")
     }
   }
 
-  // Loading state
+  const handleEditSuccess = async () => {
+    setShowEditModal(false)
+    setSelectedNegotiation(null)
+    await fetchNegotiations()
+    onDataChange?.()
+  }
+
+  // ─── Loading / Error / Empty states ───
   if (isLoading) {
     return (
       <div className="flex items-center justify-center p-12">
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent align-[-0.125em] motion-reduce:animate-[spin_1.5s_linear_infinite]" />
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent" />
           <p className="mt-4 text-sm text-gray-500">Cargando negociaciones...</p>
         </div>
       </div>
     )
   }
 
-  // Error state
   if (error) {
     return (
       <div className="rounded-lg border border-error-200 bg-error-50 p-6">
-        <div className="flex items-center gap-3">
-          <svg className="h-5 w-5 text-error-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <p className="text-sm text-error-800">{error}</p>
-        </div>
+        <p className="text-sm text-error-800">{error}</p>
       </div>
     )
   }
 
-  // Empty state
   if (filteredNegotiations.length === 0) {
     return (
-      <div className="rounded-lg border border-gray-200 bg-white p-12">
-        <div className="text-center">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <h3 className="mt-2 text-sm font-semibold text-gray-900">No hay negociaciones</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {viewMode === "esperando" && "No hay negociaciones esperando"}
-            {viewMode === "en-curso" && "No hay negociaciones en curso"}
-            {viewMode === "finalizadas" && "No hay negociaciones finalizadas"}
-          </p>
-        </div>
+      <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">
+        <h3 className="mt-2 text-sm font-semibold text-gray-900">No hay negociaciones</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          No hay negociaciones en estado &quot;{STATUS_LABELS[VIEW_TO_STATUS[viewMode]]}&quot;
+        </p>
       </div>
     )
   }
+
+  // ─── Column header helper ───
+  const ColHeader = ({ id, label }: { id: string; label: string }) =>
+    isColumnVisible(id) ? (
+      <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+        <button onClick={() => handleSort(id)} className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors">
+          {label}
+          {getSortIcon(id)}
+        </button>
+      </TableCell>
+    ) : null
 
   return (
     <>
       <NegotiationFilters
-        onFiltersChange={handleFiltersChange}
-        onClearFilters={handleClearFilters}
+        onFiltersChange={setFilters}
+        onClearFilters={() => setFilters({ searchTerm: "", abogadoInterno: "", abogadoContraparte: "", lesion: "", estado: "", rangoMonto: { min: "", max: "" } })}
         totalResults={negotiations.length}
         filteredResults={filteredNegotiations.length}
         uniqueValues={uniqueValues}
@@ -698,227 +467,230 @@ export function NegotiationsTable({ viewMode, columnConfig, onColumnChange }: Ne
           <Table className="w-full">
             <TableHeader className="bg-gray-50">
               <TableRow>
-                {isColumnVisible('causa') && (
-                  <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    <button
-                      onClick={() => handleSort('causa')}
-                      className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors"
-                    >
-                      Causa
-                      {getSortIcon('causa')}
-                    </button>
-                  </TableCell>
-                )}
-                {isColumnVisible('abogadoInterno') && (
-                  <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    <button
-                      onClick={() => handleSort('abogadoInterno')}
-                      className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors"
-                    >
-                      Abogado Legalistas
-                      {getSortIcon('abogadoInterno')}
-                    </button>
-                  </TableCell>
-                )}
-                {isColumnVisible('abogadoContraparte') && (
-                  <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    <button
-                      onClick={() => handleSort('abogadoContraparte')}
-                      className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors"
-                    >
-                      Abogado Contraparte
-                      {getSortIcon('abogadoContraparte')}
-                    </button>
-                  </TableCell>
-                )}
-                {isColumnVisible('lesion') && (
-                  <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    <button
-                      onClick={() => handleSort('lesion')}
-                      className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors"
-                    >
-                      Lesión
-                      {getSortIcon('lesion')}
-                    </button>
-                  </TableCell>
-                )}
-                {isColumnVisible('incLegalistas') && (
-                  <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    <button
-                      onClick={() => handleSort('incLegalistas')}
-                      className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors"
-                    >
-                      % Inc Legalistas
-                      {getSortIcon('incLegalistas')}
-                    </button>
-                  </TableCell>
-                )}
-                {isColumnVisible('deArt') && (
-                  <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    <button
-                      onClick={() => handleSort('deArt')}
-                      className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors"
-                    >
-                      % De ART
-                      {getSortIcon('deArt')}
-                    </button>
-                  </TableCell>
-                )}
-                {isColumnVisible('liquidacion100') && (
-                  <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    <button
-                      onClick={() => handleSort('liquidacion100')}
-                      className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors"
-                    >
-                      Liquidación Legalistas - 100%
-                      {getSortIcon('liquidacion100')}
-                    </button>
-                  </TableCell>
-                )}
-                {isColumnVisible('liquidacion80') && (
-                  <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    <button
-                      onClick={() => handleSort('liquidacion80')}
-                      className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors"
-                    >
-                      Liquidación 80%
-                      {getSortIcon('liquidacion80')}
-                    </button>
-                  </TableCell>
-                )}
-                {isColumnVisible('ultimaOferta') && (
-                  <TableCell isHeader className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
-                    <button
-                      onClick={() => handleSort('ultimaOferta')}
-                      className="flex items-center gap-2 hover:text-[#09A4B5] transition-colors"
-                    >
-                      Última Oferta Aceptada
-                      {getSortIcon('ultimaOferta')}
-                    </button>
-                  </TableCell>
-                )}
+                <ColHeader id="causa" label="Causa" />
+                <ColHeader id="abogadoRepresentante" label="Abogado Representante" />
+                <ColHeader id="abogadoInterno" label="Abogado Interno" />
+                <ColHeader id="abogadoContraparte" label="Abogado Contraparte" />
+                <ColHeader id="lesion" label="Lesión" />
+                <ColHeader id="incLegalistas" label="% Legalistas" />
+                <ColHeader id="deArt" label="% PMO" />
+                <ColHeader id="liquidacion100" label="Liquidación 100%" />
+                <ColHeader id="liquidacion80" label="Liquidación 80%" />
+                <ColHeader id="ultimaOferta" label="Última Oferta" />
                 <TableCell isHeader className="px-4 py-3 text-right text-sm font-semibold text-gray-700">
                   Acción
                 </TableCell>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredNegotiations.map((neg) => {
-                const ultimaOferta = getUltimaOferta(neg)
-
-                return (
-                  <TableRow key={neg.id} className="hover:bg-gray-50">
-                    {isColumnVisible('causa') && (
-                      <TableCell className="px-4 py-3 text-sm text-gray-700 font-medium">
-                        {neg.causa}
-                      </TableCell>
-                    )}
-                    {isColumnVisible('abogadoInterno') && (
-                      <TableCell className="px-4 py-3 text-sm text-gray-700">
-                        {neg.abogadoInterno}
-                      </TableCell>
-                    )}
-                    {isColumnVisible('abogadoContraparte') && (
-                      <TableCell className="px-4 py-3 text-sm text-gray-700">
-                        {neg.abogadoContraparte}
-                      </TableCell>
-                    )}
-                    {isColumnVisible('lesion') && (
-                      <TableCell className="px-4 py-3 text-sm text-gray-700">
-                        {neg.lesion}
-                      </TableCell>
-                    )}
-                    {isColumnVisible('incLegalistas') && (
-                      <TableCell className="px-4 py-3 text-sm text-gray-700">
-                        {formatPercentage(neg.incLegalistas)}
-                      </TableCell>
-                    )}
-                    {isColumnVisible('deArt') && (
-                      <TableCell className="px-4 py-3 text-sm text-gray-700">
-                        {formatPercentage(neg.deArt)}
-                      </TableCell>
-                    )}
-                    {isColumnVisible('liquidacion100') && (
-                      <TableCell className="px-4 py-3 text-sm text-gray-700 text-right">
-                        {formatCurrency(neg.liquidacion100)}
-                      </TableCell>
-                    )}
-                    {isColumnVisible('liquidacion80') && (
-                      <TableCell className="px-4 py-3 text-sm text-gray-700 text-right">
-                        {formatCurrency(neg.liquidacion80)}
-                      </TableCell>
-                    )}
-                    {isColumnVisible('ultimaOferta') && (
-                      <TableCell className="px-4 py-3 text-sm text-gray-700 text-right">
-                        {ultimaOferta ? (
-                          <div className="flex flex-col items-end">
-                            <span className="font-medium">{formatCurrency(ultimaOferta.monto)}</span>
-                            <span className="text-xs text-gray-500">
-                              {ultimaOferta.tipo === "ASEGURADORA" ? "ART" : "LEGALISTAS"}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400">-</span>
-                        )}
-                      </TableCell>
-                    )}
-                    <TableCell className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleVerPuja(neg)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-[#09A4B5] focus:outline-none focus:ring-2 focus:ring-[#09A4B5] focus:ring-offset-2"
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span className="sr-only">Ver</span>
-                        </button>
-                        <button
-                          onClick={() => handleEditar(neg)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-[#09A4B5] focus:outline-none focus:ring-2 focus:ring-[#09A4B5] focus:ring-offset-2"
-                        >
-                          <Edit2 className="h-4 w-4" />
-                          <span className="sr-only">Editar</span>
-                        </button>
-                        <button
-                          onClick={() => handleBorrar(neg.id)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-error-600 focus:outline-none focus:ring-2 focus:ring-error-500 focus:ring-offset-2"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                          <span className="sr-only">Eliminar</span>
-                        </button>
+              {filteredNegotiations.map((neg) => (
+                <TableRow key={neg.id} className="hover:bg-gray-50">
+                  {isColumnVisible("causa") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700 font-medium">
+                      <div className="flex items-center gap-2">
+                        <span>{neg.case.title || `Causa #${neg.caseId}`}</span>
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE_STYLES[neg.status]}`}>
+                          {STATUS_LABELS[neg.status]}
+                        </span>
                       </div>
                     </TableCell>
-                  </TableRow>
-                )
-              })}
+                  )}
+                  {isColumnVisible("abogadoRepresentante") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700">
+                      {neg.case.responsibleLawyer?.name || "-"}
+                    </TableCell>
+                  )}
+                  {isColumnVisible("abogadoInterno") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700">
+                      {neg.case.internalLawyer?.name || "-"}
+                    </TableCell>
+                  )}
+                  {isColumnVisible("abogadoContraparte") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700">
+                      {neg.contraparteLawyer || "-"}
+                    </TableCell>
+                  )}
+                  {isColumnVisible("lesion") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700">
+                      {neg.case.injury || <span className="text-gray-400 italic">Sin lesión</span>}
+                    </TableCell>
+                  )}
+                  {isColumnVisible("incLegalistas") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700">
+                      {formatPercentage(neg.incLegalistas)}
+                    </TableCell>
+                  )}
+                  {isColumnVisible("deArt") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700">
+                      {formatPercentage(neg.deArt)}
+                    </TableCell>
+                  )}
+                  {isColumnVisible("liquidacion100") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700 text-right">
+                      {formatCurrency(neg.liquidacion100)}
+                    </TableCell>
+                  )}
+                  {isColumnVisible("liquidacion80") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700 text-right">
+                      {formatCurrency(neg.liquidacion80)}
+                    </TableCell>
+                  )}
+                  {isColumnVisible("ultimaOferta") && (
+                    <TableCell className="px-4 py-3 text-sm text-gray-700 text-right">
+                      {neg.lastOfferAmount ? (
+                        <div className="flex flex-col items-end">
+                          <span className="font-medium">{formatCurrency(neg.lastOfferAmount)}</span>
+                          <span className="text-xs text-gray-500">
+                            {neg.lastOfferSource === "art" ? "ART" : "LEGALISTAS"}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
+                    </TableCell>
+                  )}
+                  <TableCell className="px-4 py-3 text-right">
+                    <div className="relative inline-block" ref={openDropdownId === neg.id ? dropdownRef : undefined}>
+                      <button
+                        onClick={() => {
+                          setOpenDropdownId(openDropdownId === neg.id ? null : neg.id)
+                          setShowStatusSubmenu(false)
+                        }}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-[#09A4B5] transition-colors"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                      </button>
+
+                      {openDropdownId === neg.id && (
+                        <div className="absolute right-0 top-full mt-1 w-52 rounded-lg border border-gray-200 bg-white shadow-lg z-50 py-1 animate-in fade-in-0 zoom-in-95">
+                          {/* Ver Ofertas */}
+                          <button
+                            onClick={() => {
+                              setSelectedNegotiation(neg)
+                              setShowPujaModal(true)
+                              setOpenDropdownId(null)
+                            }}
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#09A4B5] transition-colors"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Ver Ofertas
+                          </button>
+
+                          {/* Editar */}
+                          {neg.status !== "FINALIZADAS" && neg.status !== "PERDIDAS" && (
+                            <button
+                              onClick={() => {
+                                setSelectedNegotiation(neg)
+                                setShowEditModal(true)
+                                setOpenDropdownId(null)
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#09A4B5] transition-colors"
+                            >
+                              <Edit2 className="h-4 w-4" />
+                              Editar
+                            </button>
+                          )}
+
+                          {/* Cambiar Estado - submenu */}
+                          {VALID_TRANSITIONS[neg.status].length > 0 && (
+                            <div className="relative">
+                              <button
+                                onClick={() => setShowStatusSubmenu(!showStatusSubmenu)}
+                                className="flex w-full items-center justify-between px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 hover:text-[#09A4B5] transition-colors"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <ChevronRight className={`h-4 w-4 transition-transform ${showStatusSubmenu ? "rotate-90" : ""}`} />
+                                  Cambiar Estado
+                                </span>
+                              </button>
+                              {showStatusSubmenu && (
+                                <div className="border-t border-gray-100 bg-gray-50/50">
+                                  {VALID_TRANSITIONS[neg.status].map((transition) => (
+                                    <button
+                                      key={transition.value}
+                                      onClick={() => {
+                                        setOpenDropdownId(null)
+                                        setShowStatusSubmenu(false)
+                                        handleStatusChange(neg.id, transition.value)
+                                      }}
+                                      className={`flex w-full items-center gap-2 pl-9 pr-3 py-2 text-sm transition-colors ${
+                                        transition.value === "FINALIZADAS"
+                                          ? "text-green-700 hover:bg-green-50"
+                                          : transition.value === "PERDIDAS"
+                                          ? "text-red-600 hover:bg-red-50"
+                                          : "text-gray-700 hover:bg-gray-100"
+                                      }`}
+                                    >
+                                      {transition.value === "FINALIZADAS" && <AlertTriangle className="h-3.5 w-3.5" />}
+                                      {transition.label}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Eliminar - solo INICIAR */}
+                          {neg.status === "INICIAR" && (
+                            <>
+                              <div className="my-1 border-t border-gray-100" />
+                              <button
+                                onClick={() => {
+                                  setOpenDropdownId(null)
+                                  handleDelete(neg.id)
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Eliminar
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </div>
       </div>
 
+      {/* ─── Modal Historial de Ofertas ─── */}
       <Dialog open={showPujaModal} onOpenChange={setShowPujaModal}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Historial de Puja</DialogTitle>
+            <DialogTitle>Historial de Ofertas</DialogTitle>
           </DialogHeader>
           {selectedNegotiation && (
             <div className="space-y-4">
+              {/* Header sincronizado desde Case */}
               <div className="bg-muted/50 p-4 rounded-lg">
-                <h3 className="font-semibold text-sm mb-2">{selectedNegotiation.causa}</h3>
+                <h3 className="font-semibold text-sm mb-2">{selectedNegotiation.case.title || `Causa #${selectedNegotiation.caseId}`}</h3>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-muted-foreground">Expediente:</span>{" "}
-                    <span className="font-medium">{selectedNegotiation.expediente}</span>
+                    <span className="text-muted-foreground">Abogado Representante:</span>{" "}
+                    <span className="font-medium">{selectedNegotiation.case.responsibleLawyer?.name || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Abogado Interno:</span>{" "}
+                    <span className="font-medium">{selectedNegotiation.case.internalLawyer?.name || "-"}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Abogado Contraparte:</span>{" "}
+                    <span className="font-medium">{selectedNegotiation.contraparteLawyer || "-"}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Lesión:</span>{" "}
-                    <span className="font-medium">{selectedNegotiation.lesion}</span>
+                    <span className="font-medium">{selectedNegotiation.case.injury || "Sin registrar"}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">% Inc. Legalistas:</span>{" "}
+                    <span className="text-muted-foreground">% Legalistas:</span>{" "}
                     <span className="font-medium">{formatPercentage(selectedNegotiation.incLegalistas)}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">% De ART:</span>{" "}
+                    <span className="text-muted-foreground">% PMO:</span>{" "}
                     <span className="font-medium">{formatPercentage(selectedNegotiation.deArt)}</span>
                   </div>
                   <div>
@@ -929,59 +701,57 @@ export function NegotiationsTable({ viewMode, columnConfig, onColumnChange }: Ne
                     <span className="text-muted-foreground">Liquidación 80%:</span>{" "}
                     <span className="font-medium">{formatCurrency(selectedNegotiation.liquidacion80)}</span>
                   </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Última Oferta:</span>{" "}
+                    <span className="font-medium">
+                      {selectedNegotiation.lastOfferAmount
+                        ? `${formatCurrency(selectedNegotiation.lastOfferAmount)} (${selectedNegotiation.lastOfferSource === "art" ? "ART" : "LEGALISTAS"})`
+                        : "Sin ofertas"}
+                    </span>
+                  </div>
                 </div>
               </div>
 
+              {/* Ofertas */}
               <div>
-                <h4 className="font-semibold text-sm mb-3">Historial de Ofertas y Contraofertas</h4>
+                <h4 className="font-semibold text-sm mb-3">Historial de Ofertas</h4>
                 <div className="space-y-2">
-                  {selectedNegotiation.ofertas.length === 0 ? (
+                  {selectedNegotiation.offers.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center py-4">No hay ofertas registradas aún</p>
                   ) : (
-                    selectedNegotiation.ofertas.map((oferta, index) => (
+                    selectedNegotiation.offers.map((oferta) => (
                       <div
-                        key={index}
+                        key={oferta.id}
                         className={`p-3 rounded-lg border ${oferta.tipo === "ASEGURADORA"
-                          ? "bg-amber-50/50 border-amber-200 dark:bg-amber-950/10 dark:border-amber-800"
-                          : "bg-[#09A4B5]/5 border-[#09A4B5]/30 dark:bg-[#09A4B5]/10 dark:border-[#09A4B5]/50"
-                          } ${oferta.aceptada ? "ring-2 ring-[#09A4B5] bg-[#09A4B5]/5 dark:bg-[#09A4B5]/10" : ""}`}
+                          ? "bg-amber-50/50 border-amber-200"
+                          : "bg-[#09A4B5]/5 border-[#09A4B5]/30"
+                        } ${oferta.aceptada ? "ring-2 ring-[#09A4B5]" : ""}`}
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
-                              <span
-                                className={`text-xs font-semibold px-2 py-1 text-[10px] rounded-full ${oferta.tipo === "ASEGURADORA"
-                                  ? "text-white bg-[#09A4B5] dark:text-white dark:bg-[#09A4B5]/30"
-                                  : "text-white bg-[#09A4B5] dark:text-white dark:bg-[#09A4B5]"
-                                  }`}
-                              >
-                                {oferta.tipo === "ASEGURADORA"
-                                  ? "ART"
-                                  : "LEGALISTAS"}
+                              <span className="text-xs font-semibold px-2 py-1 text-[10px] rounded-full text-white bg-[#09A4B5]">
+                                {oferta.tipo === "ASEGURADORA" ? "ART" : "LEGALISTAS"}
                               </span>
                               {oferta.aceptada && (
-                                <span className="text-[10px] bg-[#09A4B5] text-white px-2 py-0.5 rounded-full font-medium">
+                                <span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-medium">
                                   ACEPTADA
                                 </span>
                               )}
                             </div>
-                            <p className="text-lg font-bold mt-1 text-gray-900 dark:text-gray-100">{formatCurrency(oferta.monto)}</p>
+                            <p className="text-lg font-bold mt-1 text-gray-900">{formatCurrency(oferta.monto)}</p>
                             <p className="text-[10px] text-muted-foreground">{oferta.fecha}</p>
+                            {oferta.notes && <p className="text-xs text-gray-500 mt-1">{oferta.notes}</p>}
                           </div>
-                          <div className="flex gap-2">
-                            {!oferta.aceptada && (
-                              <Button
-                                size="sm"
-                                className="h-8 text-xs bg-[#09A4B5] text-white hover:bg-[#09A4B5]/85 border-0 px-3 font-medium"
-                                onClick={() => handleAceptarOferta(index)}
-                              >
-                                Aceptar
-                              </Button>
-                            )}
-                            <Button size="sm" variant="outline" className="h-8 text-xs px-3">
-                              Editar
+                          {!oferta.aceptada && selectedNegotiation.status !== "FINALIZADAS" && selectedNegotiation.status !== "PERDIDAS" && (
+                            <Button
+                              size="sm"
+                              className="h-8 text-xs bg-[#09A4B5] text-white hover:bg-[#09A4B5]/85 border-0 px-3 font-medium"
+                              onClick={() => handleAcceptOffer(oferta.id)}
+                            >
+                              Aceptar
                             </Button>
-                          </div>
+                          )}
                         </div>
                       </div>
                     ))
@@ -989,54 +759,55 @@ export function NegotiationsTable({ viewMode, columnConfig, onColumnChange }: Ne
                 </div>
               </div>
 
-              <div className="border border-gray-200 bg-gradient-to-br from-[#09A4B5]/5 to-cyan-50/50 dark:from-[#09A4B5]/10 dark:to-cyan-950/20 p-4 rounded-lg">
-                <h4 className="font-semibold text-sm mb-3 text-[#09A4B5] dark:text-cyan-300">Agregar Nueva Oferta</h4>
-                <div className="space-y-3">
-                  <div className="flex gap-2">
+              {/* Agregar oferta — solo si no está finalizada/perdida */}
+              {selectedNegotiation.status !== "FINALIZADAS" && selectedNegotiation.status !== "PERDIDAS" && (
+                <div className="border border-gray-200 bg-gradient-to-br from-[#09A4B5]/5 to-cyan-50/50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-sm mb-3 text-[#09A4B5]">Agregar Nueva Oferta</h4>
+                  <div className="space-y-3">
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        placeholder="Monto de la oferta"
+                        value={nuevoMonto}
+                        onChange={(e) => setNuevoMonto(e.target.value)}
+                        className="flex-1 h-9 px-3 rounded-md border border-gray-300 bg-white text-sm focus:border-[#09A4B5] focus:ring-1 focus:ring-[#09A4B5] outline-none"
+                      />
+                    </div>
                     <input
-                      type="number"
-                      placeholder="Monto de la oferta"
-                      value={nuevoMonto}
-                      onChange={(e) => setNuevoMonto(e.target.value)}
-                      className="flex-1 h-9 px-3 rounded-md border border-gray-300 bg-white dark:bg-gray-950 dark:border-gray-700 text-sm focus:border-[#09A4B5] focus:ring-1 focus:ring-[#09A4B5] outline-none"
+                      type="text"
+                      placeholder="Notas (opcional)"
+                      value={offerNotes}
+                      onChange={(e) => setOfferNotes(e.target.value)}
+                      className="w-full h-9 px-3 rounded-md border border-gray-300 bg-white text-sm focus:border-[#09A4B5] focus:ring-1 focus:ring-[#09A4B5] outline-none"
                     />
-                    <input
-                      type="date"
-                      value={nuevaFecha}
-                      onChange={(e) => setNuevaFecha(e.target.value)}
-                      className="h-9 px-3 rounded-md border border-gray-300 bg-white dark:bg-gray-950 dark:border-gray-700 text-sm focus:border-[#09A4B5] focus:ring-1 focus:ring-[#09A4B5] outline-none"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      className="flex-1 bg-amber-600 hover:bg-amber-700 text-white border-none shadow-sm"
-                      onClick={() => handleAgregarOferta("ASEGURADORA")}
-                    >
-                      Agregar Oferta ART
-                    </Button>
-                    <Button
-                      className="flex-1 bg-[#09A4B5] hover:bg-[#09A4B5]/85 text-white border-none shadow-sm"
-                      onClick={() => handleAgregarOferta("LEGALISTAS")}
-                    >
-                      Agregar Contrapropuesta Legalistas
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        className="flex-1 bg-amber-600 hover:bg-amber-700 text-white border-none shadow-sm"
+                        onClick={() => handleAddOffer("ASEGURADORA")}
+                      >
+                        Agregar Oferta ART
+                      </Button>
+                      <Button
+                        className="flex-1 bg-[#09A4B5] hover:bg-[#09A4B5]/85 text-white border-none shadow-sm"
+                        onClick={() => handleAddOffer("LEGALISTAS")}
+                      >
+                        Agregar Oferta Legalistas
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Edit Negotiation Modal */}
+      {/* ─── Edit Modal ─── */}
       {selectedNegotiation && (
         <EditNegotiation
           negotiation={selectedNegotiation}
           isOpen={showEditModal}
-          onClose={() => {
-            setShowEditModal(false)
-            setSelectedNegotiation(null)
-          }}
+          onClose={() => { setShowEditModal(false); setSelectedNegotiation(null) }}
           onSuccess={handleEditSuccess}
         />
       )}

@@ -8,49 +8,42 @@ interface NegotiationTabsProps {
     viewMode: ViewMode
     onViewModeChange: (mode: ViewMode) => void
     counts?: {
-        esperando: number
-        enCurso: number
+        iniciar: number
+        curso: number
+        suspenso: number
         finalizadas: number
+        perdidas: number
     }
 }
 
-export function NegotiationTabs({ 
-    viewMode, 
+const TABS: { key: ViewMode; label: string; countKey: ViewMode }[] = [
+    { key: "iniciar", label: "Iniciar", countKey: "iniciar" },
+    { key: "curso", label: "En Curso", countKey: "curso" },
+    { key: "suspenso", label: "Suspenso", countKey: "suspenso" },
+    { key: "finalizadas", label: "Finalizadas", countKey: "finalizadas" },
+    { key: "perdidas", label: "Perdidas", countKey: "perdidas" },
+]
+
+export function NegotiationTabs({
+    viewMode,
     onViewModeChange,
-    counts = { esperando: 0, enCurso: 0, finalizadas: 0 }
+    counts = { iniciar: 0, curso: 0, suspenso: 0, finalizadas: 0, perdidas: 0 }
 }: NegotiationTabsProps) {
     return (
-        <div className="flex gap-2">
-            <Button
-                variant={viewMode === "esperando" ? "primary" : "outline"}
-                onClick={() => onViewModeChange("esperando")}
-                size="sm"
-            >
-                Esperando %
-                <Badge variant="light" color="primary" className="ml-2">
-                    {counts.esperando}
-                </Badge>
-            </Button>
-            <Button
-                variant={viewMode === "en-curso" ? "primary" : "outline"}
-                onClick={() => onViewModeChange("en-curso")}
-                size="sm"
-            >
-                En Curso
-                <Badge variant="light" color="primary" className="ml-2">
-                    {counts.enCurso}
-                </Badge>
-            </Button>
-            <Button
-                variant={viewMode === "finalizadas" ? "primary" : "outline"}
-                onClick={() => onViewModeChange("finalizadas")}
-                size="sm"
-            >
-                Finalizadas
-                <Badge variant="light" color="primary" className="ml-2">
-                    {counts.finalizadas}
-                </Badge>
-            </Button>
+        <div className="flex gap-2 flex-wrap">
+            {TABS.map((tab) => (
+                <Button
+                    key={tab.key}
+                    variant={viewMode === tab.key ? "primary" : "outline"}
+                    onClick={() => onViewModeChange(tab.key)}
+                    size="sm"
+                >
+                    {tab.label}
+                    <Badge variant="light" color="primary" className="ml-2">
+                        {counts[tab.countKey]}
+                    </Badge>
+                </Button>
+            ))}
         </div>
     )
 }
