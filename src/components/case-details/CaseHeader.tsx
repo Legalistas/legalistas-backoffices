@@ -16,8 +16,7 @@ export const CaseHeader = ({ title, number, currentStep, steps }: CaseHeaderProp
   const router = useRouter()
 
   const handleBackClick = () => {
-    // Usar router.back() para mantener el estado anterior (filtros, paginación, etc.)
-    router.push("/admin/legal-cases")
+    router.back()
   }
 
   return (
