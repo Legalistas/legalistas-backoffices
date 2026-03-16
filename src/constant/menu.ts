@@ -130,7 +130,7 @@ export const MENU_ITEMS: NavItem[] = [
     icon: Wallet,
     name: "Mi Caja",
     path: "/admin/my-cashbox",
-    roles: CAJA,
+    roles: [...CAJA, ...MARKETING],
   },
   {
     icon: Landmark,
