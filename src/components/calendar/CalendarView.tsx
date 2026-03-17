@@ -174,13 +174,15 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
             if (apiResponse.data && Array.isArray(apiResponse.data)) {
                 const formatted: CalendarEvent[] = apiResponse.data.map((ev: any) => {
                     const color = ev.backgroundColor || "#3b82f6"
+                    // Quitar Z/offset para que FullCalendar trate las horas como locales
+                    const stripTZ = (d: string) => d.replace(/Z$/, "").replace(/[+-]\d{2}:\d{2}$/, "")
                     const startDate = ev.allDay
                         ? formatDateForCalendar(ev.start)
-                        : ev.start
+                        : stripTZ(ev.start)
                     const endDate = ev.end
                         ? ev.allDay
                             ? formatDateForCalendar(ev.end)
-                            : ev.end
+                            : stripTZ(ev.end)
                         : undefined
 
                     return {
@@ -490,6 +492,7 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                 locales={[esLocale]}
                 locale="es"
                 timeZone="local"
+                displayEventTime={false}
                 eventClassNames={(arg) =>
                     isHolidayEvent(arg.event) ? ["holiday-event"] : ["fc-custom-event"]
                 }
@@ -534,7 +537,15 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                     }
 
                     // Todo el día o con hora
-                    const timeStr = !allDay && start ? formatTime((start as Date).toISOString()) : ""
+                    let timeStr = ""
+                    if (!allDay && start) {
+                        const d = start as Date
+                        let h = d.getHours()
+                        const minutes = d.getMinutes()
+                        const ampm = h >= 12 ? "pm" : "am"
+                        h = h % 12 || 12
+                        timeStr = minutes ? `${h}:${String(minutes).padStart(2, "0")}${ampm}` : `${h}${ampm}`
+                    }
 
                     return (
                         <div

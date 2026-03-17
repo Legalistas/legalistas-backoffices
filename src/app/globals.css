@@ -646,7 +646,12 @@ layer(base);
   width: 100% !important;
 }
 
-.fc-event-time {
+.fc-event-time,
+.fc .fc-event-time,
+.fc-daygrid-dot-event .fc-event-time,
+.fc-popover .fc-event-time,
+.fc-daygrid-event .fc-event-time,
+[class*="fc"] .fc-event-time {
   display: none !important;
 }
 
