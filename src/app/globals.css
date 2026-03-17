@@ -639,12 +639,15 @@ layer(base);
 
 .fc-daygrid-block-event,
 .fc-event-title-container,
-.fc-event-title,
-.fc-event-time {
+.fc-event-title {
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   white-space: nowrap !important;
   width: 100% !important;
+}
+
+.fc-event-time {
+  display: none !important;
 }
 
 .fc-daygrid-day-events {
