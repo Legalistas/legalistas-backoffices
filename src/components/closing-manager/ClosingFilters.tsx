@@ -50,6 +50,7 @@ const columnLabels: Record<string, string> = {
   aportesRepresentante: "Aportes Representante ($)",
   aportesLegalistas: "Aportes Legalistas ($)",
   montoTransferir: "Monto a Transferir ($)",
+  totalCaseExpenses: "Gastos Causa ($)",
   detail: "Detalle",
 }
 
@@ -120,10 +121,9 @@ export default function ClosingFilters({
             <Select
               value={String(month)}
               onValueChange={(v) => onMonthChange(Number(v))}
-              disabled={viewAll}
             >
-              <SelectTrigger className="border-0 bg-transparent shadow-none h-8 min-w-[110px] text-sm font-medium focus:ring-0">
-                <SelectValue>{viewAll ? "Todos los meses" : currentMonthLabel}</SelectValue>
+              <SelectTrigger className={`border-0 bg-transparent shadow-none h-8 min-w-[110px] text-sm font-medium focus:ring-0 ${viewAll ? "opacity-50 pointer-events-none" : ""}`}>
+                <span className="block truncate">{viewAll ? "Todos los meses" : currentMonthLabel}</span>
               </SelectTrigger>
               <SelectContent>
                 {monthOptions.map((m) => (
@@ -136,7 +136,7 @@ export default function ClosingFilters({
 
             <Select value={String(year)} onValueChange={(v) => onYearChange(Number(v))}>
               <SelectTrigger className="border-0 bg-transparent shadow-none h-8 w-[72px] text-sm font-medium focus:ring-0">
-                <SelectValue>{year}</SelectValue>
+                <span className="block truncate">{year}</span>
               </SelectTrigger>
               <SelectContent>
                 {yearOptions.map((y) => (

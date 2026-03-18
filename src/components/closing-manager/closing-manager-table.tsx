@@ -36,6 +36,7 @@ const COLUMNS = [
     { id: "aportesRepresentante", label: "Aportes Representante ($)", align: "right" },
     { id: "aportesLegalistas", label: "Aportes Legalistas ($)", align: "right" },
     { id: "montoTransferir", label: "Monto a Transferir ($)", align: "right" },
+    { id: "totalCaseExpenses", label: "Gastos Causa ($)", align: "right" },
     { id: "detail", label: "Detalle", align: "left" },
 ] as const
 
@@ -242,6 +243,13 @@ export default function ClosingManagerTable({ closings, pagination, onPageChange
                         closing.montoTransferir < 0 ? "text-red-700" : "text-brand-600"
                     )}>
                         {formatCurrency(closing.montoTransferir)}
+                    </span>
+                )
+
+            case "totalCaseExpenses":
+                return (
+                    <span className="text-right block text-gray-600">
+                        {closing.totalCaseExpenses ? formatCurrency(closing.totalCaseExpenses) : "-"}
                     </span>
                 )
 

@@ -355,16 +355,29 @@ export default function EditClosingPage() {
             <p className="text-xs text-gray-400">Monto manual ingresado por la contadora. Distribución: 75% Legalistas / 25% Representante.</p>
           </div>
 
-          {/* Monto a Transferir */}
-          <div className={`rounded-xl p-5 border-2 ${calc.montoTransferir < 0 ? "border-red-300 bg-red-50" : "border-brand-300 bg-brand-50"}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="font-semibold text-sm text-gray-800">Monto a Transferir a Legalistas</h4>
-                <p className="text-xs text-gray-500 mt-0.5">HP Legalistas + PCL Legalistas - Aportes Legalistas</p>
+          {/* Monto a Transferir + Gastos de la Causa */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className={`rounded-xl p-5 border-2 lg:col-span-2 ${calc.montoTransferir < 0 ? "border-red-300 bg-red-50" : "border-brand-300 bg-brand-50"}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-sm text-gray-800">Monto a Transferir a Legalistas</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">HP Legalistas + PCL Legalistas - Aportes Legalistas</p>
+                </div>
+                <span className={`text-3xl font-bold ${calc.montoTransferir < 0 ? "text-red-700" : "text-brand-700"}`}>
+                  {formatARS(calc.montoTransferir)}
+                </span>
               </div>
-              <span className={`text-3xl font-bold ${calc.montoTransferir < 0 ? "text-red-700" : "text-brand-700"}`}>
-                {formatARS(calc.montoTransferir)}
-              </span>
+            </div>
+            <div className="rounded-xl p-5 border-2 border-amber-200 bg-amber-50">
+              <div className="flex flex-col justify-between h-full">
+                <div>
+                  <h4 className="font-semibold text-sm text-gray-800">Gastos de la Causa</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">Total acumulado (solo lectura)</p>
+                </div>
+                <span className="text-2xl font-bold text-amber-700 mt-2">
+                  {formatARS(closing.totalCaseExpenses || 0)}
+                </span>
+              </div>
             </div>
           </div>
 

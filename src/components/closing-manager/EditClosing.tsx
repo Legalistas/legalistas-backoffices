@@ -306,15 +306,26 @@ export default function EditClosing({ closing, isOpen, onClose, onSuccess }: Edi
             <p className="text-xs text-gray-400">Monto manual ingresado por la contadora. Distribución: 75% Legalistas / 25% Representante.</p>
           </div>
 
-          {/* Monto a Transferir — CAMPO CRÍTICO */}
-          <div className={`rounded-lg p-4 border-2 ${calc.montoTransferir < 0 ? "border-red-300 bg-red-50" : "border-brand-300 bg-brand-50"}`}>
-            <div className="flex items-center justify-between">
-              <h4 className="font-semibold text-sm">Monto a Transferir a Legalistas</h4>
-              <span className={`text-2xl font-bold ${calc.montoTransferir < 0 ? "text-red-700" : "text-brand-700"}`}>
-                {formatARS(calc.montoTransferir)}
+          {/* Monto a Transferir + Gastos de la Causa */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <div className={`rounded-lg p-4 border-2 lg:col-span-2 ${calc.montoTransferir < 0 ? "border-red-300 bg-red-50" : "border-brand-300 bg-brand-50"}`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold text-sm">Monto a Transferir a Legalistas</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">HP Legalistas + PCL Legalistas - Aportes Legalistas</p>
+                </div>
+                <span className={`text-2xl font-bold ${calc.montoTransferir < 0 ? "text-red-700" : "text-brand-700"}`}>
+                  {formatARS(calc.montoTransferir)}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-lg p-4 border-2 border-amber-200 bg-amber-50">
+              <h4 className="font-semibold text-sm">Gastos de la Causa</h4>
+              <p className="text-xs text-gray-500 mt-0.5">Solo lectura</p>
+              <span className="text-xl font-bold text-amber-700 mt-1 block">
+                {formatARS(closing.totalCaseExpenses || 0)}
               </span>
             </div>
-            <p className="text-xs text-gray-500 mt-1">HP Legalistas + PCL Legalistas - Aportes Legalistas</p>
           </div>
 
           {/* Detalle */}

@@ -671,8 +671,8 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                                     className="h-2.5 w-2.5 rounded-full shrink-0 ring-2 ring-offset-1"
                                     style={{
                                         backgroundColor: color,
-                                        ringColor: `${color}30`,
-                                    }}
+                                        '--tw-ring-color': `${color}30`,
+                                    } as React.CSSProperties}
                                 />
                                 <span className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
                                     {title}

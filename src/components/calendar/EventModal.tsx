@@ -195,8 +195,8 @@ export const EventModal = ({
                     className="h-4 w-4 rounded-full shrink-0 ring-2 ring-offset-1"
                     style={{
                         backgroundColor: isReadOnly ? sourceInfo.color : color,
-                        ringColor: `${isReadOnly ? sourceInfo.color : color}30`,
-                    }}
+                        '--tw-ring-color': `${isReadOnly ? sourceInfo.color : color}30`,
+                    } as React.CSSProperties}
                 />
                 <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
                     {isNewEvent ? "Crear Nuevo Evento" : isReadOnly ? "Detalle del Evento" : "Editar Evento"}
