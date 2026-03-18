@@ -40,6 +40,7 @@ export default function ClosingManagerPage() {
         capitalState: "",
         feeStatus: "",
         pclStatus: "",
+        responsibleLawyerId: "",
     })
     const [visibleColumns, setVisibleColumns] = useState<string[]>([...ALL_CLOSING_COLUMNS])
 
@@ -64,6 +65,7 @@ export default function ClosingManagerPage() {
                 if (filters.capitalState) params.capitalState = filters.capitalState
                 if (filters.feeStatus) params.feeStatus = filters.feeStatus
                 if (filters.pclStatus) params.pclStatus = filters.pclStatus
+                if (filters.responsibleLawyerId) params.responsibleLawyerId = filters.responsibleLawyerId
 
                 const url = buildFilteredUrl(CLOSINGS_ENDPOINT, permissions, params)
                 const response = await fetch(url, {
