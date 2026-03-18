@@ -4,7 +4,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { Modal } from "../ui/modal/Modal"
 import { toDateTimeLocalFormat } from "@/constant/calendar"
-import { Video, ExternalLink, Scale, Users, CalendarDays, MapPin, Info } from "lucide-react"
+import { Video, ExternalLink, Scale, Users, CalendarDays, MapPin, Info, UserCircle } from "lucide-react"
 
 type EventSource = "calendar" | "cases" | "crm"
 
@@ -36,6 +36,13 @@ const CASE_PERICIA_SUBTYPES: Record<number, string> = {
     4: "Psicológica", 5: "Otras",
 }
 
+interface Lawyer {
+    id: number
+    name: string
+    email?: string
+    image?: string
+}
+
 interface EventModalProps {
     isOpen: boolean
     onClose: () => void
@@ -43,6 +50,7 @@ interface EventModalProps {
     onDelete?: () => void
     isNewEvent?: boolean
     validateDate?: (date: string) => boolean
+    lawyers?: Lawyer[]
     event: {
         title?: string
         start?: string
@@ -51,6 +59,8 @@ interface EventModalProps {
         meetLink?: string
         description?: string
         color?: string
+        responsibleId?: number | null
+        responsiblePerson?: Lawyer | null
         source?: EventSource
         sourceMeta?: Record<string, any>
     } | null
@@ -64,6 +74,7 @@ export const EventModal = ({
     event,
     isNewEvent = false,
     validateDate = () => true,
+    lawyers = [],
 }: EventModalProps) => {
     const [title, setTitle] = useState("")
     const [start, setStart] = useState("")
@@ -73,6 +84,7 @@ export const EventModal = ({
     const [meetLink, setMeetLink] = useState("")
     const [description, setDescription] = useState("")
     const [color, setColor] = useState("#3b82f6")
+    const [responsibleId, setResponsibleId] = useState<number | null>(null)
 
     const source: EventSource = event?.source || "calendar"
     const isReadOnly = source !== "calendar" && !isNewEvent
@@ -84,6 +96,7 @@ export const EventModal = ({
             setMeetLink(event.meetLink || "")
             setDescription(event.description || "")
             setColor(event.color || "#3b82f6")
+            setResponsibleId(event.responsibleId ?? null)
 
             if (event.start) {
                 const startDateTime = toDateTimeLocalFormat(typeof event.start === "string" ? event.start : String(event.start))
@@ -116,6 +129,7 @@ export const EventModal = ({
             setMeetLink("")
             setDescription("")
             setColor("#3b82f6")
+            setResponsibleId(null)
         }
     }, [event, validateDate])
 
@@ -147,6 +161,7 @@ export const EventModal = ({
             meetLink: meetLink.trim() || undefined,
             description: description.trim() || undefined,
             color,
+            responsibleId: responsibleId || undefined,
         })
     }
 
@@ -407,6 +422,41 @@ export const EventModal = ({
                             )}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Responsable */}
+            {!isReadOnly && lawyers.length > 0 && (
+                <div className="mb-4">
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <UserCircle className="h-4 w-4 text-blue-500" />
+                        Responsable (opcional)
+                    </label>
+                    <select
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2.5 text-sm
+                                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+                                   dark:bg-gray-700 dark:text-white"
+                        value={responsibleId ?? ""}
+                        onChange={(e) => setResponsibleId(e.target.value ? Number(e.target.value) : null)}
+                    >
+                        <option value="">Sin asignar</option>
+                        {lawyers.map((l) => (
+                            <option key={l.id} value={l.id}>
+                                {l.name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+            {isReadOnly && event?.responsiblePerson && (
+                <div className="mb-4">
+                    <label className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        <UserCircle className="h-4 w-4 text-blue-500" />
+                        Responsable
+                    </label>
+                    <p className="text-sm text-gray-800 dark:text-white font-medium py-2">
+                        {event.responsiblePerson.name}
+                    </p>
                 </div>
             )}
 

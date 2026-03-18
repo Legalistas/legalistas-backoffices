@@ -14,6 +14,7 @@ import {
     CALENDAR_UNIFIED_ENDPOINT,
     CALENDAR_EVENT_BY_ID_ENDPOINT,
     SETTINGS_HOLIDAY_ENDPOINT,
+    LAWYERS_ENDPOINT,
 } from "@/constant/api-endpoints"
 import { useSession } from "next-auth/react"
 import type { EventInput, EventSourceInput } from "@fullcalendar/core"
@@ -52,6 +53,13 @@ interface CalendarEvent extends EventInput {
     isHoliday?: boolean
 }
 
+interface Lawyer {
+    id: number
+    name: string
+    email?: string
+    image?: string
+}
+
 interface EventModalData {
     id?: string
     title?: string
@@ -61,6 +69,8 @@ interface EventModalData {
     meetLink?: string
     description?: string
     color?: string
+    responsibleId?: number | null
+    responsiblePerson?: Lawyer | null
     source?: EventSource
     sourceMeta?: Record<string, any>
 }
@@ -106,6 +116,7 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
     const [isNewEvent, setIsNewEvent] = useState(false)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [holidaysInfo, setHolidaysInfo] = useState<string | null>(null)
+    const [lawyers, setLawyers] = useState<Lawyer[]>([])
 
     // Filtros por fuente
     const [sourceFilters, setSourceFilters] = useState<Record<EventSource, boolean>>({
@@ -167,6 +178,8 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
         },
         [holidays]
     )
+
+    const validateDate = useCallback((date: string) => !isHolidayDate(date), [isHolidayDate])
 
     const isHolidayEvent = (event: any): boolean => {
         if (event.extendedProps?.isHoliday !== undefined) return event.extendedProps.isHoliday
@@ -239,6 +252,8 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                             source,
                             meetLink: ev.meetLink ?? null,
                             description: ev.description ?? null,
+                            responsibleId: ev.responsibleId ?? null,
+                            responsiblePerson: ev.responsiblePerson ?? null,
                             isHoliday: false,
                             meta: ev.meta ?? {},
                         },
@@ -304,12 +319,34 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
         }
     }, [session?.user?.accessToken, authHeaders])
 
+    const fetchLawyers = useCallback(async () => {
+        if (!session?.user?.accessToken) return
+        try {
+            const res = await fetch(`${LAWYERS_ENDPOINT}?limit=100000`, {
+                headers: authHeaders(),
+            })
+            if (!res.ok) return
+            const json = await res.json()
+            if (json.data && Array.isArray(json.data)) {
+                setLawyers(json.data.map((l: any) => ({
+                    id: l.id,
+                    name: l.name,
+                    email: l.email,
+                    image: l.image,
+                })))
+            }
+        } catch {
+            // No bloquear el calendario si falla el fetch de abogados
+        }
+    }, [session?.user?.accessToken, authHeaders])
+
     useEffect(() => {
         if (session?.user?.accessToken) {
             fetchHolidays()
             fetchEvents()
+            fetchLawyers()
         }
-    }, [fetchHolidays, fetchEvents, session?.user?.accessToken])
+    }, [fetchHolidays, fetchEvents, fetchLawyers, session?.user?.accessToken])
 
     // ── Handlers de clic ────────────────────────────────────────────────────
 
@@ -349,6 +386,8 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
             meetLink: info.event.extendedProps?.meetLink ?? "",
             description: info.event.extendedProps?.description ?? "",
             color: info.event.extendedProps?.color ?? "#3b82f6",
+            responsibleId: info.event.extendedProps?.responsibleId ?? null,
+            responsiblePerson: info.event.extendedProps?.responsiblePerson ?? null,
             source: "calendar",
         })
         setIsNewEvent(false)
@@ -421,6 +460,7 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
             textColor: "#ffffff",
             meetLink: updatedEvent.meetLink || null,
             description: updatedEvent.description || null,
+            responsibleId: updatedEvent.responsibleId || null,
         }
 
         try {
@@ -461,6 +501,10 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                     source: "calendar",
                     meetLink: updatedEvent.meetLink || null,
                     description: updatedEvent.description || null,
+                    responsibleId: updatedEvent.responsibleId || null,
+                    responsiblePerson: updatedEvent.responsibleId
+                        ? lawyers.find((l) => l.id === updatedEvent.responsibleId) || null
+                        : null,
                     isHoliday: false,
                     meta: {},
                 },
@@ -767,7 +811,8 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                 onSave={handleSaveEvent}
                 onDelete={handleDeleteEvent}
                 isNewEvent={isNewEvent}
-                validateDate={(date) => !isHolidayDate(date)}
+                validateDate={validateDate}
+                lawyers={lawyers}
             />
 
             {/* Toast error */}

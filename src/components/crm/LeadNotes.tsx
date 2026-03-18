@@ -3,12 +3,18 @@
 import { useState } from "react"
 import type { Lead } from "@/types/crm"
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card/Card"
-import TiptapEditor from "../tiptap-editor"
+import { NoteEditor } from "../case-details/NoteEditor"
 import Button from "../ui/button/Button"
 import { formatDate } from "@/lib/functions"
 import { FileText, Edit, Trash2, User, Save, X, Loader2, Plus } from "lucide-react"
 import { useSession } from "next-auth/react"
 import Image from "next/image"
+
+interface MentionUser {
+    id: number
+    name: string
+    image?: string | null
+}
 
 interface LeadNotesProps {
     lead: Lead
@@ -17,6 +23,8 @@ interface LeadNotesProps {
     setNoteContent: (content: string) => void
     handleDeleteNote?: (noteId: number) => Promise<void>
     handleEditNote?: (noteId: number, content: string) => Promise<void>
+    mentionUsers?: MentionUser[]
+    onMentionsChange?: (userIds: number[]) => void
 }
 
 export default function LeadNotes({
@@ -26,6 +34,8 @@ export default function LeadNotes({
     setNoteContent,
     handleDeleteNote,
     handleEditNote,
+    mentionUsers = [],
+    onMentionsChange,
 }: LeadNotesProps) {
     const { data: session } = useSession()
     const [editingNoteId, setEditingNoteId] = useState<number | null>(null)
@@ -91,7 +101,13 @@ export default function LeadNotes({
                 <div className="space-y-6">
                     <div className="bg-gray-50 dark:bg-gray-800 p-5 rounded-lg border border-gray-100 dark:border-gray-700">
                         <h3 className="text-sm font-medium mb-3 text-gray-500 dark:text-gray-400">Nueva nota</h3>
-                        <TiptapEditor content={noteContent} onChange={setNoteContent} />
+                        <NoteEditor
+                            content={noteContent}
+                            onChange={setNoteContent}
+                            mentionUsers={mentionUsers}
+                            onMentionsChange={onMentionsChange}
+                            placeholder="Escribe tu nota... Usa @ para mencionar"
+                        />
                         <Button
                             variant="custom"
                             className="bg-[#09A4B5] text-white hover:bg-[#09A4B5]/85 dark:text-gray-900 py-2 px-2 mt-2"
@@ -175,7 +191,7 @@ export default function LeadNotes({
                                         <div className="p-4">
                                             {editingNoteId === note.id ? (
                                                 <div className="space-y-3">
-                                                    <TiptapEditor content={editContent} onChange={setEditContent} />
+                                                    <NoteEditor content={editContent} onChange={setEditContent} mentionUsers={mentionUsers} />
                                                     <div className="flex justify-end gap-2 mt-2">
                                                         <Button variant="outline" size="sm" onClick={cancelEditing}>
                                                             <X className="h-4 w-4 mr-1" />
@@ -212,7 +228,7 @@ export default function LeadNotes({
                                                 </div>
                                             ) : (
                                                 <div
-                                                    className="text-sm prose dark:prose-invert max-w-none"
+                                                    className="text-sm prose dark:prose-invert max-w-none [&_.mention]:bg-brand-50 [&_.mention]:dark:bg-brand-900/20 [&_.mention]:text-brand-600 [&_.mention]:dark:text-brand-400 [&_.mention]:rounded [&_.mention]:px-1 [&_.mention]:py-0.5 [&_.mention]:font-medium"
                                                     dangerouslySetInnerHTML={{ __html: note.note || "" }}
                                                 />
                                             )}

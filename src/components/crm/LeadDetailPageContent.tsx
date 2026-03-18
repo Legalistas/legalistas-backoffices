@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { useSession } from "next-auth/react"
-import { LEADS_ENDPOINT, LEADS_NOTES_DELETE_ENDPOINT, LEADS_NOTES_ENDPOINT, LEADS_NOTES_UPDATE_ENDPOINT } from "@/constant/api-endpoints"
+import { LEADS_ENDPOINT, LEADS_NOTES_DELETE_ENDPOINT, LEADS_NOTES_ENDPOINT, LEADS_NOTES_UPDATE_ENDPOINT, LAWYERS_ENDPOINT } from "@/constant/api-endpoints"
 import type { Lead } from "@/types/crm"
 import Button from "../ui/button/Button"
 import { ArrowLeft, Briefcase, CheckCircle, Clock, Edit, FileText, Globe, Mail, Phone, Share, Share2, User, XCircle } from 'lucide-react'
@@ -39,6 +39,8 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
     const [noteContent, setNoteContent] = useState<string>(lead?.notes || "")
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [currentLead, setCurrentLead] = useState<Lead | null>(null)
+    const [mentionedUserIds, setMentionedUserIds] = useState<number[]>([])
+    const [allLawyers, setAllLawyers] = useState<{ id: number; name: string; image?: string | null }[]>([])
 
     const leadId = Number(id)
 
@@ -109,6 +111,31 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
         }
 
         fetchLeads()
+
+        // Fetch lawyers para menciones
+        const fetchLawyers = async () => {
+            if (!session?.user?.accessToken) return
+            try {
+                const res = await fetch(`${LAWYERS_ENDPOINT}?limit=100000`, {
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${session.user.accessToken}`,
+                    },
+                })
+                if (!res.ok) return
+                const json = await res.json()
+                if (json.data && Array.isArray(json.data)) {
+                    setAllLawyers(json.data.map((l: any) => ({
+                        id: l.id,
+                        name: l.name,
+                        image: l.image,
+                    })))
+                }
+            } catch {
+                // No bloquear si falla
+            }
+        }
+        fetchLawyers()
     }, [session?.user?.accessToken, id])
 
     if (isLoading) {
@@ -241,6 +268,7 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
                 body: JSON.stringify({
                     note: noteContent,
                     userId: session?.user?.id ? Number.parseInt(session.user.id) : undefined,
+                    mentionedUserIds,
                 }),
             })
 
@@ -265,8 +293,9 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
             const updatedLeadData = await updatedLeadResponse.json()
             setLead(updatedLeadData)
 
-            // Clear the note content
+            // Clear the note content and mentions
             setNoteContent("")
+            setMentionedUserIds([])
 
             // Show success message
             toast.dismiss(savingToast)
@@ -500,6 +529,8 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
                                         setNoteContent={setNoteContent}
                                         handleEditNote={handleEditNote}
                                         handleDeleteNote={handleDeleteNote}
+                                        mentionUsers={allLawyers}
+                                        onMentionsChange={setMentionedUserIds}
                                     />
                                 </TabsContent>
                                 <TabsContent value="activity">
