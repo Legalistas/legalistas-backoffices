@@ -1,12 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Search, X, Columns, ChevronDown, CalendarDays, SlidersHorizontal } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select/SelectComposed"
 import Button from "@/components/ui/button/Button"
 import { closingType, statusCapital, statusData, monthOptions } from "@/constant/closing-manager"
 import Checkbox from "@/components/ui/input/Checkbox"
 import { ALL_CLOSING_COLUMNS } from "@/components/closing-manager/closing-manager-table"
+import { LAWYERS_ENDPOINT } from "@/constant/api-endpoints"
+import { useSession } from "next-auth/react"
 
 export interface ClosingFiltersState {
   search: string
@@ -14,6 +16,7 @@ export interface ClosingFiltersState {
   capitalState: string
   feeStatus: string
   pclStatus: string
+  responsibleLawyerId: string
 }
 
 interface ClosingFiltersProps {
@@ -70,9 +73,50 @@ export default function ClosingFilters({
   onYearChange,
   onToggleViewAll,
 }: ClosingFiltersProps) {
+  const { data: session } = useSession()
   const [localSearch, setLocalSearch] = useState(filters.search)
   const [showColumnsMenu, setShowColumnsMenu] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [lawyers, setLawyers] = useState<{ id: number; name: string }[]>([])
+  const [lawyerSearch, setLawyerSearch] = useState("")
+  const [showLawyerDropdown, setShowLawyerDropdown] = useState(false)
+  const lawyerDropdownRef = useRef<HTMLDivElement>(null)
+  const lawyerInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!session?.user?.accessToken) return
+    const fetchLawyers = async () => {
+      try {
+        const response = await fetch(`${LAWYERS_ENDPOINT}?limit=10000`, {
+          headers: { Authorization: `Bearer ${session.user.accessToken}` },
+        })
+        if (response.ok) {
+          const data = await response.json()
+          const list = Array.isArray(data) ? data : data.data || []
+          setLawyers(list.sort((a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name)))
+        }
+      } catch {
+        // silent
+      }
+    }
+    fetchLawyers()
+  }, [session?.user?.accessToken])
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (lawyerDropdownRef.current && !lawyerDropdownRef.current.contains(e.target as Node)) {
+        setShowLawyerDropdown(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [])
+
+  const filteredLawyers = lawyers.filter((l) =>
+    l.name.toLowerCase().includes(lawyerSearch.toLowerCase())
+  )
+
+  const selectedLawyerName = lawyers.find((l) => String(l.id) === filters.responsibleLawyerId)?.name || ""
 
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
@@ -82,11 +126,11 @@ export default function ClosingFilters({
 
   const clearFilters = () => {
     setLocalSearch("")
-    onFiltersChange({ search: "", type: "", capitalState: "", feeStatus: "", pclStatus: "" })
+    onFiltersChange({ search: "", type: "", capitalState: "", feeStatus: "", pclStatus: "", responsibleLawyerId: "" })
   }
 
-  const hasActiveFilters = filters.search || filters.type || filters.capitalState || filters.feeStatus || filters.pclStatus
-  const activeFilterCount = [filters.type, filters.capitalState, filters.feeStatus, filters.pclStatus].filter(Boolean).length
+  const hasActiveFilters = filters.search || filters.type || filters.capitalState || filters.feeStatus || filters.pclStatus || filters.responsibleLawyerId
+  const activeFilterCount = [filters.type, filters.capitalState, filters.feeStatus, filters.pclStatus, filters.responsibleLawyerId].filter(Boolean).length
 
   const toggleColumn = (columnId: string) => {
     if (ALWAYS_VISIBLE.includes(columnId)) return
@@ -258,7 +302,83 @@ export default function ClosingFilters({
         {/* Filtros avanzados — expandible */}
         {showAdvanced && (
           <div className="px-3 pb-3 pt-0">
-            <div className="grid grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+            <div className="grid grid-cols-5 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="space-y-1.5" ref={lawyerDropdownRef}>
+                <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Representante</label>
+                <div className="relative">
+                  <div
+                    onClick={() => {
+                      setShowLawyerDropdown(!showLawyerDropdown)
+                      setLawyerSearch("")
+                      setTimeout(() => lawyerInputRef.current?.focus(), 0)
+                    }}
+                    className="flex items-center justify-between h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm cursor-pointer hover:border-gray-300 transition-colors"
+                  >
+                    <span className={`truncate ${filters.responsibleLawyerId ? "text-gray-900" : "text-gray-400"}`}>
+                      {selectedLawyerName || "Todos"}
+                    </span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {filters.responsibleLawyerId && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onFiltersChange({ ...filters, responsibleLawyerId: "" })
+                          }}
+                          className="p-0.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                      <ChevronDown className={`h-3.5 w-3.5 text-gray-400 transition-transform ${showLawyerDropdown ? "rotate-180" : ""}`} />
+                    </div>
+                  </div>
+
+                  {showLawyerDropdown && (
+                    <div className="absolute z-50 top-full mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                      <div className="p-2 border-b border-gray-100">
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                          <input
+                            ref={lawyerInputRef}
+                            type="text"
+                            placeholder="Buscar representante..."
+                            value={lawyerSearch}
+                            onChange={(e) => setLawyerSearch(e.target.value)}
+                            className="w-full h-8 pl-8 pr-3 rounded-md border border-gray-200 bg-gray-50 text-sm placeholder:text-gray-400 focus:bg-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-52 overflow-y-auto">
+                        <div
+                          onClick={() => {
+                            onFiltersChange({ ...filters, responsibleLawyerId: "" })
+                            setShowLawyerDropdown(false)
+                          }}
+                          className={`px-3 py-2 text-sm cursor-pointer transition-colors ${!filters.responsibleLawyerId ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                        >
+                          Todos
+                        </div>
+                        {filteredLawyers.map((l) => (
+                          <div
+                            key={l.id}
+                            onClick={() => {
+                              onFiltersChange({ ...filters, responsibleLawyerId: String(l.id) })
+                              setShowLawyerDropdown(false)
+                            }}
+                            className={`px-3 py-2 text-sm cursor-pointer transition-colors ${filters.responsibleLawyerId === String(l.id) ? "bg-brand-50 text-brand-700 font-medium" : "text-gray-700 hover:bg-gray-50"}`}
+                          >
+                            {l.name}
+                          </div>
+                        ))}
+                        {filteredLawyers.length === 0 && lawyerSearch && (
+                          <div className="px-3 py-4 text-sm text-gray-400 text-center">Sin resultados</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo de Cierre</label>
                 <Select value={filters.type} onValueChange={(value) => onFiltersChange({ ...filters, type: value })}>
