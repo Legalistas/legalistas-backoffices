@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react"
 import { ChevronLeft, Save, Loader2 } from "lucide-react"
 import Link from "next/link"
 import Button from "@/components/ui/button/Button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select/SelectComposed"
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select/SelectComposed"
 import { CLOSING_BY_ID_ENDPOINT } from "@/constant/api-endpoints"
 import { closingType, statusCapital, statusData } from "@/constant/closing-manager"
 import type { ClosingManagerEntry } from "@/types/closing-manager"
@@ -45,6 +45,19 @@ export default function EditClosingPage() {
   const [contributionsAmount, setContributionsAmount] = useState("0")
   const [applyContributions, setApplyContributions] = useState(true)
   const [detail, setDetail] = useState("")
+
+  // Auto-calculate HP Total and PCL Total
+  useEffect(() => {
+    const capital = parseFloat(capitalAmount) || 0
+    const hpPercent = parseFloat(hpAgreed) || 0
+    setHpTotal((capital * hpPercent / 100).toFixed(2))
+  }, [capitalAmount, hpAgreed])
+
+  useEffect(() => {
+    const capital = parseFloat(capitalAmount) || 0
+    const pclPercent = parseFloat(pclAgreed) || 0
+    setPclTotal((capital * pclPercent / 100).toFixed(2))
+  }, [capitalAmount, pclAgreed])
 
   // Calculated fields
   const calc = useMemo(() => {
@@ -204,7 +217,7 @@ export default function EditClosingPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700">Tipo de Cierre <span className="text-red-500">*</span></label>
               <Select value={type} onValueChange={setType}>
-                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><span className="truncate">{closingType[type as keyof typeof closingType] || "Seleccione"}</span></SelectTrigger>
                 <SelectContent>
                   {Object.entries(closingType).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v as string}</SelectItem>
@@ -222,7 +235,7 @@ export default function EditClosingPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700">Estado Capital <span className="text-red-500">*</span></label>
               <Select value={capitalState} onValueChange={setCapitalState}>
-                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><span className="truncate">{statusCapital[capitalState as keyof typeof statusCapital] || "Seleccione"}</span></SelectTrigger>
                 <SelectContent>
                   {Object.entries(statusCapital).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v as string}</SelectItem>
@@ -233,7 +246,7 @@ export default function EditClosingPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700">Estado Honorarios <span className="text-red-500">*</span></label>
               <Select value={feeStatus} onValueChange={setFeeStatus}>
-                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><span className="truncate">{statusData[feeStatus as keyof typeof statusData] || "Seleccione"}</span></SelectTrigger>
                 <SelectContent>
                   {Object.entries(statusData).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v as string}</SelectItem>
@@ -264,7 +277,7 @@ export default function EditClosingPage() {
                 <label className="text-xs text-gray-500">HP Total ($)</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                  <input type="number" step="0.01" min="0" value={hpTotal} onChange={(e) => setHpTotal(e.target.value)} className={`${inputClass} pl-7`} />
+                  <input type="number" step="0.01" min="0" value={hpTotal} readOnly className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-200 bg-gray-50 text-sm outline-none cursor-default" />
                 </div>
               </div>
               <div className="space-y-1">
@@ -303,7 +316,7 @@ export default function EditClosingPage() {
                 <label className="text-xs text-gray-500">PCL Total ($)</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                  <input type="number" step="0.01" min="0" value={pclTotal} onChange={(e) => setPclTotal(e.target.value)} className={`${inputClass} pl-7`} />
+                  <input type="number" step="0.01" min="0" value={pclTotal} readOnly className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-200 bg-gray-50 text-sm outline-none cursor-default" />
                 </div>
               </div>
               <div className="space-y-1">
@@ -386,7 +399,7 @@ export default function EditClosingPage() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-gray-700">Estado PCL</label>
               <Select value={pclStatus} onValueChange={setPclStatus}>
-                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-11"><span className="truncate">{statusData[pclStatus as keyof typeof statusData] || "Seleccione"}</span></SelectTrigger>
                 <SelectContent>
                   {Object.entries(statusData).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v as string}</SelectItem>

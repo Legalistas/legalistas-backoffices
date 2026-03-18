@@ -3,7 +3,7 @@
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table"
 import { Pagination } from "@/components/ui/pagination/Pagination"
 import Badge from "@/components/ui/badge/Badge"
-import { Pencil, Trash2, Check, X, Loader2 } from "lucide-react"
+import { Eye, Pencil, Trash2, Check, X, Loader2 } from "lucide-react"
 import { CLOSING_BY_ID_ENDPOINT, CLOSING_DETAIL_ENDPOINT } from "@/constant/api-endpoints"
 import type { ClosingManagerEntry, Pagination as PaginationType } from "@/types/closing-manager"
 import { closingType, closingTypeColors, statusCapital, statusCapitalColor, statusData, statusColors } from "@/constant/closing-manager"
@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useState, useRef, useEffect } from "react"
+import ViewClosingModal from "./ViewClosingModal"
 
 // =============================================================================
 // Definición de columnas v2 — 21 columnas (sin intimation ni sepblac)
@@ -54,6 +55,9 @@ interface ClosingManagerTableProps {
 export default function ClosingManagerTable({ closings, pagination, onPageChange, onRefresh, visibleColumns }: ClosingManagerTableProps) {
     const { data: session } = useSession()
     const router = useRouter()
+
+    // View modal state
+    const [viewClosing, setViewClosing] = useState<ClosingManagerEntry | null>(null)
 
     // Inline edit state
     const [editingDetailId, setEditingDetailId] = useState<number | null>(null)
@@ -348,6 +352,14 @@ export default function ClosingManagerTable({ closings, pagination, onPageChange
                                     <TableCell className="px-4 py-3 text-right">
                                         <div className="flex items-center justify-end gap-2">
                                             <button
+                                                onClick={() => setViewClosing(closing)}
+                                                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
+                                                title="Ver detalle"
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                                <span className="sr-only">Ver</span>
+                                            </button>
+                                            <button
                                                 onClick={() => handleEdit(closing.id)}
                                                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                             >
@@ -386,6 +398,12 @@ export default function ClosingManagerTable({ closings, pagination, onPageChange
                     </div>
                 )}
             </div>
+
+            <ViewClosingModal
+                closing={viewClosing}
+                isOpen={!!viewClosing}
+                onClose={() => setViewClosing(null)}
+            />
         </div>
     )
 }
