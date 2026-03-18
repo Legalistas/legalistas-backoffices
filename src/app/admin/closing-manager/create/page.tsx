@@ -395,6 +395,23 @@ export default function CreateClosingPage() {
 
     const acceptedOffer = getAcceptedOffer()
 
+    // ── Auto-calculate HP Total and PCL Total ──
+    useEffect(() => {
+        const capital = activeTab === "from-negotiation"
+            ? (acceptedOffer?.amount || 0)
+            : (parseFloat(capitalAmount) || 0)
+        const hpPercent = parseFloat(hpAgreedPercentage) || 0
+        setHpTotal((capital * hpPercent / 100).toFixed(2))
+    }, [activeTab, acceptedOffer?.amount, capitalAmount, hpAgreedPercentage])
+
+    useEffect(() => {
+        const capital = activeTab === "from-negotiation"
+            ? (acceptedOffer?.amount || 0)
+            : (parseFloat(capitalAmount) || 0)
+        const pclPercent = parseFloat(pclAgreed) || 0
+        setPclTotal((capital * pclPercent / 100).toFixed(2))
+    }, [activeTab, acceptedOffer?.amount, capitalAmount, pclAgreed])
+
     // Format expediente label: "CLIENTE c/ DEMANDADA s/ TIPO PROCESO"
     const formatFileLabel = (file: CaseFile, customerName?: string) => {
         const client = customerName?.toUpperCase() || file.title?.toUpperCase() || ""
@@ -899,8 +916,8 @@ export default function CreateClosingPage() {
                                             <label className="text-xs text-gray-500">HP Total ($)</label>
                                             <div className="relative">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                                                <input type="number" step="0.01" min="0" value={hpTotal} onChange={(e) => setHpTotal(e.target.value)}
-                                                    className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" placeholder="0.00" />
+                                                <input type="number" step="0.01" min="0" value={hpTotal} readOnly
+                                                    className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-200 bg-gray-50 text-sm outline-none cursor-default" placeholder="0.00" />
                                             </div>
                                         </div>
                                         <div className="space-y-1">
@@ -940,8 +957,8 @@ export default function CreateClosingPage() {
                                             <label className="text-xs text-gray-500">PCL Total ($)</label>
                                             <div className="relative">
                                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                                                <input type="number" step="0.01" min="0" value={pclTotal} onChange={(e) => setPclTotal(e.target.value)}
-                                                    className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" placeholder="0.00" />
+                                                <input type="number" step="0.01" min="0" value={pclTotal} readOnly
+                                                    className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-200 bg-gray-50 text-sm outline-none cursor-default" placeholder="0.00" />
                                             </div>
                                         </div>
                                         <div className="space-y-1">
