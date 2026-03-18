@@ -1,3 +1,9 @@
+export interface Lawyer {
+  id: number;
+  name: string;
+  image: string | null;
+}
+
 export interface Case {
   id: number;
   number: string;
@@ -13,11 +19,8 @@ export interface Case {
   servicesId: number;
   stageId: number;
   statusDate: string | null;
-  responsibleLawyer: {
-    id: number;
-    name: string;
-    image: string | null;
-  };
+  responsibleLawyer: Lawyer;
+  internalLawyer?: Lawyer;
 }
 
 export interface ClosingManagerEntry {
@@ -26,33 +29,51 @@ export interface ClosingManagerEntry {
   negotiationId?: number | null;
   date: string;
   type: string;
+
+  // Capital
   capitalAmount: number;
   capitalState: string;
+
+  // Honorarios Pactados (HP)
   hpAgreed: number;
+  hpTotal: number;
+  hpDistribution: boolean;
   feeStatus: string;
-  pclAgreed: string | null;
+
+  // PCL (Pacto de Cuota Litis)
+  pclAgreed: number | null;
+  pclTotal: number | null;
+  pclDistribution: boolean;
   pclStatus: string | null;
-  litigation: string | null;
-  contributions?: string;
+
+  // Aportes
+  contributionsAmount: number;
+  applyContributions: boolean;
+
+  // Detalle
+  detail: string | null;
+
   createdAt: string;
   updatedAt: string;
+
+  // Relaciones
   case: Case;
   negotiation?: {
     id: number;
-    title: string;
-    lesion: string;
+    status: string;
   } | null;
-  // Campos calculados para la tabla
-  fechaCierre: string;
-  nombreCausa: string;
-  expediente: string;
-  abogadoInterno: string;
-  tipo: string;
-  estadoCapital: string;
-  hpAcordado: number;
-  estadoHonorarios: string;
-  estadoPcl: string | null;
-  litigio: string | null;
+
+  // Campos calculados (retornados por el backend)
+  hpRepresentante: number;
+  hpLegalistas: number;
+  pclRepresentante: number;
+  pclLegalistas: number;
+  aportesRepresentante: number;
+  aportesLegalistas: number;
+  montoTransferir: number;
+
+  // Gastos de la causa (solo lectura, desde CasesExpenses)
+  totalCaseExpenses: number;
 }
 
 export interface Pagination {
@@ -65,4 +86,19 @@ export interface Pagination {
 export interface ClosingManagerApiResponse {
   data: ClosingManagerEntry[];
   meta: Pagination;
+}
+
+export interface ClosingKpis {
+  view: "monthly" | "annual";
+  month?: number;
+  year: number;
+  count: number;
+  totalCapital: number;
+  totalHonorarios: number;
+  totalNetoLegalistas: number;
+  totalTransferir: number;
+}
+
+export interface ClosingKpisApiResponse {
+  data: ClosingKpis;
 }

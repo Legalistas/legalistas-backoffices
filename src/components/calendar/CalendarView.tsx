@@ -8,18 +8,20 @@ import interactionPlugin from "@fullcalendar/interaction"
 import listPlugin from "@fullcalendar/list"
 import esLocale from "@fullcalendar/core/locales/es"
 import { Card } from "../ui/card/Card"
-import { formatTime } from "@/constant/calendar"
 import { EventModal } from "./EventModal"
 import {
     CALENDARS_EVENTS_ENDPOINT,
+    CALENDAR_UNIFIED_ENDPOINT,
     CALENDAR_EVENT_BY_ID_ENDPOINT,
     SETTINGS_HOLIDAY_ENDPOINT,
 } from "@/constant/api-endpoints"
 import { useSession } from "next-auth/react"
 import type { EventInput, EventSourceInput } from "@fullcalendar/core"
-import { Video } from "lucide-react"
+import { Video, Scale, Users, CalendarDays } from "lucide-react"
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
+
+type EventSource = "calendar" | "cases" | "crm"
 
 interface HolidayApiData {
     id: number
@@ -59,12 +61,22 @@ interface EventModalData {
     meetLink?: string
     description?: string
     color?: string
+    source?: EventSource
+    sourceMeta?: Record<string, any>
 }
 
 interface CalendarViewProps {
     onNewEvent?: () => void
     onDebugInfoChange?: (info: string | null) => void
     triggerNewEvent?: number
+}
+
+// ── Constantes de colores por fuente ─────────────────────────────────────
+
+const SOURCE_COLORS: Record<EventSource, { primary: string; label: string; icon: string }> = {
+    calendar: { primary: "#3b82f6", label: "Calendario", icon: "calendar" },
+    cases: { primary: "#8b5cf6", label: "Causas", icon: "scale" },
+    crm: { primary: "#0d9488", label: "CRM", icon: "users" },
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -95,6 +107,13 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
     const [errorMessage, setErrorMessage] = useState<string | null>(null)
     const [holidaysInfo, setHolidaysInfo] = useState<string | null>(null)
 
+    // Filtros por fuente
+    const [sourceFilters, setSourceFilters] = useState<Record<EventSource, boolean>>({
+        calendar: true,
+        cases: true,
+        crm: true,
+    })
+
     const calendarRef = useRef<any>(null)
     const [eventsProcessed, setEventsProcessed] = useState(false)
 
@@ -122,6 +141,7 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
             start: `${dateStr}T${hh}:${mm}`,
             allDay: true,
             color: "#3b82f6",
+            source: "calendar",
         })
         setIsNewEvent(true)
         setDialogOpen(true)
@@ -155,7 +175,7 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
         return false
     }
 
-    // ── Fetch eventos ───────────────────────────────────────────────────────
+    // ── Fetch eventos unificados ─────────────────────────────────────────
 
     const fetchEvents = useCallback(async () => {
         if (!session?.user?.accessToken) return
@@ -163,18 +183,36 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
         setEventsError(null)
 
         try {
-            const res = await fetch(CALENDARS_EVENTS_ENDPOINT, {
-                headers: authHeaders(),
-                cache: "no-store",
-            })
-            if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+            // Intentar endpoint unificado primero, fallback al original
+            let apiResponse: any
+            let isUnified = false
 
-            const apiResponse = await res.json()
+            try {
+                const unifiedRes = await fetch(CALENDAR_UNIFIED_ENDPOINT, {
+                    headers: authHeaders(),
+                    cache: "no-store",
+                })
+                if (unifiedRes.ok) {
+                    apiResponse = await unifiedRes.json()
+                    isUnified = true
+                }
+            } catch {
+                // Si falla el unificado, usar el endpoint original
+            }
+
+            if (!isUnified) {
+                const res = await fetch(CALENDARS_EVENTS_ENDPOINT, {
+                    headers: authHeaders(),
+                    cache: "no-store",
+                })
+                if (!res.ok) throw new Error(`${res.status} ${res.statusText}`)
+                apiResponse = await res.json()
+            }
 
             if (apiResponse.data && Array.isArray(apiResponse.data)) {
                 const formatted: CalendarEvent[] = apiResponse.data.map((ev: any) => {
-                    const color = ev.backgroundColor || "#3b82f6"
-                    // Quitar Z/offset para que FullCalendar trate las horas como locales
+                    const source: EventSource = ev.source || "calendar"
+                    const color = ev.backgroundColor || ev.sourceColor || SOURCE_COLORS[source].primary
                     const stripTZ = (d: string) => d.replace(/Z$/, "").replace(/[+-]\d{2}:\d{2}$/, "")
                     const startDate = ev.allDay
                         ? formatDateForCalendar(ev.start)
@@ -191,17 +229,18 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                         start: startDate,
                         end: endDate,
                         allDay: ev.allDay ?? true,
-                        // Fondo transparente → el eventContent controla el color
                         backgroundColor: "transparent",
                         borderColor: "transparent",
-                        textColor: ev.textColor || "#ffffff",
+                        textColor: "#ffffff",
                         isHoliday: false,
-                        editable: true,
+                        editable: source === "calendar",
                         extendedProps: {
                             color,
+                            source,
                             meetLink: ev.meetLink ?? null,
                             description: ev.description ?? null,
                             isHoliday: false,
+                            meta: ev.meta ?? {},
                         },
                     }
                 })
@@ -280,6 +319,27 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
             return
         }
 
+        const source: EventSource = info.event.extendedProps?.source || "calendar"
+
+        // Eventos de causas y CRM son solo lectura
+        if (source !== "calendar") {
+            setSelectedEvent({
+                id: info.event.id ? String(info.event.id) : undefined,
+                title: info.event.title,
+                start: info.event.startStr,
+                end: info.event.endStr,
+                allDay: info.event.allDay,
+                meetLink: info.event.extendedProps?.meetLink ?? "",
+                description: info.event.extendedProps?.description ?? "",
+                color: info.event.extendedProps?.color ?? SOURCE_COLORS[source].primary,
+                source,
+                sourceMeta: info.event.extendedProps?.meta ?? {},
+            })
+            setIsNewEvent(false)
+            setDialogOpen(true)
+            return
+        }
+
         setSelectedEvent({
             id: info.event.id ? String(info.event.id) : undefined,
             title: info.event.title,
@@ -289,6 +349,7 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
             meetLink: info.event.extendedProps?.meetLink ?? "",
             description: info.event.extendedProps?.description ?? "",
             color: info.event.extendedProps?.color ?? "#3b82f6",
+            source: "calendar",
         })
         setIsNewEvent(false)
         setDialogOpen(true)
@@ -309,6 +370,7 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
             start: `${info.dateStr}T${hh}:${mm}`,
             allDay: true,
             color: "#3b82f6",
+            source: "calendar",
         })
         setIsNewEvent(true)
         setDialogOpen(true)
@@ -331,6 +393,7 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
             end: info.endStr,
             allDay: info.allDay,
             color: "#3b82f6",
+            source: "calendar",
         })
         setIsNewEvent(true)
         setDialogOpen(true)
@@ -395,9 +458,11 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                 editable: true,
                 extendedProps: {
                     color,
+                    source: "calendar",
                     meetLink: updatedEvent.meetLink || null,
                     description: updatedEvent.description || null,
                     isHoliday: false,
+                    meta: {},
                 },
             }
 
@@ -431,16 +496,90 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
         setDialogOpen(false)
     }
 
+    // ── Filtrar eventos por fuente ──────────────────────────────────────────
+
+    const filteredEvents = events.filter((ev) => {
+        const source = (ev.extendedProps as any)?.source as EventSource || "calendar"
+        return sourceFilters[source]
+    })
+
+    const toggleSourceFilter = (source: EventSource) => {
+        setSourceFilters((prev) => ({ ...prev, [source]: !prev[source] }))
+    }
+
+    // Contar eventos por fuente
+    const eventCounts = events.reduce(
+        (acc, ev) => {
+            const source = (ev.extendedProps as any)?.source as EventSource || "calendar"
+            acc[source] = (acc[source] || 0) + 1
+            return acc
+        },
+        {} as Record<EventSource, number>
+    )
+
     // ── Render ──────────────────────────────────────────────────────────────
 
-    const calendarEvents: EventSourceInput = [...events, ...holidays]
+    const calendarEvents: EventSourceInput = [...filteredEvents, ...holidays]
+
+    const SourceIcon = ({ source }: { source: EventSource }) => {
+        const iconClass = "h-3 w-3"
+        switch (source) {
+            case "cases": return <Scale className={iconClass} />
+            case "crm": return <Users className={iconClass} />
+            default: return <CalendarDays className={iconClass} />
+        }
+    }
 
     return (
         <Card className="w-full h-full p-4">
+            {/* Barra de filtros por fuente */}
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+                <span className="text-xs font-medium text-gray-500 mr-1">Fuentes:</span>
+                {(Object.keys(SOURCE_COLORS) as EventSource[]).map((source) => {
+                    const { primary, label } = SOURCE_COLORS[source]
+                    const isActive = sourceFilters[source]
+                    const count = eventCounts[source] || 0
+                    return (
+                        <button
+                            key={source}
+                            onClick={() => toggleSourceFilter(source)}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 border ${
+                                isActive
+                                    ? "shadow-sm"
+                                    : "opacity-40 grayscale"
+                            }`}
+                            style={{
+                                backgroundColor: isActive ? `${primary}12` : "transparent",
+                                borderColor: isActive ? `${primary}40` : "#e2e8f0",
+                                color: isActive ? primary : "#94a3b8",
+                            }}
+                        >
+                            <span
+                                className="h-2 w-2 rounded-full shrink-0"
+                                style={{ backgroundColor: isActive ? primary : "#cbd5e1" }}
+                            />
+                            <SourceIcon source={source} />
+                            <span>{label}</span>
+                            {count > 0 && (
+                                <span
+                                    className="ml-0.5 px-1.5 py-0 rounded-full text-[0.65rem] font-semibold"
+                                    style={{
+                                        backgroundColor: isActive ? `${primary}20` : "#f1f5f9",
+                                        color: isActive ? primary : "#94a3b8",
+                                    }}
+                                >
+                                    {count}
+                                </span>
+                            )}
+                        </button>
+                    )
+                })}
+            </div>
+
             {/* Cargando */}
             {(isLoadingEvents || isLoadingHolidays) && (
-                <div className="flex items-center gap-2 text-sm py-2 mb-3 px-3 bg-blue-50 text-blue-700 rounded-lg">
-                    <div className="h-3 w-3 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                <div className="flex items-center gap-2 text-sm py-2 mb-3 px-3 bg-indigo-50 text-indigo-700 rounded-lg">
+                    <div className="h-3 w-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
                     Cargando calendario...
                 </div>
             )}
@@ -493,9 +632,13 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                 locale="es"
                 timeZone="local"
                 displayEventTime={false}
-                eventClassNames={(arg) =>
-                    isHolidayEvent(arg.event) ? ["holiday-event"] : ["fc-custom-event"]
-                }
+                eventClassNames={(arg) => {
+                    if (isHolidayEvent(arg.event)) return ["holiday-event"]
+                    const source = arg.event.extendedProps?.source as EventSource
+                    if (source === "cases") return ["fc-custom-event", "fc-source-cases"]
+                    if (source === "crm") return ["fc-custom-event", "fc-source-crm"]
+                    return ["fc-custom-event", "fc-source-calendar"]
+                }}
                 dayCellClassNames={(arg) => {
                     const d = arg.date.toISOString().split("T")[0]
                     return isHolidayDate(d) ? ["holiday-cell"] : []
@@ -514,24 +657,32 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                     }
 
                     const { title, start, allDay } = eventInfo.event
+                    const source = (eventInfo.event.extendedProps?.source as EventSource) || "calendar"
                     const color =
                         eventInfo.event.extendedProps?.color ||
-                        eventInfo.event.backgroundColor ||
-                        "#3b82f6"
+                        SOURCE_COLORS[source].primary
                     const hasMeet = !!eventInfo.event.extendedProps?.meetLink
 
                     // Vista Agenda
                     if (eventInfo.view.type === "listWeek") {
                         return (
-                            <div className="flex items-center gap-2 py-0.5 w-full">
+                            <div className="flex items-center gap-2 py-1 w-full">
                                 <span
-                                    className="h-2.5 w-2.5 rounded-full shrink-0"
-                                    style={{ backgroundColor: color }}
+                                    className="h-2.5 w-2.5 rounded-full shrink-0 ring-2 ring-offset-1"
+                                    style={{
+                                        backgroundColor: color,
+                                        ringColor: `${color}30`,
+                                    }}
                                 />
                                 <span className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
                                     {title}
                                 </span>
-                                {hasMeet && <Video className="h-3.5 w-3.5 text-green-600 shrink-0" />}
+                                {source !== "calendar" && (
+                                    <span className={`fc-source-badge fc-source-badge--${source}`}>
+                                        {SOURCE_COLORS[source].label}
+                                    </span>
+                                )}
+                                {hasMeet && <Video className="h-3.5 w-3.5 text-emerald-500 shrink-0" />}
                             </div>
                         )
                     }
@@ -562,22 +713,33 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                                 )}
                                 {title}
                             </span>
+                            {source !== "calendar" && (
+                                <span className={`fc-source-badge fc-source-badge--${source}`}>
+                                    {source === "cases" ? "C" : "CRM"}
+                                </span>
+                            )}
                             {hasMeet && (
-                                <Video className="h-3 w-3 shrink-0 text-green-600 opacity-70" />
+                                <Video className="h-3 w-3 shrink-0 text-emerald-500 opacity-80" />
                             )}
                         </div>
                     )
                 }}
                 dayMaxEvents={3}
                 moreLinkContent={(arg) => (
-                    <span className="text-xs font-semibold text-blue-600 px-1">
-                        +{arg.num} ver más
+                    <span className="text-xs font-semibold px-1">
+                        +{arg.num} más
                     </span>
                 )}
                 eventDragStart={(info) => {
                     if (isHolidayEvent(info.event)) {
                         info.jsEvent.preventDefault()
                         showError("No se pueden mover los días festivos")
+                        return false
+                    }
+                    const source = info.event.extendedProps?.source
+                    if (source && source !== "calendar") {
+                        info.jsEvent.preventDefault()
+                        showError("Solo se pueden mover eventos del calendario")
                         return false
                     }
                     return true
@@ -592,7 +754,7 @@ const CalendarView = ({ onDebugInfoChange, triggerNewEvent }: CalendarViewProps)
                     if (eventsProcessed && calendarRef.current) {
                         const api = calendarRef.current.getApi()
                         api.removeAllEvents()
-                        events.forEach((ev) => api.addEvent(ev))
+                        filteredEvents.forEach((ev) => api.addEvent(ev))
                         holidays.forEach((h) => api.addEvent(h))
                     }
                 }}

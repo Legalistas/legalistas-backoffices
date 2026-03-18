@@ -217,6 +217,7 @@ export const CHAT_READ_ENDPOINT = (userId: number) =>
   `${API_BASE_URL}/chat/messages/${userId}/read`;
 
 export const CALENDARS_EVENTS_ENDPOINT = `${API_BASE_URL}/calendar`;
+export const CALENDAR_UNIFIED_ENDPOINT = `${API_BASE_URL}/calendar/unified`;
 export const CALENDAR_EVENT_BY_ID_ENDPOINT = (id: string | number) =>
   `${API_BASE_URL}/calendar/${id}`;
 
@@ -261,15 +262,22 @@ export const NEGOTIATION_ACCEPT_OFFER_ENDPOINT = (negotiationId: number, offerId
 export const CLOSINGS_ENDPOINT = `${API_BASE_URL}/closings`;
 
 // Create closing from negotiation
-export const CLOSINGS_FROM_NEGOTIATION_ENDPOINT = (negotiationId: number) => 
+export const CLOSINGS_FROM_NEGOTIATION_ENDPOINT = (negotiationId: number) =>
   `${API_BASE_URL}/closings/from-negotiation/${negotiationId}`;
 
-// Get closings count
-export const CLOSINGS_COUNT_ENDPOINT = `${API_BASE_URL}/closings/count`;
+// KPIs financieros (mensuales/anuales)
+export const CLOSINGS_KPIS_ENDPOINT = `${API_BASE_URL}/closings/kpis`;
+
+// Exportar cierres a Excel/CSV
+export const CLOSINGS_EXPORT_ENDPOINT = `${API_BASE_URL}/closings/export`;
 
 // Individual closing endpoints
-export const CLOSING_BY_ID_ENDPOINT = (id: number) => 
+export const CLOSING_BY_ID_ENDPOINT = (id: number) =>
   `${API_BASE_URL}/closings/${id}`;
+
+// Inline edit del campo detalle
+export const CLOSING_DETAIL_ENDPOINT = (id: number) =>
+  `${API_BASE_URL}/closings/${id}/detail`;
 
 // ============================================================================
 // POSTS / BLOG MODULE - Sistema de Posts estilo WordPress

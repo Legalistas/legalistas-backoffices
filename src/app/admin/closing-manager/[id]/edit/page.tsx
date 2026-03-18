@@ -1,15 +1,25 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter, useParams } from "next/navigation"
 import { useSession } from "next-auth/react"
 import { ChevronLeft, Save, Loader2 } from "lucide-react"
 import Link from "next/link"
 import Button from "@/components/ui/button/Button"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select/SelectComposed"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select/SelectComposed"
 import { CLOSING_BY_ID_ENDPOINT } from "@/constant/api-endpoints"
 import { closingType, statusCapital, statusData } from "@/constant/closing-manager"
 import type { ClosingManagerEntry } from "@/types/closing-manager"
+
+const inputClass = "w-full h-11 px-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none transition-all"
+
+const formatARS = (n: number) =>
+  new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 2 }).format(n)
+
+const formatDate = (d: string) => {
+  const date = new Date(d)
+  return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`
+}
 
 export default function EditClosingPage() {
   const router = useRouter()
@@ -22,52 +32,68 @@ export default function EditClosingPage() {
 
   // Form state
   const [type, setType] = useState("SRT")
+  const [capitalAmount, setCapitalAmount] = useState("")
   const [capitalState, setCapitalState] = useState("AGREEMENT_IN_MANAGEMENT")
   const [feeStatus, setFeeStatus] = useState("EARRINGS")
-  const [hpAgreedPercentage, setHpAgreedPercentage] = useState("")
-  const [pclAgreed, setPclAgreed] = useState("")
+  const [hpAgreed, setHpAgreed] = useState("20")
+  const [hpTotal, setHpTotal] = useState("0")
+  const [hpDistribution, setHpDistribution] = useState(true)
+  const [pclAgreed, setPclAgreed] = useState("20")
+  const [pclTotal, setPclTotal] = useState("0")
+  const [pclDistribution, setPclDistribution] = useState(true)
   const [pclStatus, setPclStatus] = useState("EARRINGS")
-  const [litigation, setLitigation] = useState("")
-  const [contributions, setContributions] = useState("0")
+  const [contributionsAmount, setContributionsAmount] = useState("0")
+  const [applyContributions, setApplyContributions] = useState(true)
+  const [detail, setDetail] = useState("")
 
+  // Calculated fields
+  const calc = useMemo(() => {
+    const hp = Number(hpTotal) || 0
+    const pcl = Number(pclTotal) || 0
+    const aportes = applyContributions ? (Number(contributionsAmount) || 0) : 0
+    const hpRep = hpDistribution ? hp * 0.25 : 0
+    const hpLeg = hp - hpRep
+    const pclRep = pclDistribution ? pcl * 0.25 : 0
+    const pclLeg = pcl - pclRep
+    const aportesRep = aportes * 0.25
+    const aportesLeg = aportes * 0.75
+    const montoTransferir = hpLeg + pclLeg - aportesLeg
+    return { hpRep, hpLeg, pclRep, pclLeg, aportesRep, aportesLeg, montoTransferir }
+  }, [hpTotal, hpDistribution, pclTotal, pclDistribution, contributionsAmount, applyContributions])
+
+  // Fetch closing
   useEffect(() => {
     const fetchClosing = async () => {
-      if (!session?.user?.accessToken) {
-        setIsLoading(false)
-        return
-      }
-
+      if (!session?.user?.accessToken) { setIsLoading(false); return }
       try {
         const response = await fetch(CLOSING_BY_ID_ENDPOINT(Number(params.id)), {
-          headers: {
-            Authorization: `Bearer ${session?.user?.accessToken}`,
-          },
+          headers: { Authorization: `Bearer ${session.user.accessToken}` },
         })
-
         if (!response.ok) throw new Error("Error al cargar el cierre")
-
         const result = await response.json()
-        const data = result.data || result // Soportar ambos formatos
-        console.log("Datos del cierre:", data)
+        const data = result.data || result
         setClosing(data)
-        
-        // Initialize form - usando los nombres exactos de la API
+
         setType(data.type || "SRT")
+        setCapitalAmount(String(data.capitalAmount ?? 0))
         setCapitalState(data.capitalState || "AGREEMENT_IN_MANAGEMENT")
         setFeeStatus(data.feeStatus || "EARRINGS")
-        setHpAgreedPercentage(data.hpAgreed?.toString() || "")
-        setPclAgreed(data.pclAgreed?.toString() || "")
+        setHpAgreed(String(data.hpAgreed ?? 20))
+        setHpTotal(String(data.hpTotal ?? 0))
+        setHpDistribution(data.hpDistribution ?? true)
+        setPclAgreed(String(data.pclAgreed ?? 20))
+        setPclTotal(String(data.pclTotal ?? 0))
+        setPclDistribution(data.pclDistribution ?? true)
         setPclStatus(data.pclStatus || "EARRINGS")
-        setLitigation(data.litigation || "")
-        setContributions(data.contributions || "0")
+        setContributionsAmount(String(data.contributionsAmount ?? 0))
+        setApplyContributions(data.applyContributions ?? true)
+        setDetail(data.detail || "")
       } catch (err) {
-        console.error("Error al cargar cierre:", err)
         setError(err instanceof Error ? err.message : "Error desconocido")
       } finally {
         setIsLoading(false)
       }
     }
-
     fetchClosing()
   }, [params.id, session?.user?.accessToken])
 
@@ -75,31 +101,31 @@ export default function EditClosingPage() {
     e.preventDefault()
     setIsSubmitting(true)
     setError(null)
-
     try {
       const response = await fetch(CLOSING_BY_ID_ENDPOINT(Number(params.id)), {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.user?.accessToken}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.user?.accessToken}` },
         body: JSON.stringify({
           type,
+          capitalAmount: parseFloat(capitalAmount) || 0,
           capitalState,
           feeStatus,
-          hpAgreed: hpAgreedPercentage ? parseFloat(hpAgreedPercentage) : null,
-          pclAgreed: pclAgreed || null,
-          pclStatus: pclStatus || null,
-          litigation: litigation || null,
-          contributions: contributions,
+          hpAgreed: parseFloat(hpAgreed) || 20,
+          hpTotal: parseFloat(hpTotal) || 0,
+          hpDistribution,
+          pclAgreed: parseFloat(pclAgreed) || 0,
+          pclTotal: parseFloat(pclTotal) || 0,
+          pclDistribution,
+          pclStatus,
+          contributionsAmount: parseFloat(contributionsAmount) || 0,
+          applyContributions,
+          detail: detail || null,
         }),
       })
-
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.message || "Error al actualizar el cierre")
+        const err = await response.json()
+        throw new Error(err.message || "Error al actualizar")
       }
-
       router.push("/admin/closing-manager")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido")
@@ -121,229 +147,269 @@ export default function EditClosingPage() {
       <div className="text-center py-12">
         <p className="text-red-600">No se pudo cargar el cierre</p>
         <Link href="/admin/closing-manager">
-          <Button variant="outline" className="mt-4">
-            Volver
-          </Button>
+          <Button variant="outline" className="mt-4">Volver</Button>
         </Link>
       </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/closing-manager">
-            <Button variant="outline" size="sm">
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Volver
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold tracking-tight">Editar Cierre</h1>
+      <div className="flex items-center gap-4">
+        <Link href="/admin/closing-manager">
+          <Button variant="outline" size="sm"><ChevronLeft className="h-4 w-4 mr-2" />Volver</Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Editar Cierre</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Modifica los datos del cierre</p>
         </div>
       </div>
 
-      {/* Closing Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h3 className="text-brand-500 font-semibold mb-2">Información del Cierre</h3>
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="font-medium">Causa:</span> {closing.case?.title || "-"}
-          </div>
-          <div>
-            <span className="font-medium">Expediente:</span> {closing.case?.number || "-"}
-          </div>
-          <div>
-            <span className="font-medium">Abogado:</span> {closing.case?.responsibleLawyer?.name || "-"}
-          </div>
-          <div>
-            <span className="font-medium">Fecha:</span> {new Date(closing.date).toLocaleDateString("es-AR")}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+        {/* Info del case (solo lectura) */}
+        <div className="bg-gradient-to-r from-brand-500/5 to-brand-500/10 border-b border-gray-200 rounded-t-xl p-5">
+          <h4 className="font-semibold text-sm text-brand-500 mb-3">Datos del Case ID</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div className="bg-white/60 rounded-lg p-3">
+              <span className="text-gray-500 text-xs block mb-1">Causa</span>
+              <span className="font-medium text-gray-900">{closing.case?.title || "-"}</span>
+            </div>
+            <div className="bg-white/60 rounded-lg p-3">
+              <span className="text-gray-500 text-xs block mb-1">Expediente</span>
+              <span className="font-medium text-gray-900">{closing.case?.number || "-"}</span>
+            </div>
+            <div className="bg-white/60 rounded-lg p-3">
+              <span className="text-gray-500 text-xs block mb-1">Representante</span>
+              <span className="font-medium text-gray-900">{closing.case?.responsibleLawyer?.name || "-"}</span>
+            </div>
+            <div className="bg-white/60 rounded-lg p-3">
+              <span className="text-gray-500 text-xs block mb-1">Abogado Interno</span>
+              <span className="font-medium text-gray-900">{closing.case?.internalLawyer?.name || "-"}</span>
+            </div>
+            <div className="bg-white/60 rounded-lg p-3">
+              <span className="text-gray-500 text-xs block mb-1">Fecha</span>
+              <span className="font-medium text-gray-900">{formatDate(closing.date)}</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
-          {error}
-        </div>
-      )}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
+          )}
 
-      {/* Form */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl border border-gray-200 p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Type */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Tipo <span className="text-red-500">*</span>
-            </label>
-            <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
-                <span className="block truncate">
-                  {closingType[type as keyof typeof closingType] || "Seleccione tipo"}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="SRT">{closingType.SRT}</SelectItem>
-                <SelectItem value="JUDICIAL">{closingType.JUDICIAL}</SelectItem>
-                <SelectItem value="EXTRAJUDICIAL">{closingType.EXTRAJUDICIAL}</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Estados y tipo */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Tipo de Cierre <span className="text-red-500">*</span></label>
+              <Select value={type} onValueChange={setType}>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(closingType).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v as string}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Capital ($)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                <input type="number" step="0.01" min="0" value={capitalAmount} onChange={(e) => setCapitalAmount(e.target.value)} className={`${inputClass} pl-7`} />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Estado Capital <span className="text-red-500">*</span></label>
+              <Select value={capitalState} onValueChange={setCapitalState}>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(statusCapital).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v as string}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Estado Honorarios <span className="text-red-500">*</span></label>
+              <Select value={feeStatus} onValueChange={setFeeStatus}>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(statusData).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v as string}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Capital State */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Estado Capital <span className="text-red-500">*</span>
-            </label>
-            <Select value={capitalState} onValueChange={setCapitalState}>
-              <SelectTrigger>
-                <span className="block truncate">
-                  {statusCapital[capitalState as keyof typeof statusCapital] || "Seleccione estado"}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="AGREEMENT_IN_MANAGEMENT">{statusCapital.AGREEMENT_IN_MANAGEMENT}</SelectItem>
-                <SelectItem value="AGREEMENT_PRESENTED">{statusCapital.AGREEMENT_PRESENTED}</SelectItem>
-                <SelectItem value="AWAITING_DEADLINE">{statusCapital.AWAITING_DEADLINE}</SelectItem>
-                <SelectItem value="REQUESTED_OP">{statusCapital.REQUESTED_OP}</SelectItem>
-                <SelectItem value="TRANSFER_REQUESTED">{statusCapital.TRANSFER_REQUESTED}</SelectItem>
-                <SelectItem value="K_RECEIVED_BY_ACTOR">{statusCapital.K_RECEIVED_BY_ACTOR}</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* HP */}
+          <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-sm text-gray-800">Honorarios Pactados (HP)</h4>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" checked={hpDistribution} onChange={(e) => setHpDistribution(e.target.checked)} className="rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
+                <span className="text-gray-600">Distribución HP con representante (25%)</span>
+              </label>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">HP Convenido (%)</label>
+                <div className="relative">
+                  <input type="number" step="0.01" min="0" max="100" value={hpAgreed} onChange={(e) => setHpAgreed(e.target.value)} className={`${inputClass} pr-8`} />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">HP Total ($)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input type="number" step="0.01" min="0" value={hpTotal} onChange={(e) => setHpTotal(e.target.value)} className={`${inputClass} pl-7`} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">HP Representante ($)</label>
+                <div className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!hpDistribution ? "text-gray-400" : "font-medium"}`}>
+                  {formatARS(calc.hpRep)}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">HP Legalistas ($)</label>
+                <div className="h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-900">
+                  {formatARS(calc.hpLeg)}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Fee Status */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Estado Honorarios <span className="text-red-500">*</span>
-            </label>
-            <Select value={feeStatus} onValueChange={setFeeStatus}>
-              <SelectTrigger>
-                <span className="block truncate">
-                  {statusData[feeStatus as keyof typeof statusData] || "Seleccione estado"}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="EARRINGS">{statusData.EARRINGS}</SelectItem>
-                <SelectItem value="REQUESTED">{statusData.REQUESTED}</SelectItem>
-                <SelectItem value="CHARGED">{statusData.CHARGED}</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* PCL */}
+          <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-sm text-gray-800">Pacto de Cuota Litis (PCL)</h4>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" checked={pclDistribution} onChange={(e) => setPclDistribution(e.target.checked)} className="rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
+                <span className="text-gray-600">Distribución PCL con representante (25%)</span>
+              </label>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">PCL Convenido (%)</label>
+                <div className="relative">
+                  <input type="number" step="0.01" min="0" max="100" value={pclAgreed} onChange={(e) => setPclAgreed(e.target.value)} className={`${inputClass} pr-8`} />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">PCL Total ($)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input type="number" step="0.01" min="0" value={pclTotal} onChange={(e) => setPclTotal(e.target.value)} className={`${inputClass} pl-7`} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">PCL Representante ($)</label>
+                <div className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!pclDistribution ? "text-gray-400" : "font-medium"}`}>
+                  {formatARS(calc.pclRep)}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">PCL Legalistas ($)</label>
+                <div className="h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-900">
+                  {formatARS(calc.pclLeg)}
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* HP Agreed */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">HP Acordado (%)</label>
-            <input
-              type="number"
-              value={hpAgreedPercentage}
-              onChange={(e) => setHpAgreedPercentage(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-brand-500"
-              placeholder="Ej: 10, $50000, etc."
-              step="0.01"
-            />
+          {/* Aportes */}
+          <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="font-semibold text-sm text-gray-800">Aportes</h4>
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <input type="checkbox" checked={applyContributions} onChange={(e) => setApplyContributions(e.target.checked)} className="rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
+                <span className="text-gray-600">Aplicar aportes</span>
+              </label>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">Aportes Totales ($)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                  <input type="number" step="0.01" min="0" value={contributionsAmount} onChange={(e) => setContributionsAmount(e.target.value)} disabled={!applyContributions}
+                    className={`${inputClass} pl-7 disabled:bg-gray-100 disabled:text-gray-400`} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">Aportes Representante ($)</label>
+                <div className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!applyContributions ? "text-gray-400" : ""}`}>
+                  {formatARS(calc.aportesRep)}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-gray-500">Aportes Legalistas ($)</label>
+                <div className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!applyContributions ? "text-gray-400" : ""}`}>
+                  {formatARS(calc.aportesLeg)}
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-gray-400">Monto manual ingresado por la contadora. Distribución: 75% Legalistas / 25% Representante.</p>
           </div>
 
-          {/* PCL Agreed */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">PCL Acordado</label>
-            <input
-              type="text"
-              value={pclAgreed}
-              onChange={(e) => setPclAgreed(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-brand-500"
-              placeholder="20"
-            />
+          {/* Monto a Transferir */}
+          <div className={`rounded-xl p-5 border-2 ${calc.montoTransferir < 0 ? "border-red-300 bg-red-50" : "border-brand-300 bg-brand-50"}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-semibold text-sm text-gray-800">Monto a Transferir a Legalistas</h4>
+                <p className="text-xs text-gray-500 mt-0.5">HP Legalistas + PCL Legalistas - Aportes Legalistas</p>
+              </div>
+              <span className={`text-3xl font-bold ${calc.montoTransferir < 0 ? "text-red-700" : "text-brand-700"}`}>
+                {formatARS(calc.montoTransferir)}
+              </span>
+            </div>
           </div>
 
-          {/* PCL Status */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Estado PCL <span className="text-red-500">*</span>
-            </label>
-            <Select value={pclStatus} onValueChange={setPclStatus}>
-              <SelectTrigger>
-                <span className="block truncate">
-                  {statusData[pclStatus as keyof typeof statusData] || "Seleccione estado"}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="EARRINGS">{statusData.EARRINGS}</SelectItem>
-                <SelectItem value="REQUESTED">{statusData.REQUESTED}</SelectItem>
-                <SelectItem value="CHARGED">{statusData.CHARGED}</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Estado PCL */}
+          <div className="grid grid-cols-2 gap-5">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-gray-700">Estado PCL</label>
+              <Select value={pclStatus} onValueChange={setPclStatus}>
+                <SelectTrigger className="h-11"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(statusData).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v as string}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Contributions */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">
-              Aportes <span className="text-red-500">*</span>
-            </label>
-            <Select value={contributions} onValueChange={setContributions}>
-              <SelectTrigger>
-                <span className="block truncate">
-                  {contributions === "0" ? "0%" :
-                   contributions === "10" ? "10%" :
-                   contributions === "10_IVA" ? "10% + IVA" :
-                   contributions === "25" ? "25%" :
-                   contributions === "25_IVA" ? "25% + IVA" :
-                   contributions === "50" ? "50%" :
-                   contributions === "50_IVA" ? "50% + IVA" : "Seleccione aportes"}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">0%</SelectItem>
-                <SelectItem value="10">10%</SelectItem>
-                <SelectItem value="10_IVA">10% + IVA</SelectItem>
-                <SelectItem value="25">25%</SelectItem>
-                <SelectItem value="25_IVA">25% + IVA</SelectItem>
-                <SelectItem value="50">50%</SelectItem>
-                <SelectItem value="50_IVA">50% + IVA</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Litigation */}
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium">Litigio</label>
+          {/* Detalle */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium text-gray-700">Detalle</label>
             <textarea
-              value={litigation}
-              onChange={(e) => setLitigation(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:border-brand-500 min-h-[100px]"
-              placeholder="Información sobre el litigio"
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none resize-y"
+              placeholder="Descripción de la situación del cierre..."
             />
           </div>
-        </div>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
-          <Link href="/admin/closing-manager">
-            <Button type="button" variant="outline">
-              Cancelar
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+            <Link href="/admin/closing-manager">
+              <Button type="button" variant="outline" className="px-6">Cancelar</Button>
+            </Link>
+            <Button type="submit" disabled={isSubmitting} className="px-6 bg-brand-500 text-white hover:bg-brand-500/85">
+              {isSubmitting ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Guardando...</>
+              ) : (
+                <><Save className="h-4 w-4 mr-2" />Guardar Cambios</>
+              )}
             </Button>
-          </Link>
-          <Button
-            type="submit"
-            disabled={isSubmitting}
-            className="bg-brand-500 text-white hover:bg-brand-600"
-          >
-            {isSubmitting ? (
-              <>
-                <span className="animate-spin mr-2">⏳</span>
-                Guardando...
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 mr-2" />
-                Guardar Cambios
-              </>
-            )}
-          </Button>
-        </div>
-      </form>
+          </div>
+        </form>
+      </div>
     </div>
   )
 }

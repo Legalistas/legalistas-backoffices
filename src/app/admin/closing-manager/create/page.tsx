@@ -84,11 +84,16 @@ export default function CreateClosingPage() {
     const [type, setType] = useState("SRT")
     const [capitalState, setCapitalState] = useState("AGREEMENT_IN_MANAGEMENT")
     const [feeStatus, setFeeStatus] = useState("EARRINGS")
-    const [hpAgreedPercentage, setHpAgreedPercentage] = useState("")
-    const [pclAgreed, setPclAgreed] = useState("")
+    const [hpAgreedPercentage, setHpAgreedPercentage] = useState("20")
+    const [hpTotal, setHpTotal] = useState("")
+    const [hpDistribution, setHpDistribution] = useState(true)
+    const [pclAgreed, setPclAgreed] = useState("20")
+    const [pclTotal, setPclTotal] = useState("")
+    const [pclDistribution, setPclDistribution] = useState(true)
     const [pclStatus, setPclStatus] = useState("EARRINGS")
-    const [litigation, setLitigation] = useState("")
-    const [contributions, setContributions] = useState("0")
+    const [contributionsAmount, setContributionsAmount] = useState("0")
+    const [applyContributions, setApplyContributions] = useState(true)
+    const [detail, setDetail] = useState("")
 
     // ── Tab 1: From Negotiation ──
     const [finalizedNegotiations, setFinalizedNegotiations] = useState<Negotiation[]>([])
@@ -129,11 +134,16 @@ export default function CreateClosingPage() {
         setType("SRT")
         setCapitalState("AGREEMENT_IN_MANAGEMENT")
         setFeeStatus("EARRINGS")
-        setHpAgreedPercentage("")
-        setPclAgreed("")
+        setHpAgreedPercentage("20")
+        setHpTotal("")
+        setHpDistribution(true)
+        setPclAgreed("20")
+        setPclTotal("")
+        setPclDistribution(true)
         setPclStatus("EARRINGS")
-        setLitigation("")
-        setContributions("0")
+        setContributionsAmount("0")
+        setApplyContributions(true)
+        setDetail("")
         setSelectedNegotiationId("")
         setSelectedNegotiation(null)
         setNegSearchTerm("")
@@ -323,11 +333,16 @@ export default function CreateClosingPage() {
                             type,
                             capitalState,
                             feeStatus,
-                            hpAgreed: hpAgreedPercentage ? parseFloat(hpAgreedPercentage) : null,
-                            pclAgreed: pclAgreed || null,
-                            pclStatus: pclStatus || null,
-                            litigation: litigation || null,
-                            contributions,
+                            hpAgreed: parseFloat(hpAgreedPercentage) || 20,
+                            hpTotal: parseFloat(hpTotal) || 0,
+                            hpDistribution,
+                            pclAgreed: parseFloat(pclAgreed) || 20,
+                            pclTotal: parseFloat(pclTotal) || 0,
+                            pclDistribution,
+                            pclStatus,
+                            contributionsAmount: parseFloat(contributionsAmount) || 0,
+                            applyContributions,
+                            detail: detail || null,
                         }),
                     }
                 )
@@ -348,16 +363,20 @@ export default function CreateClosingPage() {
                     },
                     body: JSON.stringify({
                         caseId: selectedCase.id,
-                        caseFileId: selectedFile?.id || null,
                         type,
                         capitalAmount: parseFloat(capitalAmount),
                         capitalState,
                         feeStatus,
-                        hpAgreed: hpAgreedPercentage ? parseFloat(hpAgreedPercentage) : null,
-                        pclAgreed: pclAgreed || null,
-                        pclStatus: pclStatus || null,
-                        litigation: litigation || null,
-                        contributions,
+                        hpAgreed: parseFloat(hpAgreedPercentage) || 20,
+                        hpTotal: parseFloat(hpTotal) || 0,
+                        hpDistribution,
+                        pclAgreed: parseFloat(pclAgreed) || 20,
+                        pclTotal: parseFloat(pclTotal) || 0,
+                        pclDistribution,
+                        pclStatus,
+                        contributionsAmount: parseFloat(contributionsAmount) || 0,
+                        applyContributions,
+                        detail: detail || null,
                     }),
                 })
                 if (!response.ok) {
@@ -803,151 +822,211 @@ export default function CreateClosingPage() {
                         </div>
                     )}
 
-                    {/* ═══════════ COMMON FORM FIELDS ═══════════ */}
+                    {/* ═══════════ COMMON FORM FIELDS v2 ═══════════ */}
                     {((activeTab === "from-negotiation" && selectedNegotiation) || (activeTab === "direct" && selectedCase)) && (
                         <>
-                            <div className="border-t border-gray-200 pt-6">
-                                <h3 className="text-sm font-semibold text-gray-800 mb-4">Datos del Cierre</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                    {/* Tipo de Cierre */}
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-gray-700">
-                                            Tipo de Cierre <span className="text-red-500">*</span>
-                                        </label>
-                                        <Select value={type} onValueChange={setType}>
-                                            <SelectTrigger className="h-11">
-                                                <span className="truncate">{closingType[type as keyof typeof closingType] || "Seleccione"}</span>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="SRT">{closingType.SRT}</SelectItem>
-                                                <SelectItem value="JUDICIAL">{closingType.JUDICIAL}</SelectItem>
-                                                <SelectItem value="EXTRAJUDICIAL">{closingType.EXTRAJUDICIAL}</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* Estado Capital */}
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-gray-700">
-                                            Estado Capital <span className="text-red-500">*</span>
-                                        </label>
-                                        <Select value={capitalState} onValueChange={setCapitalState}>
-                                            <SelectTrigger className="h-11">
-                                                <span className="truncate">{statusCapital[capitalState as keyof typeof statusCapital] || "Seleccione"}</span>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="AGREEMENT_IN_MANAGEMENT">{statusCapital.AGREEMENT_IN_MANAGEMENT}</SelectItem>
-                                                <SelectItem value="AGREEMENT_PRESENTED">{statusCapital.AGREEMENT_PRESENTED}</SelectItem>
-                                                <SelectItem value="AWAITING_DEADLINE">{statusCapital.AWAITING_DEADLINE}</SelectItem>
-                                                <SelectItem value="REQUESTED_OP">{statusCapital.REQUESTED_OP}</SelectItem>
-                                                <SelectItem value="TRANSFER_REQUESTED">{statusCapital.TRANSFER_REQUESTED}</SelectItem>
-                                                <SelectItem value="K_RECEIVED_BY_ACTOR">{statusCapital.K_RECEIVED_BY_ACTOR}</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* Estado Honorarios */}
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-gray-700">
-                                            Estado Honorarios <span className="text-red-500">*</span>
-                                        </label>
-                                        <Select value={feeStatus} onValueChange={setFeeStatus}>
-                                            <SelectTrigger className="h-11">
-                                                <span className="truncate">{statusData[feeStatus as keyof typeof statusData] || "Seleccione"}</span>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="EARRINGS">{statusData.EARRINGS}</SelectItem>
-                                                <SelectItem value="REQUESTED">{statusData.REQUESTED}</SelectItem>
-                                                <SelectItem value="CHARGED">{statusData.CHARGED}</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* HP Acordados */}
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-gray-700">HP Acordados (%)</label>
-                                        <div className="relative">
-                                            <input
-                                                type="number"
-                                                step="0.01"
-                                                min="0"
-                                                max="100"
-                                                value={hpAgreedPercentage}
-                                                onChange={(e) => setHpAgreedPercentage(e.target.value)}
-                                                className="w-full h-11 px-3 pr-8 rounded-lg border border-gray-300 bg-white text-sm focus:border-[#09A4B5] focus:ring-2 focus:ring-[#09A4B5]/20 outline-none transition-all"
-                                                placeholder="Ej: 20"
-                                            />
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                            <div className="border-t border-gray-200 pt-6 space-y-6">
+                                {/* Estados y tipo */}
+                                <div>
+                                    <h3 className="text-sm font-semibold text-gray-800 mb-4">Datos del Cierre</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-gray-700">Tipo de Cierre <span className="text-red-500">*</span></label>
+                                            <Select value={type} onValueChange={setType}>
+                                                <SelectTrigger className="h-11"><span className="truncate">{closingType[type as keyof typeof closingType] || "Seleccione"}</span></SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.entries(closingType).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
+                                                        <SelectItem key={k} value={k}>{v as string}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-gray-700">Estado Capital <span className="text-red-500">*</span></label>
+                                            <Select value={capitalState} onValueChange={setCapitalState}>
+                                                <SelectTrigger className="h-11"><span className="truncate">{statusCapital[capitalState as keyof typeof statusCapital] || "Seleccione"}</span></SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.entries(statusCapital).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
+                                                        <SelectItem key={k} value={k}>{v as string}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-gray-700">Estado Honorarios <span className="text-red-500">*</span></label>
+                                            <Select value={feeStatus} onValueChange={setFeeStatus}>
+                                                <SelectTrigger className="h-11"><span className="truncate">{statusData[feeStatus as keyof typeof statusData] || "Seleccione"}</span></SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.entries(statusData).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
+                                                        <SelectItem key={k} value={k}>{v as string}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-sm font-medium text-gray-700">Estado PCL</label>
+                                            <Select value={pclStatus} onValueChange={setPclStatus}>
+                                                <SelectTrigger className="h-11"><span className="truncate">{statusData[pclStatus as keyof typeof statusData] || "Seleccione"}</span></SelectTrigger>
+                                                <SelectContent>
+                                                    {Object.entries(statusData).filter(([k]) => k === k.toUpperCase()).map(([k, v]) => (
+                                                        <SelectItem key={k} value={k}>{v as string}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* PCL Acordados */}
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-gray-700">PCL Acordados</label>
-                                        <input
-                                            type="text"
-                                            value={pclAgreed}
-                                            onChange={(e) => setPclAgreed(e.target.value)}
-                                            className="w-full h-11 px-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-[#09A4B5] focus:ring-2 focus:ring-[#09A4B5]/20 outline-none transition-all"
-                                            placeholder="Ej: 10%, $50000"
-                                        />
-                                    </div>
-
-                                    {/* Estado PCL */}
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-gray-700">Estado PCL</label>
-                                        <Select value={pclStatus} onValueChange={setPclStatus}>
-                                            <SelectTrigger className="h-11">
-                                                <span className="truncate">{statusData[pclStatus as keyof typeof statusData] || "Seleccione"}</span>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="EARRINGS">{statusData.EARRINGS}</SelectItem>
-                                                <SelectItem value="REQUESTED">{statusData.REQUESTED}</SelectItem>
-                                                <SelectItem value="CHARGED">{statusData.CHARGED}</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    {/* Aportes */}
-                                    <div className="space-y-1.5">
-                                        <label className="text-sm font-medium text-gray-700">
-                                            Aportes <span className="text-red-500">*</span>
+                                {/* HP */}
+                                <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-semibold text-sm text-gray-800">Honorarios Pactados (HP)</h4>
+                                        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                                            <input type="checkbox" checked={hpDistribution} onChange={(e) => setHpDistribution(e.target.checked)} className="rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
+                                            <span className="text-gray-600">Distribución HP con representante (25%)</span>
                                         </label>
-                                        <Select value={contributions} onValueChange={setContributions}>
-                                            <SelectTrigger className="h-11">
-                                                <span className="block truncate">
-                                                    {contributions === "0" ? "0%" :
-                                                     contributions === "10" ? "10%" :
-                                                     contributions === "10_IVA" ? "10% + IVA" :
-                                                     contributions === "25" ? "25%" :
-                                                     contributions === "25_IVA" ? "25% + IVA" :
-                                                     contributions === "50" ? "50%" :
-                                                     contributions === "50_IVA" ? "50% + IVA" : "Seleccione"}
-                                                </span>
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="0">0%</SelectItem>
-                                                <SelectItem value="10">10%</SelectItem>
-                                                <SelectItem value="10_IVA">10% + IVA</SelectItem>
-                                                <SelectItem value="25">25%</SelectItem>
-                                                <SelectItem value="25_IVA">25% + IVA</SelectItem>
-                                                <SelectItem value="50">50%</SelectItem>
-                                                <SelectItem value="50_IVA">50% + IVA</SelectItem>
-                                            </SelectContent>
-                                        </Select>
                                     </div>
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">HP Convenido (%)</label>
+                                            <div className="relative">
+                                                <input type="number" step="0.01" min="0" max="100" value={hpAgreedPercentage} onChange={(e) => setHpAgreedPercentage(e.target.value)}
+                                                    className="w-full h-11 px-3 pr-8 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" placeholder="20" />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">HP Total ($)</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                                <input type="number" step="0.01" min="0" value={hpTotal} onChange={(e) => setHpTotal(e.target.value)}
+                                                    className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" placeholder="0.00" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">HP Representante ($)</label>
+                                            <div className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!hpDistribution ? "text-gray-400" : "font-medium"}`}>
+                                                {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(hpDistribution ? (Number(hpTotal) || 0) * 0.25 : 0)}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">HP Legalistas ($)</label>
+                                            <div className="h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-900">
+                                                {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format((Number(hpTotal) || 0) - (hpDistribution ? (Number(hpTotal) || 0) * 0.25 : 0))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                    {/* Litigio */}
-                                    <div className="space-y-1.5 md:col-span-2 lg:col-span-2">
-                                        <label className="text-sm font-medium text-gray-700">Litigio</label>
-                                        <input
-                                            type="text"
-                                            value={litigation}
-                                            onChange={(e) => setLitigation(e.target.value)}
-                                            className="w-full h-11 px-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-[#09A4B5] focus:ring-2 focus:ring-[#09A4B5]/20 outline-none transition-all"
-                                            placeholder="Informacion sobre el litigio"
-                                        />
+                                {/* PCL */}
+                                <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-semibold text-sm text-gray-800">Pacto de Cuota Litis (PCL)</h4>
+                                        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                                            <input type="checkbox" checked={pclDistribution} onChange={(e) => setPclDistribution(e.target.checked)} className="rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
+                                            <span className="text-gray-600">Distribución PCL con representante (25%)</span>
+                                        </label>
                                     </div>
+                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">PCL Convenido (%)</label>
+                                            <div className="relative">
+                                                <input type="number" step="0.01" min="0" max="100" value={pclAgreed} onChange={(e) => setPclAgreed(e.target.value)}
+                                                    className="w-full h-11 px-3 pr-8 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" placeholder="20" />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">%</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">PCL Total ($)</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                                <input type="number" step="0.01" min="0" value={pclTotal} onChange={(e) => setPclTotal(e.target.value)}
+                                                    className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none" placeholder="0.00" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">PCL Representante ($)</label>
+                                            <div className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!pclDistribution ? "text-gray-400" : "font-medium"}`}>
+                                                {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(pclDistribution ? (Number(pclTotal) || 0) * 0.25 : 0)}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">PCL Legalistas ($)</label>
+                                            <div className="h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-900">
+                                                {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format((Number(pclTotal) || 0) - (pclDistribution ? (Number(pclTotal) || 0) * 0.25 : 0))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Aportes */}
+                                <div className="border border-gray-200 rounded-xl p-5 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="font-semibold text-sm text-gray-800">Aportes</h4>
+                                        <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                                            <input type="checkbox" checked={applyContributions} onChange={(e) => setApplyContributions(e.target.checked)} className="rounded border-gray-300 text-brand-500 focus:ring-brand-500" />
+                                            <span className="text-gray-600">Aplicar aportes</span>
+                                        </label>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-4">
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">Aportes Totales ($)</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                                <input type="number" step="0.01" min="0" value={contributionsAmount} onChange={(e) => setContributionsAmount(e.target.value)} disabled={!applyContributions}
+                                                    className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none disabled:bg-gray-100 disabled:text-gray-400" placeholder="0.00" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">Aportes Representante ($)</label>
+                                            <div className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!applyContributions ? "text-gray-400" : ""}`}>
+                                                {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(applyContributions ? (Number(contributionsAmount) || 0) * 0.25 : 0)}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-gray-500">Aportes Legalistas ($)</label>
+                                            <div className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!applyContributions ? "text-gray-400" : ""}`}>
+                                                {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(applyContributions ? (Number(contributionsAmount) || 0) * 0.75 : 0)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <p className="text-xs text-gray-400">Monto manual ingresado por la contadora. Distribución: 75% Legalistas / 25% Representante.</p>
+                                </div>
+
+                                {/* Monto a Transferir — CAMPO CRÍTICO */}
+                                {(() => {
+                                    const hp = Number(hpTotal) || 0
+                                    const pcl = Number(pclTotal) || 0
+                                    const aportes = applyContributions ? (Number(contributionsAmount) || 0) : 0
+                                    const hpLeg = hp - (hpDistribution ? hp * 0.25 : 0)
+                                    const pclLeg = pcl - (pclDistribution ? pcl * 0.25 : 0)
+                                    const aportesLeg = aportes * 0.75
+                                    const monto = hpLeg + pclLeg - aportesLeg
+                                    return (
+                                        <div className={`rounded-xl p-5 border-2 ${monto < 0 ? "border-red-300 bg-red-50" : "border-brand-300 bg-brand-50"}`}>
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <h4 className="font-semibold text-sm text-gray-800">Monto a Transferir a Legalistas</h4>
+                                                    <p className="text-xs text-gray-500 mt-0.5">HP Legalistas + PCL Legalistas - Aportes Legalistas</p>
+                                                </div>
+                                                <span className={`text-3xl font-bold ${monto < 0 ? "text-red-700" : "text-brand-700"}`}>
+                                                    {new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(monto)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )
+                                })()}
+
+                                {/* Detalle */}
+                                <div className="space-y-1.5">
+                                    <label className="text-sm font-medium text-gray-700">Detalle</label>
+                                    <textarea
+                                        value={detail}
+                                        onChange={(e) => setDetail(e.target.value)}
+                                        rows={3}
+                                        className="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 outline-none resize-y"
+                                        placeholder="Descripción de la situación del cierre..."
+                                    />
                                 </div>
                             </div>
 
