@@ -1,5 +1,7 @@
 export const BASE_URL = `${process.env.NEXT_PUBLIC_BACKEND_URL}`;
-export const API_BASE_URL = `${process.env.NEXT_PUBLIC_BACKEND_URL_API}` || `http://localhost:5000/api/v1`;
+export const API_BASE_URL =
+	`${process.env.NEXT_PUBLIC_BACKEND_URL_API}` ||
+	`http://localhost:5000/api/v1`;
 
 // Authentication Endpoints
 export const LOGIN_ENDPOINT = `${API_BASE_URL}/auth/login`;
@@ -14,141 +16,143 @@ export const SESSION_END_ENDPOINT = `${API_BASE_URL}/auth/session-end`;
 export const ACTIVITY_LOGS_ENDPOINT = `${API_BASE_URL}/activity-logs`;
 export const ACTIVITY_LOGS_STATS_ENDPOINT = `${API_BASE_URL}/activity-logs/stats`;
 export const ACTIVITY_LOGS_BY_USER_ENDPOINT = (userId: number) =>
-  `${API_BASE_URL}/activity-logs/user/${userId}`;
+	`${API_BASE_URL}/activity-logs/user/${userId}`;
 
 // LEGAL CASES
 export const CASES_ENDPOINT = `${API_BASE_URL}/cases`;
 export const CASES_EXPIRATION_ALERTS_ENDPOINT = `${API_BASE_URL}/cases/expiration-alerts`;
 
 export const CASES_NOTES_CREATE_ENDPOINT = (caseId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/notes`;
+	`${API_BASE_URL}/cases/${caseId}/notes`;
 export const CASES_NOTES_DELETE_ENDPOINT = (caseId: number, noteId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/notes/${noteId}`;
+	`${API_BASE_URL}/cases/${caseId}/notes/${noteId}`;
 
 export const CASES_FILES_BY_CASE_ID_ENDPOINT = (
-  caseId: number,
-  fileId: number
+	caseId: number,
+	fileId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}`;
 
 export const CASES_FILES_DELETE_BY_CASE_ID_ENDPOINT = (
-  caseId: number,
-  fileId: number
+	caseId: number,
+	fileId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}`;
 
 export const CASES_FILES_MOVEMENTS_CREATE_ENDPOINT = (
-  caseId: number,
-  fileId: number
+	caseId: number,
+	fileId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/movements`;
 
 export const CASES_FILES_PARTS_CREATE_ENDPOINT = (
-  caseId: number,
-  fileId: number
+	caseId: number,
+	fileId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/parts`;
 export const CASES_FILES_PARTS_UPDATE_ENDPOINT = (
-  caseId: number,
-  fileId: number,
-  partId: number
+	caseId: number,
+	fileId: number,
+	partId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/parts/${partId}`;
 export const CASES_FILES_PARTS_DELETE_ENDPOINT = (
-  caseId: number,
-  fileId: number,
-  partId: number
+	caseId: number,
+	fileId: number,
+	partId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/parts/${partId}`;
 
 export const CASES_FILES_NOTES_CREATE_ENDPOINT = (
-  caseId: number,
-  fileId: number
+	caseId: number,
+	fileId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/notes`;
 
 export const CASES_FILES_NOTES_DELETE_ENDPOINT = (
-  caseId: number,
-  fileId: number,
-  noteId: number
+	caseId: number,
+	fileId: number,
+	noteId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/notes/${noteId}`;
 
 export const CASES_FILES_EXPENSES_CREATE_ENDPOINT = (
-  caseId: number,
-  fileId: number
+	caseId: number,
+	fileId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/expenses`;
 
 export const CASES_FILES_EXPENSES_UPDATE_ENDPOINT = (
-  caseId: number,
-  fileId: number,
-  expenseId: number
+	caseId: number,
+	fileId: number,
+	expenseId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/expenses/${expenseId}`;
 
 export const CASES_FILES_EXPENSES_DELETE_ENDPOINT = (
-  caseId: number,
-  fileId: number,
-  expenseId: number
+	caseId: number,
+	fileId: number,
+	expenseId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/expenses/${expenseId}`;
 
 export const CASE_CEDULAS_ENDPOINT = (caseId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/cedulas`;
+	`${API_BASE_URL}/cases/${caseId}/cedulas`;
 
 export const CASE_CEDULA_BY_ID_ENDPOINT = (caseId: number, cedulaId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/cedulas/${cedulaId}`;
+	`${API_BASE_URL}/cases/${caseId}/cedulas/${cedulaId}`;
 
 // Legacy: cédulas a nivel expediente (usado por FilesCedulas)
-export const CASES_FILES_CEDULAS_ENDPOINT = (
-  caseId: number,
-  fileId: number
-) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/cedulas`;
+export const CASES_FILES_CEDULAS_ENDPOINT = (caseId: number, fileId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/files/${fileId}/cedulas`;
 
 export const CASES_FILES_CEDULAS_BY_ID_ENDPOINT = (
-  caseId: number,
-  fileId: number,
-  cedulaId: number
+	caseId: number,
+	fileId: number,
+	cedulaId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/files/${fileId}/cedulas/${cedulaId}`;
 
 export const CASES_CONSULTATIONS_GET_ALL_ENDPOINT = `${API_BASE_URL}/consultations`;
 export const CASES_CONSULTATIONS_MARK_ALL_READ_ENDPOINT = `${API_BASE_URL}/consultations/mark-all-read`;
 export const CASES_CONSULTATIONS_GET_BY_ID_ENDPOINT = (id: string | number) =>
-  `${API_BASE_URL}/consultations/${id}`;
+	`${API_BASE_URL}/consultations/${id}`;
 export const CASES_CONSULTATIONS_MARK_READ_ENDPOINT = (id: string | number) =>
-  `${API_BASE_URL}/consultations/${id}/mark-read`;
+	`${API_BASE_URL}/consultations/${id}/mark-read`;
 export const CASES_CONSULTATIONS_SEND_MESSAGE_ENDPOINT = (
-  id: string | number
+	id: string | number,
 ) => `${API_BASE_URL}/consultations/${id}/messages`;
 export const CASES_CONSULTATIONS_CLOSE_ENDPOINT = (id: string | number) =>
-  `${API_BASE_URL}/consultations/${id}/close`;
+	`${API_BASE_URL}/consultations/${id}/close`;
 export const CASES_CONSULTATIONS_REOPEN_ENDPOINT = (id: string | number) =>
-  `${API_BASE_URL}/consultations/${id}/reopen`;
+	`${API_BASE_URL}/consultations/${id}/reopen`;
 
 export const CASES_CONSULTATIONS_CREATE_ENDPOINT = (caseId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/consultations`;
+	`${API_BASE_URL}/cases/${caseId}/consultations`;
 
 export const CASES_CONSULTATIONS_DELETE_ENDPOINT = (
-  caseId: number,
-  consultationId: number
+	caseId: number,
+	consultationId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/consultation/${consultationId}`;
 
 export const CASES_CONSULTATIONS_MESSAGES_ENDPOINT = (caseId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/consultation/sendMessages`;
+	`${API_BASE_URL}/cases/${caseId}/consultation/sendMessages`;
 
 // CASE PARTS (Partes del Caso)
 export const CASE_PARTS_ENDPOINT = (caseId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/parts`;
+	`${API_BASE_URL}/cases/${caseId}/parts`;
 export const CASE_PART_BY_ID_ENDPOINT = (caseId: number, partId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/parts/${partId}`;
+	`${API_BASE_URL}/cases/${caseId}/parts/${partId}`;
 
 // CASE EXPENSES (Gastos del Caso)
 export const CASE_EXPENSES_ENDPOINT = (caseId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/expenses`;
-export const CASE_EXPENSE_BY_ID_ENDPOINT = (caseId: number, expenseId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/expenses/${expenseId}`;
+	`${API_BASE_URL}/cases/${caseId}/expenses`;
+export const CASE_EXPENSE_BY_ID_ENDPOINT = (
+	caseId: number,
+	expenseId: number,
+) => `${API_BASE_URL}/cases/${caseId}/expenses/${expenseId}`;
 
 // CASE EVENTS
 export const CASE_EVENTS_ENDPOINT = (caseId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/events`;
+	`${API_BASE_URL}/cases/${caseId}/events`;
 export const CASE_EVENT_BY_ID_ENDPOINT = (caseId: number, eventId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/events/${eventId}`;
+	`${API_BASE_URL}/cases/${caseId}/events/${eventId}`;
 
 // CASE DEADLINES
 export const CASE_DEADLINES_ENDPOINT = (caseId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/deadlines`;
-export const CASE_DEADLINE_BY_ID_ENDPOINT = (caseId: number, deadlineId: number) =>
-  `${API_BASE_URL}/cases/${caseId}/deadlines/${deadlineId}`;
+	`${API_BASE_URL}/cases/${caseId}/deadlines`;
+export const CASE_DEADLINE_BY_ID_ENDPOINT = (
+	caseId: number,
+	deadlineId: number,
+) => `${API_BASE_URL}/cases/${caseId}/deadlines/${deadlineId}`;
 
 // Customers
 export const CUSTOMERS_ENDPOINT = `${API_BASE_URL}/customers`;
@@ -159,24 +163,24 @@ export const SELLERS_ENDPOINT = `${API_BASE_URL}/users/sellers`;
 
 export const USER_PROFILE_ENDPOINT = `${API_BASE_URL}/users/profile`;
 export const USER_NOTIFICATIONS_MARK_ALL_READ_ENDPOINT = (userId: number) =>
-  `${API_BASE_URL}/users/${userId}/notifications/read`;
+	`${API_BASE_URL}/users/${userId}/notifications/read`;
 
 // CRM ENDPOINTS
 export const LEADS_ENDPOINT = `${API_BASE_URL}/crm/leads`;
 
 export const LEADS_NOTES_ENDPOINT = (leadId: number) =>
-  `${API_BASE_URL}/crm/leads/${leadId}/note`;
+	`${API_BASE_URL}/crm/leads/${leadId}/note`;
 
 export const LEADS_NOTES_UPDATE_ENDPOINT = (leadId: number, noteId: number) =>
-  `${API_BASE_URL}/crm/leads/${leadId}/note/${noteId}`;
+	`${API_BASE_URL}/crm/leads/${leadId}/note/${noteId}`;
 export const LEADS_NOTES_DELETE_ENDPOINT = (leadId: number, noteId: number) =>
-  `${API_BASE_URL}/crm/leads/${leadId}/note/${noteId}`;
+	`${API_BASE_URL}/crm/leads/${leadId}/note/${noteId}`;
 
 export const LEADS_UPLOAD_ENDPOINT = (leadId: number) =>
-  `${API_BASE_URL}/crm/leads/${leadId}/documents`;
+	`${API_BASE_URL}/crm/leads/${leadId}/documents`;
 export const LEADS_DOCUMENTS_DELETE_ENDPOINT = (
-  leadId: number,
-  documentId: number
+	leadId: number,
+	documentId: number,
 ) => `${API_BASE_URL}/crm/leads/${leadId}/documents/${documentId}`;
 
 export const STATISTICS_CRM_ALL_ENDPOINT = `${API_BASE_URL}/statistics/crm-all`;
@@ -197,7 +201,8 @@ export const DASHBOARD_LEGAL_STATS_ENDPOINT = `${API_BASE_URL}/dashboard/legal-s
 // TASKS ENDPOINTS
 export const TASKS_ENDPOINT = `${API_BASE_URL}/tasks`;
 export const TASKS_CASES_ENDPOINT = `${API_BASE_URL}/tasks/cases`;
-export const TASK_BY_ID_ENDPOINT = (id: number) => `${API_BASE_URL}/tasks/${id}`;
+export const TASK_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/tasks/${id}`;
 
 // UPLOAD ENDPOINTS
 export const SETTINGS_JURISDICTIONS_ENDPOINT = `${API_BASE_URL}/settings/jurisdictions`;
@@ -212,23 +217,21 @@ export const SETTINGS_DEADLINE_TYPES_ENDPOINT = `${API_BASE_URL}/settings/deadli
 export const CHAT_MESSAGES_ENDPOINT = `${API_BASE_URL}/chat/messages`;
 export const CHAT_RECENT_ENDPOINT = `${API_BASE_URL}/chat/recent`;
 export const CHAT_HISTORY_ENDPOINT = (userId: number) =>
-  `${API_BASE_URL}/chat/messages/${userId}`;
+	`${API_BASE_URL}/chat/messages/${userId}`;
 export const CHAT_READ_ENDPOINT = (userId: number) =>
-  `${API_BASE_URL}/chat/messages/${userId}/read`;
+	`${API_BASE_URL}/chat/messages/${userId}/read`;
 
 export const CALENDARS_EVENTS_ENDPOINT = `${API_BASE_URL}/calendar`;
 export const CALENDAR_UNIFIED_ENDPOINT = `${API_BASE_URL}/calendar/unified`;
 export const CALENDAR_EVENT_BY_ID_ENDPOINT = (id: string | number) =>
-  `${API_BASE_URL}/calendar/${id}`;
+	`${API_BASE_URL}/calendar/${id}`;
 
 export const NOTIFICATIONS_ENDPOINT = (userId: number) =>
-  `${API_BASE_URL}/notifications/${userId}`;
+	`${API_BASE_URL}/notifications/${userId}`;
 export const NOTIFICATIONS_READ_ENDPOINT = (notificationId: number) =>
-  `${API_BASE_URL}/notifications/${notificationId}/read`;
+	`${API_BASE_URL}/notifications/${notificationId}/read`;
 
 export const CASH_ENDPOINT = `${API_BASE_URL}/cash`;
-
-
 
 // ============================================================================
 // NEGOTIATIONS MODULE - Sistema de Negociaciones
@@ -244,15 +247,17 @@ export const NEGOTIATIONS_NEGOTIABLE_CAUSES_ENDPOINT = `${API_BASE_URL}/negotiat
 export const NEGOTIATIONS_COUNT_ENDPOINT = `${API_BASE_URL}/negotiations/count`;
 
 // Individual negotiation endpoints
-export const NEGOTIATION_BY_ID_ENDPOINT = (id: number) => 
-  `${API_BASE_URL}/negotiations/${id}`;
+export const NEGOTIATION_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/negotiations/${id}`;
 
 // Negotiation offers endpoints
-export const NEGOTIATION_OFFERS_ENDPOINT = (negotiationId: number) => 
-  `${API_BASE_URL}/negotiations/${negotiationId}/offers`;
+export const NEGOTIATION_OFFERS_ENDPOINT = (negotiationId: number) =>
+	`${API_BASE_URL}/negotiations/${negotiationId}/offers`;
 
-export const NEGOTIATION_ACCEPT_OFFER_ENDPOINT = (negotiationId: number, offerId: number) => 
-  `${API_BASE_URL}/negotiations/${negotiationId}/offers/${offerId}/accept`;
+export const NEGOTIATION_ACCEPT_OFFER_ENDPOINT = (
+	negotiationId: number,
+	offerId: number,
+) => `${API_BASE_URL}/negotiations/${negotiationId}/offers/${offerId}/accept`;
 
 // ============================================================================
 // CLOSING MANAGER MODULE - Sistema de Gestión de Cierres
@@ -263,7 +268,7 @@ export const CLOSINGS_ENDPOINT = `${API_BASE_URL}/closings`;
 
 // Create closing from negotiation
 export const CLOSINGS_FROM_NEGOTIATION_ENDPOINT = (negotiationId: number) =>
-  `${API_BASE_URL}/closings/from-negotiation/${negotiationId}`;
+	`${API_BASE_URL}/closings/from-negotiation/${negotiationId}`;
 
 // KPIs financieros (mensuales/anuales)
 export const CLOSINGS_KPIS_ENDPOINT = `${API_BASE_URL}/closings/kpis`;
@@ -273,40 +278,39 @@ export const CLOSINGS_EXPORT_ENDPOINT = `${API_BASE_URL}/closings/export`;
 
 // Individual closing endpoints
 export const CLOSING_BY_ID_ENDPOINT = (id: number) =>
-  `${API_BASE_URL}/closings/${id}`;
+	`${API_BASE_URL}/closings/${id}`;
 
 // Inline edit del campo detalle
 export const CLOSING_DETAIL_ENDPOINT = (id: number) =>
-  `${API_BASE_URL}/closings/${id}/detail`;
+	`${API_BASE_URL}/closings/${id}/detail`;
 
 // ============================================================================
 // POSTS / BLOG MODULE - Sistema de Posts estilo WordPress
 // ============================================================================
-
 
 //https://backend.legalistas.ar/api/v1/posts
 // Get all posts with filters, Create new post
 export const POSTS_ENDPOINT = `${API_BASE_URL}/posts`;
 
 // Get, update, delete post by ID
-export const POST_BY_ID_ENDPOINT = (id: number) => 
-  `${API_BASE_URL}/posts/${id}`;
+export const POST_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/posts/${id}`;
 
 // Get post by slug
-export const POST_BY_SLUG_ENDPOINT = (slug: string) => 
-  `${API_BASE_URL}/posts/slug/${slug}`;
+export const POST_BY_SLUG_ENDPOINT = (slug: string) =>
+	`${API_BASE_URL}/posts/slug/${slug}`;
 
 // Get related posts
-export const POST_RELATED_ENDPOINT = (slug: string) => 
-  `${API_BASE_URL}/posts/slug/${slug}/related`;
+export const POST_RELATED_ENDPOINT = (slug: string) =>
+	`${API_BASE_URL}/posts/slug/${slug}/related`;
 
 // Get posts by category
-export const POSTS_BY_CATEGORY_ENDPOINT = (slug: string) => 
-  `${API_BASE_URL}/posts/category/${slug}`;
+export const POSTS_BY_CATEGORY_ENDPOINT = (slug: string) =>
+	`${API_BASE_URL}/posts/category/${slug}`;
 
 // Get posts by tag
-export const POSTS_BY_TAG_ENDPOINT = (slug: string) => 
-  `${API_BASE_URL}/posts/tag/${slug}`;
+export const POSTS_BY_TAG_ENDPOINT = (slug: string) =>
+	`${API_BASE_URL}/posts/tag/${slug}`;
 
 // Get all categories
 export const POSTS_CATEGORIES_ENDPOINT = `${API_BASE_URL}/posts/categories`;

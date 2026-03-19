@@ -1,11 +1,11 @@
 import CashBoxUserDetail from "@/components/cash/CashBoxUserDetail";
 
 export default async function CashBoxUserPage({
-    params,
+	params,
 }: {
-    params: Promise<{ userId: number }>
+	params: Promise<{ userId: number }>;
 }) {
-    const { userId } = await params;
+	const { userId } = await params;
 
-    return <CashBoxUserDetail userId={userId} />
+	return <CashBoxUserDetail userId={userId} />;
 }

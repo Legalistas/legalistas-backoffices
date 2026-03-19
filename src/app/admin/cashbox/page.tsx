@@ -1,5 +1,5 @@
-import CashBoxPage from "@/components/cash/CashBoxPage"
+import CashBoxPage from "@/components/cash/CashBoxPage";
 
 export default function CashPage() {
-    return <CashBoxPage />
+	return <CashBoxPage />;
 }

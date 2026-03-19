@@ -1,73 +1,109 @@
-"use client"
+"use client";
 
-import Button from "@/components/ui/button/Button"
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface CasesPaginationProps {
-    currentPage: number
-    totalPages: number
-    totalItems: number
-    itemsPerPage: number
-    onPageChange: (page: number) => void
+	currentPage: number;
+	totalPages: number;
+	totalItems: number;
+	itemsPerPage: number;
+	onPageChange: (page: number) => void;
 }
 
 export const CasesPagination = ({
-    currentPage,
-    totalPages,
-    totalItems,
-    itemsPerPage,
-    onPageChange,
+	currentPage,
+	totalPages,
+	totalItems,
+	itemsPerPage,
+	onPageChange,
 }: CasesPaginationProps) => {
-    if (totalPages <= 1) return null
+	if (totalPages <= 1) return null;
 
-    return (
-        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4">
-            <div className="flex flex-1 justify-between sm:hidden">
-                <Button variant="outline" onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 1}>
-                    Previous
-                </Button>
-                <Button variant="outline" onClick={() => onPageChange(currentPage + 1)} disabled={currentPage === totalPages}>
-                    Next
-                </Button>
-            </div>
-            <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                <div>
-                    <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
-                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{" "}
-                        <span className="font-medium">{totalItems}</span> results
-                    </p>
-                </div>
-                <div>
-                    <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                        <Button
-                            variant="outline"
-                            className="rounded-l-md"
-                            onClick={() => onPageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                        >
-                            Previous
-                        </Button>
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                            <Button
-                                key={page}
-                                variant={page === currentPage ? "primary" : "outline"}
-                                onClick={() => onPageChange(page)}
-                            >
-                                {page}
-                            </Button>
-                        ))}
-                        <Button
-                            variant="outline"
-                            className="rounded-r-md"
-                            onClick={() => onPageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                        >
-                            Next
-                        </Button>
-                    </nav>
-                </div>
-            </div>
-        </div>
-    )
-}
+	// Generate page numbers with ellipsis
+	const getPageNumbers = () => {
+		const pages: (number | "...")[] = [];
+		if (totalPages <= 7) {
+			for (let i = 1; i <= totalPages; i++) pages.push(i);
+		} else {
+			pages.push(1);
+			if (currentPage > 3) pages.push("...");
+			for (
+				let i = Math.max(2, currentPage - 1);
+				i <= Math.min(totalPages - 1, currentPage + 1);
+				i++
+			) {
+				pages.push(i);
+			}
+			if (currentPage < totalPages - 2) pages.push("...");
+			pages.push(totalPages);
+		}
+		return pages;
+	};
 
+	const from = (currentPage - 1) * itemsPerPage + 1;
+	const to = Math.min(currentPage * itemsPerPage, totalItems);
+
+	return (
+		<div className="flex items-center justify-between mt-4">
+			<p className="text-sm text-gray-500 dark:text-gray-400">
+				Mostrando{" "}
+				<span className="font-medium text-gray-700 dark:text-gray-200">
+					{from}
+				</span>{" "}
+				a{" "}
+				<span className="font-medium text-gray-700 dark:text-gray-200">
+					{to}
+				</span>{" "}
+				de{" "}
+				<span className="font-medium text-gray-700 dark:text-gray-200">
+					{totalItems}
+				</span>{" "}
+				resultados
+			</p>
+
+			<nav className="flex items-center gap-1">
+				<Button
+					variant="outline"
+					size="sm"
+					className="h-8 w-8 p-0"
+					onClick={() => onPageChange(currentPage - 1)}
+					disabled={currentPage === 1}
+				>
+					<ChevronLeft className="h-4 w-4" />
+				</Button>
+
+				{getPageNumbers().map((page, idx) =>
+					page === "..." ? (
+						<span
+							key={`dots-${idx}`}
+							className="flex h-8 w-8 items-center justify-center text-sm text-gray-400 dark:text-gray-500"
+						>
+							...
+						</span>
+					) : (
+						<Button
+							key={page}
+							variant={page === currentPage ? "default" : "outline"}
+							size="sm"
+							className="h-8 w-8 p-0 text-sm"
+							onClick={() => onPageChange(page)}
+						>
+							{page}
+						</Button>
+					),
+				)}
+
+				<Button
+					variant="outline"
+					size="sm"
+					className="h-8 w-8 p-0"
+					onClick={() => onPageChange(currentPage + 1)}
+					disabled={currentPage === totalPages}
+				>
+					<ChevronRight className="h-4 w-4" />
+				</Button>
+			</nav>
+		</div>
+	);
+};

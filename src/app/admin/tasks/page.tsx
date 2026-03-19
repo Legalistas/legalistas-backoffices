@@ -1,7 +1,7 @@
 import TaskComponents from "@/components/tasks/TaskComponents";
 
 const TasksPage = () => {
-  return <TaskComponents />;
-}
+	return <TaskComponents />;
+};
 
 export default TasksPage;
