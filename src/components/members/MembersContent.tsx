@@ -1,1320 +1,1140 @@
-"use client"
-import type React from "react"
-import { useRef, useState, useEffect, useCallback, useMemo } from "react"
-import Button from "../ui/button/Button"
-import { Plus, Search, Filter, Users, Scale, Briefcase, UserCog, Activity } from "lucide-react"
-import Input from "../ui/input/Input"
-import { Pagination } from "../ui/pagination/Pagination"
-import { useSession } from "next-auth/react"
-import { useRouter } from "next/navigation"
-import { USERS_ENDPOINT, SETTINGS_ROLES_ENDPOINT, SETTINGS_COUNTRIES_ENDPOINT } from "@/constant/api-endpoints"
-import type { User } from "@/types/users"
-import { toast } from "sonner"
-import MembersTable from "./MembersTable"
-import RoleMultiSelect from "./RoleMultiSelect"
-import { Modal } from "../ui/modal/Modal"
+"use client";
+import {
+	Activity,
+	Filter,
+	Plus,
+	Scale,
+	Search,
+	UserCog,
+	Users,
+	X,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+import {
+	SETTINGS_COUNTRIES_ENDPOINT,
+	SETTINGS_ROLES_ENDPOINT,
+	USERS_ENDPOINT,
+} from "@/constant/api-endpoints";
+import { useConfirm } from "@/hooks/useConfirm";
+import type { User } from "@/types/users";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+} from "@/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Pagination } from "@/components/shared/Pagination";
+import MembersTable from "./MembersTable";
+import RoleMultiSelect from "./RoleMultiSelect";
 
-// Roles internos del equipo - SOLO ESTOS deben mostrarse en el listado de miembros
+// Roles internos del equipo
 const INTERNAL_TEAM_ROLES = [
-    "admin",
-    "director_general_ceo",
-    "gerente_general_coo",
-    "directora_area_legal",
-    "coordinador_legal",
-    "abogado_representante",
-    "abogado_interno",
-    "asistente_legal",
-    "director_area_it",
-    "coordinador_it",
-    "administrador_sistemas",
-    "desarrollador_software",
-    "soporte_tecnico",
-    "directora_area_ventas",
-    "coordinador_ventas",
-    "gerente_ventas",
-    "ejecutivo_ventas",
-    "representante_ventas",
-    "analista_ventas",
-    "directora_area_marketing",
-    "coordinador_marketing",
-    "director_marketing",
-    "especialista_marketing_digital",
-    "disenador_grafico",
-    "investigador_mercado",
-    "gestor_contenidos",
-    "directora_area_contable",
-    "coordinador_financiero",
-    "director_financiero",
-    "contador_senior",
-    "analista_financiero",
-    "tesorero",
-    "auditor_interno"
-]
-
-// Roles de clientes - NO son parte del equipo
-const CLIENT_ROLES = [
-    "cliente",
-    "demandado",
-    "interviniente_juicio",
-    "abogado_contraparte",
-    "reconociente",
-    "oficiado"
-]
+	"admin",
+	"director_general_ceo",
+	"gerente_general_coo",
+	"directora_area_legal",
+	"coordinador_legal",
+	"abogado_representante",
+	"abogado_interno",
+	"asistente_legal",
+	"director_area_it",
+	"coordinador_it",
+	"administrador_sistemas",
+	"desarrollador_software",
+	"soporte_tecnico",
+	"directora_area_ventas",
+	"coordinador_ventas",
+	"gerente_ventas",
+	"ejecutivo_ventas",
+	"representante_ventas",
+	"analista_ventas",
+	"directora_area_marketing",
+	"coordinador_marketing",
+	"director_marketing",
+	"especialista_marketing_digital",
+	"disenador_grafico",
+	"investigador_mercado",
+	"gestor_contenidos",
+	"directora_area_contable",
+	"coordinador_financiero",
+	"director_financiero",
+	"contador_senior",
+	"analista_financiero",
+	"tesorero",
+	"auditor_interno",
+];
 
 // Roles legales/abogados
 const LAWYER_ROLES = [
-    "directora_area_legal",
-    "coordinador_legal",
-    "abogado_representante",
-    "abogado_interno",
-    "asistente_legal"
-]
+	"directora_area_legal",
+	"coordinador_legal",
+	"abogado_representante",
+	"abogado_interno",
+	"asistente_legal",
+];
 
-interface ApiResponse {
-    data: User[]
-    meta: {
-        total: number
-        page: number
-        limit: number
-        totalPages: number
-    }
+type TabType = "all" | "lawyers" | "staff";
+
+function getRoleIdentifier(member: any): string {
+	return (
+		member.roleUser?.[0]?.role?.slug?.toLowerCase() ||
+		member.roleUser?.[0]?.role?.name?.toLowerCase() ||
+		""
+	);
 }
 
-type TabType = "all" | "lawyers" | "clients" | "staff"
+function isInternalTeamMember(member: any): boolean {
+	return INTERNAL_TEAM_ROLES.includes(getRoleIdentifier(member));
+}
 
-interface MemberStats {
-    total: number
-    lawyers: number
-    clients: number
-    staff: number
+function isLawyer(member: any): boolean {
+	return LAWYER_ROLES.includes(getRoleIdentifier(member));
 }
 
 export default function MembersContent() {
-    const { data: session } = useSession()
-    const router = useRouter()
-    const [allMembers, setAllMembers] = useState<any[]>([])
-    const [isLoading, setIsLoading] = useState(true)
-    const [currentPage, setCurrentPage] = useState(1)
-    const [searchTerm, setSearchTerm] = useState("")
-    const [selectedRoles, setSelectedRoles] = useState<string[]>([])
-    const [showFilters, setShowFilters] = useState(false)
-    const [activeTab, setActiveTab] = useState<TabType>("all")
-    const [apiPagination, setApiPagination] = useState({
-        page: 1,
-        limit: 10,
-        total: 0,
-        totalPages: 0,
-    })
-    const [hasSearched, setHasSearched] = useState(false)
-    const [clientModalOpen, setClientModalOpen] = useState(false)
-    const [editingMember, setEditingMember] = useState<User | null>(null)
-    const [modalMode, setModalMode] = useState<"create" | "edit">("create")
-    const [newMemberPassword, setNewMemberPassword] = useState("")
-    const [confirmPassword, setConfirmPassword] = useState("")
-    const [availableRoles, setAvailableRoles] = useState<any[]>([])
-    const [availableCountries, setAvailableCountries] = useState<any[]>([])
-    const [availableStates, setAvailableStates] = useState<any[]>([])
-    const [selectedCountryId, setSelectedCountryId] = useState<number | null>(null)
-
-    const isInitialRender = useRef(true)
-    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-    const searchInputRef = useRef<HTMLInputElement>(null)
-
-    // Calcular estadísticas de miembros
-    const memberStats = useMemo<MemberStats>(() => {
-        const stats = {
-            total: 0, // Solo miembros del equipo (sin clientes)
-            lawyers: 0,
-            clients: 0,
-            staff: 0,
-        }
-
-        allMembers.forEach((member) => {
-            const roleSlug = member.roleUser?.[0]?.role?.slug?.toLowerCase() || ""
-            const roleName = member.roleUser?.[0]?.role?.name?.toLowerCase() || ""
-            
-            // Verificar contra ambos campos para mayor compatibilidad
-            const roleIdentifier = roleSlug || roleName
-
-            // Contar clientes
-            if (CLIENT_ROLES.includes(roleIdentifier)) {
-                stats.clients++
-            }
-            // Contar miembros del equipo interno (solo roles permitidos)
-            else if (INTERNAL_TEAM_ROLES.includes(roleIdentifier)) {
-                stats.total++
-
-                // Contar abogados
-                if (LAWYER_ROLES.includes(roleIdentifier)) {
-                    stats.lawyers++
-                }
-                // El resto son staff
-                else {
-                    stats.staff++
-                }
-            }
-        })
-
-        return stats
-    }, [allMembers])
-
-    // Filtrado local de miembros
-    const filteredMembers = useMemo(() => {
-        let filtered = [...allMembers]
-
-        // Filtrar por tab activo
-        if (activeTab === "all") {
-            // Solo miembros del equipo interno (roles permitidos)
-            filtered = filtered.filter((member) => {
-                const roleSlug = member.roleUser?.[0]?.role?.slug?.toLowerCase() || ""
-                const roleName = member.roleUser?.[0]?.role?.name?.toLowerCase() || ""
-                const roleIdentifier = roleSlug || roleName
-                return INTERNAL_TEAM_ROLES.includes(roleIdentifier)
-            })
-        } else {
-            filtered = filtered.filter((member) => {
-                const roleSlug = member.roleUser?.[0]?.role?.slug?.toLowerCase() || ""
-                const roleName = member.roleUser?.[0]?.role?.name?.toLowerCase() || ""
-                const roleIdentifier = roleSlug || roleName
-                
-                switch (activeTab) {
-                    case "lawyers":
-                        return LAWYER_ROLES.includes(roleIdentifier) && INTERNAL_TEAM_ROLES.includes(roleIdentifier)
-                    case "clients":
-                        return CLIENT_ROLES.includes(roleIdentifier)
-                    case "staff":
-                        // Staff = miembros del equipo que no son abogados
-                        return INTERNAL_TEAM_ROLES.includes(roleIdentifier) && !LAWYER_ROLES.includes(roleIdentifier)
-                    default:
-                        return true
-                }
-            })
-        }
-
-        // Filtrar por término de búsqueda
-        if (searchTerm.trim()) {
-            const searchLower = searchTerm.toLowerCase().trim()
-            filtered = filtered.filter((member) => {
-                return (
-                    member.name?.toLowerCase().includes(searchLower) ||
-                    member.email?.toLowerCase().includes(searchLower) ||
-                    member.roleUser?.[0]?.role?.displayName?.toLowerCase().includes(searchLower)
-                )
-            })
-        }
-
-        // Filtrar por roles seleccionados
-        if (selectedRoles.length > 0) {
-            filtered = filtered.filter((member) => {
-                return member.roleUser?.some((roleUser: any) => {
-                    return selectedRoles.includes(roleUser.roleId?.toString())
-                })
-            })
-        }
-
-        return filtered
-    }, [allMembers, searchTerm, selectedRoles, activeTab])
-
-    // Determinar si usar paginación local o de API
-    const hasActiveFilters = Boolean(searchTerm.trim() || selectedRoles.length > 0 || activeTab !== "all")
-
-    // Paginación local - siempre usar filteredMembers que respeta activeTab
-    const localPaginatedMembers = useMemo(() => {
-        const itemsPerPage = 10
-        const startIndex = (currentPage - 1) * itemsPerPage
-        const endIndex = startIndex + itemsPerPage
-        return filteredMembers.slice(startIndex, endIndex)
-    }, [filteredMembers, currentPage])
-
-    // Calcular paginación basada en los miembros filtrados
-    const paginationData = useMemo(() => {
-        const itemsPerPage = 10
-        const totalPages = Math.ceil(filteredMembers.length / itemsPerPage)
-        return {
-            page: currentPage,
-            limit: itemsPerPage,
-            total: filteredMembers.length,
-            totalPages: totalPages || 1,
-        }
-    }, [filteredMembers.length, currentPage])
-
-    const fetchAllMembers = useCallback(
-        async (page = 1) => {
-            try {
-                setIsLoading(true)
-                const url = new URL(`${USERS_ENDPOINT}`, window.location.origin)
-                url.searchParams.append("page", page.toString())
-                url.searchParams.append("limit", "100") // Aumentar el límite para ver más usuarios
-
-                const response = await fetch(url.toString(), {
-                    method: "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session?.user?.accessToken}`,
-                    },
-                })
-
-                if (!response.ok) {
-                    const errorData = await response.json()
-                    throw new Error(errorData.message || "Failed to fetch members")
-                }
-
-                const result: ApiResponse = await response.json()
-
-                console.log("👥 MEMBERS: Loaded members data:", {
-                    total: result.meta.total,
-                    page: result.meta.page,
-                    totalPages: result.meta.totalPages,
-                    usersInThisPage: result.data.length
-                })
-
-                setAllMembers(result.data)
-                setApiPagination({
-                    page: result.meta.page,
-                    limit: result.meta.limit,
-                    total: result.meta.total,
-                    totalPages: result.meta.totalPages,
-                })
-            } catch (error) {
-                console.error("Error fetching members:", error)
-                toast.error("Error al cargar los miembros")
-            } finally {
-                setIsLoading(false)
-            }
-        },
-        [session?.user?.accessToken],
-    )
-
-    // Fetch roles
-    const fetchRoles = useCallback(async () => {
-        try {
-            const response = await fetch(`${SETTINGS_ROLES_ENDPOINT}?limit=10000`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${session?.user?.accessToken}`,
-                },
-            })
-
-            if (response.ok) {
-                const result = await response.json()
-                // Filtrar solo roles internos del equipo
-                const internalRoles = (result.data || []).filter((role: any) => {
-                    const roleSlug = role.slug?.toLowerCase() || role.name?.toLowerCase() || ""
-                    return INTERNAL_TEAM_ROLES.includes(roleSlug)
-                })
-                setAvailableRoles(internalRoles)
-            }
-        } catch (error) {
-            console.error("Error fetching roles:", error)
-        }
-    }, [session?.user?.accessToken])
-
-    // Fetch countries
-    const fetchCountries = useCallback(async () => {
-        try {
-            const response = await fetch(`${SETTINGS_COUNTRIES_ENDPOINT}?limit=10000`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${session?.user?.accessToken}`,
-                },
-            })
-
-            if (response.ok) {
-                const result = await response.json()
-                setAvailableCountries(result.data || [])
-            }
-        } catch (error) {
-            console.error("Error fetching countries:", error)
-        }
-    }, [session?.user?.accessToken])
-
-    // Fetch states by country
-    const fetchStatesByCountry = useCallback(async (countryId: number) => {
-        try {
-            const response = await fetch(`${SETTINGS_COUNTRIES_ENDPOINT}/${countryId}/states?limit=10000`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${session?.user?.accessToken}`,
-                },
-            })
-
-            if (response.ok) {
-                const result = await response.json()
-                setAvailableStates(result.data || [])
-            }
-        } catch (error) {
-            console.error("Error fetching states:", error)
-            setAvailableStates([])
-        }
-    }, [session?.user?.accessToken])
-
-    // Initial fetch on component mount
-    useEffect(() => {
-        if (isInitialRender.current && session?.user?.accessToken) {
-            fetchAllMembers(currentPage)
-            fetchRoles()
-            fetchCountries()
-            isInitialRender.current = false
-        }
-    }, [fetchAllMembers, fetchRoles, fetchCountries, session?.user?.accessToken, currentPage])
-
-    // Fetch states when editing member or country changes
-    useEffect(() => {
-        if (editingMember?.userAddresses?.[0]?.countryId) {
-            const countryId = editingMember.userAddresses[0].countryId
-            setSelectedCountryId(countryId)
-            fetchStatesByCountry(countryId)
-        }
-    }, [editingMember?.userAddresses, fetchStatesByCountry])
-
-    // Reset page when filters change
-    useEffect(() => {
-        setCurrentPage(1)
-    }, [searchTerm, selectedRoles, activeTab])
-
-    const handleDelete = useCallback(
-        async (id: number) => {
-            if (!confirm("¿Estás seguro de que deseas eliminar este miembro?")) {
-                return
-            }
-
-            try {
-                const response = await fetch(`${USERS_ENDPOINT}/${id}`, {
-                    method: "DELETE",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session?.user?.accessToken}`,
-                    },
-                })
-
-                if (!response.ok) {
-                    throw new Error("Failed to delete user")
-                }
-
-                toast.success("Miembro eliminado correctamente")
-                // Refrescar la lista de miembros
-                await fetchAllMembers(currentPage)
-            } catch (error) {
-                console.error("Error al eliminar el miembro:", error)
-                toast.error("Error al eliminar el miembro")
-            }
-        },
-        [session?.user?.accessToken, fetchAllMembers, currentPage],
-    )
-
-    const handleToggleBlock = useCallback(
-        async (userId: number, isBlocked: boolean) => {
-            const action = isBlocked ? "bloquear" : "desbloquear"
-            if (!confirm(`¿Estás seguro de que deseas ${action} este usuario?`)) {
-                return
-            }
-
-            try {
-                const response = await fetch(`${USERS_ENDPOINT}/${userId}/block`, {
-                    method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session?.user?.accessToken}`,
-                    },
-                    body: JSON.stringify({ isBlocked }),
-                })
-
-                if (!response.ok) {
-                    throw new Error(`Failed to ${action} user`)
-                }
-
-                const data = await response.json()
-                toast.success(data.message || `Usuario ${isBlocked ? "bloqueado" : "desbloqueado"} correctamente`)
-                
-                // Actualizar la lista de miembros localmente
-                setAllMembers(prev => 
-                    prev.map(member => 
-                        member.id === userId 
-                            ? { ...member, isBlocked } 
-                            : member
-                    )
-                )
-            } catch (error) {
-                console.error(`Error al ${action} el usuario:`, error)
-                toast.error(`Error al ${action} el usuario`)
-            }
-        },
-        [session?.user?.accessToken],
-    )
-
-    const handleClearSearch = useCallback(() => {
-        setSearchTerm("")
-        setSelectedRoles([])
-        setHasSearched(false)
-        setShowFilters(false)
-        setCurrentPage(1)
-    }, [])
-
-    const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-        setSearchTerm(e.target.value)
-        setHasSearched(e.target.value.trim().length > 0)
-    }, [])
-
-    const handleSearch = useCallback((e: React.FormEvent) => {
-        e.preventDefault()
-        const inputValue = searchInputRef.current?.value || ""
-        setSearchTerm(inputValue)
-        setHasSearched(inputValue.trim().length > 0)
-    }, [])
-
-    const handlePageChange = useCallback(
-        (page: number) => {
-            setCurrentPage(page)
-
-            // Si no hay filtros activos, hacer fetch de la API
-            if (!hasActiveFilters) {
-                fetchAllMembers(page)
-            }
-            // Si hay filtros activos, la paginación es local y no necesita fetch
-        },
-        [hasActiveFilters, fetchAllMembers],
-    )
-
-    const handleRoleChange = useCallback((roles: string[]) => {
-        console.log("Roles selected:", roles)
-        setSelectedRoles(roles)
-        setCurrentPage(1)
-    }, [])
-
-    const handleEdit = useCallback((contact: User) => {
-        setEditingMember(contact)
-        setNewMemberPassword("")
-        setConfirmPassword("")
-        setModalMode("edit")
-        setClientModalOpen(true)
-    }, [])
-
-    const handleCreateMember = useCallback(
-        async () => {
-            if (!editingMember) {
-                toast.error("No hay datos para crear")
-                return
-            }
-
-            // Validaciones
-            if (!editingMember.name?.trim()) {
-                toast.error("El nombre es requerido")
-                return
-            }
-            if (!editingMember.email?.trim()) {
-                toast.error("El email es requerido")
-                return
-            }
-            if (!newMemberPassword) {
-                toast.error("La contraseña es requerida")
-                return
-            }
-            if (newMemberPassword.length < 6) {
-                toast.error("La contraseña debe tener al menos 6 caracteres")
-                return
-            }
-            if (newMemberPassword !== confirmPassword) {
-                toast.error("Las contraseñas no coinciden")
-                return
-            }
-            if (!editingMember.roleUser?.[0]?.roleId) {
-                toast.error("Debes seleccionar un rol")
-                return
-            }
-
-            try {
-                const createData = {
-                    name: editingMember.name,
-                    email: editingMember.email,
-                    password: newMemberPassword,
-                    image: editingMember.image || "",
-                    role: editingMember.roleUser?.[0]?.roleId,
-                    userProfile: {
-                        birthDate: editingMember.userProfile?.birthDate || new Date().toISOString(),
-                        docType: editingMember.userProfile?.docType || 1,
-                        docNumber: editingMember.userProfile?.docNumber || "",
-                        gender: editingMember.userProfile?.gender || 1,
-                        phone: editingMember.userProfile?.phone || "",
-                    },
-                    userAddresses: editingMember.userAddresses && editingMember.userAddresses.length > 0 
-                        ? editingMember.userAddresses.map(addr => ({
-                            street: addr.street || "",
-                            streetNumber: addr.streetNumber || "",
-                            city: addr.city || "",
-                            stateId: addr.stateId || 1,
-                            countryId: addr.countryId || 1,
-                            cp: addr.cp || "",
-                            description: addr.description || "",
-                            isDefault: addr.isDefault !== undefined ? addr.isDefault : true
-                        }))
-                        : [{
-                            street: "",
-                            streetNumber: "",
-                            city: "",
-                            stateId: 1,
-                            countryId: 1,
-                            cp: "",
-                            description: "",
-                            isDefault: true
-                        }]
-                }
-
-                const response = await fetch(`${USERS_ENDPOINT}`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session?.user?.accessToken}`,
-                    },
-                    body: JSON.stringify(createData),
-                })
-
-                if (!response.ok) {
-                    const errorData = await response.json()
-                    throw new Error(errorData.message || "Error al crear el miembro")
-                }
-
-                toast.success("Miembro creado correctamente")
-                setClientModalOpen(false)
-                setEditingMember(null)
-                setNewMemberPassword("")
-                setConfirmPassword("")
-                setModalMode("create")
-                await fetchAllMembers(currentPage)
-            } catch (error) {
-                console.error("Error creating member:", error)
-                toast.error(error instanceof Error ? error.message : "Error al crear el miembro")
-            }
-        },
-        [editingMember, newMemberPassword, confirmPassword, session?.user?.accessToken, fetchAllMembers, currentPage],
-    )
-
-    const handleClientUpdated = useCallback(
-        async (updatedMember: User | null) => {
-            if (!updatedMember) {
-                toast.error("No hay datos para actualizar")
-                return
-            }
-
-            try {
-                // Validar campos requeridos
-                if (!updatedMember.name?.trim()) {
-                    toast.error("El nombre es requerido")
-                    return
-                }
-                if (!updatedMember.email?.trim()) {
-                    toast.error("El email es requerido")
-                    return
-                }
-
-                // Preparar datos para enviar
-                const updateData = {
-                    name: updatedMember.name,
-                    email: updatedMember.email,
-                    image: updatedMember.image,
-                    role: updatedMember.roleUser?.[0]?.roleId,
-                    userProfile: {
-                        birthDate: updatedMember.userProfile?.birthDate || new Date().toISOString(),
-                        docType: updatedMember.userProfile?.docType || 1,
-                        docNumber: updatedMember.userProfile?.docNumber || "",
-                        gender: updatedMember.userProfile?.gender || 1,
-                        phone: updatedMember.userProfile?.phone || "",
-                    },
-                    userAddresses: updatedMember.userAddresses && updatedMember.userAddresses.length > 0 
-                        ? updatedMember.userAddresses.map(addr => ({
-                            street: addr.street || "",
-                            streetNumber: addr.streetNumber || "",
-                            city: addr.city || "",
-                            stateId: addr.stateId,
-                            countryId: addr.countryId,
-                            cp: addr.cp || "",
-                            description: addr.description || "",
-                            isDefault: addr.isDefault
-                        }))
-                        : [{
-                            street: "",
-                            streetNumber: "",
-                            city: "",
-                            stateId: updatedMember.userAddresses?.[0]?.stateId || 1,
-                            countryId: updatedMember.userAddresses?.[0]?.countryId || 1,
-                            cp: "",
-                            description: "",
-                            isDefault: true
-                        }]
-                }
-
-                const response = await fetch(`${USERS_ENDPOINT}/${updatedMember.id}`, {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${session?.user?.accessToken}`,
-                    },
-                    body: JSON.stringify(updateData),
-                })
-
-                if (!response.ok) {
-                    const errorData = await response.json()
-                    throw new Error(errorData.message || "Error al actualizar el miembro")
-                }
-
-                toast.success("Miembro actualizado correctamente")
-                setClientModalOpen(false)
-                setEditingMember(null)
-                setModalMode("create")
-                await fetchAllMembers(currentPage)
-            } catch (error) {
-                console.error("Error updating member:", error)
-                toast.error(error instanceof Error ? error.message : "Error al actualizar el miembro")
-            }
-        },
-        [session?.user?.accessToken, fetchAllMembers, currentPage],
-    )
-
-    const refreshMembers = async () => {
-        await fetchAllMembers(currentPage)
-    }
-
-    return (
-        <div>
-            <div className="flex flex-col gap-6 mb-2">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <h1 className="text-3xl font-bold tracking-tight text-black dark:text-gray-100">Miembros</h1>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => router.push("/admin/activity-logs")}
-                            className="flex items-center gap-2 border-gray-300 text-gray-600 hover:bg-gray-50 p-2"
-                        >
-                            <Activity className="h-4 w-4" />
-                            Historial de sesiones
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="custom"
-                            size="sm"
-                            onClick={() => {
-                                // Inicializar un nuevo miembro vacío
-                                setEditingMember({
-                                    id: 0,
-                                    name: "",
-                                    email: "",
-                                    image: "",
-                                    userProfile: {
-                                        phone: "",
-                                        docType: 1,
-                                        docNumber: "",
-                                        gender: 1,
-                                        birthDate: new Date().toISOString(),
-                                    },
-                                    userAddresses: [{
-                                        street: "",
-                                        streetNumber: "",
-                                        city: "",
-                                        stateId: 0,
-                                        countryId: 0,
-                                        cp: "",
-                                        description: "",
-                                        isDefault: true
-                                    }],
-                                    roleUser: []
-                                } as any)
-                                setNewMemberPassword("")
-                                setConfirmPassword("")
-                                setModalMode("create")
-                                setClientModalOpen(true)
-                            }}
-                            className="flex items-center gap-2 bg-[#09A4B5] text-white hover:bg-[#09A4B5]/80 hover:text-gray-dark p-2"
-                        >
-                            <Plus className="h-4 w-4" />
-                            Nuevo miembro
-                        </Button>
-                    </div>
-                </div>
-
-                {/* Stats Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Miembros</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{memberStats.total}</p>
-                            </div>
-                            <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                                <Users className="h-6 w-6 text-blue-600 dark:text-blue-400" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Abogados</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{memberStats.lawyers}</p>
-                            </div>
-                            <div className="p-3 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-                                <Scale className="h-6 w-6 text-purple-600 dark:text-purple-400" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Clientes</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{memberStats.clients}</p>
-                            </div>
-                            <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                                <Briefcase className="h-6 w-6 text-green-600 dark:text-green-400" />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Personal</p>
-                                <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">{memberStats.staff}</p>
-                            </div>
-                            <div className="p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                                <UserCog className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tabs con diseño mejorado */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                    <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-4 py-2">
-                        <div className="flex flex-wrap gap-1">
-                            <button
-                                onClick={() => setActiveTab("all")}
-                                className={`px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${activeTab === "all"
-                                    ? "bg-blue-600 text-white shadow-sm"
-                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    }`}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Users className="h-4 w-4" />
-                                    <span>Todos</span>
-                                    <span className={`px-2 py-0.5 text-xs rounded-full ${activeTab === "all"
-                                        ? "bg-blue-500 text-white"
-                                        : "bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300"
-                                        }`}>
-                                        {memberStats.total}
-                                    </span>
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab("lawyers")}
-                                className={`px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${activeTab === "lawyers"
-                                    ? "bg-purple-600 text-white shadow-sm"
-                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    }`}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Scale className="h-4 w-4" />
-                                    <span>Abogados</span>
-                                    <span className={`px-2 py-0.5 text-xs rounded-full ${activeTab === "lawyers"
-                                        ? "bg-purple-500 text-white"
-                                        : "bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"
-                                        }`}>
-                                        {memberStats.lawyers}
-                                    </span>
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab("clients")}
-                                className={`px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${activeTab === "clients"
-                                    ? "bg-green-600 text-white shadow-sm"
-                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    }`}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Briefcase className="h-4 w-4" />
-                                    <span>Clientes</span>
-                                    <span className={`px-2 py-0.5 text-xs rounded-full ${activeTab === "clients"
-                                        ? "bg-green-500 text-white"
-                                        : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
-                                        }`}>
-                                        {memberStats.clients}
-                                    </span>
-                                </div>
-                            </button>
-                            <button
-                                onClick={() => setActiveTab("staff")}
-                                className={`px-5 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 ${activeTab === "staff"
-                                    ? "bg-orange-600 text-white shadow-sm"
-                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-                                    }`}
-                            >
-                                <div className="flex items-center gap-2">
-                                    <UserCog className="h-4 w-4" />
-                                    <span>Personal</span>
-                                    <span className={`px-2 py-0.5 text-xs rounded-full ${activeTab === "staff"
-                                        ? "bg-orange-500 text-white"
-                                        : "bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400"
-                                        }`}>
-                                        {memberStats.staff}
-                                    </span>
-                                </div>
-                            </button>
-                        </div>
-                        {/* Información de paginación en tabs */}
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                            {filteredMembers.length > 0 ? (
-                                <span className="font-medium">
-                                    Mostrando {((paginationData.page - 1) * paginationData.limit) + 1} - {Math.min(paginationData.page * paginationData.limit, paginationData.total)} de {paginationData.total}
-                                </span>
-                            ) : (
-                                <span>Sin resultados</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Filtros mejorados */}
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-4">
-                    <div className="flex flex-col gap-4">
-                        {/* Barra de búsqueda y filtros */}
-                        <div className="flex flex-wrap items-center gap-3">
-                            <div className="relative flex-1 min-w-[280px]">
-                                <form onSubmit={handleSearch} className="w-full">
-                                    <div className="relative">
-                                        <div className="absolute -translate-y-1/2 left-4 top-1/2 pointer-events-none">
-                                            <Search className="w-5 h-5 stroke-gray-400 dark:stroke-gray-500" />
-                                        </div>
-                                        <Input
-                                            type="search"
-                                            placeholder="Buscar por nombre, email o rol..."
-                                            className="h-11 w-full rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-2.5 pl-12 pr-10 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-500 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
-                                            defaultValue={searchTerm}
-                                            onChange={handleSearchChange}
-                                            ref={searchInputRef}
-                                        />
-                                        {searchTerm && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setSearchTerm("")
-                                                    setHasSearched(false)
-                                                }}
-                                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-                                            >
-                                                <span className="sr-only">Limpiar búsqueda</span>
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    width="18"
-                                                    height="18"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                    strokeLinejoin="round"
-                                                >
-                                                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                                                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                                                </svg>
-                                            </button>
-                                        )}
-                                    </div>
-                                </form>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowFilters(!showFilters)}
-                                    className={`flex items-center gap-2 h-11 transition-all ${selectedRoles.length > 0
-                                        ? "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400 shadow-sm"
-                                        : "border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
-                                        }`}
-                                >
-                                    <Filter className="h-4 w-4" />
-                                    <span>Filtros avanzados</span>
-                                    {selectedRoles.length > 0 && (
-                                        <span className="bg-blue-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
-                                            {selectedRoles.length}
-                                        </span>
-                                    )}
-                                </Button>
-
-                                {hasActiveFilters && (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={handleClearSearch}
-                                        className="h-11 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                    >
-                                        Limpiar todo
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Chips de filtros activos */}
-                        {hasActiveFilters && (
-                            <div className="flex flex-wrap gap-2 items-center">
-                                <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Filtros activos:</span>
-                                {searchTerm && (
-                                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full">
-                                        <Search className="h-3 w-3" />
-                                        <span>{searchTerm}</span>
-                                        <button
-                                            onClick={() => {
-                                                setSearchTerm("")
-                                                setHasSearched(false)
-                                            }}
-                                            className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-0.5"
-                                        >
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                )}
-                                {selectedRoles.length > 0 && (
-                                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs font-medium rounded-full">
-                                        <Filter className="h-3 w-3" />
-                                        <span>{selectedRoles.length} rol(es)</span>
-                                        <button
-                                            onClick={() => setSelectedRoles([])}
-                                            className="hover:bg-purple-200 dark:hover:bg-purple-800 rounded-full p-0.5"
-                                        >
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                                <line x1="18" y1="6" x2="6" y2="18"></line>
-                                                <line x1="6" y1="6" x2="18" y2="18"></line>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Panel de filtros avanzados */}
-                        {showFilters && (
-                            <div className="p-4 bg-linear-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                                <div className="flex items-center gap-2 mb-3">
-                                    <Filter className="h-4 w-4 text-gray-600 dark:text-gray-400" />
-                                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Filtros Avanzados</h3>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    <RoleMultiSelect label="Filtrar por roles" defaultSelected={selectedRoles} onChange={handleRoleChange} />
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Table */}
-                <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-                    <div className="w-full overflow-x-auto">
-                        <MembersTable
-                            members={localPaginatedMembers}
-                            hasActiveFilters={hasActiveFilters}
-                            handleClearSearch={handleClearSearch}
-                            handleEdit={handleEdit}
-                            handleDelete={handleDelete}
-                            handleToggleBlock={handleToggleBlock}
-                            isLoading={isLoading}
-                        />
-                    </div>
-                </div>
-
-                {/* Pagination - Siempre mostrar si hay datos */}
-                {paginationData.total > 0 && (
-                    <Pagination
-                        currentPage={paginationData.page}
-                        totalPages={paginationData.totalPages}
-                        totalItems={paginationData.total}
-                        itemsPerPage={paginationData.limit}
-                        onPageChange={handlePageChange}
-                    />
-                )}
-            </div>
-
-            {/* Modal para crear/editar miembro */}
-            <Modal
-                isOpen={clientModalOpen}
-                onClose={() => {
-                    setClientModalOpen(false)
-                    setEditingMember(null)
-                    setNewMemberPassword("")
-                    setConfirmPassword("")
-                    setModalMode("create")
-                }}
-                className="max-w-2xl"
-            >
-                <div className="p-6">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                        {modalMode === "create" ? "Crear Nuevo Miembro" : `Editar Miembro: ${editingMember?.name || ""}`}
-                    </h2>
-                    <form onSubmit={(e) => {
-                        e.preventDefault()
-                        if (modalMode === "create") {
-                            handleCreateMember()
-                        } else {
-                            handleClientUpdated(editingMember)
-                        }
-                    }} className="space-y-6">
-                        {/* Grid de información básica */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Nombre - ocupa toda la fila */}
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Nombre completo *
-                                </label>
-                                <Input
-                                    type="text"
-                                    value={editingMember?.name || ""}
-                                    onChange={(e) => setEditingMember(prev => prev ? {...prev, name: e.target.value} : null)}
-                                    className="w-full"
-                                    placeholder="Ej: Juan Pérez"
-                                />
-                            </div>
-
-                            {/* Email */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Email *
-                                </label>
-                                <Input
-                                    type="email"
-                                    value={editingMember?.email || ""}
-                                    onChange={(e) => setEditingMember(prev => prev ? {...prev, email: e.target.value} : null)}
-                                    className="w-full"
-                                    placeholder="ejemplo@email.com"
-                                />
-                            </div>
-
-                            {/* Teléfono */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Teléfono
-                                </label>
-                                <Input
-                                    type="tel"
-                                    value={editingMember?.userProfile?.phone || ""}
-                                    onChange={(e) => setEditingMember(prev => {
-                                        if (!prev) return null
-                                        const currentProfile = prev.userProfile || {} as any
-                                        return {
-                                            ...prev, 
-                                            userProfile: {...currentProfile, phone: e.target.value}
-                                        }
-                                    })}
-                                    className="w-full"
-                                    placeholder="+54 9 11 1234-5678"
-                                />
-                            </div>
-
-                            {/* Rol - ocupa toda la fila */}
-                            <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                    Rol *
-                                </label>
-                                <select
-                                    value={editingMember?.roleUser?.[0]?.roleId || ""}
-                                    onChange={(e) => setEditingMember(prev => prev ? {
-                                        ...prev,
-                                        roleUser: [{...prev.roleUser?.[0], roleId: parseInt(e.target.value)}]
-                                    } : null)}
-                                    required
-                                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Seleccionar rol...</option>
-                                    {availableRoles.map((role) => (
-                                        <option key={role.id} value={role.id}>
-                                            {role.displayName || role.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Campos de contraseña - solo en modo crear */}
-                            {modalMode === "create" && (
-                                <>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Contraseña *
-                                        </label>
-                                        <Input
-                                            type="password"
-                                            value={newMemberPassword}
-                                            onChange={(e) => setNewMemberPassword(e.target.value)}
-                                            className="w-full"
-                                            placeholder="Mínimo 6 caracteres"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                            Confirmar Contraseña *
-                                        </label>
-                                        <Input
-                                            type="password"
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full"
-                                            placeholder="Repite la contraseña"
-                                        />
-                                        {confirmPassword && newMemberPassword !== confirmPassword && (
-                                            <p className="text-xs text-red-500 mt-1">Las contraseñas no coinciden</p>
-                                        )}
-                                    </div>
-                                </>
-                            )}
-                        </div>
-
-                        {/* Sección de ubicación */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 border-b border-gray-200 dark:border-gray-700 pb-2">
-                                Ubicación
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {/* País */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        País *
-                                    </label>
-                                    <select
-                                        value={editingMember?.userAddresses?.[0]?.countryId || ""}
-                                        onChange={(e) => {
-                                            const countryId = parseInt(e.target.value)
-                                            setSelectedCountryId(countryId)
-                                            fetchStatesByCountry(countryId)
-                                            setEditingMember(prev => {
-                                                if (!prev || !prev.userAddresses || prev.userAddresses.length === 0) return prev
-                                                const updatedAddresses = [...prev.userAddresses]
-                                                updatedAddresses[0] = {
-                                                    ...updatedAddresses[0], 
-                                                    countryId: countryId,
-                                                    stateId: 0 // Reset state when country changes
-                                                }
-                                                return {...prev, userAddresses: updatedAddresses}
-                                            })
-                                        }}
-                                        required
-                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    >
-                                        <option value="">Seleccionar país...</option>
-                                        {availableCountries.map((country) => (
-                                            <option key={country.id} value={country.id}>
-                                                {country.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* Provincia/Estado */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Provincia/Estado *
-                                    </label>
-                                    <select
-                                        value={editingMember?.userAddresses?.[0]?.stateId || ""}
-                                        onChange={(e) => {
-                                            setEditingMember(prev => {
-                                                if (!prev || !prev.userAddresses || prev.userAddresses.length === 0) return prev
-                                                const updatedAddresses = [...prev.userAddresses]
-                                                updatedAddresses[0] = {...updatedAddresses[0], stateId: parseInt(e.target.value)}
-                                                return {...prev, userAddresses: updatedAddresses}
-                                            })
-                                        }}
-                                        required
-                                        disabled={!selectedCountryId}
-                                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                    >
-                                        <option value="">Seleccionar provincia...</option>
-                                        {availableStates.map((state) => (
-                                            <option key={state.id} value={state.id}>
-                                                {state.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                    {!selectedCountryId && (
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                            Primero selecciona un país
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* Dirección */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Dirección (Calle)
-                                    </label>
-                                    <Input
-                                        type="text"
-                                        value={editingMember?.userAddresses?.[0]?.street || ""}
-                                        onChange={(e) => {
-                                            setEditingMember(prev => {
-                                                if (!prev || !prev.userAddresses || prev.userAddresses.length === 0) return prev
-                                                const updatedAddresses = [...prev.userAddresses]
-                                                updatedAddresses[0] = {...updatedAddresses[0], street: e.target.value}
-                                                return {...prev, userAddresses: updatedAddresses}
-                                            })
-                                        }}
-                                        className="w-full"
-                                        placeholder="Calle y número"
-                                    />
-                                </div>
-
-                                {/* Ciudad */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                        Ciudad
-                                    </label>
-                                    <Input
-                                        type="text"
-                                        value={editingMember?.userAddresses?.[0]?.city || ""}
-                                        onChange={(e) => {
-                                            setEditingMember(prev => {
-                                                if (!prev || !prev.userAddresses || prev.userAddresses.length === 0) return prev
-                                                const updatedAddresses = [...prev.userAddresses]
-                                                updatedAddresses[0] = {...updatedAddresses[0], city: e.target.value}
-                                                return {...prev, userAddresses: updatedAddresses}
-                                            })
-                                        }}
-                                        className="w-full"
-                                        placeholder="Ciudad"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Botones */}
-                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => {
-                                    setClientModalOpen(false)
-                                    setEditingMember(null)
-                                    setNewMemberPassword("")
-                                    setConfirmPassword("")
-                                    setModalMode("create")
-                                }}
-                            >
-                                Cancelar
-                            </Button>
-                            <Button
-                                type="submit"
-                                variant="custom"
-                                className="bg-[#09A4B5] text-white hover:bg-[#09A4B5]/80"
-                            >
-                                {modalMode === "create" ? "Crear Miembro" : "Guardar Cambios"}
-                            </Button>
-                        </div>
-                    </form>
-                </div>
-            </Modal>
-        </div>
-    )
+	const { data: session } = useSession();
+	const { confirm, ConfirmationDialog } = useConfirm();
+	const router = useRouter();
+	const [allMembers, setAllMembers] = useState<any[]>([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [currentPage, setCurrentPage] = useState(1);
+	const [searchTerm, setSearchTerm] = useState("");
+	const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+	const [showFilters, setShowFilters] = useState(false);
+	const [activeTab, setActiveTab] = useState<TabType>("all");
+	const [dialogOpen, setDialogOpen] = useState(false);
+	const [editingMember, setEditingMember] = useState<User | null>(null);
+	const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+	const [newMemberPassword, setNewMemberPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
+	const [availableRoles, setAvailableRoles] = useState<any[]>([]);
+	const [availableCountries, setAvailableCountries] = useState<any[]>([]);
+	const [availableStates, setAvailableStates] = useState<any[]>([]);
+	const [selectedCountryId, setSelectedCountryId] = useState<number | null>(
+		null,
+	);
+
+	const isInitialRender = useRef(true);
+
+	// Stats - solo miembros internos
+	const memberStats = useMemo(() => {
+		const internalMembers = allMembers.filter(isInternalTeamMember);
+		return {
+			total: internalMembers.length,
+			lawyers: internalMembers.filter(isLawyer).length,
+			staff: internalMembers.filter((m) => !isLawyer(m)).length,
+		};
+	}, [allMembers]);
+
+	// Filtrado - solo miembros internos, sin clientes
+	const filteredMembers = useMemo(() => {
+		let filtered = allMembers.filter(isInternalTeamMember);
+
+		if (activeTab === "lawyers") {
+			filtered = filtered.filter(isLawyer);
+		} else if (activeTab === "staff") {
+			filtered = filtered.filter((m) => !isLawyer(m));
+		}
+
+		if (searchTerm.trim()) {
+			const q = searchTerm.toLowerCase().trim();
+			filtered = filtered.filter(
+				(m) =>
+					m.name?.toLowerCase().includes(q) ||
+					m.email?.toLowerCase().includes(q) ||
+					m.roleUser?.[0]?.role?.displayName?.toLowerCase().includes(q),
+			);
+		}
+
+		if (selectedRoles.length > 0) {
+			filtered = filtered.filter((m) =>
+				m.roleUser?.some((ru: any) =>
+					selectedRoles.includes(ru.roleId?.toString()),
+				),
+			);
+		}
+
+		return filtered;
+	}, [allMembers, searchTerm, selectedRoles, activeTab]);
+
+	const hasActiveFilters = Boolean(
+		searchTerm.trim() || selectedRoles.length > 0 || activeTab !== "all",
+	);
+
+	const ITEMS_PER_PAGE = 10;
+
+	const paginatedMembers = useMemo(() => {
+		const start = (currentPage - 1) * ITEMS_PER_PAGE;
+		return filteredMembers.slice(start, start + ITEMS_PER_PAGE);
+	}, [filteredMembers, currentPage]);
+
+	const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE) || 1;
+
+	// Fetch members
+	const fetchAllMembers = useCallback(async () => {
+		try {
+			setIsLoading(true);
+			const url = new URL(`${USERS_ENDPOINT}`, window.location.origin);
+			url.searchParams.append("page", "1");
+			url.searchParams.append("limit", "100");
+
+			const response = await fetch(url.toString(), {
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
+			});
+
+			if (!response.ok) throw new Error("Failed to fetch members");
+
+			const result = await response.json();
+			setAllMembers(result.data);
+		} catch (error) {
+			console.error("Error fetching members:", error);
+			toast.error("Error al cargar el equipo");
+		} finally {
+			setIsLoading(false);
+		}
+	}, [session?.user?.accessToken]);
+
+	const fetchRoles = useCallback(async () => {
+		try {
+			const response = await fetch(`${SETTINGS_ROLES_ENDPOINT}?limit=10000`, {
+				method: "GET",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
+			});
+			if (response.ok) {
+				const result = await response.json();
+				const internalRoles = (result.data || []).filter((role: any) => {
+					const slug =
+						role.slug?.toLowerCase() || role.name?.toLowerCase() || "";
+					return INTERNAL_TEAM_ROLES.includes(slug);
+				});
+				setAvailableRoles(internalRoles);
+			}
+		} catch (error) {
+			console.error("Error fetching roles:", error);
+		}
+	}, [session?.user?.accessToken]);
+
+	const fetchCountries = useCallback(async () => {
+		try {
+			const response = await fetch(
+				`${SETTINGS_COUNTRIES_ENDPOINT}?limit=10000`,
+				{
+					method: "GET",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+				},
+			);
+			if (response.ok) {
+				const result = await response.json();
+				setAvailableCountries(result.data || []);
+			}
+		} catch (error) {
+			console.error("Error fetching countries:", error);
+		}
+	}, [session?.user?.accessToken]);
+
+	const fetchStatesByCountry = useCallback(
+		async (countryId: number) => {
+			try {
+				const response = await fetch(
+					`${SETTINGS_COUNTRIES_ENDPOINT}/${countryId}/states?limit=10000`,
+					{
+						method: "GET",
+						headers: {
+							"Content-Type": "application/json",
+							Authorization: `Bearer ${session?.user?.accessToken}`,
+						},
+					},
+				);
+				if (response.ok) {
+					const result = await response.json();
+					setAvailableStates(result.data || []);
+				}
+			} catch (error) {
+				console.error("Error fetching states:", error);
+				setAvailableStates([]);
+			}
+		},
+		[session?.user?.accessToken],
+	);
+
+	useEffect(() => {
+		if (isInitialRender.current && session?.user?.accessToken) {
+			fetchAllMembers();
+			fetchRoles();
+			fetchCountries();
+			isInitialRender.current = false;
+		}
+	}, [fetchAllMembers, fetchRoles, fetchCountries, session?.user?.accessToken]);
+
+	useEffect(() => {
+		if (editingMember?.userAddresses?.[0]?.countryId) {
+			const countryId = editingMember.userAddresses[0].countryId;
+			setSelectedCountryId(countryId);
+			fetchStatesByCountry(countryId);
+		}
+	}, [editingMember?.userAddresses, fetchStatesByCountry]);
+
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [searchTerm, selectedRoles, activeTab]);
+
+	// Handlers
+	const handleDelete = useCallback(
+		async (id: number) => {
+			if (!(await confirm({ description: "¿Estás seguro de que deseas eliminar este miembro?", confirmLabel: "Eliminar" })))
+				return;
+			try {
+				const response = await fetch(`${USERS_ENDPOINT}/${id}`, {
+					method: "DELETE",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+				});
+				if (!response.ok) throw new Error("Failed to delete user");
+				toast.success("Miembro eliminado correctamente");
+				await fetchAllMembers();
+			} catch (error) {
+				console.error("Error al eliminar el miembro:", error);
+				toast.error("Error al eliminar el miembro");
+			}
+		},
+		[session?.user?.accessToken, fetchAllMembers, confirm],
+	);
+
+	const handleToggleBlock = useCallback(
+		async (userId: number, isBlocked: boolean) => {
+			const action = isBlocked ? "bloquear" : "desbloquear";
+			if (!(await confirm({ description: `¿Estás seguro de que deseas ${action} este usuario?`, confirmLabel: "Continuar", variant: "default" })))
+				return;
+			try {
+				const response = await fetch(`${USERS_ENDPOINT}/${userId}/block`, {
+					method: "PATCH",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+					body: JSON.stringify({ isBlocked }),
+				});
+				if (!response.ok) throw new Error(`Failed to ${action} user`);
+				const data = await response.json();
+				toast.success(
+					data.message ||
+						`Usuario ${isBlocked ? "bloqueado" : "desbloqueado"} correctamente`,
+				);
+				setAllMembers((prev) =>
+					prev.map((m) => (m.id === userId ? { ...m, isBlocked } : m)),
+				);
+			} catch (error) {
+				console.error(`Error al ${action} el usuario:`, error);
+				toast.error(`Error al ${action} el usuario`);
+			}
+		},
+		[session?.user?.accessToken, confirm],
+	);
+
+	const handleClearSearch = useCallback(() => {
+		setSearchTerm("");
+		setSelectedRoles([]);
+		setShowFilters(false);
+		setCurrentPage(1);
+	}, []);
+
+	const handleEdit = useCallback((member: User) => {
+		setEditingMember(member);
+		setNewMemberPassword("");
+		setConfirmPassword("");
+		setModalMode("edit");
+		setDialogOpen(true);
+	}, []);
+
+	const closeDialog = useCallback(() => {
+		setDialogOpen(false);
+		setEditingMember(null);
+		setNewMemberPassword("");
+		setConfirmPassword("");
+		setModalMode("create");
+	}, []);
+
+	const handleCreateMember = useCallback(async () => {
+		if (!editingMember) return;
+		if (!editingMember.name?.trim()) {
+			toast.error("El nombre es requerido");
+			return;
+		}
+		if (!editingMember.email?.trim()) {
+			toast.error("El email es requerido");
+			return;
+		}
+		if (!newMemberPassword || newMemberPassword.length < 6) {
+			toast.error("La contraseña debe tener al menos 6 caracteres");
+			return;
+		}
+		if (newMemberPassword !== confirmPassword) {
+			toast.error("Las contraseñas no coinciden");
+			return;
+		}
+		if (!editingMember.roleUser?.[0]?.roleId) {
+			toast.error("Debes seleccionar un rol");
+			return;
+		}
+
+		try {
+			const createData = {
+				name: editingMember.name,
+				email: editingMember.email,
+				password: newMemberPassword,
+				image: editingMember.image || "",
+				role: editingMember.roleUser?.[0]?.roleId,
+				userProfile: {
+					birthDate:
+						editingMember.userProfile?.birthDate || new Date().toISOString(),
+					docType: editingMember.userProfile?.docType || 1,
+					docNumber: editingMember.userProfile?.docNumber || "",
+					gender: editingMember.userProfile?.gender || 1,
+					phone: editingMember.userProfile?.phone || "",
+				},
+				userAddresses:
+					editingMember.userAddresses && editingMember.userAddresses.length > 0
+						? editingMember.userAddresses.map((addr) => ({
+								street: addr.street || "",
+								streetNumber: addr.streetNumber || "",
+								city: addr.city || "",
+								stateId: addr.stateId || 1,
+								countryId: addr.countryId || 1,
+								cp: addr.cp || "",
+								description: addr.description || "",
+								isDefault: addr.isDefault !== undefined ? addr.isDefault : true,
+							}))
+						: [
+								{
+									street: "",
+									streetNumber: "",
+									city: "",
+									stateId: 1,
+									countryId: 1,
+									cp: "",
+									description: "",
+									isDefault: true,
+								},
+							],
+			};
+
+			const response = await fetch(`${USERS_ENDPOINT}`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
+				body: JSON.stringify(createData),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.message || "Error al crear el miembro");
+			}
+
+			toast.success("Miembro creado correctamente");
+			closeDialog();
+			await fetchAllMembers();
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Error al crear el miembro",
+			);
+		}
+	}, [
+		editingMember,
+		newMemberPassword,
+		confirmPassword,
+		session?.user?.accessToken,
+		fetchAllMembers,
+		closeDialog,
+	]);
+
+	const handleUpdateMember = useCallback(async () => {
+		if (!editingMember) return;
+		if (!editingMember.name?.trim()) {
+			toast.error("El nombre es requerido");
+			return;
+		}
+		if (!editingMember.email?.trim()) {
+			toast.error("El email es requerido");
+			return;
+		}
+
+		try {
+			const updateData = {
+				name: editingMember.name,
+				email: editingMember.email,
+				image: editingMember.image,
+				role: editingMember.roleUser?.[0]?.roleId,
+				userProfile: {
+					birthDate:
+						editingMember.userProfile?.birthDate || new Date().toISOString(),
+					docType: editingMember.userProfile?.docType || 1,
+					docNumber: editingMember.userProfile?.docNumber || "",
+					gender: editingMember.userProfile?.gender || 1,
+					phone: editingMember.userProfile?.phone || "",
+				},
+				userAddresses:
+					editingMember.userAddresses && editingMember.userAddresses.length > 0
+						? editingMember.userAddresses.map((addr) => ({
+								street: addr.street || "",
+								streetNumber: addr.streetNumber || "",
+								city: addr.city || "",
+								stateId: addr.stateId,
+								countryId: addr.countryId,
+								cp: addr.cp || "",
+								description: addr.description || "",
+								isDefault: addr.isDefault,
+							}))
+						: [
+								{
+									street: "",
+									streetNumber: "",
+									city: "",
+									stateId: editingMember.userAddresses?.[0]?.stateId || 1,
+									countryId: editingMember.userAddresses?.[0]?.countryId || 1,
+									cp: "",
+									description: "",
+									isDefault: true,
+								},
+							],
+			};
+
+			const response = await fetch(`${USERS_ENDPOINT}/${editingMember.id}`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
+				body: JSON.stringify(updateData),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(
+					errorData.message || "Error al actualizar el miembro",
+				);
+			}
+
+			toast.success("Miembro actualizado correctamente");
+			closeDialog();
+			await fetchAllMembers();
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Error al actualizar el miembro",
+			);
+		}
+	}, [editingMember, session?.user?.accessToken, fetchAllMembers, closeDialog]);
+
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		if (modalMode === "create") handleCreateMember();
+		else handleUpdateMember();
+	};
+
+	const openCreateDialog = () => {
+		setEditingMember({
+			id: 0,
+			name: "",
+			email: "",
+			image: "",
+			userProfile: {
+				phone: "",
+				docType: 1,
+				docNumber: "",
+				gender: 1,
+				birthDate: new Date().toISOString(),
+			},
+			userAddresses: [
+				{
+					street: "",
+					streetNumber: "",
+					city: "",
+					stateId: 0,
+					countryId: 0,
+					cp: "",
+					description: "",
+					isDefault: true,
+				},
+			],
+			roleUser: [],
+		} as any);
+		setNewMemberPassword("");
+		setConfirmPassword("");
+		setModalMode("create");
+		setDialogOpen(true);
+	};
+
+	// Skeleton loading
+	if (isLoading) {
+		return (
+			<div className="flex flex-col gap-6">
+				{/* Header skeleton */}
+				<div className="flex items-center justify-between">
+					<Skeleton className="h-9 w-32" />
+					<div className="flex gap-2">
+						<Skeleton className="h-10 w-44" />
+						<Skeleton className="h-10 w-36" />
+					</div>
+				</div>
+
+				{/* Stats cards skeleton */}
+				<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+					{[...Array(3)].map((_, i) => (
+						<Card key={i} className="border-l-4 border-l-muted">
+							<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+								<Skeleton className="h-4 w-24" />
+								<Skeleton className="h-4 w-4 rounded-full" />
+							</CardHeader>
+							<CardContent>
+								<Skeleton className="h-8 w-12" />
+							</CardContent>
+						</Card>
+					))}
+				</div>
+
+				{/* Tabs + search skeleton */}
+				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+					<div className="flex gap-1">
+						<Skeleton className="h-9 w-24 rounded-md" />
+						<Skeleton className="h-9 w-28 rounded-md" />
+						<Skeleton className="h-9 w-24 rounded-md" />
+					</div>
+					<div className="flex items-center gap-2">
+						<Skeleton className="h-10 w-75 rounded-md" />
+						<Skeleton className="h-10 w-10 rounded-md" />
+					</div>
+				</div>
+
+				{/* Table skeleton with team member rows */}
+				<div className="rounded-lg border bg-card">
+					{/* Table header */}
+					<div className="flex items-center gap-4 px-4 py-3 border-b">
+						<Skeleton className="h-4 w-8" />
+						<Skeleton className="h-4 w-32" />
+						<Skeleton className="h-4 w-40 hidden md:block" />
+						<Skeleton className="h-4 w-24 hidden md:block" />
+						<Skeleton className="h-4 w-20 hidden lg:block" />
+						<Skeleton className="h-4 w-16 ml-auto" />
+					</div>
+					{/* Table rows with avatar, name, role */}
+					{[...Array(8)].map((_, i) => (
+						<div
+							key={i}
+							className="flex items-center gap-4 px-4 py-3 border-b last:border-b-0"
+						>
+							<Skeleton className="h-10 w-10 rounded-full shrink-0" />
+							<div className="flex flex-col gap-1.5 flex-1">
+								<Skeleton className="h-4 w-36" />
+								<Skeleton className="h-3 w-48" />
+							</div>
+							<Skeleton className="h-6 w-28 rounded-full hidden md:block" />
+							<Skeleton className="h-4 w-20 hidden lg:block" />
+							<Skeleton className="h-8 w-8 rounded-md ml-auto" />
+						</div>
+					))}
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className="flex flex-col gap-6">
+			{/* Header */}
+			<div className="flex items-center justify-between">
+				<h1 className="text-3xl font-bold tracking-tight text-foreground">
+					Equipo
+				</h1>
+				<div className="flex items-center gap-2">
+					<Button
+						variant="outline"
+						onClick={() => router.push("/admin/activity-logs")}
+					>
+						<Activity className="h-4 w-4 mr-2" />
+						Historial de sesiones
+					</Button>
+					<Button onClick={openCreateDialog}>
+						<Plus className="h-4 w-4 mr-2" />
+						Nuevo miembro
+					</Button>
+				</div>
+			</div>
+
+			{/* Stats Cards */}
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+				<Card className="border-l-4 border-l-blue-500">
+					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+						<CardTitle className="text-sm font-medium text-muted-foreground">
+							Total Equipo
+						</CardTitle>
+						<Users className="h-4 w-4 text-blue-500" />
+					</CardHeader>
+					<CardContent>
+						<div className="text-2xl font-bold text-foreground">
+							{memberStats.total}
+						</div>
+					</CardContent>
+				</Card>
+
+				<Card className="border-l-4 border-l-purple-500">
+					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+						<CardTitle className="text-sm font-medium text-muted-foreground">
+							Abogados
+						</CardTitle>
+						<Scale className="h-4 w-4 text-purple-500" />
+					</CardHeader>
+					<CardContent>
+						<div className="text-2xl font-bold text-foreground">
+							{memberStats.lawyers}
+						</div>
+					</CardContent>
+				</Card>
+
+				<Card className="border-l-4 border-l-orange-500">
+					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+						<CardTitle className="text-sm font-medium text-muted-foreground">
+							Personal
+						</CardTitle>
+						<UserCog className="h-4 w-4 text-orange-500" />
+					</CardHeader>
+					<CardContent>
+						<div className="text-2xl font-bold text-foreground">
+							{memberStats.staff}
+						</div>
+					</CardContent>
+				</Card>
+			</div>
+
+			{/* Tabs + Search */}
+			<div className="flex flex-col gap-4">
+				<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+					<Tabs
+						value={activeTab}
+						onValueChange={(v) => setActiveTab(v as TabType)}
+					>
+						<TabsList>
+							<TabsTrigger value="all">
+								Todos
+								<Badge variant="secondary" className="ml-2">
+									{memberStats.total}
+								</Badge>
+							</TabsTrigger>
+							<TabsTrigger value="lawyers">
+								Abogados
+								<Badge variant="secondary" className="ml-2">
+									{memberStats.lawyers}
+								</Badge>
+							</TabsTrigger>
+							<TabsTrigger value="staff">
+								Personal
+								<Badge variant="secondary" className="ml-2">
+									{memberStats.staff}
+								</Badge>
+							</TabsTrigger>
+						</TabsList>
+					</Tabs>
+
+					<div className="flex items-center gap-2">
+						<div className="relative">
+							<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+							<Input
+								type="search"
+								placeholder="Buscar por nombre, email o rol..."
+								className="pl-9 w-75"
+								value={searchTerm}
+								onChange={(e) => setSearchTerm(e.target.value)}
+							/>
+						</div>
+						<Button
+							variant="outline"
+							size="icon"
+							onClick={() => setShowFilters(!showFilters)}
+							className={
+								selectedRoles.length > 0
+									? "border-primary text-primary"
+									: ""
+							}
+						>
+							<Filter className="h-4 w-4" />
+						</Button>
+						{hasActiveFilters && (
+							<Button variant="ghost" size="sm" onClick={handleClearSearch}>
+								<X className="h-4 w-4 mr-1" />
+								Limpiar
+							</Button>
+						)}
+					</div>
+				</div>
+
+				{/* Filters panel */}
+				{showFilters && (
+					<Card>
+						<CardContent className="pt-4">
+							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+								<RoleMultiSelect
+									label="Filtrar por roles"
+									defaultSelected={selectedRoles}
+									onChange={(roles) => {
+										setSelectedRoles(roles);
+										setCurrentPage(1);
+									}}
+								/>
+							</div>
+						</CardContent>
+					</Card>
+				)}
+
+				{/* Active filter chips */}
+				{hasActiveFilters && (
+					<div className="flex flex-wrap gap-2 items-center">
+						<span className="text-xs font-medium text-muted-foreground">
+							Filtros activos:
+						</span>
+						{searchTerm && (
+							<Badge variant="secondary" className="gap-1">
+								<Search className="h-3 w-3" />
+								{searchTerm}
+								<button
+									onClick={() => setSearchTerm("")}
+									className="ml-1 hover:text-foreground"
+								>
+									<X className="h-3 w-3" />
+								</button>
+							</Badge>
+						)}
+						{selectedRoles.length > 0 && (
+							<Badge variant="secondary" className="gap-1">
+								<Filter className="h-3 w-3" />
+								{selectedRoles.length} rol(es)
+								<button
+									onClick={() => setSelectedRoles([])}
+									className="ml-1 hover:text-foreground"
+								>
+									<X className="h-3 w-3" />
+								</button>
+							</Badge>
+						)}
+					</div>
+				)}
+			</div>
+
+			{/* Table */}
+			<div className="rounded-lg border bg-card">
+				<div>
+					<MembersTable
+						members={paginatedMembers}
+						hasActiveFilters={hasActiveFilters}
+						handleClearSearch={handleClearSearch}
+						handleEdit={handleEdit}
+						handleDelete={handleDelete}
+						handleToggleBlock={handleToggleBlock}
+						isLoading={false}
+					/>
+				</div>
+			</div>
+
+			{/* Pagination */}
+			{filteredMembers.length > ITEMS_PER_PAGE && (
+				<Pagination
+					currentPage={currentPage}
+					totalPages={totalPages}
+					totalItems={filteredMembers.length}
+					itemsPerPage={ITEMS_PER_PAGE}
+					onPageChange={setCurrentPage}
+				/>
+			)}
+
+			{/* Dialog crear/editar miembro */}
+			<Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+				<DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+					<DialogHeader>
+						<DialogTitle>
+							{modalMode === "create"
+								? "Crear Nuevo Miembro"
+								: `Editar: ${editingMember?.name || ""}`}
+						</DialogTitle>
+						<DialogDescription className="sr-only">Formulario para gestionar un miembro del equipo</DialogDescription>
+					</DialogHeader>
+					<form onSubmit={handleSubmit} className="space-y-6">
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="md:col-span-2">
+								<Label>Nombre completo *</Label>
+								<Input
+									value={editingMember?.name || ""}
+									onChange={(e) =>
+										setEditingMember((prev) =>
+											prev ? { ...prev, name: e.target.value } : null,
+										)
+									}
+									placeholder="Ej: Juan Pérez"
+								/>
+							</div>
+
+							<div>
+								<Label>Email *</Label>
+								<Input
+									type="email"
+									value={editingMember?.email || ""}
+									onChange={(e) =>
+										setEditingMember((prev) =>
+											prev ? { ...prev, email: e.target.value } : null,
+										)
+									}
+									placeholder="ejemplo@email.com"
+								/>
+							</div>
+
+							<div>
+								<Label>Teléfono</Label>
+								<Input
+									type="tel"
+									value={editingMember?.userProfile?.phone || ""}
+									onChange={(e) =>
+										setEditingMember((prev) => {
+											if (!prev) return null;
+											return {
+												...prev,
+												userProfile: {
+													...(prev.userProfile || {}),
+													phone: e.target.value,
+												} as any,
+											};
+										})
+									}
+									placeholder="+54 9 11 1234-5678"
+								/>
+							</div>
+
+							<div className="md:col-span-2">
+								<Label>Rol *</Label>
+								<Select
+									value={
+										editingMember?.roleUser?.[0]?.roleId?.toString() || ""
+									}
+									onValueChange={(value) =>
+										setEditingMember((prev) =>
+											prev
+												? {
+														...prev,
+														roleUser: [
+															{
+																...prev.roleUser?.[0],
+																roleId: parseInt(value),
+															},
+														],
+													}
+												: null,
+										)
+									}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Seleccionar rol..." />
+									</SelectTrigger>
+									<SelectContent>
+										{availableRoles.map((role) => (
+											<SelectItem key={role.id} value={role.id.toString()}>
+												{role.displayName || role.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							{modalMode === "create" && (
+								<>
+									<div>
+										<Label>Contraseña *</Label>
+										<Input
+											type="password"
+											value={newMemberPassword}
+											onChange={(e) => setNewMemberPassword(e.target.value)}
+											placeholder="Mínimo 6 caracteres"
+										/>
+									</div>
+									<div>
+										<Label>Confirmar Contraseña *</Label>
+										<Input
+											type="password"
+											value={confirmPassword}
+											onChange={(e) => setConfirmPassword(e.target.value)}
+											placeholder="Repite la contraseña"
+										/>
+										{confirmPassword &&
+											newMemberPassword !== confirmPassword && (
+												<p className="text-xs text-destructive mt-1">
+													Las contraseñas no coinciden
+												</p>
+											)}
+									</div>
+								</>
+							)}
+						</div>
+
+						{/* Ubicación */}
+						<div>
+							<h3 className="text-sm font-semibold text-foreground mb-3 border-b pb-2">
+								Ubicación
+							</h3>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+								<div>
+									<Label>País *</Label>
+									<Select
+										value={
+											editingMember?.userAddresses?.[0]?.countryId?.toString() ||
+											""
+										}
+										onValueChange={(value) => {
+											const countryId = parseInt(value);
+											setSelectedCountryId(countryId);
+											fetchStatesByCountry(countryId);
+											setEditingMember((prev) => {
+												if (!prev?.userAddresses?.length) return prev;
+												const addrs = [...prev.userAddresses];
+												addrs[0] = {
+													...addrs[0],
+													countryId,
+													stateId: 0,
+												};
+												return { ...prev, userAddresses: addrs };
+											});
+										}}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Seleccionar país..." />
+										</SelectTrigger>
+										<SelectContent>
+											{availableCountries.map((c) => (
+												<SelectItem key={c.id} value={c.id.toString()}>
+													{c.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+
+								<div>
+									<Label>Provincia/Estado *</Label>
+									<Select
+										value={
+											editingMember?.userAddresses?.[0]?.stateId?.toString() ||
+											""
+										}
+										onValueChange={(value) => {
+											setEditingMember((prev) => {
+												if (!prev?.userAddresses?.length) return prev;
+												const addrs = [...prev.userAddresses];
+												addrs[0] = {
+													...addrs[0],
+													stateId: parseInt(value),
+												};
+												return { ...prev, userAddresses: addrs };
+											});
+										}}
+										disabled={!selectedCountryId}
+									>
+										<SelectTrigger>
+											<SelectValue placeholder="Seleccionar provincia..." />
+										</SelectTrigger>
+										<SelectContent>
+											{availableStates.map((s) => (
+												<SelectItem key={s.id} value={s.id.toString()}>
+													{s.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+									{!selectedCountryId && (
+										<p className="text-xs text-muted-foreground mt-1">
+											Primero selecciona un país
+										</p>
+									)}
+								</div>
+
+								<div>
+									<Label>Dirección (Calle)</Label>
+									<Input
+										value={editingMember?.userAddresses?.[0]?.street || ""}
+										onChange={(e) => {
+											setEditingMember((prev) => {
+												if (!prev?.userAddresses?.length) return prev;
+												const addrs = [...prev.userAddresses];
+												addrs[0] = { ...addrs[0], street: e.target.value };
+												return { ...prev, userAddresses: addrs };
+											});
+										}}
+										placeholder="Calle y número"
+									/>
+								</div>
+
+								<div>
+									<Label>Ciudad</Label>
+									<Input
+										value={editingMember?.userAddresses?.[0]?.city || ""}
+										onChange={(e) => {
+											setEditingMember((prev) => {
+												if (!prev?.userAddresses?.length) return prev;
+												const addrs = [...prev.userAddresses];
+												addrs[0] = { ...addrs[0], city: e.target.value };
+												return { ...prev, userAddresses: addrs };
+											});
+										}}
+										placeholder="Ciudad"
+									/>
+								</div>
+							</div>
+						</div>
+
+						<DialogFooter>
+							<Button type="button" variant="outline" onClick={closeDialog}>
+								Cancelar
+							</Button>
+							<Button type="submit">
+								{modalMode === "create" ? "Crear Miembro" : "Guardar Cambios"}
+							</Button>
+						</DialogFooter>
+					</form>
+				</DialogContent>
+			</Dialog>
+		{ConfirmationDialog}
+		</div>
+	);
 }

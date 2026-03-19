@@ -1,132 +1,205 @@
-import { Lead } from "@/types/crm";
-import { Table, TableBody, TableCell, TableHeader, TableRow } from "../ui/table";
-import { CRM_COLUMNS, SOURCE_CHANNEL } from "@/constant/crm";
-import Badge from "../ui/badge/Badge";
-import {  Eye, Pencil, Trash } from "lucide-react";
-import { useState } from "react";
+"use client";
+
+import { Eye, Pencil, Trash } from "lucide-react";
 import Link from "next/link";
-import { Pagination } from "../ui/pagination/Pagination";
+import { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Pagination } from "@/components/shared/Pagination";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/table";
+import { useConfirm } from "@/hooks/useConfirm";
+import { CRM_COLUMNS, SOURCE_CHANNEL } from "@/constant/crm";
+import type { Lead } from "@/types/crm";
+
+const FINAL_COLUMN_IDS = [9, 10, 11];
 
 interface KanbanListProps {
-    leads: Lead[];
-    onEditLead: (lead: Lead) => void;
-    onDeleteLead: (leadId: string) => void;
+	leads: Lead[];
+	onEditLead: (lead: Lead) => void;
+	onDeleteLead: (leadId: string) => void;
+	hideFinalColumns?: boolean;
+	onHideFinalColumnsChange?: (value: boolean) => void;
 }
 
-export default function KanbanList({ leads, onEditLead, onDeleteLead }: KanbanListProps) {
-    const [currentPage, setCurrentPage] = useState(1)
-    const [itemsPerPage, setItemsPerPage] = useState(10)
-    console.log("Leads", leads)
+export default function KanbanList({
+	leads,
+	onEditLead,
+	onDeleteLead,
+	hideFinalColumns = true,
+	onHideFinalColumnsChange,
+}: KanbanListProps) {
+	const { confirm, ConfirmationDialog } = useConfirm();
+	const [currentPage, setCurrentPage] = useState(1);
+	const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    const getSourceChannelLabel = (sourceChannelId: number | undefined) => {
-        if (!sourceChannelId) return "Desconocido"
+	const visibleLeads = useMemo(() => {
+		if (!hideFinalColumns) return leads;
+		return leads.filter(
+			(lead) => !FINAL_COLUMN_IDS.includes(Number(lead.columnId)),
+		);
+	}, [leads, hideFinalColumns]);
 
-        const channel = SOURCE_CHANNEL.find((ch) => ch.id === sourceChannelId)
-        return channel ? channel.name : `Canal ${sourceChannelId}`
-    }
+	const getSourceChannelLabel = (sourceChannelId: number | undefined) => {
+		if (!sourceChannelId) return "Desconocido";
+		const channel = SOURCE_CHANNEL.find((ch) => ch.id === sourceChannelId);
+		return channel ? channel.name : `Canal ${sourceChannelId}`;
+	};
 
-    const getColumnLabel = (columnId: number | undefined) => {
-        if (!columnId) return "Desconocido"
+	const getColumnLabel = (columnId: number | undefined) => {
+		if (!columnId) return "Desconocido";
+		const column = CRM_COLUMNS.find(
+			(col) => String(col.id) === String(columnId),
+		);
+		return column ? column.title : `Columna ${columnId}`;
+	};
 
-        const column = CRM_COLUMNS.find((col) => String(col.id) === String(columnId))
-        return column ? column.title : `Columna ${columnId}`
-    }
+	// Pagination logic
+	const totalPages = Math.ceil(visibleLeads.length / itemsPerPage);
+	const indexOfLastItem = currentPage * itemsPerPage;
+	const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+	const currentLeads = visibleLeads.slice(indexOfFirstItem, indexOfLastItem);
 
-    // Pagination logic
-    const totalPages = Math.ceil(leads.length / itemsPerPage)
-    const indexOfLastItem = currentPage * itemsPerPage
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage
-    const currentLeads = leads.slice(indexOfFirstItem, indexOfLastItem)
+	const handlePageChange = (page: number) => {
+		if (page >= 1 && page <= totalPages) {
+			setCurrentPage(page);
+		}
+	};
 
-    const handlePageChange = (pageNumber: number) => {
-        setCurrentPage(pageNumber)
-    }
 
-    return (
-        <div>
-            <div></div>
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
-                <div className="w-full overflow-x-auto">
-                    <Table className="w-full min-w-[800px]">
-                        <TableHeader className="bg-gray-50">
-                            <TableRow>
-                                <TableCell isHeader className="w-[1%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">ID</TableCell>
-                                <TableCell isHeader className="w-[10%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">Cliente</TableCell>
-                                <TableCell isHeader className="w-[10%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">Provincia</TableCell>
-                                <TableCell isHeader className="w-[10%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">Ciudad</TableCell>
-                                <TableCell isHeader className="w-auto px-4 py-3 text-sm font-semibold text-gray-700 text-left">Servicios</TableCell>
-                                <TableCell isHeader className="w-[10%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">Canal ingreso</TableCell>
-                                <TableCell isHeader className="w-[14%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">Etapa</TableCell>
-                                <TableCell isHeader className="w-[10%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">Vendedora</TableCell>
-                                <TableCell isHeader className="w-[12%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">Abog. Interno</TableCell>
-                                <TableCell isHeader className="w-[12%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">Abog. Responsable</TableCell>
-                                <TableCell isHeader className="w-[4%] px-4 py-3 text-sm font-semibold text-gray-700 text-left">Acciones</TableCell>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {leads.map((lead) => (
-                                <TableRow key={lead.id}>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">{lead.id}</TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">{lead.user?.name}</TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">{lead.user?.userAddresses[0]?.state?.name}</TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">{lead.user?.userAddresses[0]?.city}</TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">
-                                        {lead.services && (
-                                            <Badge
-                                                variant="light"
-                                                className="text-xs flex items-center gap-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400"
-                                            >
-                                                {lead.services.label}
-                                            </Badge>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">
-                                        <Badge
-                                            variant="light"
-                                            className="text-xs flex items-center gap-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400"
-                                        >
-                                            {getSourceChannelLabel(lead.sourceChannelId)}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">{getColumnLabel(Number(lead.columnId))}</TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">{lead.seller?.name}</TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">{lead.internalLawyer?.name}</TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">{lead.responsibleLawyer?.name}</TableCell>
-                                    <TableCell className="px-4 py-3 text-sm text-gray-700">
-                                        <div className="flex items-center gap-2">
-                                            <Link href={`/admin/crm/leads/${lead.id}`} className="text-gray-500 hover:text-gray-700 p-2 hover:bg-blue-100 rounded">
-                                                <Eye className="h-4 w-4" />
-                                            </Link>
-                                            <button onClick={() => onEditLead(lead)} className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-100 rounded">
-                                                <Pencil className="h-4 w-4" />
-                                            </button>
-                                            <button 
-                                                onClick={() => {
-                                                    if (window.confirm('¿Estás seguro de que deseas eliminar este lead? Esta acción no se puede deshacer.')) {
-                                                        onDeleteLead(lead.id)
-                                                    }
-                                                }} 
-                                                className="text-red-500 hover:text-red-700 p-2 hover:bg-blue-100 rounded"
-                                            >
-                                                <Trash className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </div>
-            </div>
-            {/* Pagination */}
+	return (
+		<div className="space-y-4">
+			<div className="flex items-center justify-between">
+				<p className="text-sm text-muted-foreground">
+					{visibleLeads.length} leads
+					{hideFinalColumns && visibleLeads.length !== leads.length && (
+						<span> (ocultando {leads.length - visibleLeads.length} finalizados)</span>
+					)}
+				</p>
+				{onHideFinalColumnsChange && (
+					<div className="flex items-center gap-2">
+						<Switch
+							id="show-final-list"
+							checked={!hideFinalColumns}
+							onCheckedChange={(checked) => onHideFinalColumnsChange(!checked)}
+						/>
+						<Label htmlFor="show-final-list" className="text-sm cursor-pointer">
+							Mostrar Ganados, Perdidos y Archivados
+						</Label>
+					</div>
+				)}
+			</div>
+			<div className="overflow-hidden rounded-xl border bg-white dark:bg-background">
+				<Table>
+					<TableHeader>
+						<TableRow className="bg-muted/50">
+							<TableHead className="w-[50px]">ID</TableHead>
+							<TableHead>Cliente</TableHead>
+							<TableHead>Provincia</TableHead>
+							<TableHead>Ciudad</TableHead>
+							<TableHead>Servicios</TableHead>
+							<TableHead>Canal</TableHead>
+							<TableHead>Etapa</TableHead>
+							<TableHead>Vendedora</TableHead>
+							<TableHead>Abog. Interno</TableHead>
+							<TableHead>Abog. Responsable</TableHead>
+							<TableHead className="w-[100px]">Acciones</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{currentLeads.length === 0 ? (
+							<TableRow>
+								<TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+									No se encontraron leads
+								</TableCell>
+							</TableRow>
+						) : (
+							currentLeads.map((lead) => (
+								<TableRow key={lead.id}>
+									<TableCell className="font-medium">{lead.id}</TableCell>
+									<TableCell>{lead.user?.name}</TableCell>
+									<TableCell>{lead.user?.userAddresses[0]?.state?.name}</TableCell>
+									<TableCell>{lead.user?.userAddresses[0]?.city}</TableCell>
+									<TableCell>
+										{lead.services && (
+											<Badge variant="secondary" className="text-xs">
+												{lead.services.label}
+											</Badge>
+										)}
+									</TableCell>
+									<TableCell>
+										<Badge variant="outline" className="text-xs">
+											{getSourceChannelLabel(lead.sourceChannelId)}
+										</Badge>
+									</TableCell>
+									<TableCell>
+										<Badge className="text-xs">
+											{getColumnLabel(Number(lead.columnId))}
+										</Badge>
+									</TableCell>
+									<TableCell>{lead.seller?.name}</TableCell>
+									<TableCell>{lead.internalLawyer?.name}</TableCell>
+									<TableCell>{lead.responsibleLawyer?.name}</TableCell>
+									<TableCell>
+										<div className="flex items-center gap-1">
+											<Button variant="ghost" size="icon" className="size-8" asChild>
+												<Link href={`/admin/crm/leads/${lead.id}`}>
+													<Eye className="size-4" />
+												</Link>
+											</Button>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="size-8 text-blue-500 hover:text-blue-700"
+												onClick={() => onEditLead(lead)}
+											>
+												<Pencil className="size-4" />
+											</Button>
+											<Button
+												variant="ghost"
+												size="icon"
+												className="size-8 text-destructive hover:text-destructive"
+												onClick={async () => {
+													if (
+														await confirm({
+															description: "¿Estás seguro de que deseas eliminar este lead?",
+															confirmLabel: "Eliminar",
+														})
+													) {
+														onDeleteLead(lead.id);
+													}
+												}}
+											>
+												<Trash className="size-4" />
+											</Button>
+										</div>
+									</TableCell>
+								</TableRow>
+							))
+						)}
+					</TableBody>
+				</Table>
+			</div>
 
-            <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                totalItems={leads.length}
-                itemsPerPage={itemsPerPage}
-                onPageChange={handlePageChange}
-            />
-        </div>
-    )
+			{/* Pagination */}
+			{totalPages > 0 && (
+				<Pagination
+					currentPage={currentPage}
+					totalPages={totalPages}
+					totalItems={visibleLeads.length}
+					itemsPerPage={itemsPerPage}
+					onPageChange={handlePageChange}
+				/>
+			)}
+			{ConfirmationDialog}
+		</div>
+	);
 }

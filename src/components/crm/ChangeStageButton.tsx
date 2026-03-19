@@ -1,31 +1,38 @@
-"use client"
-import { useState } from "react"
-import { Tag } from "lucide-react"
-import Button from "@/components/ui/button/Button"
-import ChangeStageModal from "./ChangeStageModal"
-import type { Lead } from "@/types/crm"
+"use client";
+import { Tag } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import type { Lead } from "@/types/crm";
+import ChangeStageModal from "./ChangeStageModal";
 
 interface ChangeStageButtonProps {
-    lead: Lead
-    onLeadUpdate: (updatedLead: Lead) => void
+	lead: Lead;
+	onLeadUpdate: (updatedLead: Lead) => void;
 }
 
-export default function ChangeStageButton({ lead, onLeadUpdate }: ChangeStageButtonProps) {
-    const [isModalOpen, setIsModalOpen] = useState(false)
+export default function ChangeStageButton({
+	lead,
+	onLeadUpdate,
+}: ChangeStageButtonProps) {
+	const [isOpen, setIsOpen] = useState(false);
 
-    return (
-        <>
-            <Button variant="outline" className="w-full" size="sm" onClick={() => setIsModalOpen(true)}>
-                <Tag className="h-4 w-4 mr-2" />
-                Cambiar etapa
-            </Button>
+	return (
+		<>
+			<Button
+				variant="outline"
+				className="w-full"
+				onClick={() => setIsOpen(true)}
+			>
+				<Tag className="h-4 w-4 mr-2" />
+				Cambiar etapa
+			</Button>
 
-            <ChangeStageModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                lead={lead}
-                onLeadUpdate={onLeadUpdate}
-            />
-        </>
-    )
+			<ChangeStageModal
+				open={isOpen}
+				onOpenChange={setIsOpen}
+				lead={lead}
+				onLeadUpdate={onLeadUpdate}
+			/>
+		</>
+	);
 }

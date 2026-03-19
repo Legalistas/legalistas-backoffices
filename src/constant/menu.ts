@@ -1,24 +1,23 @@
-import type { NavItem, MenuSection } from "@/types/navigation";
-import { Role } from "@/constant/user";
-
 import {
-  LayoutDashboard,
-  SquareKanban,
-  Users2,
-  Scale,
-  CalendarDays,
-  Landmark,
-  Handshake,
-  Wallet,
-  BarChart3,
-  User,
-  ChartArea,
   ArrowRightLeft,
-  Pencil,
-  Wrench,
-  Settings,
+  BarChart3,
+  CalendarDays,
+  ChartArea,
+  Handshake,
+  Landmark,
+  LayoutDashboard,
   MessageCircle,
+  Pencil,
+  Scale,
+  Settings,
+  SquareKanban,
+  User,
+  Users2,
+  Wallet,
+  Wrench,
 } from "lucide-react";
+import { Role } from "@/constant/user";
+import type { MenuSection, NavItem } from "@/types/navigation";
 
 // ── Roles activos ──────────────────────────────────────────────────
 
@@ -94,7 +93,7 @@ export const MENU_ITEMS: NavItem[] = [
   },
   {
     icon: Scale,
-    name: "Causas",
+    name: "Casos",
     path: "/admin/legal-cases",
     roles: LEGAL,
   },
@@ -140,40 +139,28 @@ export const MENU_ITEMS: NavItem[] = [
   },
   {
     icon: BarChart3,
-    name: "Estadísticas",
+    name: "Estadísticas Ventas",
     path: "/admin/reports/sales",
     roles: VENTAS,
   },
   {
     icon: ChartArea,
-    name: "Estadísticas",
+    name: "Estadísticas Legal",
     path: "/admin/reports/legal",
     roles: LEGAL_INTERNO,
   },
   {
     icon: User,
-    name: "Miembros",
-    path: "/admin/members",
+    name: "Equipo",
+    path: "/admin/teams",
     roles: LEGAL_INTERNO,
   },
-  {
-    icon: Pencil,
-    name: "Blog",
-    path: "/admin/posts",
-    roles: MARKETING,
-  },
-  {
-    icon: Settings,
-    name: "Configuración",
-    path: "/admin/settings",
-    roles: SUPERADMIN,
-    subItems: [
-      { name: "General", path: "/admin/settings/general" },
-      { name: "Usuarios", path: "/admin/settings/users" },
-      { name: "Permisos", path: "/admin/settings/permissions" },
-      { name: "RIPTE", path: "/admin/calculator/ripte" },
-    ],
-  },
+  // {
+  //   icon: Pencil,
+  //   name: "Blog",
+  //   path: "/admin/posts",
+  //   roles: MARKETING,
+  // },
 ];
 
 // ── Sección para el sidebar ────────────────────────────────────────
