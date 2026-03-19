@@ -5,6 +5,7 @@ import {
 	ArrowRight,
 	CalendarDays,
 	CheckCircle2,
+	ChevronRight,
 	Clock,
 	ListChecks,
 	MapPin,
@@ -613,56 +614,85 @@ function LegalDashboard() {
 					<Card>
 						<CardContent className="p-0">
 							{recentCases.length === 0 ? (
-								<div className="flex flex-col items-center justify-center py-8">
-									<Scale className="size-8 text-muted-foreground/40 mb-2" />
-									<p className="text-sm text-muted-foreground">
+								<div className="flex flex-col items-center justify-center py-10">
+									<Scale className="size-9 text-muted-foreground/30 mb-3" />
+									<p className="text-sm font-medium text-muted-foreground">
 										No hay casos recientes
+									</p>
+									<p className="text-xs text-muted-foreground/60 mt-0.5">
+										Los nuevos casos aparecerán aquí
 									</p>
 								</div>
 							) : (
 								<ul className="divide-y divide-border">
 									{recentCases.map((c) => (
-										<li
-											key={c.id}
-											className="p-4 hover:bg-muted/50 transition-colors"
-										>
-											<div className="min-w-0">
-												<div className="flex items-center gap-2">
-													<p className="text-sm font-medium truncate">
-														{c.title}
-													</p>
-													{isRecentCase(c.createdAt) && (
-														<span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-															Nuevo
-														</span>
-													)}
+										<li key={c.id}>
+											<Link
+												href={`/admin/legal-cases/${c.id}`}
+												className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-muted/40 transition-colors group"
+											>
+												{/* Avatar con iniciales */}
+												<div className="shrink-0 size-9 rounded-lg bg-primary/10 flex items-center justify-center">
+													<span className="text-xs font-bold text-primary">
+														{c.title.slice(0, 2).toUpperCase()}
+													</span>
 												</div>
-												{c.customer && (
-													<p className="text-xs text-muted-foreground mt-0.5">
-														{c.customer.name}
-													</p>
-												)}
-												<div className="flex items-center gap-4 mt-1.5">
-													{c.internalLawyer && (
-														<span className="flex items-center gap-1 text-xs text-muted-foreground">
-															<Users2 className="size-3.5" />{" "}
-															{c.internalLawyer.name}
-														</span>
+
+												{/* Contenido */}
+												<div className="flex-1 min-w-0">
+													<div className="flex items-center gap-2 mb-0.5">
+														<p className="text-sm font-semibold truncate">
+															{c.title}
+														</p>
+														{c.number && (
+															<span className="shrink-0 text-[10px] text-muted-foreground/60 font-mono">
+																#{c.number}
+															</span>
+														)}
+														{isRecentCase(c.createdAt) && (
+															<span className="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+																Nuevo
+															</span>
+														)}
+													</div>
+													{c.customer && (
+														<p className="text-xs text-muted-foreground truncate mb-1.5">
+															{c.customer.name}
+														</p>
 													)}
-													{c.responsibleLawyer && (
-														<span className="flex items-center gap-1 text-xs text-muted-foreground">
-															<Scale className="size-3.5" />{" "}
-															{c.responsibleLawyer.name}
-														</span>
-													)}
-													{c.files[0] && (
-														<span className="flex items-center gap-1 text-xs text-muted-foreground">
-															<Activity className="size-3.5" />{" "}
-															{c.files[0].title}
-														</span>
-													)}
+													<div className="flex items-center gap-3 flex-wrap">
+														{c.internalLawyer && (
+															<span className="flex items-center gap-1 text-xs text-muted-foreground">
+																<Users2 className="size-3 shrink-0" />
+																{c.internalLawyer.name}
+															</span>
+														)}
+														{c.responsibleLawyer && (
+															<span className="flex items-center gap-1 text-xs text-muted-foreground">
+																<Scale className="size-3 shrink-0" />
+																{c.responsibleLawyer.name}
+															</span>
+														)}
+														{c.files[0] && (
+															<span className="flex items-center gap-1 text-xs text-muted-foreground">
+																<Activity className="size-3 shrink-0" />
+																{c.files[0].title}
+															</span>
+														)}
+													</div>
 												</div>
-											</div>
+
+												{/* Fecha + flecha */}
+												<div className="flex flex-col items-end gap-1.5 shrink-0">
+													<span className="text-xs text-muted-foreground">
+														{new Date(c.createdAt).toLocaleDateString("es-AR", {
+															day: "2-digit",
+															month: "short",
+														})}
+													</span>
+													<ChevronRight className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
+												</div>
+											</Link>
 										</li>
 									))}
 								</ul>

@@ -43,6 +43,7 @@ export default function AddNewNegotiation() {
 		liquidacion100: "",
 		liquidacion80: "",
 		notes: "",
+		injury: "",
 	});
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -107,11 +108,13 @@ export default function AddNewNegotiation() {
 		setSelectedCause(cause);
 		setCauseSearchTerm(cause.title || `Causa #${cause.id}`);
 		setShowCauseSuggestions(false);
+		setFormData((prev) => ({ ...prev, injury: cause.injury || "" }));
 	};
 
 	const handleRemoveCause = () => {
 		setSelectedCause(null);
 		setCauseSearchTerm("");
+		setFormData((prev) => ({ ...prev, injury: "" }));
 	};
 
 	useEffect(() => {
@@ -163,6 +166,7 @@ export default function AddNewNegotiation() {
 					liquidacion100: formData.liquidacion100 ? parseFloat(formData.liquidacion100) : null,
 					liquidacion80: formData.liquidacion80 ? parseFloat(formData.liquidacion80) : null,
 					notes: formData.notes || null,
+					injury: formData.injury || null,
 				}),
 			});
 
@@ -303,8 +307,23 @@ export default function AddNewNegotiation() {
 											<Input value={selectedCause.internalLawyer?.name || "-"} disabled />
 										</div>
 										<div className="col-span-2 space-y-1.5">
-											<Label className="text-xs">Lesión</Label>
-											<Input value={selectedCause.injury || "Sin registrar"} disabled />
+											<Label className="text-xs">
+												Lesión
+												{!selectedCause.injury && (
+													<span className="ml-1 text-red-500">*</span>
+												)}
+											</Label>
+											{selectedCause.injury ? (
+												<Input value={selectedCause.injury} disabled />
+											) : (
+												<Input
+													value={formData.injury}
+													onChange={(e) =>
+														setFormData({ ...formData, injury: e.target.value })
+													}
+													placeholder="Ingresá el tipo de lesión"
+												/>
+											)}
 										</div>
 									</div>
 								</div>

@@ -22,6 +22,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import {
 	Select,
 	SelectContent,
@@ -120,10 +121,9 @@ export default function CreateClosingPage() {
 	const [feeStatus, setFeeStatus] = useState("EARRINGS");
 	const [hpAgreedPercentage, setHpAgreedPercentage] = useState("20");
 	const [hpTotal, setHpTotal] = useState("");
-	const [hpDistribution, setHpDistribution] = useState(true);
+	const [withRepresentante, setWithRepresentante] = useState(true);
 	const [pclAgreed, setPclAgreed] = useState("20");
 	const [pclTotal, setPclTotal] = useState("");
-	const [pclDistribution, setPclDistribution] = useState(true);
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
 	const [contributionsAmount, setContributionsAmount] = useState("0");
 	const [applyContributions, setApplyContributions] = useState(true);
@@ -173,10 +173,9 @@ export default function CreateClosingPage() {
 		setFeeStatus("EARRINGS");
 		setHpAgreedPercentage("20");
 		setHpTotal("");
-		setHpDistribution(true);
+		setWithRepresentante(true);
 		setPclAgreed("20");
 		setPclTotal("");
-		setPclDistribution(true);
 		setPclStatus("EARRINGS");
 		setContributionsAmount("0");
 		setApplyContributions(true);
@@ -392,10 +391,10 @@ export default function CreateClosingPage() {
 							feeStatus,
 							hpAgreed: parseFloat(hpAgreedPercentage) || 20,
 							hpTotal: parseFloat(hpTotal) || 0,
-							hpDistribution,
+							hpDistribution: withRepresentante,
 							pclAgreed: parseFloat(pclAgreed) || 20,
 							pclTotal: parseFloat(pclTotal) || 0,
-							pclDistribution,
+							pclDistribution: withRepresentante,
 							pclStatus,
 							contributionsAmount: parseFloat(contributionsAmount) || 0,
 							applyContributions,
@@ -426,10 +425,10 @@ export default function CreateClosingPage() {
 						feeStatus,
 						hpAgreed: parseFloat(hpAgreedPercentage) || 20,
 						hpTotal: parseFloat(hpTotal) || 0,
-						hpDistribution,
+						hpDistribution: withRepresentante,
 						pclAgreed: parseFloat(pclAgreed) || 20,
 						pclTotal: parseFloat(pclTotal) || 0,
-						pclDistribution,
+						pclDistribution: withRepresentante,
 						pclStatus,
 						contributionsAmount: parseFloat(contributionsAmount) || 0,
 						applyContributions,
@@ -1079,9 +1078,9 @@ export default function CreateClosingPage() {
 											const hp = Number(hpTotal) || 0;
 											const pcl = Number(pclTotal) || 0;
 											const aportes = applyContributions ? Number(contributionsAmount) || 0 : 0;
-											const hpLeg = hp - (hpDistribution ? hp * 0.25 : 0);
-											const pclLeg = pcl - (pclDistribution ? pcl * 0.25 : 0);
-											const aportesLeg = aportes * 0.75;
+											const hpLeg = hp - (withRepresentante ? hp * 0.25 : 0);
+											const pclLeg = pcl - (withRepresentante ? pcl * 0.25 : 0);
+											const aportesLeg = aportes * (withRepresentante ? 0.75 : 1);
 											const monto = hpLeg + pclLeg - aportesLeg;
 											return (
 												<div className={`rounded-lg p-3 border ${monto < 0 ? "border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : "border-primary/30 bg-primary/5"}`}>
@@ -1186,24 +1185,21 @@ export default function CreateClosingPage() {
 									</div>
 								</div>
 
+								{/* Distribución con representante */}
+								<div className="flex items-center justify-between rounded-xl border border-border px-5 py-3.5">
+									<div>
+										<p className="text-sm font-medium text-foreground">Distribución con representante (25%)</p>
+										<p className="text-xs text-muted-foreground mt-0.5">Aplica tanto a HP como a PCL</p>
+									</div>
+									<Switch
+										checked={withRepresentante}
+										onCheckedChange={setWithRepresentante}
+									/>
+								</div>
+
 								{/* HP */}
 								<div className="border border-border rounded-xl p-5 space-y-4">
-									<div className="flex items-center justify-between">
-										<h4 className="font-semibold text-sm text-foreground">
-											Honorarios Pactados (HP)
-										</h4>
-										<label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-											<input
-												type="checkbox"
-												checked={hpDistribution}
-												onChange={(e) => setHpDistribution(e.target.checked)}
-												className="rounded border-gray-300 text-primary focus:ring-primary"
-											/>
-											<span className="text-muted-foreground">
-												Distribución HP con representante (25%)
-											</span>
-										</label>
-									</div>
+									<h4 className="font-semibold text-sm text-foreground">Honorarios Pactados (HP)</h4>
 									<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 										<div className="space-y-1">
 											<label className="text-xs text-muted-foreground">
@@ -1251,13 +1247,13 @@ export default function CreateClosingPage() {
 												HP Representante ($)
 											</label>
 											<div
-												className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground ${!hpDistribution ? "text-gray-400" : "font-medium"}`}
+												className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground ${!withRepresentante ? "text-gray-400" : "font-medium"}`}
 											>
 												{new Intl.NumberFormat("es-AR", {
 													style: "currency",
 													currency: "ARS",
 												}).format(
-													hpDistribution ? (Number(hpTotal) || 0) * 0.25 : 0,
+													withRepresentante ? (Number(hpTotal) || 0) * 0.25 : 0,
 												)}
 											</div>
 										</div>
@@ -1271,7 +1267,7 @@ export default function CreateClosingPage() {
 													currency: "ARS",
 												}).format(
 													(Number(hpTotal) || 0) -
-														(hpDistribution
+														(withRepresentante
 															? (Number(hpTotal) || 0) * 0.25
 															: 0),
 												)}
@@ -1282,22 +1278,7 @@ export default function CreateClosingPage() {
 
 								{/* PCL */}
 								<div className="border border-border rounded-xl p-5 space-y-4">
-									<div className="flex items-center justify-between">
-										<h4 className="font-semibold text-sm text-foreground">
-											Pacto de Cuota Litis (PCL)
-										</h4>
-										<label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-											<input
-												type="checkbox"
-												checked={pclDistribution}
-												onChange={(e) => setPclDistribution(e.target.checked)}
-												className="rounded border-gray-300 text-primary focus:ring-primary"
-											/>
-											<span className="text-muted-foreground">
-												Distribución PCL con representante (25%)
-											</span>
-										</label>
-									</div>
+									<h4 className="font-semibold text-sm text-foreground">Pacto de Cuota Litis (PCL)</h4>
 									<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 										<div className="space-y-1">
 											<label className="text-xs text-muted-foreground">
@@ -1343,13 +1324,13 @@ export default function CreateClosingPage() {
 												PCL Representante ($)
 											</label>
 											<div
-												className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground ${!pclDistribution ? "text-gray-400" : "font-medium"}`}
+												className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground ${!withRepresentante ? "text-gray-400" : "font-medium"}`}
 											>
 												{new Intl.NumberFormat("es-AR", {
 													style: "currency",
 													currency: "ARS",
 												}).format(
-													pclDistribution ? (Number(pclTotal) || 0) * 0.25 : 0,
+													withRepresentante ? (Number(pclTotal) || 0) * 0.25 : 0,
 												)}
 											</div>
 										</div>
@@ -1363,7 +1344,7 @@ export default function CreateClosingPage() {
 													currency: "ARS",
 												}).format(
 													(Number(pclTotal) || 0) -
-														(pclDistribution
+														(withRepresentante
 															? (Number(pclTotal) || 0) * 0.25
 															: 0),
 												)}
@@ -1375,20 +1356,11 @@ export default function CreateClosingPage() {
 								{/* Aportes */}
 								<div className="border border-border rounded-xl p-5 space-y-4">
 									<div className="flex items-center justify-between">
-										<h4 className="font-semibold text-sm text-foreground">
-											Aportes
-										</h4>
-										<label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-											<input
-												type="checkbox"
-												checked={applyContributions}
-												onChange={(e) =>
-													setApplyContributions(e.target.checked)
-												}
-												className="rounded border-gray-300 text-primary focus:ring-primary"
-											/>
-											<span className="text-gray-600">Aplicar aportes</span>
-										</label>
+										<h4 className="font-semibold text-sm text-foreground">Aportes</h4>
+										<div className="flex items-center gap-2">
+											<span className="text-sm text-muted-foreground">Aplicar aportes</span>
+											<Switch checked={applyContributions} onCheckedChange={setApplyContributions} />
+										</div>
 									</div>
 									<div className="grid grid-cols-3 gap-4">
 										<div className="space-y-1">
@@ -1418,13 +1390,13 @@ export default function CreateClosingPage() {
 												Aportes Representante ($)
 											</label>
 											<div
-												className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground ${!applyContributions ? "text-gray-400" : ""}`}
+												className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground ${!applyContributions || !withRepresentante ? "text-gray-400" : ""}`}
 											>
 												{new Intl.NumberFormat("es-AR", {
 													style: "currency",
 													currency: "ARS",
 												}).format(
-													applyContributions
+													applyContributions && withRepresentante
 														? (Number(contributionsAmount) || 0) * 0.25
 														: 0,
 												)}
@@ -1442,15 +1414,15 @@ export default function CreateClosingPage() {
 													currency: "ARS",
 												}).format(
 													applyContributions
-														? (Number(contributionsAmount) || 0) * 0.75
+														? (Number(contributionsAmount) || 0) * (withRepresentante ? 0.75 : 1)
 														: 0,
 												)}
 											</div>
 										</div>
 									</div>
 									<p className="text-xs text-gray-400">
-										Monto manual ingresado por la contadora. Distribución: 75%
-										Legalistas / 25% Representante.
+										Monto manual ingresado por la contadora.
+										{withRepresentante ? "Distribución: 75% Legalistas / 25% Representante." : "Distribución: 100% Legalistas."}
 									</p>
 								</div>
 

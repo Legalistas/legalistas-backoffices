@@ -6,12 +6,12 @@ import {
 	Calculator,
 	Calendar,
 	Copy,
+	ChevronLeft,
+	ChevronRight,
 	Download,
-	File,
 	FileText,
 	PercentCircle,
 	Save,
-	Search,
 	TrendingUp,
 	User,
 	X,
@@ -24,7 +24,21 @@ import {
 	API_BASE_URL,
 	CALCULATOR_CAUSES_LIST_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { getProcessTypeLabel } from "@/lib/functions";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+} from "@/components/ui/dialog";
 
 interface Court {
 	id: number;
@@ -109,7 +123,9 @@ export default function AccidentsWorkPage() {
 	const [savedLiquidations, setSavedLiquidations] = useState<any[]>([]);
 	const [showSavedLiquidations, setShowSavedLiquidations] = useState(false);
 	const [isLoadingFromJSON, setIsLoadingFromJSON] = useState(false);
+	const [tasaInteresAnual, setTasaInteresAnual] = useState<number>(8);
 	const searchRef = useRef<HTMLDivElement>(null);
+	const [activeTab, setActiveTab] = useState("parametros");
 
 	// Clave única para localStorage basada en el expediente
 	const getStorageKey = (fileId: number) => `calculator_data_${fileId}`;
@@ -427,16 +443,17 @@ export default function AccidentsWorkPage() {
 				console.log("RIPTEs recibidos:", data);
 				setRiptes(data.data || []);
 
-				// Seleccionar automáticamente el RIPTE de 1 año atrás a la fecha del accidente
+				// Seleccionar automáticamente el RIPTE vigente a la fecha del accidente
 				const accidentDateObj = new Date(accidentDate);
-				const ripteYear = accidentDateObj.getFullYear() - 1; // 1 año atrás
+				const ripteYear = accidentDateObj.getFullYear();
 				const ripteMonth = accidentDateObj.toLocaleString("es-ES", {
 					month: "long",
 				});
 				const ripteMonthCapitalized =
 					ripteMonth.charAt(0).toUpperCase() + ripteMonth.slice(1);
 
-				const ripteVigente = data.data?.find(
+				const sourceRiptes = allRiptes.length > 0 ? allRiptes : (data.data || []);
+				const ripteVigente = sourceRiptes.find(
 					(r: any) => r.month === ripteMonthCapitalized && r.year === ripteYear,
 				);
 				console.log(
@@ -458,6 +475,27 @@ export default function AccidentsWorkPage() {
 
 		fetchRiptes();
 	}, [accidentDate, session?.user?.accessToken]);
+
+	// Auto-seleccionar RIPTE vigente cuando allRiptes se carga o cambia la fecha
+	useEffect(() => {
+		if (!accidentDate || allRiptes.length === 0) return;
+
+		const accidentDateObj = new Date(accidentDate);
+		const ripteYear = accidentDateObj.getFullYear();
+		const ripteMonth = accidentDateObj.toLocaleString("es-ES", {
+			month: "long",
+		});
+		const ripteMonthCapitalized =
+			ripteMonth.charAt(0).toUpperCase() + ripteMonth.slice(1);
+
+		const ripteVigente = allRiptes.find(
+			(r: any) => r.month === ripteMonthCapitalized && r.year === ripteYear,
+		);
+
+		if (ripteVigente) {
+			setSelectedRipte(ripteVigente);
+		}
+	}, [accidentDate, allRiptes]);
 
 	// Función para validar si un expediente es válido
 	const isValidFile = (
@@ -982,7 +1020,7 @@ export default function AccidentsWorkPage() {
 				diasDelAño =
 					Math.ceil(
 						(finDelAño.getTime() - fechaAccidente.getTime()) /
-							(1000 * 60 * 60 * 24),
+						(1000 * 60 * 60 * 24),
 					) + 1;
 			} else if (año === añoActual) {
 				// Año actual: desde inicio del año hasta hoy
@@ -997,8 +1035,8 @@ export default function AccidentsWorkPage() {
 					año % 4 === 0 && (año % 100 !== 0 || año % 400 === 0) ? 366 : 365;
 			}
 
-			// Fórmula: (TOTAL INDEM. * 8% / 365) * días del año
-			const interesDiario = (totalIndemnizacion * 0.08) / 365;
+			// Fórmula: (TOTAL INDEM. * tasa% / 365) * días del año
+			const interesDiario = (totalIndemnizacion * (tasaInteresAnual / 100)) / 365;
 			const interesDelAño = interesDiario * diasDelAño;
 
 			interesesPorAño.push({
@@ -1021,14 +1059,13 @@ export default function AccidentsWorkPage() {
 
 	// Función para generar PDF
 	const handleGeneratePDF = async () => {
-		if (!selectedCause || !selectedFile) return;
 
 		setIsGeneratingPDF(true);
 		try {
 			// Crear datos para el PDF
 			const pdfData = {
-				cliente: selectedCause.customer.name,
-				expediente: selectedFile.cuij || `Expediente #${selectedFile.id}`,
+				cliente: selectedCause?.customer.name || "Sin causa asociada",
+				expediente: selectedFile?.cuij || (selectedFile ? `Expediente #${selectedFile.id}` : "Sin expediente"),
 				fechaAccidente: accidentDate
 					? new Date(accidentDate).toLocaleDateString("es-AR")
 					: "",
@@ -1068,7 +1105,7 @@ export default function AccidentsWorkPage() {
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement("a");
 			a.href = url;
-			a.download = `Liquidacion_LRT_${selectedCause.customer.name}_${new Date().toLocaleDateString("es-AR").replace(/\//g, "-")}.pdf`;
+			a.download = `Liquidacion_LRT_${selectedCause?.customer.name || "calculadora"}_${new Date().toLocaleDateString("es-AR").replace(/\//g, "-")}.pdf`;
 			document.body.appendChild(a);
 			a.click();
 			window.URL.revokeObjectURL(url);
@@ -1108,8 +1145,8 @@ export default function AccidentsWorkPage() {
 		setIsSaving(true);
 		try {
 			const calculationData = {
-				cliente: selectedCause.customer.name,
-				expediente: selectedFile.cuij || `Expediente #${selectedFile.id}`,
+				cliente: selectedCause?.customer.name || "Sin causa asociada",
+				expediente: selectedFile?.cuij || (selectedFile ? `Expediente #${selectedFile.id}` : "Sin expediente"),
 				fechaAccidente: accidentDate,
 				edad: customerAge,
 				incapacidad: disabilityPercentage,
@@ -1349,1195 +1386,480 @@ export default function AccidentsWorkPage() {
 	}, [selectedFile, session]);
 
 	return (
-		<div className="container mx-auto p-4">
-			{/* Header Principal */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-				<div className="flex items-center gap-3">
-					<div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
-						<Calculator
-							size={24}
-							className="text-blue-600 dark:text-blue-400"
-						/>
-					</div>
-					<div>
-						<h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-							Calculadora LRT - Accidentes de Trabajo
-						</h1>
-						<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-							Cálculo de indemnizaciones según la Ley de Riesgos del Trabajo
-						</p>
-					</div>
-				</div>
-			</div>
-
-			{/* Buscador de Causas/Expedientes */}
-			<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
-				<div className="flex items-center gap-2 mb-4">
-					<Search className="text-gray-600 dark:text-gray-400" size={20} />
-					<h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-						Buscar Expediente
-					</h2>
-				</div>
-
-				<div className="relative" ref={searchRef}>
-					<div className="relative">
-						<Search
-							className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-							size={18}
-						/>
-						<input
-							type="text"
-							value={searchTerm}
-							onChange={(e) => {
-								setSearchTerm(e.target.value);
-								setShowSuggestions(true);
-							}}
-							onFocus={() => setShowSuggestions(true)}
-							placeholder="Buscar por nombre, CUIJ o expediente..."
-							className="w-full pl-10 pr-10 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-						/>
-						{searchTerm && (
-							<button
-								onClick={handleRemoveSelection}
-								className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-red-500 transition-colors"
-							>
-								<X size={16} />
-							</button>
-						)}
-					</div>
-
-					{/* Suggestions Dropdown */}
-					{showSuggestions && filteredCauses.length > 0 && (
-						<div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg max-h-80 overflow-y-auto">
-							{filteredCauses.map((cause) => (
-								<div
-									key={cause.id}
-									className="border-b border-gray-100 dark:border-gray-700 last:border-0"
-								>
-									<div className="p-3 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-										<div className="flex items-center gap-2 mb-2">
-											<User
-												className="text-blue-600 dark:text-blue-400"
-												size={16}
-											/>
-											<div>
-												<div className="font-semibold text-gray-900 dark:text-white">
-													{cause.customer.name}
-												</div>
-												<div className="text-sm text-gray-600 dark:text-gray-400 flex flex-wrap gap-3">
-													<span className="flex items-center gap-1">
-														<User size={12} /> {cause.customer.name}
-													</span>
-													{cause.customer.userProfile?.birthDate && (
-														<span className="flex items-center gap-1">
-															<Cake size={12} />{" "}
-															{calculateAge(
-																cause.customer.userProfile.birthDate,
-															)}{" "}
-															años
-														</span>
-													)}
-													{cause.files.length > 0 &&
-														cause.files[0].disabilityPercentage !== null && (
-															<span className="flex items-center gap-1">
-																<PercentCircle size={12} />{" "}
-																{cause.files[0].disabilityPercentage}%
-															</span>
-														)}
-												</div>
-											</div>
-										</div>
-
-										{/* Lista de expedientes */}
-										<div className="space-y-1.5 ml-6">
-											{cause.files.map((file) => (
-												<button
-													key={file.id}
-													onClick={() => handleSelectFile(cause, file)}
-													className="w-full text-left px-3 py-2 bg-gray-50 dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg text-sm transition-colors border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500"
-												>
-													<div className="flex justify-between items-center">
-														<span className="font-medium text-gray-900 dark:text-white flex items-center gap-1.5">
-															<File className="w-3 h-3 text-green-600 dark:text-green-400" />
-															{file.cuij || `Expediente #${file.id}`} -{" "}
-															{cause.customer.name}{" "}
-															{file.filesParts && file.filesParts[0]?.name
-																? `C/${file.filesParts[0].name}`
-																: ""}{" "}
-															S/ {getProcessTypeLabel(file.typeProcessId)}.
-														</span>
-														<span className="text-[16px] text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded">
-															📅{" "}
-															{new Date(file.accidentDate!).toLocaleDateString(
-																"es-AR",
-															)}
-														</span>
-													</div>
-												</button>
-											))}
-										</div>
-									</div>
-								</div>
-							))}
+		<div className="container mx-auto p-4 space-y-4 max-w-7xl">
+			{/* Header */}
+			<Card className="py-4">
+				<CardHeader className="py-0">
+					<div className="flex items-center gap-3">
+						<div className="bg-primary/10 p-2.5 rounded-lg">
+							<Calculator className="size-6 text-primary" />
 						</div>
-					)}
+						<div className="flex-1">
+							<CardTitle className="text-xl">
+								Calculadora LRT{selectedFile ? ` \u2014 ${selectedFile.cuij || "Exp. #" + selectedFile.id}` : ""}
+							</CardTitle>
+							<CardDescription>Accidentes de Trabajo</CardDescription>
+						</div>
+						<Button variant="destructive" size="sm" onClick={handleClearCalculatorData}>
+							<X className="size-4" />
+							Limpiar
+						</Button>
+					</div>
+				</CardHeader>
+			</Card>
 
-					{showSuggestions &&
-						searchTerm &&
-						filteredCauses.length === 0 &&
-						!loading && (
-							<div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-6 text-center">
-								<Search className="text-gray-400 mx-auto mb-2" size={24} />
-								<p className="text-sm text-gray-600 dark:text-gray-400">
-									No se encontraron resultados para{" "}
-									<span className="font-medium">{searchTerm}</span>
-								</p>
-							</div>
-						)}
-				</div>
-			</div>
-
-			{/* Layout con Sidebar */}
+			{/* Case info banner */}
 			{selectedCause && selectedFile && (
-				<div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-					{/* Sidebar - Información del Cliente y Expediente */}
-					<div className="lg:col-span-1 space-y-4">
-						{/* Card Info del Cliente */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 sticky top-4">
-							<div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
-								<User className="text-blue-600 dark:text-blue-400" size={16} />
-								<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-									Expediente Seleccionado
-								</h3>
-							</div>
+				<Card className="py-3">
+					<CardContent className="flex flex-wrap items-center gap-2 py-0">
+						<Badge variant="secondary"><User className="size-3 mr-1" />{selectedCause.customer.name}</Badge>
+						<Badge variant="outline"><FileText className="size-3 mr-1" />{selectedFile.cuij || "Sin CUIJ"}</Badge>
+						{selectedFile.accidentDate && (
+							<Badge variant="outline">
+								<Calendar className="size-3 mr-1" />
+								{new Date(selectedFile.accidentDate).toLocaleDateString("es-AR")}
+							</Badge>
+						)}
+						<Badge variant="outline"><Cake className="size-3 mr-1" />{customerAge !== null ? `${customerAge} años` : "Sin edad"}</Badge>
+						<Badge variant="outline"><PercentCircle className="size-3 mr-1" />{disabilityPercentage !== null ? `${disabilityPercentage}%` : "Sin %"}</Badge>
+					</CardContent>
+				</Card>
+			)}
 
-							<div className="space-y-2.5">
-								<div>
-									<div className="flex items-center gap-1 mb-0.5">
-										<User
-											className="text-gray-500 dark:text-gray-400"
-											size={12}
-										/>
-										<label className="text-[16px] font-medium text-gray-600 dark:text-gray-400">
-											Cliente
-										</label>
-									</div>
-									<p className="text-sm font-semibold text-gray-900 dark:text-white ml-3.5">
-										{selectedCause.customer.name}
-									</p>
-								</div>
+			{/* Main Tabs */}
+			<Tabs value={activeTab} onValueChange={setActiveTab}>
+				<TabsList className="w-full grid grid-cols-3">
+					<TabsTrigger value="parametros"><BarChart3 className="size-4 mr-1.5" />Parámetros</TabsTrigger>
+					<TabsTrigger value="remuneraciones"><TrendingUp className="size-4 mr-1.5" />Remuneraciones</TabsTrigger>
+					<TabsTrigger value="resultado"><Calculator className="size-4 mr-1.5" />Resultado</TabsTrigger>
+				</TabsList>
 
-								<div>
-									<div className="flex items-center gap-1 mb-0.5">
-										<FileText
-											className="text-gray-500 dark:text-gray-400"
-											size={12}
-										/>
-										<label className="text-[16px] font-medium text-gray-600 dark:text-gray-400">
-											Expediente
-										</label>
-									</div>
-									<p className="text-sm font-semibold text-gray-900 dark:text-white ml-3.5">
-										{selectedFile.cuij || "Sin CUIJ"}
-									</p>
-								</div>
-
-								<div>
-									<div className="flex items-center gap-1 mb-0.5">
-										<Calendar
-											className="text-gray-500 dark:text-gray-400"
-											size={12}
-										/>
-										<label className="text-[16px] font-medium text-gray-600 dark:text-gray-400">
-											Fecha Accidente
-										</label>
-									</div>
-									<p className="text-sm font-semibold text-gray-900 dark:text-white ml-3.5">
-										{selectedFile.accidentDate
-											? new Date(selectedFile.accidentDate).toLocaleDateString(
-													"es-AR",
-												)
-											: "No registrada"}
-									</p>
-								</div>
-
-								<div>
-									<div className="flex items-center gap-1 mb-0.5">
-										<Cake
-											className="text-gray-500 dark:text-gray-400"
-											size={12}
-										/>
-										<label className="text-[16px] font-medium text-gray-600 dark:text-gray-400">
-											Edad
-										</label>
-									</div>
-									<p className="text-sm font-semibold text-gray-900 dark:text-white ml-3.5">
-										{customerAge !== null
-											? `${customerAge} años`
-											: "No registrada"}
-									</p>
-								</div>
-
-								<div>
-									<div className="flex items-center gap-1 mb-0.5">
-										<PercentCircle
-											className="text-gray-500 dark:text-gray-400"
-											size={12}
-										/>
-										<label className="text-[16px] font-medium text-gray-600 dark:text-gray-400">
-											Incapacidad
-										</label>
-									</div>
-									<p className="text-sm font-semibold text-gray-900 dark:text-white ml-3.5">
-										{selectedFile.disabilityPercentage !== null
-											? `${selectedFile.disabilityPercentage}%`
-											: "No registrado"}
-									</p>
-								</div>
-							</div>
-						</div>
-					</div>
-
-					{/* Contenido Principal */}
-					<div className="lg:col-span-3">
-						{/* Calculadora */}
-						<div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3">
-							<div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200 dark:border-gray-700">
-								<div className="flex items-center gap-2">
-									<Calculator
-										className="text-blue-600 dark:text-blue-400"
-										size={16}
+				{/* TAB 1: PARÁMETROS */}
+				<TabsContent value="parametros" forceMount className="data-[state=inactive]:hidden">
+					<div className="grid gap-4 md:grid-cols-2">
+						<Card>
+							<CardHeader className="pb-2">
+								<CardTitle className="text-base">Datos del Cálculo</CardTitle>
+							</CardHeader>
+							<CardContent className="grid grid-cols-2 gap-4">
+								<div className="space-y-1.5">
+									<Label><Cake className="size-3.5" /> Edad</Label>
+									<Input
+										type="number"
+										value={customerAge !== null ? customerAge : ""}
+										onChange={(e) => setCustomerAge(e.target.value ? parseInt(e.target.value) : null)}
+										disabled={hasCustomerBirthDate}
+										placeholder="Edad"
 									/>
-									<h2 className="text-sm font-semibold text-gray-900 dark:text-white">
-										Cálculo LRT -{" "}
-										{selectedFile.cuij || `Exp. #${selectedFile.id}`}
-									</h2>
 								</div>
-								<button
-									onClick={handleClearCalculatorData}
-									className="bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-md text-xs flex items-center gap-1 transition-colors"
-									title="Limpiar todos los datos de la calculadora"
-								>
-									<X size={12} />
-									Limpiar
-								</button>
-							</div>
-
-							{/* Sección de Parámetros */}
-							<div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-3">
-								<div className="flex items-center gap-1.5 mb-2">
-									<BarChart3
-										className="text-gray-600 dark:text-gray-400"
-										size={14}
+								<div className="space-y-1.5">
+									<Label><PercentCircle className="size-3.5" /> Incapacidad (%)</Label>
+									<Input
+										type="number"
+										step="0.01"
+										min="0"
+										max="100"
+										value={disabilityPercentage !== null ? disabilityPercentage : ""}
+										onChange={(e) => setDisabilityPercentage(e.target.value ? parseFloat(e.target.value) : null)}
+										placeholder="%"
 									/>
-									<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-										Parámetros de Cálculo
-									</h3>
 								</div>
-								<div className="grid grid-cols-2 gap-2">
-									<div>
-										<div className="flex items-center gap-1 mb-1">
-											<Cake
-												className="text-gray-500 dark:text-gray-400"
-												size={12}
-											/>
-											<label className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-												Edad
-											</label>
-										</div>
-										<input
-											type="number"
-											className={`w-full px-2 py-1.5 text-sm border rounded-md text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all ${
-												hasCustomerBirthDate
-													? "border-gray-200 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 cursor-not-allowed"
-													: "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700"
-											}`}
-											value={customerAge !== null ? customerAge : ""}
-											onChange={(e) =>
-												setCustomerAge(
-													e.target.value ? parseInt(e.target.value) : null,
-												)
-											}
-											disabled={hasCustomerBirthDate}
-											placeholder="Edad"
-										/>
-									</div>
-									<div>
-										<div className="flex items-center gap-1 mb-1">
-											<PercentCircle
-												className="text-gray-500 dark:text-gray-400"
-												size={12}
-											/>
-											<label className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-												Incapacidad (%)
-											</label>
-										</div>
-										<input
-											type="number"
-											step="0.01"
-											min="0"
-											max="100"
-											className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
-											value={
-												disabilityPercentage !== null
-													? disabilityPercentage
-													: ""
-											}
-											onChange={(e) =>
-												setDisabilityPercentage(
-													e.target.value ? parseFloat(e.target.value) : null,
-												)
-											}
-											placeholder="%"
-										/>
-									</div>
-									<div>
-										<div className="flex items-center gap-1 mb-1">
-											<Calendar
-												className="text-gray-500 dark:text-gray-400"
-												size={12}
-											/>
-											<label className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-												Fecha Accidente
-											</label>
-										</div>
-										<input
-											type="date"
-											className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
-											value={accidentDate}
-											onChange={(e) => setAccidentDate(e.target.value)}
-										/>
-									</div>
-									<div>
-										<div className="flex items-center gap-1 mb-1">
-											<Calendar
-												className="text-gray-500 dark:text-gray-400"
-												size={12}
-											/>
-											<label className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-												Hasta
-											</label>
-										</div>
-										<input
-											type="date"
-											className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
-											value={
-												dateUntil || new Date().toLocaleDateString("en-CA")
-											}
-											onChange={(e) => setDateUntil(e.target.value)}
-										/>
-									</div>
+								<div className="space-y-1.5">
+									<Label><Calendar className="size-3.5" /> Fecha Accidente</Label>
+									<Input type="date" value={accidentDate} onChange={(e) => setAccidentDate(e.target.value)} />
 								</div>
-							</div>
+								<div className="space-y-1.5">
+									<Label><Calendar className="size-3.5" /> Hasta</Label>
+									<Input type="date" value={dateUntil || new Date().toLocaleDateString("en-CA")} onChange={(e) => setDateUntil(e.target.value)} />
+								</div>
+							</CardContent>
+						</Card>
 
-							{/* Selector de RIPTE */}
-							<div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-3">
-								<div className="grid grid-cols-2 gap-2">
-									<div>
-										<div className="flex items-center gap-1 mb-1">
-											<TrendingUp
-												className="text-gray-500 dark:text-gray-400"
-												size={12}
-											/>
-											<label className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-												RIPTE Vigente al accidente
-											</label>
-										</div>
-										{riptes.length > 0 ? (
+						<Card>
+							<CardHeader className="pb-2">
+								<CardTitle className="text-base">RIPTE</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<div className="grid grid-cols-2 gap-4">
+									<div className="space-y-1.5">
+										<Label><TrendingUp className="size-3.5" /> Vigente al accidente</Label>
+										{allRiptes.length > 0 ? (
 											<select
-												className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
+												className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
 												value={selectedRipte?.id || ""}
 												onChange={(e) => {
-													const ripte = riptes.find(
-														(r) => r.id === parseInt(e.target.value),
-													);
-													console.log("Cambiando RIPTE Vigente a:", ripte);
+													const ripte = allRiptes.find((r) => r.id === parseInt(e.target.value));
 													setSelectedRipte(ripte || null);
 												}}
 											>
 												<option value="">Seleccione un RIPTE</option>
-												{riptes.map((ripte) => (
+												{allRiptes.map((ripte) => (
 													<option key={ripte.id} value={ripte.id}>
-														{ripte.month} {ripte.year} - $
-														{Number(ripte.value).toLocaleString("es-AR", {
-															minimumFractionDigits: 2,
-															maximumFractionDigits: 2,
-														})}
+														{ripte.month} {ripte.year} - ${Number(ripte.value).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
 													</option>
 												))}
 											</select>
 										) : (
-											<input
-												type="text"
-												className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 text-gray-900 dark:text-white"
-												value={accidentDate ? "Cargando..." : "Ingrese fecha"}
-												disabled
-											/>
+											<Input disabled value={accidentDate ? "Cargando..." : "Ingrese fecha"} />
 										)}
 									</div>
-									<div>
-										<div className="flex items-center gap-1 mb-1">
-											<BarChart3
-												className="text-gray-500 dark:text-gray-400"
-												size={12}
-											/>
-											<label className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-												IBM
-											</label>
-										</div>
-										<select className="w-full px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all">
+									<div className="space-y-1.5">
+										<Label><BarChart3 className="size-3.5" /> IBM</Label>
+										<select className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50">
 											<option value="mensual">Mensual</option>
 											<option value="anual">Anual</option>
 										</select>
 									</div>
 								</div>
-							</div>
-
-							{/* RIPTE Fecha Desde y Fecha Hasta */}
-							<div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-3">
-								<div className="flex items-center gap-1.5 mb-2">
-									<Calendar
-										className="text-gray-600 dark:text-gray-400"
-										size={14}
-									/>
-									<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-										Tasa de variación de riptes
-									</h3>
-								</div>
-								<div className="grid grid-cols-2 gap-2">
-									<div>
-										<div className="flex items-center gap-1.5 mb-1.5">
-											<Calendar
-												className="text-red-500 dark:text-red-400"
-												size={14}
-											/>
-											<label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-												Desde
-											</label>
-										</div>
-										<select
-											className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-											value={selectedRipte?.id || ""}
-											onChange={(e) => {
-												const ripte = allRiptes.find(
-													(r) => r.id === parseInt(e.target.value),
-												);
-												setSelectedRipte(ripte || null);
-											}}
-										>
-											<option value="">Seleccione RIPTE Fecha Desde</option>
-											{allRiptes.map((ripte) => (
-												<option key={ripte.id} value={ripte.id}>
-													{ripte.month} {ripte.year} - $
-													{Number(ripte.value).toLocaleString("es-AR", {
-														minimumFractionDigits: 2,
-														maximumFractionDigits: 2,
-													})}
-												</option>
-											))}
-										</select>
-									</div>
-									<div>
-										<div className="flex items-center gap-1.5 mb-1.5">
-											<Calendar
-												className="text-green-500 dark:text-green-400"
-												size={14}
-											/>
-											<label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-												Hasta
-											</label>
-										</div>
-										<select
-											className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-											value={selectedRipteHasta?.id || ""}
-											onChange={(e) => {
-												const ripte = allRiptes.find(
-													(r) => r.id === parseInt(e.target.value),
-												);
-												setSelectedRipteHasta(ripte || null);
-											}}
-										>
-											<option value="">Seleccione RIPTE Fecha Hasta</option>
-											{allRiptes.map((ripte) => (
-												<option key={ripte.id} value={ripte.id}>
-													{ripte.month} {ripte.year} - $
-													{Number(ripte.value).toLocaleString("es-AR", {
-														minimumFractionDigits: 2,
-														maximumFractionDigits: 2,
-													})}
-												</option>
-											))}
-										</select>
-									</div>
-								</div>
-							</div>
-
-							{/* Tabla de Remuneraciones */}
-							{remuneraciones.length > 0 && (
-								<div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-3 mb-3">
-									<div className="flex items-center justify-between mb-2">
-										<div className="flex items-center gap-1.5">
-											<BarChart3
-												className="text-gray-600 dark:text-gray-400"
-												size={14}
-											/>
-											<h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-												Tabla de Remuneraciones
-											</h3>
-										</div>
-
-										{/* Botón Replicar Haberes */}
-										{hayHaberesIngresados && (
-											<button
-												onClick={handleReplicarHaberes}
-												className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-md text-[16px] flex items-center gap-1 transition-colors shadow-sm"
+								<Separator />
+								<div className="space-y-3">
+									<Label className="text-sm font-semibold">Tasa de variación de RIPTES</Label>
+									<div className="grid grid-cols-2 gap-4">
+										<div className="space-y-1.5">
+											<Label className="text-muted-foreground text-xs">Desde</Label>
+											<select
+												className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+												value={selectedRipte?.id || ""}
+												onChange={(e) => {
+													const ripte = allRiptes.find((r) => r.id === parseInt(e.target.value));
+													setSelectedRipte(ripte || null);
+												}}
 											>
-												<Copy size={12} />
-												Replicar
-											</button>
-										)}
+												<option value="">Seleccione RIPTE Desde</option>
+												{allRiptes.map((ripte) => (
+													<option key={ripte.id} value={ripte.id}>
+														{ripte.month} {ripte.year} - ${Number(ripte.value).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+													</option>
+												))}
+											</select>
+										</div>
+										<div className="space-y-1.5">
+											<Label className="text-muted-foreground text-xs">Hasta</Label>
+											<select
+												className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+												value={selectedRipteHasta?.id || ""}
+												onChange={(e) => {
+													const ripte = allRiptes.find((r) => r.id === parseInt(e.target.value));
+													setSelectedRipteHasta(ripte || null);
+												}}
+											>
+												<option value="">Seleccione RIPTE Hasta</option>
+												{allRiptes.map((ripte) => (
+													<option key={ripte.id} value={ripte.id}>
+														{ripte.month} {ripte.year} - ${Number(ripte.value).toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+													</option>
+												))}
+											</select>
+										</div>
 									</div>
+								</div>
+							</CardContent>
+						</Card>
+					</div>
+					<div className="flex justify-end mt-4">
+						<Button onClick={() => setActiveTab("remuneraciones")}>
+							Siguiente <ChevronRight className="size-4" />
+						</Button>
+					</div>
+				</TabsContent>
 
-									{/* Botón adicional arriba de la tabla */}
+				{/* TAB 2: REMUNERACIONES */}
+				<TabsContent value="remuneraciones" forceMount className="data-[state=inactive]:hidden">
+					<div className="grid gap-4 lg:grid-cols-3">
+						<Card className="lg:col-span-2">
+							<CardHeader className="pb-2">
+								<div className="flex items-center justify-between">
+									<CardTitle className="text-base">Tabla de Remuneraciones</CardTitle>
 									{hayHaberesIngresados && (
-										<div className="mb-2">
-											<button
-												onClick={handleReplicarHaberes}
-												className="w-full bg-linear-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-all shadow-sm"
-											>
-												<Copy size={14} />
-												<span className="text-sm">
-													Replicar Primer Haber a Todas las Filas
-												</span>
-											</button>
-										</div>
+										<Button size="sm" variant="outline" onClick={handleReplicarHaberes}>
+											<Copy className="size-3.5" /> Replicar
+										</Button>
 									)}
-									<div className="grid grid-cols-1 lg:grid-cols-11 gap-4">
-										{/* Tabla Principal - 8 columnas */}
-										<div className="lg:col-span-8">
-											<div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm border border-gray-200 dark:border-gray-700">
-												<table className="min-w-full">
-													<thead className="bg-linear-to-r from-blue-600 to-blue-800 text-white">
-														<tr>
-															<th className="px-2 py-2 text-center font-bold text-[16px] uppercase tracking-wide">
-																PERIODO
-															</th>
-															<th className="px-2 py-2 text-center font-bold text-[16px] uppercase tracking-wide">
-																HABERES
-															</th>
-															<th className="px-2 py-2 text-center font-bold text-[16px] uppercase tracking-wide">
-																RIPTE MES
-															</th>
-															<th className="px-2 py-2 text-center font-bold text-[16px] uppercase tracking-wide">
-																AJUSTADO
-															</th>
-														</tr>
-													</thead>
-													<tbody className="bg-white dark:bg-gray-700">
-														{remuneraciones.map((row, index) => (
-															<tr key={index}>
-																<td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-[16px] text-gray-900 dark:text-white">
-																	{row.periodo}
-																</td>
-																<td className="border border-gray-300 dark:border-gray-600 px-1 py-1">
-																	<input
-																		type="text"
-																		className="w-full px-1 py-0.5 text-[16px] border-0 bg-transparent text-right text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
-																		value={row.haberes || ""}
-																		onChange={(e) =>
-																			handleHaberesChange(index, e.target.value)
-																		}
-																		placeholder="0"
-																	/>
-																</td>
-																<td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-[16px] text-gray-900 dark:text-white">
-																	{row.ripteDelMes
-																		? row.ripteDelMes.toFixed(2)
-																		: "-"}
-																</td>
-																<td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-[16px] text-gray-900 dark:text-white">
-																	{row.haber_ajustado
-																		? `$ ${row.haber_ajustado.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-																		: "-"}
-																</td>
-															</tr>
-														))}
-														<tr className="bg-gray-100 dark:bg-gray-600 font-semibold">
-															<td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-[16px] text-gray-900 dark:text-white">
-																TOTAL
-															</td>
-															<td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-[16px] text-gray-900 dark:text-white">
-																${" "}
-																{totalHaberes.toLocaleString("es-AR", {
-																	minimumFractionDigits: 2,
-																	maximumFractionDigits: 2,
-																})}
-															</td>
-															<td className="border border-gray-300 dark:border-gray-600 px-2 py-1"></td>
-															<td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-[16px] text-gray-900 dark:text-white">
-																${" "}
-																{totalHaberesAjustados.toLocaleString("es-AR", {
-																	minimumFractionDigits: 2,
-																	maximumFractionDigits: 2,
-																})}
-															</td>
-														</tr>
-														<tr className="bg-gray-100 dark:bg-gray-600 font-semibold">
-															<td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-center text-[16px] text-gray-900 dark:text-white">
-																PROMEDIO
-															</td>
-															<td className="border border-gray-300 dark:border-gray-600 px-2 py-1"></td>
-															<td className="border border-gray-300 dark:border-gray-600 px-2 py-1"></td>
-															<td className="border border-gray-300 dark:border-gray-600 px-2 py-1 text-right text-[16px] text-gray-900 dark:text-white">
-																${" "}
-																{promedioHaberesAjustados.toLocaleString(
-																	"es-AR",
-																	{
-																		minimumFractionDigits: 2,
-																		maximumFractionDigits: 2,
-																	},
-																)}
-															</td>
-														</tr>
-													</tbody>
-												</table>
-											</div>
-										</div>
-
-										{/* Tabla de Porcentajes RIPTE - 3 columnas */}
-										<div className="lg:col-span-3">
-											<div className="overflow-x-auto max-h-150 overflow-y-auto">
-												<table className="min-w-full border border-gray-300 dark:border-gray-600">
-													<thead className="bg-teal-500 text-white sticky top-0">
-														<tr>
-															<th className="border border-gray-300 dark:border-gray-600 px-1 py-1.5 text-center text-[9px] uppercase">
-																PERÍODO
-															</th>
-															<th className="border border-gray-300 dark:border-gray-600 px-1 py-1.5 text-center text-[9px] uppercase">
-																3M ATRÁS
-															</th>
-															<th className="border border-gray-300 dark:border-gray-600 px-1 py-1.5 text-center text-[9px] uppercase">
-																%
-															</th>
-														</tr>
-													</thead>
-													<tbody className="bg-white dark:bg-gray-700">
-														{porcentajesRipte.map((row, index) => (
-															<tr key={index}>
-																<td className="border border-gray-300 dark:border-gray-600 px-1 py-0.5 text-center text-[16px] text-gray-900 dark:text-white">
-																	{row.mesPeriodo}
-																</td>
-																<td className="border border-gray-300 dark:border-gray-600 px-1 py-0.5 text-center text-[16px] text-gray-900 dark:text-white">
-																	{row.mesCorriendo}
-																</td>
-																<td className="border border-gray-300 dark:border-gray-600 px-1 py-0.5 text-right text-[16px] text-gray-900 dark:text-white">
-																	{row.riptePercentage !== null
-																		? `${row.riptePercentage.toFixed(2)}`
-																		: "-"}
-																</td>
-															</tr>
-														))}
-														<tr className="bg-teal-100 dark:bg-teal-900 font-semibold">
-															<td
-																className="border border-gray-300 dark:border-gray-600 px-1 py-0.5 text-center text-[16px] text-gray-900 dark:text-white"
-																colSpan={2}
-															>
-																TOTAL
-															</td>
-															<td className="border border-gray-300 dark:border-gray-600 px-1 py-0.5 text-right text-[16px] text-gray-900 dark:text-white">
-																{(() => {
-																	const totalPercentage =
-																		porcentajesRipte.reduce((sum, row) => {
-																			if (row.riptePercentage !== null) {
-																				return sum + row.riptePercentage;
-																			}
-																			return sum;
-																		}, 0);
-																	return `${totalPercentage.toFixed(2)}`;
-																})()}
-															</td>
-														</tr>
-													</tbody>
-												</table>
-											</div>
-										</div>
-									</div>
 								</div>
-							)}
-
-							{/* Sección de Cálculo Final */}
-							{selectedCause && selectedFile && (
-								<div className="bg-linear-to-br from-slate-50 to-zinc-100 dark:from-slate-900 dark:to-zinc-900 rounded-xl shadow-2xl p-8 border-2 border-slate-200 dark:border-slate-700">
-									<div className="flex items-center gap-4 mb-8">
-										<div className="bg-linear-to-r from-green-500 to-emerald-600 p-4 rounded-xl text-white">
-											<Calculator size={32} />
-										</div>
-										<div>
-											<h3 className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-												Cálculo Final de LRT
-											</h3>
-											<p className="text-slate-600 dark:text-slate-400 text-lg mt-1">
-												Resultados automáticos según normativa vigente
-											</p>
-										</div>
+							</CardHeader>
+							<CardContent>
+								{remuneraciones.length > 0 ? (
+									<div className="overflow-auto max-h-125 rounded-md border">
+										<table className="w-full text-xs">
+											<thead className="bg-muted/50 sticky top-0">
+												<tr>
+													<th className="px-2 py-2 text-left font-medium">PERÍODO</th>
+													<th className="px-2 py-2 text-right font-medium">HABERES</th>
+													<th className="px-2 py-2 text-right font-medium">RIPTE MES</th>
+													<th className="px-2 py-2 text-right font-medium">AJUSTADO</th>
+												</tr>
+											</thead>
+											<tbody>
+												{remuneraciones.map((row, index) => (
+													<tr key={index} className="border-t hover:bg-muted/30">
+														<td className="px-2 py-1.5 font-mono text-muted-foreground">{row.periodo}</td>
+														<td className="px-2 py-1">
+															<Input
+																className="h-7 text-xs text-right"
+																value={row.haberes}
+																onChange={(e) => handleHaberesChange(index, e.target.value)}
+																placeholder="0.00"
+															/>
+														</td>
+														<td className="px-2 py-1.5 text-right text-muted-foreground">
+															{row.ripteDelMes ? `$${row.ripteDelMes.toLocaleString("es-AR", { minimumFractionDigits: 2 })}` : "-"}
+														</td>
+														<td className="px-2 py-1.5 text-right font-medium">
+															{row.haber_ajustado ? `$${row.haber_ajustado.toLocaleString("es-AR", { minimumFractionDigits: 2 })}` : "-"}
+														</td>
+													</tr>
+												))}
+												<tr className="border-t-2 bg-muted/50 font-semibold">
+													<td className="px-2 py-2">TOTAL</td>
+													<td className="px-2 py-2 text-right">${totalHaberes.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+													<td className="px-2 py-2"></td>
+													<td className="px-2 py-2 text-right">${totalHaberesAjustados.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+												</tr>
+												<tr className="bg-primary/5 font-semibold text-primary">
+													<td className="px-2 py-2">PROMEDIO</td>
+													<td className="px-2 py-2" colSpan={2}></td>
+													<td className="px-2 py-2 text-right">${promedioHaberesAjustados.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</td>
+												</tr>
+											</tbody>
+										</table>
 									</div>
+								) : (
+									<p className="text-sm text-muted-foreground text-center py-8">Seleccione un RIPTE vigente para generar la tabla</p>
+								)}
+							</CardContent>
+						</Card>
 
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-										{/* Columna Izquierda - Cálculos */}
-										<div className="space-y-2">
-											<div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700">
-												<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-													IBM CON RIPTE:
-												</span>
-												<span className="text-[16px] font-semibold text-gray-900 dark:text-white">
-													${" "}
-													{promedioHaberesAjustados.toLocaleString("es-AR", {
-														minimumFractionDigits: 2,
-														maximumFractionDigits: 2,
-													})}
-												</span>
-											</div>
-											<div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700">
-												<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-													TASA VARIACIÓN:
-												</span>
-												<span className="text-[16px] font-semibold text-gray-900 dark:text-white">
-													{tasaDeVariacion.toFixed(2)}%
-												</span>
-											</div>
-											<div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700">
-												<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-													IBM TOTAL:
-												</span>
-												<span className="text-[16px] font-semibold text-gray-900 dark:text-white">
-													${" "}
-													{ibmTotal.toLocaleString("es-AR", {
-														minimumFractionDigits: 2,
-														maximumFractionDigits: 2,
-													})}
-												</span>
-											</div>
-											<div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700">
-												<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-													% INCAPACIDAD
-												</span>
-												<span className="text-[16px] font-semibold text-gray-900 dark:text-white">
-													{disabilityPercentage !== null
-														? `${disabilityPercentage}%`
-														: "0%"}
-												</span>
-											</div>
-											<div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700">
-												<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-													COEF. EDAD
-												</span>
-												<span className="text-[16px] font-semibold text-gray-900 dark:text-white">
-													{customerAge !== null
-														? coeficienteEdad.toFixed(2)
-														: "0"}
-												</span>
-											</div>
-											<div className="flex justify-between items-center py-2 bg-blue-50 dark:bg-blue-900/30 px-2 rounded-md border border-blue-200 dark:border-blue-700">
-												<span className="text-sm font-bold text-blue-900 dark:text-blue-100">
-													TOTAL FÓRMULA
-												</span>
-												<span className="text-sm font-bold text-blue-900 dark:text-blue-100">
-													${" "}
-													{totalFormula.toLocaleString("es-AR", {
-														minimumFractionDigits: 2,
-														maximumFractionDigits: 2,
-													})}
-												</span>
-											</div>{" "}
-											{/* Switch para activar 20% adicional */}
-											<div className="flex items-center justify-between py-1.5 bg-gray-100 dark:bg-gray-800 px-2 rounded-md border border-gray-300 dark:border-gray-600">
-												<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-													Activar 20%
-												</span>
-												<label className="relative inline-flex items-center cursor-pointer">
-													<input
-														type="checkbox"
-														className="sr-only peer"
-														checked={activar20Porciento}
-														onChange={(e) =>
-															setActivar20Porciento(e.target.checked)
-														}
-													/>
-													<div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-												</label>
-											</div>
-											{/* Mostrar 20% adicional cuando esté activado */}
-											{activar20Porciento && (
-												<div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700">
-													<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-														20% TOTAL:
-													</span>
-													<span className="text-[16px] font-semibold text-gray-900 dark:text-white">
-														${" "}
-														{veintePorCiento.toLocaleString("es-AR", {
-															minimumFractionDigits: 2,
-															maximumFractionDigits: 2,
-														})}
-													</span>
-												</div>
-											)}
-											{/* Total Indemnización */}
-											<div
-												className={`flex justify-between items-center py-2 px-2 rounded-md border ${
-													activar20Porciento
-														? "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700"
-														: "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700"
-												}`}
-											>
-												<span
-													className={`font-bold text-sm ${
-														activar20Porciento
-															? "text-green-900 dark:text-green-100"
-															: "text-blue-900 dark:text-blue-100"
-													}`}
-												>
-													TOTAL INDEM. {activar20Porciento ? "(+20%)" : ""}
-												</span>
-												<span
-													className={`font-bold text-sm ${
-														activar20Porciento
-															? "text-green-900 dark:text-green-100"
-															: "text-blue-900 dark:text-blue-100"
-													}`}
-												>
-													${" "}
-													{totalIndemnizacion.toLocaleString("es-AR", {
-														minimumFractionDigits: 2,
-														maximumFractionDigits: 2,
-													})}
-												</span>
-											</div>
-											{/* Sección de Intereses 8% Anual */}
-											{accidentDate && totalIndemnizacion > 0 && (
-												<div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg border border-yellow-200 dark:border-yellow-700">
-													<h4 className="text-sm font-bold text-yellow-900 dark:text-yellow-100 mb-2 flex items-center gap-2">
-														<span>📈</span>
-														INTERÉS TASA 8% ANUAL
-													</h4>
+						<Card>
+							<CardHeader className="pb-2">
+								<CardTitle className="text-base">% RIPTE (DNU 669/19)</CardTitle>
+							</CardHeader>
+							<CardContent>
+								{porcentajesRipte.length > 0 ? (
+									<div className="overflow-auto max-h-125 rounded-md border">
+										<table className="w-full text-xs">
+											<thead className="bg-muted/50 sticky top-0">
+												<tr>
+													<th className="px-2 py-2 text-left font-medium">PERÍODO</th>
+													<th className="px-2 py-2 text-left font-medium">3M ATRÁS</th>
+													<th className="px-2 py-2 text-right font-medium">%</th>
+												</tr>
+											</thead>
+											<tbody>
+												{porcentajesRipte.map((row, index) => (
+													<tr key={index} className="border-t hover:bg-muted/30">
+														<td className="px-2 py-1.5 font-mono text-muted-foreground">{row.mesPeriodo}</td>
+														<td className="px-2 py-1.5 font-mono text-muted-foreground">{row.mesCorriendo}</td>
+														<td className="px-2 py-1.5 text-right font-medium">
+															{row.riptePercentage !== null ? `${row.riptePercentage.toFixed(2)}` : "-"}
+														</td>
+													</tr>
+												))}
+												<tr className="border-t-2 bg-muted/50 font-semibold">
+													<td className="px-2 py-2" colSpan={2}>TOTAL</td>
+													<td className="px-2 py-2 text-right">
+														{porcentajesRipte.reduce((sum, r) => sum + (r.riptePercentage || 0), 0).toFixed(2)}
+													</td>
+												</tr>
+											</tbody>
+										</table>
+									</div>
+								) : (
+									<p className="text-sm text-muted-foreground text-center py-8">Seleccione rango de RIPTE</p>
+								)}
+							</CardContent>
+						</Card>
+					</div>
+					<div className="flex justify-between mt-4">
+						<Button variant="outline" onClick={() => setActiveTab("parametros")}>
+							<ChevronLeft className="size-4" /> Anterior
+						</Button>
+						<Button onClick={() => setActiveTab("resultado")}>
+							Siguiente <ChevronRight className="size-4" />
+						</Button>
+					</div>
+				</TabsContent>
 
-													<div className="space-y-1">
-														{interesesCalculados.map((item, index) => (
-															<div
-																key={index}
-																className="flex justify-between items-center py-1 border-b border-yellow-200 dark:border-yellow-600"
-															>
-																<div className="flex items-center gap-4">
-																	<span className="text-sm font-semibold text-yellow-900 dark:text-yellow-100 min-w-12.5">
-																		{item.año}
-																	</span>
-																	<span className="text-sm text-yellow-800 dark:text-yellow-200">
-																		Cantidad de días: {item.dias}
-																	</span>
-																</div>
-																<span className="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
-																	${" "}
-																	{item.interesDelAño.toLocaleString("es-AR", {
-																		minimumFractionDigits: 2,
-																		maximumFractionDigits: 2,
-																	})}
-																</span>
-															</div>
-														))}
-
-														<div className="flex justify-between items-center py-2 mt-2 bg-yellow-100 dark:bg-yellow-800 px-2 rounded border border-yellow-300 dark:border-yellow-600">
-															<span className="text-sm font-bold text-yellow-900 dark:text-yellow-100">
-																TOTAL INTERESES
-															</span>
-															<span className="text-sm font-bold text-yellow-900 dark:text-yellow-100">
-																${" "}
-																{totalIntereses.toLocaleString("es-AR", {
-																	minimumFractionDigits: 2,
-																	maximumFractionDigits: 2,
-																})}
-															</span>
-														</div>
-
-														<div className="flex justify-between items-center py-2 mt-1 bg-orange-100 dark:bg-orange-900 px-2 rounded border border-orange-300 dark:border-orange-600">
-															<span className="text-sm font-bold text-orange-900 dark:text-orange-100">
-																TOTAL CON INTERESES
-															</span>
-															<span className="text-sm font-bold text-orange-900 dark:text-orange-100">
-																${" "}
-																{totalConIntereses.toLocaleString("es-AR", {
-																	minimumFractionDigits: 2,
-																	maximumFractionDigits: 2,
-																})}
-															</span>
-														</div>
-													</div>
-												</div>
-											)}
-											{/* Input para Piso Mínimo */}
-											<div className="flex items-center gap-2 py-1.5 bg-gray-100 dark:bg-gray-800 px-2 rounded-md border border-gray-300 dark:border-gray-600">
-												<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300 min-w-17.5">
-													Piso Mín:
-												</span>
-												<input
+				{/* TAB 3: RESULTADO */}
+				<TabsContent value="resultado" forceMount className="data-[state=inactive]:hidden">
+					<div className="grid gap-4 md:grid-cols-2">
+						<Card>
+							<CardHeader className="pb-2">
+								<CardTitle className="text-base">Cálculo Final</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-1">
+								<div className="flex justify-between py-1.5 border-b text-sm">
+									<span className="text-muted-foreground">IBM CON RIPTE</span>
+									<span className="font-medium">${promedioHaberesAjustados.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+								</div>
+								<div className="flex justify-between py-1.5 border-b text-sm">
+									<span className="text-muted-foreground">TASA VARIACIÓN</span>
+									<span className="font-medium">{tasaDeVariacion.toFixed(2)}%</span>
+								</div>
+								<div className="flex justify-between py-1.5 border-b text-sm">
+									<span className="text-muted-foreground">IBM TOTAL</span>
+									<span className="font-medium">${ibmTotal.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+								</div>
+								<div className="flex justify-between py-1.5 border-b text-sm">
+									<span className="text-muted-foreground">% INCAPACIDAD</span>
+									<span className="font-medium">{disabilityPercentage !== null ? `${disabilityPercentage}%` : "0%"}</span>
+								</div>
+								<div className="flex justify-between py-1.5 border-b text-sm">
+									<span className="text-muted-foreground">COEF. EDAD</span>
+									<span className="font-medium">{customerAge !== null ? coeficienteEdad.toFixed(2) : "0"}</span>
+								</div>
+								<div className="flex justify-between py-2.5 px-3 bg-primary/10 rounded-md mt-2 text-sm font-bold text-primary">
+									<span>TOTAL FÓRMULA</span>
+									<span>${totalFormula.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+								</div>
+								<div className="flex items-center justify-between py-2 px-3 bg-muted rounded-md mt-2">
+									<Label className="text-sm">Activar 20%</Label>
+									<Switch checked={activar20Porciento} onCheckedChange={setActivar20Porciento} />
+								</div>
+								{activar20Porciento && (
+									<div className="flex justify-between py-1.5 border-b text-sm">
+										<span className="text-muted-foreground">20% TOTAL</span>
+										<span className="font-medium">${veintePorCiento.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+									</div>
+								)}
+								<div className={`flex justify-between py-2.5 px-3 rounded-md mt-1 text-sm font-bold ${activar20Porciento ? "bg-green-100 text-green-900 dark:bg-green-900/30 dark:text-green-100" : "bg-primary/10 text-primary"}`}>
+									<span>TOTAL INDEM. {activar20Porciento ? "(+20%)" : ""}</span>
+									<span>${totalIndemnizacion.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+								</div>
+								{accidentDate && totalIndemnizacion > 0 && (
+									<div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700 space-y-1">
+										<div className="flex items-center justify-between mb-2">
+											<h4 className="text-sm font-bold text-amber-900 dark:text-amber-100">INTERÉS TASA ANUAL</h4>
+											<div className="flex items-center gap-1.5">
+												<Input
 													type="number"
-													step="0.01"
-													className="flex-1 px-2 py-1 text-[16px] border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-1 focus:ring-blue-500"
-													value={pisoMinimo !== null ? pisoMinimo : ""}
-													onChange={(e) =>
-														setPisoMinimo(
-															e.target.value
-																? parseFloat(e.target.value)
-																: null,
-														)
-													}
-													placeholder="Ingrese piso mínimo"
+													step="0.1"
+													min="0"
+													className="h-7 w-20 text-xs text-right bg-white dark:bg-amber-950"
+													value={tasaInteresAnual}
+													onChange={(e) => setTasaInteresAnual(e.target.value ? parseFloat(e.target.value) : 0)}
 												/>
-												<span className="text-[16px] font-semibold text-gray-900 dark:text-white min-w-25 text-right">
-													${" "}
-													{totalPisoMinimo.toLocaleString("es-AR", {
-														minimumFractionDigits: 2,
-														maximumFractionDigits: 2,
-													})}
-												</span>
+												<span className="text-xs font-semibold text-amber-900 dark:text-amber-100">%</span>
 											</div>
-											{/* Switch para activar 20% del piso mínimo */}
-											<div className="flex items-center justify-between py-1.5 bg-gray-100 dark:bg-gray-800 px-2 rounded-md border border-gray-300 dark:border-gray-600">
-												<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-													Activar Piso
-												</span>
-												<label className="relative inline-flex items-center cursor-pointer">
-													<input
-														type="checkbox"
-														className="sr-only peer"
-														checked={activarPisoMinimo}
-														onChange={(e) =>
-															setActivarPisoMinimo(e.target.checked)
-														}
-													/>
-													<div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
-												</label>
-											</div>
-											{/* Mostrar 20% del piso mínimo cuando esté activado */}
-											{activarPisoMinimo && totalPisoMinimo > 0 && (
-												<div className="flex justify-between items-center py-1 border-b border-gray-200 dark:border-gray-700">
-													<span className="text-[16px] font-medium text-gray-700 dark:text-gray-300">
-														20% PISO:
-													</span>
-													<span className="text-[16px] font-semibold text-gray-900 dark:text-white">
-														${" "}
-														{veintePorCientoPiso.toLocaleString("es-AR", {
-															minimumFractionDigits: 2,
-															maximumFractionDigits: 2,
-														})}
-													</span>
-												</div>
-											)}
-											{/* Total Piso Mínimo Final */}
-											{totalPisoMinimo > 0 && (
-												<div
-													className={`flex justify-between items-center py-2 px-2 rounded-md border ${
-														activarPisoMinimo
-															? "bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700"
-															: "bg-gray-100 dark:bg-gray-800 border-gray-300 dark:border-gray-600"
-													}`}
-												>
-													<span
-														className={`font-bold text-sm ${
-															activarPisoMinimo
-																? "text-purple-900 dark:text-purple-100"
-																: "text-gray-900 dark:text-gray-100"
-														}`}
-													>
-														TOTAL PISO {activarPisoMinimo ? "(+20%)" : ""}
-													</span>
-													<span
-														className={`font-bold text-sm ${
-															activarPisoMinimo
-																? "text-purple-900 dark:text-purple-100"
-																: "text-gray-900 dark:text-gray-100"
-														}`}
-													>
-														${" "}
-														{totalPisoMinimoFinal.toLocaleString("es-AR", {
-															minimumFractionDigits: 2,
-															maximumFractionDigits: 2,
-														})}
-													</span>
-												</div>
-											)}
 										</div>
-
-										{/* Columna Derecha - Información adicional */}
-										<div className="bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700">
-											<h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-												Detalles del Cálculo
-											</h4>
-											<div className="space-y-1 text-[16px] text-gray-600 dark:text-gray-400">
-												<p>
-													<strong>F. Accidente:</strong>{" "}
-													{accidentDate
-														? new Date(accidentDate).toLocaleDateString("es-AR")
-														: "No def."}
-												</p>
-												<p>
-													<strong>Edad:</strong>{" "}
-													{customerAge !== null
-														? `${customerAge} años`
-														: "No def."}
-												</p>
-												<p>
-													<strong>Incapacidad:</strong>{" "}
-													{disabilityPercentage !== null
-														? `${disabilityPercentage}%`
-														: "No def."}
-												</p>
-												<p>
-													<strong>RIPTE:</strong>{" "}
-													{selectedRipte
-														? `${selectedRipte.month} ${selectedRipte.year} - $${Number(selectedRipte.value).toLocaleString("es-AR")}`
-														: "No sel."}
-												</p>
-												<p>
-													<strong>IBM Prom.:</strong> $
-													{promedioHaberesAjustados.toLocaleString("es-AR", {
-														minimumFractionDigits: 2,
-														maximumFractionDigits: 2,
-													})}
-												</p>
+										{interesesCalculados.map((item, idx) => (
+											<div key={idx} className="flex justify-between text-xs border-b border-amber-200 dark:border-amber-600 py-1">
+												<span className="text-amber-800 dark:text-amber-200">{item.año} — {item.dias} días</span>
+												<span className="font-semibold text-amber-900 dark:text-amber-100">${item.interesDelAño.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 											</div>
-
-											<div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/30 rounded border border-yellow-200 dark:border-yellow-700">
-												<p className="text-[16px] text-yellow-800 dark:text-yellow-200">
-													<strong>Nota:</strong> Cálculos según LRT. Verificar
-													coef. de edad.
-												</p>
-											</div>
-
-											{/* Botones de Acción */}
-											<div className="mt-3 space-y-2">
-												<button
-													onClick={handleGeneratePDF}
-													disabled={isGeneratingPDF || !totalFormula}
-													className="w-full bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors text-sm"
-												>
-													{isGeneratingPDF ? (
-														<>
-															<div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
-															Generando...
-														</>
-													) : (
-														<>
-															<Download size={14} />
-															PDF
-														</>
-													)}
-												</button>
-
-												<button
-													onClick={handleSaveLiquidacion}
-													disabled={isSaving || !totalFormula}
-													className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors text-sm"
-												>
-													{isSaving ? (
-														<>
-															<div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
-															Guardando...
-														</>
-													) : (
-														<>
-															<Save size={14} />
-															Guardar
-														</>
-													)}
-												</button>
-
-												<button
-													onClick={() =>
-														setShowSavedLiquidations(!showSavedLiquidations)
-													}
-													disabled={!selectedFile}
-													className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-1.5 px-3 rounded-md flex items-center justify-center gap-1.5 transition-colors text-sm"
-												>
-													<FileText size={14} />
-													Ver Guardadas ({savedLiquidations.length})
-												</button>
-											</div>
-
-											{/* Modal de liquidaciones guardadas */}
-											{showSavedLiquidations && (
-												<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-													<div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
-														<div className="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-															<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-																Liquidaciones Guardadas
-															</h3>
-															<button
-																onClick={() => setShowSavedLiquidations(false)}
-																className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-															>
-																<X size={20} />
-															</button>
-														</div>
-														<div className="p-4 overflow-y-auto max-h-[calc(80vh-8rem)]">
-															{savedLiquidations.length === 0 ? (
-																<p className="text-center text-gray-500 dark:text-gray-400 py-8">
-																	No hay liquidaciones guardadas para este
-																	expediente
-																</p>
-															) : (
-																<div className="space-y-3">
-																	{savedLiquidations.map((liq: any) => (
-																		<div
-																			key={liq.id}
-																			className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-																		>
-																			<div className="flex items-start justify-between">
-																				<div className="flex-1">
-																					<h4 className="font-semibold text-gray-900 dark:text-white">
-																						{liq.fileName}
-																					</h4>
-																					<p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-																						{liq.description}
-																					</p>
-																					<div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-																						<span>
-																							📅{" "}
-																							{new Date(
-																								liq.uploadedAt,
-																							).toLocaleDateString("es-AR")}
-																						</span>
-																						{liq.uploadedBy && (
-																							<span>
-																								👤 {liq.uploadedBy.name}
-																							</span>
-																						)}
-																					</div>
-																				</div>
-																				<button
-																					onClick={() =>
-																						handleLoadLiquidation(liq.id)
-																					}
-																					className="ml-4 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1"
-																				>
-																					<Download size={14} />
-																					Cargar
-																				</button>
-																			</div>
-																		</div>
-																	))}
-																</div>
-															)}
-														</div>
-													</div>
-												</div>
-											)}
+										))}
+										<div className="flex justify-between py-2 mt-1 bg-amber-100 dark:bg-amber-800 px-2 rounded text-sm font-bold text-amber-900 dark:text-amber-100">
+											<span>TOTAL INTERESES</span>
+											<span>${totalIntereses.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+										</div>
+										<div className="flex justify-between py-2 mt-1 bg-orange-100 dark:bg-orange-900 px-2 rounded text-sm font-bold text-orange-900 dark:text-orange-100">
+											<span>TOTAL CON INTERESES</span>
+											<span>${totalConIntereses.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 										</div>
 									</div>
+								)}
+								<Separator className="my-3" />
+								<div className="flex items-center gap-2 py-1.5 px-3 bg-muted rounded-md">
+									<Label className="text-sm min-w-15">Piso Mín:</Label>
+									<Input
+										type="number"
+										step="0.01"
+										className="h-7 text-xs flex-1"
+										value={pisoMinimo !== null ? pisoMinimo : ""}
+										onChange={(e) => setPisoMinimo(e.target.value ? parseFloat(e.target.value) : null)}
+										placeholder="Ingrese piso"
+									/>
+									<span className="text-sm font-semibold min-w-20 text-right">${totalPisoMinimo.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 								</div>
-							)}
+								<div className="flex items-center justify-between py-2 px-3 bg-muted rounded-md">
+									<Label className="text-sm">Activar Piso 20%</Label>
+									<Switch checked={activarPisoMinimo} onCheckedChange={setActivarPisoMinimo} />
+								</div>
+								{activarPisoMinimo && (
+									<>
+										<div className="flex justify-between py-1.5 border-b text-sm">
+											<span className="text-muted-foreground">20% PISO</span>
+											<span className="font-medium">${veintePorCientoPiso.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+										</div>
+										<div className="flex justify-between py-2.5 px-3 bg-purple-100 text-purple-900 dark:bg-purple-900/30 dark:text-purple-100 rounded-md text-sm font-bold">
+											<span>TOTAL PISO (+20%)</span>
+											<span>${totalPisoMinimoFinal.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+										</div>
+									</>
+								)}
+							</CardContent>
+						</Card>
+
+						<div className="space-y-4">
+							<Card>
+								<CardHeader className="pb-2">
+									<CardTitle className="text-base">Resumen</CardTitle>
+								</CardHeader>
+								<CardContent className="space-y-1.5 text-sm text-muted-foreground">
+									<p><strong>F. Accidente:</strong> {accidentDate ? new Date(accidentDate).toLocaleDateString("es-AR") : "No def."}</p>
+									<p><strong>Edad:</strong> {customerAge !== null ? `${customerAge} años` : "No def."}</p>
+									<p><strong>Incapacidad:</strong> {disabilityPercentage !== null ? `${disabilityPercentage}%` : "No def."}</p>
+									<p><strong>RIPTE:</strong> {selectedRipte ? `${selectedRipte.month} ${selectedRipte.year} - $${Number(selectedRipte.value).toLocaleString("es-AR")}` : "No sel."}</p>
+									<p><strong>IBM Prom.:</strong> ${promedioHaberesAjustados.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+								</CardContent>
+							</Card>
+							<Card className="bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800">
+								<CardContent className="py-3 text-xs text-amber-800 dark:text-amber-200">
+									<strong>Nota:</strong> Cálculos según LRT. Verificar coef. de edad.
+								</CardContent>
+							</Card>
+							<div className="space-y-2">
+								<Button className="w-full" variant="destructive" onClick={handleGeneratePDF} disabled={isGeneratingPDF || !totalFormula}>
+									{isGeneratingPDF ? (<><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Generando...</>) : (<><Download className="size-4" /> Descargar PDF</>)}
+								</Button>
+								{/* <Button className="w-full" onClick={handleSaveLiquidacion} disabled={isSaving || !totalFormula}>
+									{isSaving ? (<><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Guardando...</>) : (<><Save className="size-4" /> Guardar</>)}
+								</Button>
+								<Button className="w-full" variant="outline" onClick={() => setShowSavedLiquidations(true)} disabled={!selectedFile}>
+									<FileText className="size-4" /> Ver Guardadas ({savedLiquidations.length})
+								</Button> */}
+							</div>
 						</div>
 					</div>
-				</div>
-			)}
+					<div className="flex justify-start mt-4">
+						<Button variant="outline" onClick={() => setActiveTab("remuneraciones")}>
+							<ChevronLeft className="size-4" /> Anterior
+						</Button>
+					</div>
+				</TabsContent>
+			</Tabs>
+
+			{/* Dialog: Liquidaciones Guardadas */}
+			<Dialog open={showSavedLiquidations} onOpenChange={setShowSavedLiquidations}>
+				<DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden">
+					<DialogHeader>
+						<DialogTitle>Liquidaciones Guardadas</DialogTitle>
+						<DialogDescription>Seleccione una liquidación para cargarla</DialogDescription>
+					</DialogHeader>
+					<div className="overflow-y-auto max-h-[60vh] space-y-3">
+						{savedLiquidations.length === 0 ? (
+							<p className="text-center text-muted-foreground py-8">No hay liquidaciones guardadas</p>
+						) : (
+							savedLiquidations.map((liq: any) => (
+								<div key={liq.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-colors">
+									<div className="flex items-start justify-between">
+										<div className="flex-1">
+											<h4 className="font-semibold">{liq.fileName}</h4>
+											<p className="text-sm text-muted-foreground mt-1">{liq.description}</p>
+											<div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+												<span>{new Date(liq.uploadedAt).toLocaleDateString("es-AR")}</span>
+												{liq.uploadedBy && <span>{liq.uploadedBy.name}</span>}
+											</div>
+										</div>
+										<Button size="sm" onClick={() => handleLoadLiquidation(liq.id)}>
+											<Download className="size-3.5" /> Cargar
+										</Button>
+									</div>
+								</div>
+							))
+						)}
+					</div>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

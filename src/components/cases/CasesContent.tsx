@@ -584,6 +584,9 @@ export default function CasesContent() {
 		localStorage.setItem("casosViewMode", mode);
 	}, []);
 
+	// Wrapper for setShowAll that always triggers a fresh fetch.
+	// Needed because when showAll is already false (Mis Casos) and stage changes,
+	// clicking "Mis Casos" again wouldn't change state → no re-fetch via useEffect.
 	// Refetch when viewMode changes
 	useEffect(() => {
 		if (!isInitialRender.current && hasLoadedFromStorage.current) {
@@ -669,6 +672,55 @@ export default function CasesContent() {
 		},
 		[router, saveFiltersToStorage],
 	);
+
+	const handleSetShowAll = useCallback(
+		(value: boolean) => {
+			setShowAll(value);
+			// Cancel any pending debounced fetch and fire immediately
+			if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+			fetchCases(
+				1,
+				searchTerm,
+				selectedService,
+				selectedStage,
+				formatDateForApi(dateFrom),
+				formatDateForApi(dateTo),
+				selectedRepresentativeLawyer,
+				selectedInternalLawyer,
+				showArchivedOnly,
+				value,
+				viewMode === "kanban",
+			);
+			setCurrentPage(1);
+			updateURL({
+				search: searchTerm,
+				service: selectedService,
+				stage: selectedStage,
+				page: 1,
+				repLawyers: selectedRepresentativeLawyer,
+				intLawyers: selectedInternalLawyer,
+				dateFrom,
+				dateTo,
+				showArchivedOnly,
+				showAll: value,
+			});
+		},
+		[
+			fetchCases,
+			searchTerm,
+			selectedService,
+			selectedStage,
+			dateFrom,
+			dateTo,
+			selectedRepresentativeLawyer,
+			selectedInternalLawyer,
+			showArchivedOnly,
+			viewMode,
+			formatDateForApi,
+			updateURL,
+		],
+	);
+
 
 	// Load filters from storage or URL when lawyers data is available
 	useEffect(() => {
@@ -1212,7 +1264,7 @@ export default function CasesContent() {
 					showArchivedOnly={showArchivedOnly} // Pass the updated prop
 					setShowArchivedOnly={setShowArchivedOnly} // Pass the updated setter
 					showAll={showAll}
-					setShowAll={setShowAll}
+					setShowAll={handleSetShowAll}
 					onExportExcel={handleExportExcel}
 				/>
 			</div>

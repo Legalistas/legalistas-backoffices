@@ -135,6 +135,7 @@ export default function AddNewCase() {
 		responsibleLawyerId: "",
 		internalLawyerId: "",
 		leadId: null as number | null, // 👈 nuevo campo
+		injury: "",
 	});
 
 	// Estado para el formulario de nuevo cliente
@@ -508,7 +509,8 @@ export default function AddNewCase() {
 				stageId: formData.stageId,
 				servicesId: formData.servicesId,
 				userId: formData.customerId,
-				leadId: formData.leadId, // 👈 aquí lo agregás
+				leadId: formData.leadId,
+				injury: formData.injury || undefined,
 				responsibleLawyerId: formData.responsibleLawyerId
 					? Number.parseInt(formData.responsibleLawyerId, 10)
 					: undefined,
@@ -769,7 +771,19 @@ export default function AddNewCase() {
 								</div>
 							</div>
 
-							{/* Tipo de Servicio y Estado del Caso en layout 1/2 + 1/2 */}
+							{/* Lesión */}
+							<div className="space-y-2">
+								<Label htmlFor="injury">Lesión</Label>
+								<Input
+									id="injury"
+									name="injury"
+									placeholder="Ej: Fractura de muñeca, lumbalgia, etc."
+									value={formData.injury}
+									onChange={handleChange}
+								/>
+							</div>
+
+						{/* Tipo de Servicio y Estado del Caso en layout 1/2 + 1/2 */}
 							<div className="flex gap-4">
 								<div className="w-1/2 space-y-2">
 									<Label htmlFor="servicesId">Tipo de Servicio</Label>

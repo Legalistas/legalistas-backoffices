@@ -25,7 +25,7 @@ export default function Header() {
 	}, []);
 
 	return (
-		<header className="flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 px-4 shadow-sm">
+		<header className="relative z-50 flex h-14 shrink-0 items-center gap-3 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60 px-4 shadow-sm">
 			<div className="flex items-center gap-2">
 				<SidebarTrigger className="size-10 text-muted-foreground hover:text-foreground" />
 				<Separator orientation="vertical" className="h-5" />

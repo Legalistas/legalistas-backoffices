@@ -1,5 +1,5 @@
 "use client";
-import { Plus, Search, Sheet, Loader2 } from "lucide-react";
+import { Plus, Search, Sheet, Loader2, Users2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -339,7 +339,8 @@ export default function CustomersContent() {
 			<div className="flex flex-col gap-6 mb-2">
 				{/* Header */}
 				<div className="flex items-center justify-between">
-					<h1 className="text-3xl font-bold tracking-tight text-black dark:text-gray-100">
+					<h1 className="text-3xl font-bold tracking-tight text-black dark:text-gray-100 flex items-center gap-2">
+						<Users2 className="h-6 w-6" />
 						Clientes
 					</h1>
 					<div className="flex items-center gap-2">

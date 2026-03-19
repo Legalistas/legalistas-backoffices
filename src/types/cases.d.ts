@@ -196,6 +196,7 @@ export interface Cases {
 	isArchived?: boolean;
 	internalLawyerId?: number;
 	responsibleLawyerId?: number;
+	injury?: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 	customer: User;

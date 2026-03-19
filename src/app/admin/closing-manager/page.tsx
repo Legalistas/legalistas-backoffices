@@ -243,9 +243,9 @@ export default function ClosingManagerPage() {
 		Role.ADMINISTRATOR,
 		Role.DIRECTOR_GENERAL_CEO,
 		Role.GERENTE_GENERAL_COO,
-		Role.DIRECTORA_AREA_LEGAL,
 		Role.DIRECTOR_AREA_IT,
 		Role.DIRECTORA_AREA_CONTABLE,
+
 	];
 
 	const canSeeFinancialKpis = FINANCIAL_KPI_ROLES.includes(
@@ -271,17 +271,18 @@ export default function ClosingManagerPage() {
 			iconColor: "text-green-600",
 			valueColor: "text-green-600",
 		},
+		{
+			label: "Honorarios generados",
+			value: kpis?.totalHonorarios ?? 0,
+			format: "currency" as const,
+			icon: Briefcase,
+			iconBg: "bg-blue-100 dark:bg-blue-900/30",
+			iconColor: "text-blue-600",
+			valueColor: "text-blue-600",
+		},
 		...(canSeeFinancialKpis
 			? [
-				{
-					label: "Honorarios generados",
-					value: kpis?.totalHonorarios ?? 0,
-					format: "currency" as const,
-					icon: Briefcase,
-					iconBg: "bg-blue-100 dark:bg-blue-900/30",
-					iconColor: "text-blue-600",
-					valueColor: "text-blue-600",
-				},
+
 				{
 					label: "Neto Legalistas",
 					value: kpis?.totalNetoLegalistas ?? 0,

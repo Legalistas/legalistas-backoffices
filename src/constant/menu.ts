@@ -45,7 +45,12 @@ export const SUPERADMIN = [
 // ── Grupos de acceso ───────────────────────────────────────────────
 // Solo listá los roles específicos del área. SUPERADMIN se agrega solo.
 
-const LEGAL = [...SUPERADMIN, ASISTENTE_LEGAL, ABOGADO_REPRESENTANTE];
+const LEGAL = [
+  ...SUPERADMIN,
+  ASISTENTE_LEGAL,
+  ABOGADO_REPRESENTANTE,
+  DIRECTORA_AREA_CONTABLE,
+];
 const LEGAL_INTERNO = [...SUPERADMIN, ASISTENTE_LEGAL];
 const VENTAS = [...SUPERADMIN, DIRECTORA_AREA_VENTAS, REPRESENTANTE_VENTAS];
 const CAJA = [
@@ -103,16 +108,16 @@ export const MENU_ITEMS: NavItem[] = [
     roles: LEGAL,
     subItems: [
       { name: "RIPTE", path: "/admin/calculator/ripte", roles: LEGAL_INTERNO },
-      { name: "Acc. de Trabajo", path: "/admin/calculator/accidents-work" },
-      { name: "Acc. de Tránsito", path: "/admin/calculator/accidents-transit" },
+      { name: "LTR", path: "/admin/calculator/accidents-work" },
+      // { name: "Acc. de Tránsito", path: "/admin/calculator/accidents-transit" },
     ],
   },
-  {
-    icon: MessageCircle,
-    name: "Consultas",
-    path: "/admin/consultations",
-    roles: LEGAL,
-  },
+  // {
+  //   icon: MessageCircle,
+  //   name: "Consultas",
+  //   path: "/admin/consultations",
+  //   roles: LEGAL,
+  // },
   {
     icon: ArrowRightLeft,
     name: "Negociaciones",
