@@ -51,10 +51,28 @@
       "Bash(node -e \":*)",
       "Bash(curl -s http://localhost:3000/admin/negotiation)",
       "Bash(grep -r members /c/Proyect/LexiasTech/Legalistas/frontend/src/components/shared --include=*.tsx)",
-      "Bash(grep -v \"//.*confirm\")"
+      "Bash(grep -v \"//.*confirm\")",
+      "Bash(python3 -c \":*)",
+      "Bash(python3 -:*)",
+      "Bash(python3 fix_href.py)",
+      "Bash(rm fix_href.py)",
+      "Bash(python3 fix_calculator.py)",
+      "Bash(rm fix_calculator.py)",
+      "Bash(python3 fix_calculator2.py)",
+      "Bash(rm fix_calculator2.py)",
+      "Bash(python3 fix_calculator3.py)",
+      "Bash(rm fix_calculator3.py)",
+      "Bash(python3 fix_calculator4.py)",
+      "Bash(rm fix_calculator4.py)",
+      "Bash(python3 fix_calculator5.py)",
+      "Bash(rm fix_calculator5.py)",
+      "Bash(python3 fix_calc_final.py)",
+      "Bash(rm fix_calc_final.py)",
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas/frontend/\"*.lock* \"c:/Proyect/LexiasTech/Legalistas/frontend/\"*.lockb)"
     ],
     "additionalDirectories": [
-      "c:\\Proyect\\LexiasTech\\Legalistas\\frontend"
+      "c:\\Proyect\\LexiasTech\\Legalistas\\frontend",
+      "c:\\Proyect\\LexiasTech\\Legalistas\\backend\\src\\controllers"
     ]
   }
 }

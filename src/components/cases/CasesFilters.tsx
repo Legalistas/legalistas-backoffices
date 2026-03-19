@@ -328,11 +328,10 @@ export const CasesFilters = ({
 				<div className="relative" ref={filtersContainerRef}>
 					<button
 						onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-						className={`flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
-							activeFiltersCount > 0 || isFiltersOpen
-								? "border-primary bg-primary text-blue-700"
-								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10"
-						}`}
+						className={`flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${activeFiltersCount > 0 || isFiltersOpen
+							? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950 dark:text-blue-300"
+							: "border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10"
+							}`}
 					>
 						<Filter className="h-4 w-4" />
 						<span>Filtros</span>
@@ -348,7 +347,7 @@ export const CasesFilters = ({
 
 					{/* Filters Dropdown */}
 					{isFiltersOpen && (
-						<div className="absolute right-0 z-20 mt-2 w-[800px] rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 shadow-lg">
+						<div className="absolute right-0 z-20 mt-2 w-200 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 shadow-lg">
 							<div className="mb-4 flex items-center justify-between">
 								<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
 									Filtros de búsqueda
@@ -399,11 +398,10 @@ export const CasesFilters = ({
 											{servicesType.map((service) => (
 												<div
 													key={service.id}
-													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 ${
-														selectedService === service.value
-															? "bg-gray-100 dark:bg-white/5 font-medium"
-															: ""
-													}`}
+													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 ${selectedService === service.value
+														? "bg-gray-100 dark:bg-white/5 font-medium"
+														: ""
+														}`}
 													onClick={() => handleServiceSelect(service.value)}
 												>
 													{service.label}
@@ -448,11 +446,10 @@ export const CasesFilters = ({
 											{stageCases.map((stage) => (
 												<div
 													key={stage.id}
-													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 ${
-														selectedStage === stage.value
-															? "bg-gray-100 dark:bg-white/5 font-medium"
-															: ""
-													}`}
+													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 ${selectedStage === stage.value
+														? "bg-gray-100 dark:bg-white/5 font-medium"
+														: ""
+														}`}
 													onClick={() => handleStageSelect(stage.value)}
 												>
 													{stage.label}
@@ -507,9 +504,8 @@ export const CasesFilters = ({
 												return (
 													<div
 														key={lawyer.id}
-														className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center justify-between ${
-															isSelected ? "bg-blue-50 dark:bg-primary/10" : ""
-														}`}
+														className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center justify-between ${isSelected ? "bg-blue-50 dark:bg-primary/10" : ""
+															}`}
 														onClick={() =>
 															handleRepresentativeLawyerSelect(lawyer.value)
 														}
@@ -575,9 +571,8 @@ export const CasesFilters = ({
 												return (
 													<div
 														key={lawyer.id}
-														className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center justify-between ${
-															isSelected ? "bg-blue-50 dark:bg-primary/10" : ""
-														}`}
+														className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 flex items-center justify-between ${isSelected ? "bg-blue-50 dark:bg-primary/10" : ""
+															}`}
 														onClick={() =>
 															handleInternalLawyerSelect(lawyer.value)
 														}
@@ -608,11 +603,10 @@ export const CasesFilters = ({
 										<PopoverTrigger asChild>
 											<Button
 												variant="outline"
-												className={`h-10 w-full justify-start gap-2 px-3 text-sm font-normal ${
-													dateFrom || dateTo
-														? "border-primary text-primary dark:border-primary dark:text-primary"
-														: "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
-												}`}
+												className={`h-10 w-full justify-start gap-2 px-3 text-sm font-normal ${dateFrom || dateTo
+													? "border-primary text-primary dark:border-primary dark:text-primary"
+													: "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+													}`}
 											>
 												<CalendarIcon className="h-4 w-4" />
 												{dateFrom && dateTo
@@ -681,31 +675,27 @@ export const CasesFilters = ({
 				</div>
 
 				{/* View Mode Toggle Group */}
-				<div className="flex h-11 items-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 overflow-hidden">
-					<button
+				<div className="flex items-center rounded-lg border border-input bg-background p-1 gap-1">
+					<Button
 						type="button"
+						variant={viewMode === "list" ? "default" : "ghost"}
+						size="sm"
 						onClick={() => handleViewModeChange("list")}
-						className={`flex items-center justify-center px-3 h-full transition-colors ${
-							viewMode === "list"
-								? "bg-primary text-white"
-								: "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"
-						}`}
 						title="Vista de lista"
+						className="h-8 px-3"
 					>
 						<List className="h-4 w-4" />
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
+						variant={viewMode === "kanban" ? "default" : "ghost"}
+						size="sm"
 						onClick={() => handleViewModeChange("kanban")}
-						className={`flex items-center justify-center px-3 h-full border-l border-gray-200 dark:border-gray-700 transition-colors ${
-							viewMode === "kanban"
-								? "bg-primary text-white"
-								: "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-white/10"
-						}`}
 						title="Vista Kanban"
+						className="h-8 px-3"
 					>
 						<Columns className="h-4 w-4" />
-					</button>
+					</Button>
 				</div>
 
 				{/* Mis Casos / Todos toggle */}
@@ -719,49 +709,30 @@ export const CasesFilters = ({
 						Role.ASISTENTE_LEGAL,
 					]}
 				>
-					<div className="inline-flex h-11 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-white/5 p-1">
-						<button
-							onClick={() => {
-								setShowAll(false);
-							}}
-							className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-								!showAll
-									? "bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm"
-									: "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-							}`}
+					<div className="flex items-center rounded-lg border border-input bg-background p-1 gap-1">
+						<Button
+							type="button"
+							variant={!showAll ? "default" : "ghost"}
+							size="sm"
+							onClick={() => setShowAll(false)}
+							className="h-8 px-3"
 						>
 							Mis Casos
-						</button>
-						<button
+						</Button>
+						<Button
+							type="button"
+							variant={showAll ? "default" : "ghost"}
+							size="sm"
 							onClick={() => {
 								setShowAll(true);
 								setShowArchivedOnly(false);
 							}}
-							className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
-								showAll
-									? "bg-primary text-white shadow-sm"
-									: "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-							}`}
+							className="h-8 px-3"
 						>
 							Todos
-						</button>
+						</Button>
 					</div>
 				</Can>
-
-				{/* Show Archived Switch */}
-				<div
-					className={`flex items-center gap-2 h-11 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 ${showAll ? "opacity-40 pointer-events-none" : ""}`}
-				>
-					<span className="text-sm">Solo Archivados</span>
-					<Switch
-						id="show-archived-switch"
-						defaultChecked={showArchivedOnly}
-						onCheckedChange={(checked) => {
-							setShowArchivedOnly(checked);
-							if (checked) setShowAll(false);
-						}}
-					/>
-				</div>
 
 				{/* Export Excel Button */}
 				<Button

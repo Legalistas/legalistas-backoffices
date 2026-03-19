@@ -80,6 +80,75 @@
 - **Notificaciones** (nuevo): 5 toggles con Switch (email, push, reuniones, leads, sistema)
 - **Conexiones** (nuevo, reemplaza Idioma): estado de vinculación con Google, Microsoft (próximamente)
 
+### Activity Logs
+- Dark mode actualizado con tokens semánticos (`bg-card`, `text-foreground`, `border-border`, etc.)
+- Eliminados todos los `dark:bg-gray-*` / `dark:text-gray-*` hardcodeados
+
+### Detalle de Caso (`legal-cases/[id]`)
+- **Dark mode completo** en 16 componentes:
+  - CaseDetails, CaseStatsSidebar, CaseTabs, CaseEditForm, CaseHeader
+  - DeleteConfirmationModal, NewFileModal, FilesListView
+  - NotesView, EventosView, PlazosView, GastosView
+  - CedulasView, PartesView, ConsultationsView, CaseDocuments
+  - CaseLogsComponent, LiquidacionView, EmptyFilesState, EmptyNotesState
+- Todos los colores migrados a **tokens semánticos CSS** (`bg-card`, `text-foreground`, `text-muted-foreground`, `border-border`, `border-input`, `bg-muted`)
+- Se preservaron colores intencionales (status badges, alertas amber/red/green/blue)
+
+### Migración de Modales a Dialog (shadcn)
+- **9 modales** convertidos de `Modal` wrapper a `Dialog` + `DialogContent` + `DialogHeader` + `DialogTitle` + `DialogDescription` + `DialogFooter` directamente:
+  - CaseDetails (WhatsApp), DeleteConfirmationModal, NewFileModal
+  - EventosView, PlazosView (×2), GastosView, PartesView
+  - MyCashbox (Registrar Movimiento), CashBoxPage (Registrar Movimiento + Abrir Caja)
+- Modales grandes con scroll: `max-h-[85vh] overflow-hidden flex flex-col` + body `overflow-y-auto flex-1`
+- `aria-describedby={undefined}` en Modal wrapper para suprimir warnings de accesibilidad
+
+### DialogDescription — Accesibilidad
+- Agregado `DialogDescription` faltante en 7 componentes:
+  - EventModal, AddNewClosing, ClientPortalModal, LeadFormDialog
+  - MembersContent, area-tabs, TodoListForm
+- NegotiationsTable: agregado `DialogDescription` al modal de Historial de Ofertas
+
+### Negociaciones
+- Botón de acción `⋯` (dropdown) reemplazado por **3 botones individuales**: Ver Ofertas (Eye), Editar (Edit2), Eliminar (Trash2)
+- Eliminado código muerto: estados del dropdown, `useRef`, `useEffect` click outside, imports no usados
+- Skeleton loading para la tabla de negociaciones
+
+### Skeleton Loading
+- Spinners reemplazados por **Skeleton** en 5 páginas:
+  - Mi Caja (`my-cashbox`): 4 KPI cards + tabla
+  - Caja (`cashbox`): 4 stat cards + tabla
+  - Reportes Legales (`reports/legal`): 6 stat cards + 2 chart cards
+  - Reportes de Ventas (`reports/sales`): ya tenía skeleton
+  - Equipos (`teams/members`): stats + tabs + tabla con avatares
+
+### Reemplazo de `alert()` por Toast (Sonner)
+- **37 `alert()` eliminados** en 15 archivos, reemplazados por:
+  - `toast.success()` para confirmaciones
+  - `toast.error()` para errores y validaciones
+  - `toast.info()` para informativos
+
+### Reemplazo de `confirm()` por AlertDialog
+- Creado componente reutilizable **`ConfirmDialog`** (`@/components/shared/ConfirmDialog`):
+  - Detecta automáticamente tipo de acción por `variant`
+  - `destructive`: icono Trash2 rojo, fondo rojo, título "Confirmar eliminación"
+  - `default`: icono Info con color primary, título "¿Estás seguro?"
+  - Usa `AlertDialogMedia` de shadcn para icono destacado
+- Creado hook **`useConfirm`** (`@/hooks/useConfirm`):
+  - API tipo Promise: `const ok = await confirm({ description: "..." })`
+  - Reemplaza `confirm()` nativo sin refactorizar el flujo async
+- **~20 `confirm()` eliminados** en 17 archivos:
+  - case-details: CedulasView, EventosView, GastosView, NotesView, PartesView, PlazosView
+  - posts/page, todolist/page, closing-manager-table
+  - MembersContent, NegotiationsTable, CashBoxPage
+  - FilesCedulas, FilesNotes, FilesParts
+  - KanbanList, LeadCard
+
+### Limpieza
+- Eliminada carpeta `src/layout/` (AppHeader.old.tsx, AppSidebar.old.tsx) — sin uso
+- Iconos PNG inexistentes eliminados del `manifest.json`, reemplazados por `logo-icon.svg`
+- Fix: `next.config.ts` — agregado `qualities: [100, 75]` para Image quality
+- Fix: logos con `loading="eager"` y `style={{ height: "auto" }}` (LCP + aspect ratio warnings)
+
 ### Backend (cambios menores)
 - `viewProfileAndAddress`: ahora devuelve `googleLinked`, `emailVerified`, `createdAt`, `activeSessions`
 - `auth.controller.ts`: prioriza `req.body.userAgent` sobre headers para activity logs

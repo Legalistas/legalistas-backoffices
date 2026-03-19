@@ -7,6 +7,16 @@ import {
 } from "./constant/api-endpoints";
 import type { AuthResponse } from "./types/users";
 
+// Roles que NO pueden iniciar sesión en el panel
+const BLOCKED_LOGIN_ROLES = [
+	"cliente",
+	"demandado",
+	"interviniente_juicio",
+	"abogado_contraparte",
+	"reconociente",
+	"oficiado",
+];
+
 export const authOptions: NextAuthOptions = {
 	providers: [
 		CredentialsProvider({
@@ -49,6 +59,13 @@ export const authOptions: NextAuthOptions = {
 
 					if (data.status === "success") {
 						const user = data.user;
+						const userRole = user.roleUser?.[0]?.role?.name;
+
+						if (userRole && BLOCKED_LOGIN_ROLES.includes(userRole)) {
+							throw new Error(
+								"No tienes permisos para acceder al panel. Contacta al administrador.",
+							);
+						}
 
 						return {
 							id: String(user.id),
@@ -56,7 +73,7 @@ export const authOptions: NextAuthOptions = {
 							email: user.email,
 							image: user.image || null,
 							token: data.token,
-							role: user.roleUser[0].role.name,
+							role: userRole,
 							roleDetails: user.roleUser[0].role,
 							permissions: user.permissionUser || [],
 							activityLogId: data.activityLogId || null,
@@ -117,6 +134,14 @@ export const authOptions: NextAuthOptions = {
 
 				if (res.ok && data.token && data.user) {
 					const googleUser = data.user as any;
+					const googleUserRole = googleUser.roleUser?.[0]?.role?.name;
+
+					if (googleUserRole && BLOCKED_LOGIN_ROLES.includes(googleUserRole)) {
+						throw new Error(
+							"No tienes permisos para acceder al panel. Contacta al administrador.",
+						);
+					}
+
 					token.id = googleUser.id;
 					token.name = googleUser.name;
 					token.email = googleUser.email;

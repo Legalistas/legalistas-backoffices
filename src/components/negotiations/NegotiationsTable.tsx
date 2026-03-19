@@ -40,6 +40,7 @@ import type {
 	NegotiationStatus,
 	ViewMode,
 } from "@/types/negotiations";
+import { servicesType } from "@/lib/constant";
 import type { ColumnConfig } from "./ColumnSelector";
 import EditNegotiation from "./EditNegotiation";
 import { NegotiationFilters } from "./NegotiationFilters";
@@ -198,6 +199,7 @@ export function NegotiationsTable({
 					title: neg.case?.title || null,
 					number: neg.case?.number || null,
 					injury: neg.case?.injury || null,
+					servicesId: neg.case?.servicesId ?? null,
 					responsibleLawyer: neg.case?.responsibleLawyer || null,
 					internalLawyer: neg.case?.internalLawyer || null,
 					customer: neg.case?.customer || null,
@@ -363,6 +365,29 @@ export function NegotiationsTable({
 
 	const formatPercentage = (value: number | null) =>
 		!value ? "-" : `${value}%`;
+
+	const SERVICE_COLORS: Record<number, string> = {
+		1: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+		2: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+		3: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+		4: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+		5: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+		6: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
+		7: "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300",
+		8: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300",
+	};
+
+	const getServiceBadge = (servicesId: number | null) => {
+		if (!servicesId) return <span className="text-muted-foreground">-</span>;
+		const service = servicesType.find((s) => s.id === servicesId);
+		if (!service) return <span className="text-muted-foreground">-</span>;
+		const colorClass = SERVICE_COLORS[servicesId] ?? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
+		return (
+			<span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${colorClass}`}>
+				{service.label}
+			</span>
+		);
+	};
 
 	const isColumnVisible = (id: string) => {
 		const col = columnConfig.find((c) => c.id === id);
@@ -581,40 +606,27 @@ export function NegotiationsTable({
 			/>
 
 			{isLoading ? (
-				<div className="overflow-hidden rounded-xl border">
-					<Table className="w-full">
-						<TableHeader>
-							<TableRow>
-								<TableCell className="px-4 py-3"><Skeleton className="h-4 w-20" /></TableCell>
-								<TableCell className="px-4 py-3"><Skeleton className="h-4 w-28" /></TableCell>
-								<TableCell className="px-4 py-3"><Skeleton className="h-4 w-24" /></TableCell>
-								<TableCell className="px-4 py-3"><Skeleton className="h-4 w-24" /></TableCell>
-								<TableCell className="px-4 py-3"><Skeleton className="h-4 w-20" /></TableCell>
-								<TableCell className="px-4 py-3"><Skeleton className="h-4 w-16" /></TableCell>
-								<TableCell className="px-4 py-3"><Skeleton className="h-4 w-24" /></TableCell>
-								<TableCell className="px-4 py-3 text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{Array.from({ length: 6 }).map((_, i) => (
-								<TableRow key={i}>
-									<TableCell className="px-4 py-3"><Skeleton className="h-4 w-32" /></TableCell>
-									<TableCell className="px-4 py-3"><Skeleton className="h-4 w-28" /></TableCell>
-									<TableCell className="px-4 py-3"><Skeleton className="h-4 w-24" /></TableCell>
-									<TableCell className="px-4 py-3"><Skeleton className="h-4 w-24" /></TableCell>
-									<TableCell className="px-4 py-3"><Skeleton className="h-4 w-20" /></TableCell>
-									<TableCell className="px-4 py-3"><Skeleton className="h-4 w-12" /></TableCell>
-									<TableCell className="px-4 py-3 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
-									<TableCell className="px-4 py-3 text-right">
-										<div className="flex items-center justify-end gap-1">
-											<Skeleton className="h-8 w-8 rounded-md" />
-											<Skeleton className="h-8 w-8 rounded-md" />
-										</div>
-									</TableCell>
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
+				<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+					<div className="bg-gray-50 dark:bg-white/5 px-4 py-3 flex gap-4">
+						{Array.from({ length: 8 }).map((_, i) => (
+							<Skeleton key={i} className="h-4 w-24" />
+						))}
+					</div>
+					{Array.from({ length: 6 }).map((_, i) => (
+						<div key={i} className="flex items-center gap-4 px-4 py-3.5 border-t border-gray-100 dark:border-gray-800">
+							<Skeleton className="h-4 w-32" />
+							<Skeleton className="h-4 w-28" />
+							<Skeleton className="h-4 w-24" />
+							<Skeleton className="h-4 w-24" />
+							<Skeleton className="h-4 w-20" />
+							<Skeleton className="h-4 w-12" />
+							<Skeleton className="h-4 w-20" />
+							<div className="flex gap-1 ml-auto">
+								<Skeleton className="h-7 w-7 rounded-md" />
+								<Skeleton className="h-7 w-7 rounded-md" />
+							</div>
+						</div>
+					))}
 				</div>
 			) : error ? (
 				<div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-6">
@@ -632,11 +644,11 @@ export function NegotiationsTable({
 				</div>
 			) : (
 
-			<div className="overflow-hidden rounded-xl border">
+			<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
 				<div className="w-full overflow-x-auto">
 					<Table className="w-full">
 						<TableHeader>
-							<TableRow>
+							<TableRow className="bg-gray-50 dark:bg-white/5">
 								<ColHeader id="causa" label="Causa" />
 								<ColHeader
 									id="abogadoRepresentante"
@@ -648,6 +660,7 @@ export function NegotiationsTable({
 									label="Abogado Contraparte"
 								/>
 								<ColHeader id="lesion" label="Lesión" />
+								<ColHeader id="servicio" label="Servicio" />
 								<ColHeader id="incLegalistas" label="% Legalistas" />
 								<ColHeader id="deArt" label="% PMO" />
 								<ColHeader id="liquidacion100" label="Liquidación 100%" />
@@ -695,6 +708,11 @@ export function NegotiationsTable({
 											{neg.case.injury || (
 												<span className="text-muted-foreground italic">Sin lesión</span>
 											)}
+										</TableCell>
+									)}
+									{isColumnVisible("servicio") && (
+										<TableCell className="px-4 py-3 text-sm">
+											{getServiceBadge(neg.case.servicesId)}
 										</TableCell>
 									)}
 									{isColumnVisible("incLegalistas") && (

@@ -97,7 +97,6 @@ export default function EditNegotiation({
 	}, [formData.liquidacion100]);
 
 	const allowedTransitions = VALID_TRANSITIONS[negotiation.status] || [];
-	const canEditInjury = !negotiation.case.injury;
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -115,7 +114,7 @@ export default function EditNegotiation({
 			};
 
 			if (formData.status) body.status = formData.status;
-			if (canEditInjury && formData.injury) body.injury = formData.injury;
+			if (formData.injury) body.injury = formData.injury;
 
 			const response = await fetch(NEGOTIATION_BY_ID_ENDPOINT(negotiation.id), {
 				method: "PUT",
@@ -234,19 +233,13 @@ export default function EditNegotiation({
 							</div>
 
 							<div className="space-y-2">
-								<Label>
-									Lesión{" "}
-									{canEditInjury && (
-										<span className="text-xs text-amber-500">(editable — causa sin lesión)</span>
-									)}
-								</Label>
+								<Label>Lesión</Label>
 								<Input
 									value={formData.injury}
 									onChange={(e) =>
 										setFormData({ ...formData, injury: e.target.value })
 									}
-									disabled={!canEditInjury}
-									placeholder={canEditInjury ? "Ej: hernia lumbar" : ""}
+									placeholder="Ej: hernia lumbar"
 								/>
 							</div>
 

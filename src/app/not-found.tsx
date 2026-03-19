@@ -18,6 +18,7 @@ export default function NotFound() {
 					className="dark:hidden"
 					width={472}
 					height={152}
+					style={{ width: "100%", height: "auto" }}
 				/>
 				<Image
 					src="/images/error/404-dark.svg"
@@ -25,6 +26,7 @@ export default function NotFound() {
 					className="hidden dark:block"
 					width={472}
 					height={152}
+					style={{ width: "100%", height: "auto" }}
 				/>
 
 				<p className="mt-10 mb-6 text-base text-gray-700 dark:text-gray-400 sm:text-lg">

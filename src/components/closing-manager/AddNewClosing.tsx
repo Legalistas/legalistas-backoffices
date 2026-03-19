@@ -18,6 +18,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
 	CLOSINGS_FROM_NEGOTIATION_ENDPOINT,
 	NEGOTIATIONS_ENDPOINT,
@@ -83,10 +84,9 @@ export default function AddNewClosing({
 	const [feeStatus, setFeeStatus] = useState("EARRINGS");
 	const [hpAgreed, setHpAgreed] = useState("20");
 	const [hpTotal, setHpTotal] = useState("");
-	const [hpDistribution, setHpDistribution] = useState(true);
 	const [pclAgreed, setPclAgreed] = useState("20");
 	const [pclTotal, setPclTotal] = useState("");
-	const [pclDistribution, setPclDistribution] = useState(true);
+	const [withRepresentante, setWithRepresentante] = useState(true);
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
 	const [contributionsAmount, setContributionsAmount] = useState("0");
 	const [applyContributions, setApplyContributions] = useState(true);
@@ -116,12 +116,12 @@ export default function AddNewClosing({
 		const pcl = Number(pclTotal) || 0;
 		const aportes = applyContributions ? Number(contributionsAmount) || 0 : 0;
 
-		const hpRep = hpDistribution ? hp * 0.25 : 0;
+		const hpRep = withRepresentante ? hp * 0.25 : 0;
 		const hpLeg = hp - hpRep;
-		const pclRep = pclDistribution ? pcl * 0.25 : 0;
+		const pclRep = withRepresentante ? pcl * 0.25 : 0;
 		const pclLeg = pcl - pclRep;
-		const aportesRep = aportes * 0.25;
-		const aportesLeg = aportes * 0.75;
+		const aportesRep = withRepresentante ? aportes * 0.25 : 0;
+		const aportesLeg = withRepresentante ? aportes * 0.75 : aportes;
 		const montoTransferir = hpLeg + pclLeg - aportesLeg;
 
 		return {
@@ -135,9 +135,8 @@ export default function AddNewClosing({
 		};
 	}, [
 		hpTotal,
-		hpDistribution,
 		pclTotal,
-		pclDistribution,
+		withRepresentante,
 		contributionsAmount,
 		applyContributions,
 	]);
@@ -177,10 +176,9 @@ export default function AddNewClosing({
 		setFeeStatus("EARRINGS");
 		setHpAgreed("20");
 		setHpTotal("");
-		setHpDistribution(true);
 		setPclAgreed("20");
 		setPclTotal("");
-		setPclDistribution(true);
+		setWithRepresentante(true);
 		setPclStatus("EARRINGS");
 		setContributionsAmount("0");
 		setApplyContributions(true);
@@ -209,10 +207,10 @@ export default function AddNewClosing({
 						feeStatus,
 						hpAgreed: parseFloat(hpAgreed) || 20,
 						hpTotal: parseFloat(hpTotal) || 0,
-						hpDistribution,
+						hpDistribution: withRepresentante,
 						pclAgreed: parseFloat(pclAgreed) || 20,
 						pclTotal: parseFloat(pclTotal) || 0,
-						pclDistribution,
+						pclDistribution: withRepresentante,
 						pclStatus,
 						contributionsAmount: parseFloat(contributionsAmount) || 0,
 						applyContributions,
@@ -405,22 +403,21 @@ export default function AddNewClosing({
 						</div>
 					</div>
 
+					{/* Distribución con representante */}
+					<div className="flex items-center justify-between rounded-lg border border-gray-200 px-4 py-3">
+						<div>
+							<p className="text-sm font-medium">Distribución con representante (25%)</p>
+							<p className="text-xs text-gray-500">Aplica tanto a HP como a PCL</p>
+						</div>
+						<Switch
+							checked={withRepresentante}
+							onCheckedChange={setWithRepresentante}
+						/>
+					</div>
+
 					{/* HP */}
 					<div className="border border-gray-200 rounded-lg p-4 space-y-4">
-						<div className="flex items-center justify-between">
-							<h4 className="font-semibold text-sm">
-								Honorarios Pactados (HP)
-							</h4>
-							<label className="flex items-center gap-2 text-sm cursor-pointer">
-								<input
-									type="checkbox"
-									checked={hpDistribution}
-									onChange={(e) => setHpDistribution(e.target.checked)}
-									className="rounded border-gray-300 text-primary focus:ring-primary"
-								/>
-								Distribución HP con representante (25%)
-							</label>
-						</div>
+						<h4 className="font-semibold text-sm">Honorarios Pactados (HP)</h4>
 						<div className="grid grid-cols-4 gap-4">
 							<div className="space-y-1">
 								<label className="text-xs text-gray-500">
@@ -452,7 +449,7 @@ export default function AddNewClosing({
 									HP Representante ($)
 								</label>
 								<div
-									className={`h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm ${!hpDistribution ? "text-gray-400" : ""}`}
+									className={`h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm ${!withRepresentante ? "text-gray-400" : ""}`}
 								>
 									{formatARS(calc.hpRep)}
 								</div>
@@ -470,20 +467,7 @@ export default function AddNewClosing({
 
 					{/* PCL */}
 					<div className="border border-gray-200 rounded-lg p-4 space-y-4">
-						<div className="flex items-center justify-between">
-							<h4 className="font-semibold text-sm">
-								Pacto de Cuota Litis (PCL)
-							</h4>
-							<label className="flex items-center gap-2 text-sm cursor-pointer">
-								<input
-									type="checkbox"
-									checked={pclDistribution}
-									onChange={(e) => setPclDistribution(e.target.checked)}
-									className="rounded border-gray-300 text-primary focus:ring-primary"
-								/>
-								Distribución PCL con representante (25%)
-							</label>
-						</div>
+						<h4 className="font-semibold text-sm">Pacto de Cuota Litis (PCL)</h4>
 						<div className="grid grid-cols-4 gap-4">
 							<div className="space-y-1">
 								<label className="text-xs text-gray-500">
@@ -515,7 +499,7 @@ export default function AddNewClosing({
 									PCL Representante ($)
 								</label>
 								<div
-									className={`h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm ${!pclDistribution ? "text-gray-400" : ""}`}
+									className={`h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm ${!withRepresentante ? "text-gray-400" : ""}`}
 								>
 									{formatARS(calc.pclRep)}
 								</div>
@@ -535,15 +519,10 @@ export default function AddNewClosing({
 					<div className="border border-gray-200 rounded-lg p-4 space-y-4">
 						<div className="flex items-center justify-between">
 							<h4 className="font-semibold text-sm">Aportes</h4>
-							<label className="flex items-center gap-2 text-sm cursor-pointer">
-								<input
-									type="checkbox"
-									checked={applyContributions}
-									onChange={(e) => setApplyContributions(e.target.checked)}
-									className="rounded border-gray-300 text-primary focus:ring-primary"
-								/>
-								Aplicar aportes
-							</label>
+							<div className="flex items-center gap-2">
+								<span className="text-sm text-muted-foreground">Aplicar aportes</span>
+								<Switch checked={applyContributions} onCheckedChange={setApplyContributions} />
+							</div>
 						</div>
 						<div className="grid grid-cols-3 gap-4">
 							<div className="space-y-1">
@@ -565,7 +544,7 @@ export default function AddNewClosing({
 									Aportes Representante ($)
 								</label>
 								<div
-									className={`h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm ${!applyContributions ? "text-gray-400" : ""}`}
+									className={`h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm ${!applyContributions || !withRepresentante ? "text-gray-400" : ""}`}
 								>
 									{formatARS(calc.aportesRep)}
 								</div>
@@ -582,8 +561,8 @@ export default function AddNewClosing({
 							</div>
 						</div>
 						<p className="text-xs text-gray-400">
-							Monto manual ingresado por la contadora. Distribución: 75%
-							Legalistas / 25% Representante.
+							Monto manual ingresado por la contadora.{" "}
+							{withRepresentante ? "Distribución: 75% Legalistas / 25% Representante." : "Distribución: 100% Legalistas."}
 						</p>
 					</div>
 

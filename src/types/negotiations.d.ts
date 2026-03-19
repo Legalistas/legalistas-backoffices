@@ -26,6 +26,7 @@ export interface NegotiationCase {
 	title: string | null;
 	number: string | null;
 	injury: string | null;
+	servicesId: number | null;
 	responsibleLawyer: { id: number; name: string; image?: string } | null;
 	internalLawyer: { id: number; name: string; image?: string } | null;
 	customer: { id: number; name: string } | null;
