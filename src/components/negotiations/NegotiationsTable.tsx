@@ -144,6 +144,9 @@ export function NegotiationsTable({
 	const [showEditModal, setShowEditModal] = useState(false);
 	const [nuevoMonto, setNuevoMonto] = useState("");
 	const [offerNotes, setOfferNotes] = useState("");
+	const [editingOfferId, setEditingOfferId] = useState<number | null>(null);
+	const [editMonto, setEditMonto] = useState("");
+	const [editNotes, setEditNotes] = useState("");
 
 	const isLawyer = permissions.isLawyer;
 	const userId = permissions.getUserId();
@@ -579,6 +582,121 @@ export function NegotiationsTable({
 		}
 	};
 
+	// Refrescar la negociación seleccionada en el modal
+	const refreshSelectedNegotiation = async () => {
+		if (!selectedNegotiation) return;
+		try {
+			const detailRes = await fetch(
+				NEGOTIATION_BY_ID_ENDPOINT(selectedNegotiation.id),
+				{
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+				},
+			);
+			if (detailRes.ok) {
+				const detail = await detailRes.json();
+				const neg = detail.data;
+				setSelectedNegotiation({
+					...selectedNegotiation,
+					lastOfferAmount: neg.lastOfferAmount ? parseFloat(neg.lastOfferAmount) : null,
+					lastOfferSource: neg.lastOfferSource,
+					offers: (neg.offers || []).map((o: any) => ({
+						id: o.id,
+						tipo: o.type,
+						monto: parseFloat(o.amount),
+						fecha: new Date(o.date).toLocaleDateString("es-AR"),
+						aceptada: o.accepted,
+						notes: o.notes || null,
+					})),
+				});
+			}
+		} catch (err) {
+			console.error("Error refreshing negotiation:", err);
+		}
+	};
+
+	const handleStartEditOffer = (oferta: { id: number; monto: number; notes?: string | null }) => {
+		setEditingOfferId(oferta.id);
+		setEditMonto(oferta.monto.toString());
+		setEditNotes(oferta.notes || "");
+	};
+
+	const handleCancelEditOffer = () => {
+		setEditingOfferId(null);
+		setEditMonto("");
+		setEditNotes("");
+	};
+
+	const handleSaveEditOffer = async () => {
+		if (!selectedNegotiation || !editingOfferId || !editMonto) return;
+		try {
+			const response = await fetch(
+				`${NEGOTIATION_OFFERS_ENDPOINT(selectedNegotiation.id)}/${editingOfferId}`,
+				{
+					method: "PUT",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+					body: JSON.stringify({
+						amount: parseFloat(editMonto),
+						notes: editNotes || null,
+					}),
+				},
+			);
+			if (!response.ok) {
+				const err = await response.json();
+				throw new Error(err.message || "Error al editar");
+			}
+			setEditingOfferId(null);
+			setEditMonto("");
+			setEditNotes("");
+			await fetchNegotiations();
+			await refreshSelectedNegotiation();
+			onDataChange?.();
+			toast.success("Oferta actualizada");
+		} catch (err: any) {
+			toast.error(err.message || "Error al editar la oferta");
+		}
+	};
+
+	const handleDeleteOffer = async (offerId: number) => {
+		if (!selectedNegotiation) return;
+		if (
+			!(await confirm({
+				description: "¿Eliminar esta oferta? Esta acción no se puede deshacer.",
+				confirmLabel: "Eliminar",
+				variant: "destructive",
+			}))
+		)
+			return;
+
+		try {
+			const response = await fetch(
+				`${NEGOTIATION_OFFERS_ENDPOINT(selectedNegotiation.id)}/${offerId}`,
+				{
+					method: "DELETE",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+				},
+			);
+			if (!response.ok) {
+				const err = await response.json();
+				throw new Error(err.message || "Error al eliminar");
+			}
+			await fetchNegotiations();
+			await refreshSelectedNegotiation();
+			onDataChange?.();
+			toast.success("Oferta eliminada");
+		} catch (err: any) {
+			toast.error(err.message || "Error al eliminar la oferta");
+		}
+	};
+
 	const handleEditSuccess = async () => {
 		setShowEditModal(false);
 		setSelectedNegotiation(null);
@@ -925,43 +1043,107 @@ export function NegotiationsTable({
 														: "bg-primary/5 border-primary/30"
 													} ${oferta.aceptada ? "ring-2 ring-primary" : ""}`}
 											>
-												<div className="flex items-center justify-between">
-													<div className="flex-1">
+												{editingOfferId === oferta.id ? (
+													/* ── Modo edición inline ── */
+													<div className="space-y-2">
 														<div className="flex items-center gap-2">
 															<span className="text-xs font-semibold px-2 py-1 text-[10px] rounded-full text-white bg-primary">
-																{oferta.tipo === "ASEGURADORA"
-																	? "ART"
-																	: "LEGALISTAS"}
+																{oferta.tipo === "ASEGURADORA" ? "ART" : "LEGALISTAS"}
 															</span>
-															{oferta.aceptada && (
-																<span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-medium">
-																	ACEPTADA
+															<span className="text-[10px] text-muted-foreground">Editando...</span>
+														</div>
+														<input
+															type="number"
+															value={editMonto}
+															onChange={(e) => setEditMonto(e.target.value)}
+															placeholder="Monto"
+															className="w-full h-9 px-3 rounded-md border bg-background text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+														/>
+														<input
+															type="text"
+															value={editNotes}
+															onChange={(e) => setEditNotes(e.target.value)}
+															placeholder="Notas (opcional)"
+															className="w-full h-9 px-3 rounded-md border bg-background text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+														/>
+														<div className="flex gap-2">
+															<Button
+																size="sm"
+																className="flex-1 h-8 text-xs"
+																onClick={handleSaveEditOffer}
+															>
+																Guardar
+															</Button>
+															<Button
+																size="sm"
+																variant="outline"
+																className="h-8 text-xs"
+																onClick={handleCancelEditOffer}
+															>
+																Cancelar
+															</Button>
+														</div>
+													</div>
+												) : (
+													/* ── Modo visualización ── */
+													<div className="flex items-center justify-between">
+														<div className="flex-1">
+															<div className="flex items-center gap-2">
+																<span className="text-xs font-semibold px-2 py-1 text-[10px] rounded-full text-white bg-primary">
+																	{oferta.tipo === "ASEGURADORA"
+																		? "ART"
+																		: "LEGALISTAS"}
 																</span>
+																{oferta.aceptada && (
+																	<span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-medium">
+																		ACEPTADA
+																	</span>
+																)}
+															</div>
+															<p className="text-lg font-bold mt-1">
+																{formatCurrency(oferta.monto)}
+															</p>
+															<p className="text-[10px] text-muted-foreground">
+																{oferta.fecha}
+															</p>
+															{oferta.notes && (
+																<p className="text-xs text-gray-500 mt-1">
+																	{oferta.notes}
+																</p>
 															)}
 														</div>
-														<p className="text-lg font-bold mt-1">
-															{formatCurrency(oferta.monto)}
-														</p>
-														<p className="text-[10px] text-muted-foreground">
-															{oferta.fecha}
-														</p>
-														{oferta.notes && (
-															<p className="text-xs text-gray-500 mt-1">
-																{oferta.notes}
-															</p>
-														)}
+														<div className="flex items-center gap-1.5">
+															{!oferta.aceptada &&
+																selectedNegotiation.status !== "FINALIZADAS" &&
+																selectedNegotiation.status !== "PERDIDAS" && (
+																	<>
+																		<Button
+																			className="h-8 text-xs bg-primary text-white hover:bg-primary/85 border-0 px-3 font-medium"
+																			onClick={() => handleAcceptOffer(oferta.id)}
+																		>
+																			Aceptar
+																		</Button>
+																		<Button
+																			size="sm"
+																			variant="outline"
+																			className="h-8 w-8 p-0"
+																			onClick={() => handleStartEditOffer(oferta)}
+																		>
+																			<Edit2 className="size-3.5" />
+																		</Button>
+																		<Button
+																			size="sm"
+																			variant="outline"
+																			className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+																			onClick={() => handleDeleteOffer(oferta.id)}
+																		>
+																			<Trash2 className="size-3.5" />
+																		</Button>
+																	</>
+																)}
+														</div>
 													</div>
-													{!oferta.aceptada &&
-														selectedNegotiation.status !== "FINALIZADAS" &&
-														selectedNegotiation.status !== "PERDIDAS" && (
-															<Button
-																className="h-8 text-xs bg-primary text-white hover:bg-primary/85 border-0 px-3 font-medium"
-																onClick={() => handleAcceptOffer(oferta.id)}
-															>
-																Aceptar
-															</Button>
-														)}
-												</div>
+												)}
 											</div>
 										))
 									)}

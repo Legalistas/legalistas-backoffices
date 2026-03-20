@@ -10,6 +10,7 @@ export default function GridShape() {
 					height={254}
 					src="/images/shape/grid-01.svg"
 					alt="grid"
+					loading="eager"
 					style={{ width: "100%", height: "auto" }}
 				/>
 			</div>
