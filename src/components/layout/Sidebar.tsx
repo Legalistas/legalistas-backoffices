@@ -108,7 +108,7 @@ export default function LayoutSidebar() {
 							height={48}
 							loading="eager"
 							className="brightness-0 invert"
-							style={{ height: "auto" }}
+							style={{ width: "auto", height: "auto" }}
 						/>
 					)}
 				</Link>

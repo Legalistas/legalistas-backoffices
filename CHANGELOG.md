@@ -1,5 +1,81 @@
 # Changelog — Legalistas Frontend
 
+## [3.0.1] - 2026-03-19
+
+### CRM
+
+#### Leads
+- **Nuevo diseño del formulario de Lead** — Dialog rediseñado con 4 secciones organizadas (Cliente, Asignación, Detalle del Caso, Seguros), layout 3 columnas, dialog más ancho (`max-w-3xl`), botón Cancelar + Guardar
+- **Campos ART y Seguro** — Dos nuevos dropdowns opcionales (nulleables) para seleccionar compañía ART y aseguradora de vehículos, con 11 ARTs y 18 aseguradoras precargadas
+- **ART y Seguro en detalle del Lead** — Se muestran en la card "Información del Lead" cuando tienen valor
+- **Referente removido del formulario** — El selector de referente se quitó del crear/editar lead, se envía siempre como `null`
+- **Constantes nuevas** — `ART_COMPANIES` e `INSURANCE_COMPANIES` en `crm.ts`
+- **Tipo Lead actualizado** — Agregados `artId` e `insuranceId` al tipo `Lead`
+
+#### Clientes
+- **Formulario simplificado en modo crear** — Solo muestra: Nombre, Email, Teléfono, Provincia, Ciudad
+- **Campos nulleados en creación** — `docType`, `docNumber`, `gender`, `birthDate`, `street`, `streetNumber` se envían como `null`
+- **Argentina auto-seleccionada** — `countryId` se preselecciona automáticamente sin mostrarse
+- **Modo editar sin cambios** — El formulario completo se mantiene para edición
+
+### Caja / Cash Box
+
+#### Bugs críticos corregidos
+- **`closeMonth` no marcaba transacciones como cerradas** — Se agregó `updateMany({ closed: true })` al cierre de mes (el bug principal que causaba descuadre de datos)
+- **`initialBalanceForPeriod` siempre era 0** — El frontend leía `result.initialBalanceForPeriod` pero la API devolvía `result.initialBalance` (typo en nombre de propiedad)
+- **Transfers se restaban como gastos** — `currentCashBalance`, `totalExpensesAll` y `accumulatedBalance` incluían transferencias como gastos, pero el backend las excluye de la caja
+- **`saldoInicialMes` buscaba mes anterior exacto** — Si no existía cierre para ese mes (sin movimientos), daba 0. Ahora busca el último mes cerrado anterior
+
+#### Endpoint de reparación
+- **`POST /cash/repair`** — Nuevo endpoint que borra todos los cierres, resetea transacciones, y re-cierra cada mes en orden cronológico con datos reales. El mes actual queda abierto
+
+#### Página de debug
+- **`/admin/test/cashbox-debug`** — Nueva página con:
+  - Cards resumen (transacciones abiertas vs cerradas, saldo desglosado)
+  - Tabla mes a mes con columna "Match?" que compara cierres vs datos reales
+  - Tabla por usuario con ingresos, gastos, transferencias enviadas/recibidas
+  - Reportes de meses cerrados del backend
+  - Botón "Ejecutar Reparación" con resultado detallado
+
+#### Diseño mejorado
+- **KPI Cards** — Borde de color izquierdo (primary/green/red/blue/amber), iconos en círculos, hover con elevación, `tabular-nums`
+- **Tabla de usuarios** — Headers uppercase, filas clickeables, botón "Detalles" aparece en hover, avatares con ring
+- **Header** — Subtítulo, botones compactos (Nuevo movimiento, Transferencia, Abrir Caja), barra de saldo acumulado rediseñada
+- **Gráfico** — Tabs compactas con loop
+- **Movimientos del mes** — Botón "Cerrar" en variant destructive
+
+### Dashboard
+
+#### Eventos del calendario en "Mi Día"
+- **Integración de eventos generales** — Se traen eventos de la tabla `Events` donde `userId` o `responsibleId` coincide con el usuario logueado
+- **Render con diseño card** — Icono púrpura, badges "EVENTO" y "todo el día", link a Meet si existe, flecha de navegación
+
+#### Protección contra datos nulos
+- Todos los `.case.title` protegidos con optional chaining (`?.title ?? "Sin causa"`)
+- Todas las fechas (`dueDate`, `date`, `createdAt`) protegidas contra `null`/`Invalid Date`
+
+### Backend
+
+#### Prisma Schema
+- **CrmLeads** — Agregados campos `artId Int?` e `insuranceId Int?`
+
+#### CRM Controller
+- `createLead` — Acepta y guarda `artId`, `insuranceId`, `accidentDate`
+- `updateLeadById` — Ídem para actualización
+
+#### Cash Controller
+- `closeMonth` — Ahora marca transacciones como `closed: true`
+- `repairClosedMonths` — Nuevo endpoint de reparación masiva
+
+#### Dashboard Controller
+- `getLegalDashboardStats` — Agrega query de `events` para calendario general del usuario
+- Fix orden de destructuración en `Promise.all`
+
+#### Rutas
+- `POST /cash/repair` — Nueva ruta protegida
+
+---
+
 ## [3.0.0] - 2026-03-19
 
 ### Infraestructura

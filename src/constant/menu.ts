@@ -109,7 +109,7 @@ export const MENU_ITEMS: NavItem[] = [
     subItems: [
       { name: "RIPTE", path: "/admin/calculator/ripte", roles: LEGAL_INTERNO },
       { name: "LTR", path: "/admin/calculator/accidents-work" },
-      // { name: "Acc. de Tránsito", path: "/admin/calculator/accidents-transit" },
+      { name: "Acc. de Tránsito", path: "/admin/calculator/accidents-transit" },
     ],
   },
   // {
