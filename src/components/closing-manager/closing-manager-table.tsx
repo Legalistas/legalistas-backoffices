@@ -19,6 +19,7 @@ import {
 	CLOSING_BY_ID_ENDPOINT,
 	CLOSING_DETAIL_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { Role } from "@/constant/user";
 import {
 	closingType,
 	closingTypeColors,
@@ -75,6 +76,9 @@ interface ClosingManagerTableProps {
 	onPageChange: (page: number) => void;
 	onRefresh?: () => void;
 	visibleColumns: string[];
+	/** Auto-open detail drawer for this closing ID (from global search) */
+	openClosingId?: number | null;
+	onOpenClosingHandled?: () => void;
 }
 
 export default function ClosingManagerTable({
@@ -83,10 +87,24 @@ export default function ClosingManagerTable({
 	onPageChange,
 	onRefresh,
 	visibleColumns,
+	openClosingId,
+	onOpenClosingHandled,
 }: ClosingManagerTableProps) {
 	const { data: session } = useSession();
 	const { confirm, ConfirmationDialog } = useConfirm();
 	const router = useRouter();
+
+	const FINANCIAL_KPI_ROLES = [
+		Role.ADMINISTRATOR,
+		Role.DIRECTOR_GENERAL_CEO,
+		Role.GERENTE_GENERAL_COO,
+		Role.DIRECTOR_AREA_IT,
+		Role.DIRECTORA_AREA_CONTABLE,
+	];
+
+	const canSeeHpLegalistas = FINANCIAL_KPI_ROLES.includes(
+		session?.user?.role as Role,
+	);
 
 	// View modal state
 	const [viewClosing, setViewClosing] = useState<ClosingManagerEntry | null>(
@@ -99,14 +117,27 @@ export default function ClosingManagerTable({
 	const [savingDetail, setSavingDetail] = useState(false);
 	const detailInputRef = useRef<HTMLTextAreaElement>(null);
 
+	// Auto-open detail drawer from global search
+	useEffect(() => {
+		if (openClosingId && closings.length > 0) {
+			const found = closings.find((c) => c.id === openClosingId);
+			if (found) {
+				setViewClosing(found);
+				onOpenClosingHandled?.();
+			}
+		}
+	}, [openClosingId, closings, onOpenClosingHandled]);
+
 	useEffect(() => {
 		if (editingDetailId && detailInputRef.current) {
 			detailInputRef.current.focus();
 		}
 	}, [editingDetailId]);
 
-	const isColumnVisible = (columnId: string) =>
-		ALWAYS_VISIBLE.includes(columnId) || visibleColumns.includes(columnId);
+	const isColumnVisible = (columnId: string) => {
+		if ((columnId === "hpLegalistas" || columnId === "pclLegalistas") && !canSeeHpLegalistas) return false;
+		return ALWAYS_VISIBLE.includes(columnId) || visibleColumns.includes(columnId);
+	};
 
 	// =========================================================================
 	// Formatters

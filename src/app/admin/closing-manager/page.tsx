@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import ClosingFilters, {
@@ -50,7 +51,12 @@ const formatARS = (amount: number) =>
 
 export default function ClosingManagerPage() {
 	const { data: session } = useSession();
+	const searchParams = useSearchParams();
 	const permissions = useRolePermissions();
+	const [openClosingId, setOpenClosingId] = useState<number | null>(() => {
+		const id = searchParams.get("openId");
+		return id ? parseInt(id, 10) : null;
+	});
 
 	// Data
 	const [closings, setClosings] = useState<ClosingManagerEntry[]>([]);
@@ -245,12 +251,23 @@ export default function ClosingManagerPage() {
 		Role.GERENTE_GENERAL_COO,
 		Role.DIRECTOR_AREA_IT,
 		Role.DIRECTORA_AREA_CONTABLE,
+	];
 
+	const HONORARIOS_KPI_ROLES = [
+		...FINANCIAL_KPI_ROLES,
+		Role.ABOGADO_REPRESENTANTE,
 	];
 
 	const canSeeFinancialKpis = FINANCIAL_KPI_ROLES.includes(
 		session?.user?.role as Role,
 	);
+
+	const canSeeHonorarios = HONORARIOS_KPI_ROLES.includes(
+		session?.user?.role as Role,
+	);
+
+	// Configuración de las tarjetas KPI, con lógica para mostrar u ocultar KPIs financieros según el rol del usuario
+
 
 	const kpiCards = [
 		{
@@ -271,18 +288,21 @@ export default function ClosingManagerPage() {
 			iconColor: "text-green-600",
 			valueColor: "text-green-600",
 		},
-		{
-			label: "Honorarios generados",
-			value: kpis?.totalHonorarios ?? 0,
-			format: "currency" as const,
-			icon: Briefcase,
-			iconBg: "bg-blue-100 dark:bg-blue-900/30",
-			iconColor: "text-blue-600",
-			valueColor: "text-blue-600",
-		},
+		...(canSeeHonorarios
+			? [
+				{
+					label: "Honorarios generados",
+					value: kpis?.totalHonorarios ?? 0,
+					format: "currency" as const,
+					icon: Briefcase,
+					iconBg: "bg-blue-100 dark:bg-blue-900/30",
+					iconColor: "text-blue-600",
+					valueColor: "text-blue-600",
+				},
+			]
+			: []),
 		...(canSeeFinancialKpis
 			? [
-
 				{
 					label: "Neto Legalistas",
 					value: kpis?.totalNetoLegalistas ?? 0,
@@ -450,6 +470,8 @@ export default function ClosingManagerPage() {
 								fetchKpis();
 							}}
 							visibleColumns={visibleColumns}
+							openClosingId={openClosingId}
+							onOpenClosingHandled={() => setOpenClosingId(null)}
 						/>
 					</div>
 				) : !error ? (
@@ -462,6 +484,8 @@ export default function ClosingManagerPage() {
 							fetchKpis();
 						}}
 						visibleColumns={visibleColumns}
+						openClosingId={openClosingId}
+						onOpenClosingHandled={() => setOpenClosingId(null)}
 					/>
 				) : null}
 			</div>

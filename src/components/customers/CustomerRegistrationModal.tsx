@@ -194,6 +194,11 @@ export default function CustomerRegistrationModal({
 	useEffect(() => {
 		if (!isOpen) {
 			setNewCustomer({ ...emptyForm });
+		} else if (mode === "create") {
+			setNewCustomer({
+				...emptyForm,
+				userAddresses: [createEmptyAddress(0)],
+			});
 		} else if (mode === "edit" && editingCustomer) {
 			setNewCustomer({
 				id: editingCustomer.id,
@@ -282,16 +287,17 @@ export default function CustomerRegistrationModal({
 				image: newCustomer.image || "",
 				role: newCustomer.role,
 				userProfile: {
-					docType: newCustomer.userProfile?.docType || 1,
-					docNumber: newCustomer.userProfile?.docNumber || "",
-					gender: newCustomer.userProfile?.gender || 1,
-					birthDate: birthDate || new Date(),
+					docType: mode === "edit" ? (newCustomer.userProfile?.docType || 1) : null,
+					docNumber: mode === "edit" ? (newCustomer.userProfile?.docNumber || "") : null,
+					gender: mode === "edit" ? (newCustomer.userProfile?.gender || 1) : null,
+					birthDate: mode === "edit" ? (birthDate || new Date()) : null,
 					phone: newCustomer.userProfile?.phone || "",
 				},
 				userAddresses: newCustomer.userAddresses?.length
 					? [{ countryId: newCustomer.userAddresses[0].countryId, stateId: newCustomer.userAddresses[0].stateId,
 						city: newCustomer.userAddresses[0].city || "", cp: newCustomer.userAddresses[0].cp || "",
-						street: newCustomer.street || "", streetNumber: newCustomer.streetNumber || "",
+						street: mode === "edit" ? (newCustomer.street || "") : null,
+						streetNumber: mode === "edit" ? (newCustomer.streetNumber || "") : null,
 						description: newCustomer.userAddresses[0].description || "", isDefault: true }]
 					: [],
 			};
@@ -358,14 +364,16 @@ export default function CustomerRegistrationModal({
 								<Label htmlFor="clientPhone">Teléfono</Label>
 								<Input id="clientPhone" name="profile.phone" value={newCustomer.userProfile?.phone || ""} onChange={handleInputChange} placeholder="+54 11 1234-5678" />
 							</div>
+							{mode === "edit" && (
 							<div className="space-y-2">
 								<Label htmlFor="birthDate">Fecha de Nacimiento</Label>
 								<Input id="birthDate" name="profile.birthDate" type="date" value={newCustomer.userProfile?.birthDate || ""} onChange={handleInputChange} max={new Date().toISOString().split("T")[0]} />
 							</div>
+							)}
 						</div>
 					</section>
 
-					{/* Documentación */}
+					{mode === "edit" && (
 					<section>
 						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
 							Documentación
@@ -405,13 +413,16 @@ export default function CustomerRegistrationModal({
 							</div>
 						</div>
 					</section>
+					)}
 
 					{/* Dirección */}
 					<section>
 						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
-							Dirección
+							{mode === "edit" ? "Dirección" : "Ubicación"}
 						</h3>
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							{mode === "edit" && (
+							<>
 							<div className="space-y-2">
 								<Label htmlFor="clientStreet">Calle</Label>
 								<Input id="clientStreet" name="street" value={newCustomer.street || ""} onChange={handleInputChange} placeholder="Av. Corrientes" />
@@ -437,6 +448,8 @@ export default function CustomerRegistrationModal({
 									</SelectContent>
 								</Select>
 							</div>
+							</>
+							)}
 							<div className="space-y-2">
 								<Label>Provincia</Label>
 								<Select

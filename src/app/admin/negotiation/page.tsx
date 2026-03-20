@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ColumnSelector } from "@/components/negotiations/ColumnSelector";
 import type { ColumnConfig } from "@/components/negotiations/ColumnSelector";
@@ -25,7 +26,14 @@ import type { ViewMode } from "@/types/negotiations";
 
 export default function NegotiationPage() {
 	const { data: session, status } = useSession();
+	const searchParams = useSearchParams();
 	const permissions = useRolePermissions();
+	const [openNegotiationId, setOpenNegotiationId] = useState<number | null>(
+		() => {
+			const id = searchParams.get("openId");
+			return id ? parseInt(id, 10) : null;
+		},
+	);
 	const [viewMode, setViewMode] = useState<ViewMode>("curso");
 	const [counts, setCounts] = useState({
 		iniciar: 0,
@@ -287,6 +295,8 @@ export default function NegotiationPage() {
 				columnConfig={columnConfig}
 				onColumnChange={handleColumnChange}
 				onDataChange={fetchCounts}
+				openNegotiationId={openNegotiationId}
+				onOpenNegotiationHandled={() => setOpenNegotiationId(null)}
 			/>
 		</div>
 	);

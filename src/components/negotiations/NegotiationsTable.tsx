@@ -107,6 +107,9 @@ interface NegotiationsTableProps {
 	columnConfig: ColumnConfig[];
 	onColumnChange: (columns: ColumnConfig[]) => void;
 	onDataChange?: () => void;
+	/** Auto-open offers dialog for this negotiation ID (from global search) */
+	openNegotiationId?: number | null;
+	onOpenNegotiationHandled?: () => void;
 }
 
 export function NegotiationsTable({
@@ -114,6 +117,8 @@ export function NegotiationsTable({
 	columnConfig,
 	onColumnChange,
 	onDataChange,
+	openNegotiationId,
+	onOpenNegotiationHandled,
 }: NegotiationsTableProps) {
 	const { data: session } = useSession();
 	const { confirm, ConfirmationDialog } = useConfirm();
@@ -230,6 +235,17 @@ export function NegotiationsTable({
 		fetchNegotiations();
 	}, [fetchNegotiations]);
 
+	// Auto-open offers dialog from global search
+	useEffect(() => {
+		if (openNegotiationId && negotiations.length > 0) {
+			const found = negotiations.find((n) => n.id === openNegotiationId);
+			if (found) {
+				setSelectedNegotiation(found);
+				setShowPujaModal(true);
+				onOpenNegotiationHandled?.();
+			}
+		}
+	}, [openNegotiationId, negotiations, onOpenNegotiationHandled]);
 
 	// ─── Filters & sort ───
 	const filteredNegotiations = useMemo(() => {
@@ -803,7 +819,7 @@ export function NegotiationsTable({
 
 			)}
 
-			{/* ─── Modal Historial de Ofertas ─── */}
+			{/* ─── Dialog Historial de Ofertas ─── */}
 			<Dialog open={showPujaModal} onOpenChange={setShowPujaModal}>
 				<DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
 					<DialogHeader>

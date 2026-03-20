@@ -16,6 +16,7 @@ import {
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
 	Card,
@@ -184,6 +185,16 @@ interface LegalDashboardData {
 			status: string;
 			priority: string;
 			dueDate: string;
+		}[];
+		calendarEvents: {
+			id: number;
+			title: string;
+			start: string;
+			end?: string;
+			allDay: boolean;
+			description?: string;
+			meetLink?: string;
+			responsiblePerson?: { id: number; name: string } | null;
 		}[];
 	};
 	recentCases: {
@@ -400,6 +411,7 @@ function LegalDashboard() {
 		deadlines: [],
 		events: [],
 		tasks: [],
+		calendarEvents: [],
 	};
 	const recentCases = data?.recentCases ?? [];
 	const urgentDeadlines = data?.urgentDeadlines ?? [];
@@ -502,7 +514,7 @@ function LegalDashboard() {
 										<div className="min-w-0">
 											<p className="font-medium truncate">{d.title}</p>
 											<p className="text-xs text-muted-foreground">
-												{d.case.title}
+												{d.case?.title ?? "Sin causa"}
 												{d.dueTime ? ` · ${d.dueTime}` : ""}
 											</p>
 										</div>
@@ -519,7 +531,7 @@ function LegalDashboard() {
 										<div className="min-w-0">
 											<p className="font-medium truncate">{e.title}</p>
 											<p className="text-xs text-muted-foreground">
-												{e.case.title}
+												{e.case?.title ?? "Sin causa"}
 												{e.time ? ` · ${e.time}` : ""}
 												{e.location ? ` · ${e.location}` : ""}
 											</p>
@@ -540,6 +552,47 @@ function LegalDashboard() {
 												{t.priority} · {t.status}
 											</p>
 										</div>
+									</li>
+								))}
+								{myDay.calendarEvents.map((ce) => (
+									<li
+										key={`ce-${ce.id}`}
+										className="flex items-center gap-3 text-sm rounded-xl border p-3 hover:bg-muted/40 transition-colors group"
+									>
+										<div className="shrink-0 size-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+											<CalendarDays className="size-5 text-purple-600 dark:text-purple-400" />
+										</div>
+										<div className="min-w-0 flex-1">
+											<div className="flex items-center gap-2 mb-0.5">
+												<Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800">
+													EVENTO
+												</Badge>
+												{ce.allDay && (
+													<Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+														todo el día
+													</Badge>
+												)}
+											</div>
+											<p className="font-medium truncate">{ce.title}</p>
+											<p className="text-xs text-muted-foreground">
+												{!ce.allDay && ce.start
+													? new Date(ce.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+													: ""}
+												{ce.responsiblePerson ? `${!ce.allDay ? " · " : ""}${ce.responsiblePerson.name}` : ""}
+											</p>
+										</div>
+										{ce.meetLink ? (
+											<a
+												href={ce.meetLink}
+												target="_blank"
+												rel="noopener noreferrer"
+												className="shrink-0 text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors"
+											>
+												Meet
+											</a>
+										) : (
+											<ChevronRight className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
+										)}
 									</li>
 								))}
 							</ul>
@@ -649,7 +702,7 @@ function LegalDashboard() {
 																#{c.number}
 															</span>
 														)}
-														{isRecentCase(c.createdAt) && (
+														{c.createdAt && isRecentCase(c.createdAt) && (
 															<span className="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
 																Nuevo
 															</span>
@@ -685,10 +738,12 @@ function LegalDashboard() {
 												{/* Fecha + flecha */}
 												<div className="flex flex-col items-end gap-1.5 shrink-0">
 													<span className="text-xs text-muted-foreground">
-														{new Date(c.createdAt).toLocaleDateString("es-AR", {
-															day: "2-digit",
-															month: "short",
-														})}
+														{(() => {
+														try {
+															const d = new Date(c.createdAt);
+															return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+														} catch { return "—"; }
+													})()}
 													</span>
 													<ChevronRight className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
 												</div>
@@ -732,8 +787,8 @@ function LegalDashboard() {
 													{d.title}
 												</p>
 												<p className="text-xs text-muted-foreground">
-													{d.case.title} ·{" "}
-													{new Date(d.dueDate).toLocaleDateString("es-AR")}
+													{d.case?.title ?? "Sin causa"} ·{" "}
+													{d.dueDate ? new Date(d.dueDate).toLocaleDateString("es-AR") : "Sin fecha"}
 												</p>
 											</div>
 										</li>
@@ -774,8 +829,8 @@ function LegalDashboard() {
 													{e.title}
 												</p>
 												<p className="text-xs text-muted-foreground">
-													{e.case.title} ·{" "}
-													{new Date(e.date).toLocaleDateString("es-AR")}
+													{e.case?.title ?? "Sin causa"} ·{" "}
+													{e.date ? new Date(e.date).toLocaleDateString("es-AR") : "Sin fecha"}
 													{e.time ? ` · ${e.time}` : ""}
 												</p>
 												{e.location && (

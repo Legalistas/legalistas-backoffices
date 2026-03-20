@@ -25,7 +25,7 @@ import {
 	LEADS_NOTES_ENDPOINT,
 	LEADS_NOTES_UPDATE_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { CRM_COLUMNS, SOURCE_CHANNEL, WHATSAPP_MESSAGES } from "@/constant/crm";
+import { ART_COMPANIES, CRM_COLUMNS, INSURANCE_COMPANIES, SOURCE_CHANNEL, WHATSAPP_MESSAGES } from "@/constant/crm";
 import { servicesType } from "@/lib/constant";
 import { formatDate } from "@/lib/functions";
 import type { Lead } from "@/types/crm";
@@ -79,6 +79,16 @@ function getChannelName(channelId: number | undefined) {
 function getServiceName(servicesId: string[] | number) {
 	if (!servicesId) return "No asignado";
 	return servicesType.find((s) => Number(s.id) === Number(servicesId))?.label ?? "Servicio desconocido";
+}
+
+function getArtName(artId: number | null | undefined) {
+	if (!artId) return null;
+	return ART_COMPANIES.find((a) => a.id === artId)?.name ?? null;
+}
+
+function getInsuranceName(insuranceId: number | null | undefined) {
+	if (!insuranceId) return null;
+	return INSURANCE_COMPANIES.find((i) => i.id === insuranceId)?.name ?? null;
 }
 
 const STATUS_CONFIG: Record<string, { className: string; icon: typeof Clock; label: string }> = {
@@ -395,6 +405,12 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 									<InfoField label="Fecha de accidente" value={formatDate(lead.accidentDate)} />
 									<InfoField label="Canal de origen" value={getChannelName(lead.sourceChannelId)} />
 									<InfoField label="Servicios" value={getServiceName(lead.servicesId)} />
+									{getArtName(lead.artId) && (
+										<InfoField label="ART" value={getArtName(lead.artId)!} />
+									)}
+									{getInsuranceName(lead.insuranceId) && (
+										<InfoField label="Seguro" value={getInsuranceName(lead.insuranceId)!} />
+									)}
 								</div>
 								<Can role="asistente_legal" inverse>
 									<div className="h-px bg-border" />
@@ -430,7 +446,6 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 								<TabsList variant="line" className="w-full border-b border-border rounded-none bg-transparent">
 									<TabsTrigger value="timeline">Línea de tiempo</TabsTrigger>
 									<TabsTrigger value="documents">Documentos</TabsTrigger>
-									<TabsTrigger value="tasks">Tareas</TabsTrigger>
 									<TabsTrigger value="activities">Notas</TabsTrigger>
 									<TabsTrigger value="activity">
 										Actividades
@@ -448,22 +463,6 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 
 								<TabsContent value="documents" className="mt-4">
 									<LeadDocuments lead={lead} onLeadUpdate={handleLeadUpdate} />
-								</TabsContent>
-
-								<TabsContent value="tasks" className="mt-4">
-									<Card>
-										<CardHeader>
-											<CardTitle>Tareas</CardTitle>
-											<CardDescription>Tareas pendientes y completadas</CardDescription>
-										</CardHeader>
-										<CardContent>
-											<div className="text-center py-6">
-												<Clock className="h-12 w-12 mx-auto text-muted-foreground" />
-												<p className="mt-2 text-muted-foreground">No hay tareas asignadas</p>
-												<Button variant="outline" className="mt-4">Crear tarea</Button>
-											</div>
-										</CardContent>
-									</Card>
 								</TabsContent>
 
 								<TabsContent value="activities" className="mt-4">
@@ -532,11 +531,6 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 										</div>
 									)}
 								</CardContent>
-								<CardFooter>
-									<Button variant="outline" size="sm" className="w-full">
-										Ver perfil completo
-									</Button>
-								</CardFooter>
 							</Card>
 						</Can>
 
@@ -597,23 +591,6 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 									>
 										<Globe className="h-4 w-4 mr-2" />
 										Web de trámite
-									</Button>
-
-									<Button
-										variant="outline"
-										className="w-full"
-										onClick={() => {
-											const url = `https://legalistas.ar/tramite/${lead.id}`;
-											const text = `Mirá el estado de tu trámite en Legalistas: ${url}`;
-											if (navigator.share) {
-												navigator.share({ title: "Legalistas", text, url });
-											} else {
-												window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, "_blank");
-											}
-										}}
-									>
-										<Share2 className="h-4 w-4 mr-2" />
-										Compartir Trámite
 									</Button>
 								</CardContent>
 							</Card>
