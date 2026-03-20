@@ -556,6 +556,104 @@ export async function POST(request: NextRequest) {
 			yPos = (doc as any).lastAutoTable.finalY + 10;
 		}
 
+		// ==================== INTERESES ====================
+		if (data.interesesCalculados && data.interesesCalculados.length > 0 && data.totalIntereses > 0) {
+			if (yPos > 200) {
+				doc.addPage();
+				yPos = 20;
+			}
+
+			doc.setFontSize(14);
+			doc.setFont("helvetica", "bold");
+			doc.setTextColor(0, 0, 0);
+			doc.text(`Interés Tasa Anual (${data.tasaInteresAnual || 8}%)`, 20, yPos);
+			doc.line(20, yPos + 1, 85, yPos + 1);
+
+			yPos += 5;
+
+			const interesesData = data.interesesCalculados.map((item: any) => [
+				`${item.año} — ${item.dias} días`,
+				`$${item.interesDelAño?.toLocaleString("es-AR", {
+					minimumFractionDigits: 2,
+					maximumFractionDigits: 2,
+				}) || "0"}`,
+			]);
+
+			autoTable(doc, {
+				startY: yPos,
+				body: interesesData,
+				theme: "plain",
+				styles: {
+					fontSize: 10,
+					cellPadding: 2,
+					lineColor: [200, 200, 200],
+					lineWidth: 0.1,
+				},
+				columnStyles: {
+					0: { cellWidth: 90 },
+					1: { cellWidth: 90, halign: "right", fontStyle: "bold" },
+				},
+			});
+
+			yPos = (doc as any).lastAutoTable.finalY + 5;
+
+			// Total Intereses
+			autoTable(doc, {
+				startY: yPos,
+				body: [
+					[
+						"TOTAL INTERESES:",
+						`$${data.totalIntereses?.toLocaleString("es-AR", {
+							minimumFractionDigits: 2,
+							maximumFractionDigits: 2,
+						}) || "0"}`,
+					],
+				],
+				theme: "plain",
+				styles: {
+					fontSize: 11,
+					cellPadding: 3,
+					lineColor: [180, 120, 0],
+					lineWidth: 0.5,
+					textColor: [180, 120, 0],
+				},
+				columnStyles: {
+					0: { fontStyle: "bold", cellWidth: 90 },
+					1: { cellWidth: 90, halign: "right", fontStyle: "bold" },
+				},
+			});
+
+			yPos = (doc as any).lastAutoTable.finalY + 5;
+
+			// Total con Intereses
+			autoTable(doc, {
+				startY: yPos,
+				body: [
+					[
+						"TOTAL CON INTERESES:",
+						`$${data.totalConIntereses?.toLocaleString("es-AR", {
+							minimumFractionDigits: 2,
+							maximumFractionDigits: 2,
+						}) || "0"}`,
+					],
+				],
+				theme: "plain",
+				styles: {
+					fontSize: 12,
+					cellPadding: 3,
+					lineColor: [200, 100, 0],
+					lineWidth: 0.5,
+					textColor: [200, 100, 0],
+				},
+				columnStyles: {
+					0: { fontStyle: "bold", cellWidth: 90 },
+					1: { cellWidth: 90, halign: "right", fontStyle: "bold" },
+				},
+			});
+
+			yPos = (doc as any).lastAutoTable.finalY + 10;
+		}
+
 		doc.setTextColor(0, 0, 0);
 
 		// ==================== PIE DE PÁGINA ====================
