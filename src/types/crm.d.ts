@@ -25,6 +25,8 @@ export interface Lead {
 	updatedAt?: string;
 	clientId?: string;
 	accidentDate?: string;
+	artId?: number | null;
+	insuranceId?: number | null;
 	accepted?: boolean;
 	acceptedAt?: string;
 	services: {

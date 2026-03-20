@@ -108,6 +108,41 @@ export const MEETING_TYPES: MeetingType[] = [
 	{ id: "POWER_MEETING", name: "Reunión poder" },
 ];
 
+export const ART_COMPANIES = [
+	{ id: 1, name: "Galeno ART" },
+	{ id: 2, name: "Experta ART" },
+	{ id: 3, name: "La Segunda ART" },
+	{ id: 4, name: "Provincia ART" },
+	{ id: 5, name: "Swiss Medical ART" },
+	{ id: 6, name: "OMINT ART" },
+	{ id: 7, name: "Asociart ART" },
+	{ id: 8, name: "Berkley ART" },
+	{ id: 9, name: "Federación Patronal ART" },
+	{ id: 10, name: "Prevención ART" },
+	{ id: 11, name: "QBE ART" },
+];
+
+export const INSURANCE_COMPANIES = [
+	{ id: 1, name: "La Segunda" },
+	{ id: 2, name: "Federación Patronal" },
+	{ id: 3, name: "San Cristóbal" },
+	{ id: 4, name: "Mapfre" },
+	{ id: 5, name: "Zurich" },
+	{ id: 6, name: "Allianz" },
+	{ id: 7, name: "Rivadavia" },
+	{ id: 8, name: "La Holando" },
+	{ id: 9, name: "Sancor Seguros" },
+	{ id: 10, name: "Provincia Seguros" },
+	{ id: 11, name: "La Meridional" },
+	{ id: 12, name: "Mercantil Andina" },
+	{ id: 13, name: "Integrity Seguros" },
+	{ id: 14, name: "La Caja" },
+	{ id: 15, name: "SMG Seguros" },
+	{ id: 16, name: "HDI Seguros" },
+	{ id: 17, name: "Galeno Seguros" },
+	{ id: 18, name: "SURA" },
+];
+
 export const WHATSAPP_MESSAGES: Record<string, string> = {
 	"1": "Hola {nombre}, gracias por contactarnos. Queremos conocer más sobre tu consulta. ¿Podrías contarnos un poco más sobre tu situación?",
 	"2": "Hola {nombre}, nos comunicamos desde el estudio para coordinar una reunión y poder asesorarte mejor sobre tu caso. ¿Qué día y horario te queda más cómodo?",

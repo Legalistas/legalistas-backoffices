@@ -68,7 +68,8 @@
       "Bash(rm fix_calculator5.py)",
       "Bash(python3 fix_calc_final.py)",
       "Bash(rm fix_calc_final.py)",
-      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas/frontend/\"*.lock* \"c:/Proyect/LexiasTech/Legalistas/frontend/\"*.lockb)"
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas/frontend/\"*.lock* \"c:/Proyect/LexiasTech/Legalistas/frontend/\"*.lockb)",
+      "Bash(bun run:*)"
     ],
     "additionalDirectories": [
       "c:\\Proyect\\LexiasTech\\Legalistas\\frontend",

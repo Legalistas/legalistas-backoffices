@@ -230,7 +230,7 @@ export default function CashBoxPage() {
 				setError(result.error);
 			} else {
 				// Asignar el saldo inicial del período, asegurando que sea un número
-				setInitialBalanceForPeriod(Number(result.initialBalanceForPeriod) || 0);
+				setInitialBalanceForPeriod(Number(result.initialBalance) || 0);
 
 				// Asegurarse de que las transacciones sean un array y filtrar por closed=false para la vista principal
 				const formattedTransactions = Array.isArray(result.transactions)
@@ -426,20 +426,21 @@ export default function CashBoxPage() {
 		setLoading(false);
 	};
 
-	// Saldo de Caja: Calculado como el saldo inicial del período + todos los movimientos NO CERRADOS
+	// Saldo de Caja: Calculado como el saldo inicial del período + ingresos - gastos (sin transferencias)
 	const currentCashBalance = useMemo(() => {
 		let balance = initialBalanceForPeriod;
 		transactions.forEach((t) => {
 			if (t.type === "income") {
 				balance += t.amount;
-			} else {
+			} else if (t.type === "expense") {
 				balance -= t.amount;
 			}
+			// transfers no afectan la caja
 		});
 		return balance;
 	}, [initialBalanceForPeriod, transactions]);
 
-	// Calculate overall totals for summary cards (Ingresos y Gastos acumulados del período actual)
+	// Calculate overall totals for summary cards (Ingresos y Gastos acumulados del período actual, sin transferencias)
 	const { totalIncomeAll, totalExpensesAll } = useMemo(() => {
 		let incomeAll = 0;
 		let expensesAll = 0;
@@ -447,7 +448,7 @@ export default function CashBoxPage() {
 		transactions.forEach((t) => {
 			if (t.type === "income") {
 				incomeAll += t.amount;
-			} else {
+			} else if (t.type === "expense") {
 				expensesAll += t.amount;
 			}
 		});
@@ -465,16 +466,20 @@ export default function CashBoxPage() {
 		return { prevMonth: String(m).padStart(2, "0"), prevYear: String(y) };
 	};
 
-	// Saldo inicial del mes seleccionado: saldo final del mes anterior
+	// Saldo inicial del mes seleccionado: saldo final del último mes cerrado anterior
 	const saldoInicialMes = useMemo(() => {
-		const { prevMonth, prevYear } = getPreviousMonthYear(
-			selectedMonth,
-			selectedYear,
-		);
-		const closed = closedMonths.find(
-			(cm) => cm.month === prevMonth && cm.year === prevYear,
-		);
-		return closed ? closed.monthlyBalance : 0;
+		const selectedKey = `${selectedYear}-${selectedMonth.padStart(2, "0")}`;
+		const previousClosed = closedMonths
+			.filter((cm) => {
+				const cmKey = `${cm.year}-${cm.month.padStart(2, "0")}`;
+				return cmKey < selectedKey;
+			})
+			.sort((a, b) => {
+				const aKey = `${a.year}-${a.month.padStart(2, "0")}`;
+				const bKey = `${b.year}-${b.month.padStart(2, "0")}`;
+				return bKey.localeCompare(aKey);
+			});
+		return previousClosed.length > 0 ? previousClosed[0].monthlyBalance : 0;
 	}, [closedMonths, selectedMonth, selectedYear]);
 
 	// Calcula ingresos, gastos y saldo del mes seleccionado
@@ -508,16 +513,16 @@ export default function CashBoxPage() {
 			.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort by date descending
 	}, [transactions, filterStartDate, filterEndDate, filterType, filterSubtype]);
 
-	// Calculate accumulated balance up to a specific date
+	// Calculate accumulated balance up to a specific date (sin transferencias)
 	const accumulatedBalance = useMemo(() => {
 		const targetDate = new Date(accumulatedBalanceDate);
-		let balance = initialBalanceForPeriod; // Ahora comienza desde el saldo inicial del período
+		let balance = initialBalanceForPeriod;
 		transactions.forEach((t) => {
 			const transactionDate = new Date(t.date);
 			if (transactionDate <= targetDate) {
 				if (t.type === "income") {
 					balance += t.amount;
-				} else {
+				} else if (t.type === "expense") {
 					balance -= t.amount;
 				}
 			}
@@ -1033,91 +1038,97 @@ export default function CashBoxPage() {
 	}
 
 	return (
-		<div className="min-h-screen">
+		<div className="space-y-6">
 			{/* Header */}
-			<div className="flex flex-col gap-6 mb-8">
-				<div className="flex items-center justify-between">
-					<h1 className="text-3xl font-bold text-foreground">Caja Principal</h1>
-					<div className="flex gap-2">
-						<Button
-							onClick={() => setIsNewBoxModalOpen(true)}
-							variant="default"
-						>
-							<Plus className="h-4 w-4" />
+			<div className="flex flex-col gap-4">
+				<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+					<div>
+						<h1 className="text-2xl font-bold text-foreground tracking-tight">Caja Principal</h1>
+						<p className="text-sm text-muted-foreground">Gestión de ingresos, gastos y movimientos</p>
+					</div>
+					<div className="flex items-center gap-2">
+						<Button size="sm" variant="outline" onClick={() => setIsNewBoxModalOpen(true)}>
 							Abrir Caja
 						</Button>
-						<Button
-							onClick={() => setIsRegisterMovementModalOpen(true)}
-							variant="outline"
-						>
-							<Plus className="h-4 w-4" />
-							Registrar Movimiento
+						<Button size="sm" variant="outline" onClick={() => {
+							setNewType("transfer");
+							setIsRegisterMovementModalOpen(true);
+						}}>
+							<ArrowRightLeft className="h-3.5 w-3.5 mr-1.5" />
+							Transferencia
+						</Button>
+						<Button size="sm" onClick={() => setIsRegisterMovementModalOpen(true)}>
+							<Plus className="h-3.5 w-3.5 mr-1.5" />
+							Nuevo movimiento
 						</Button>
 					</div>
 				</div>
 
-				<div className="flex flex-col md:flex-row md:items-center gap-4">
-					<div className="flex items-center gap-4 rounded-lg border bg-card px-4 py-3">
+				{/* Saldo acumulado bar */}
+				<div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border bg-card/50 px-4 py-3">
+					<div className="flex items-center gap-3">
+						<div className="h-9 w-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+							<Calculator className="h-4 w-4 text-blue-600" />
+						</div>
 						<div>
-							<p className="text-xs text-muted-foreground font-medium">Saldo Acumulado</p>
-							<p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+							<p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Saldo Acumulado</p>
+							<p className={cn("text-lg font-bold tabular-nums", saldoAcumulado >= 0 ? "text-blue-600" : "text-red-600")}>
 								{formatCurrency(saldoAcumulado)}
 							</p>
 						</div>
-						<div className="h-10 w-px bg-border" />
-						<div className="flex items-center gap-3">
-							<Popover>
-								<PopoverTrigger asChild>
-									<Button variant="outline" className="w-[180px] justify-start text-left font-normal">
-										<CalendarIcon className="mr-2 h-4 w-4" />
-										{accumulatedBalanceDate
-											? new Date(accumulatedBalanceDate + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
-											: "Seleccionar fecha"}
-									</Button>
-								</PopoverTrigger>
-								<PopoverContent className="w-auto p-0" align="start">
-									<Calendar
-										mode="single"
-										selected={accumulatedBalanceDate ? new Date(accumulatedBalanceDate + "T12:00:00") : undefined}
-										onSelect={(date) => {
-											if (date) {
-												const y = date.getFullYear();
-												const m = String(date.getMonth() + 1).padStart(2, "0");
-												const d = String(date.getDate()).padStart(2, "0");
-												setAccumulatedBalanceDate(`${y}-${m}-${d}`);
-											}
-										}}
-									/>
-								</PopoverContent>
-							</Popover>
-
-							<ShadcnSelect
-								value=""
-								onValueChange={(value) => {
-									const hoy = new Date();
-									let nuevaFecha = "";
-									if (value === "hoy") {
-										nuevaFecha = hoy.toISOString().slice(0, 10);
-									} else if (value === "fin-mes") {
-										const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-										nuevaFecha = finMes.toISOString().slice(0, 10);
-									} else if (value === "inicio-mes") {
-										const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
-										nuevaFecha = inicioMes.toISOString().slice(0, 10);
-									}
-									if (nuevaFecha) setAccumulatedBalanceDate(nuevaFecha);
-								}}
-							>
-								<SelectTrigger className="w-[140px]">
-									<SelectValue placeholder="Rápido" />
-								</SelectTrigger>
-								<SelectContent>
-									<SelectItem value="hoy">Hoy</SelectItem>
-									<SelectItem value="inicio-mes">Inicio de mes</SelectItem>
-									<SelectItem value="fin-mes">Fin de mes</SelectItem>
-								</SelectContent>
-							</ShadcnSelect>
-						</div>
+					</div>
+					<div className="hidden sm:block h-8 w-px bg-border" />
+					<div className="flex items-center gap-2">
+						<Popover>
+							<PopoverTrigger asChild>
+								<Button variant="outline" size="sm" className="w-[170px] justify-start text-left font-normal">
+									<CalendarIcon className="mr-2 h-3.5 w-3.5" />
+									{accumulatedBalanceDate
+										? new Date(accumulatedBalanceDate + "T12:00:00").toLocaleDateString("es-AR", { day: "2-digit", month: "short", year: "numeric" })
+										: "Seleccionar fecha"}
+								</Button>
+							</PopoverTrigger>
+							<PopoverContent className="w-auto p-0" align="start">
+								<Calendar
+									mode="single"
+									selected={accumulatedBalanceDate ? new Date(accumulatedBalanceDate + "T12:00:00") : undefined}
+									onSelect={(date) => {
+										if (date) {
+											const y = date.getFullYear();
+											const m = String(date.getMonth() + 1).padStart(2, "0");
+											const d = String(date.getDate()).padStart(2, "0");
+											setAccumulatedBalanceDate(`${y}-${m}-${d}`);
+										}
+									}}
+								/>
+							</PopoverContent>
+						</Popover>
+						<ShadcnSelect
+							value=""
+							onValueChange={(value) => {
+								const hoy = new Date();
+								let nuevaFecha = "";
+								if (value === "hoy") {
+									nuevaFecha = hoy.toISOString().slice(0, 10);
+								} else if (value === "fin-mes") {
+									const finMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+									nuevaFecha = finMes.toISOString().slice(0, 10);
+								} else if (value === "inicio-mes") {
+									const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+									nuevaFecha = inicioMes.toISOString().slice(0, 10);
+								}
+								if (nuevaFecha) setAccumulatedBalanceDate(nuevaFecha);
+							}}
+						>
+							<SelectTrigger className="w-[120px] h-8 text-xs">
+								<SelectValue placeholder="Rápido" />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="hoy">Hoy</SelectItem>
+								<SelectItem value="inicio-mes">Inicio de mes</SelectItem>
+								<SelectItem value="fin-mes">Fin de mes</SelectItem>
+							</SelectContent>
+						</ShadcnSelect>
 					</div>
 				</div>
 
@@ -1273,239 +1284,185 @@ export default function CashBoxPage() {
 			</div>
 
 			{/* Top Summary Cards */}
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-				<Card className="bg-card shadow-sm border">
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium text-muted-foreground">
-							Saldo de Caja
-						</CardTitle>
-						<Calculator className="h-4 w-4 text-muted-foreground" />
-					</CardHeader>
-					<CardContent>
-						{/* Ahora muestra directamente el saldo actual de la caja */}
-						<div className="text-2xl font-bold text-foreground">
+			<div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+				<Card className="relative overflow-hidden border-l-4 border-l-primary transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+					<CardContent className="p-4">
+						<div className="flex items-center justify-between mb-2">
+							<span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Saldo de Caja</span>
+							<div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+								<Calculator className="h-4 w-4 text-primary" />
+							</div>
+						</div>
+						<p className={cn("text-xl font-bold tabular-nums", currentCashBalance >= 0 ? "text-foreground" : "text-red-600")}>
 							{formatCurrency(currentCashBalance)}
-						</div>
-						<p className="text-xs text-muted-foreground">Total Actual</p>
+						</p>
+						<p className="text-[11px] text-muted-foreground mt-1">Total Actual</p>
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card shadow-sm border">
-					<CardHeader>
-						<CardTitle>Ingresos</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-green-600">
+				<Card className="relative overflow-hidden border-l-4 border-l-green-500 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+					<CardContent className="p-4">
+						<div className="flex items-center justify-between mb-2">
+							<span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Ingresos</span>
+							<div className="h-8 w-8 rounded-full bg-green-500/10 flex items-center justify-center">
+								<HandCoins className="h-4 w-4 text-green-600" />
+							</div>
+						</div>
+						<p className="text-xl font-bold text-green-600 tabular-nums">
 							{formatCurrency(ingresosMes)}
-						</div>
-						<p className="text-xs text-muted-foreground">Total del mes</p>
+						</p>
+						<p className="text-[11px] text-muted-foreground mt-1">Total del mes</p>
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card shadow-sm border">
-					<CardHeader>
-						<CardTitle>Gastos</CardTitle>
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-red-600">
+				<Card className="relative overflow-hidden border-l-4 border-l-red-500 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+					<CardContent className="p-4">
+						<div className="flex items-center justify-between mb-2">
+							<span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Gastos</span>
+							<div className="h-8 w-8 rounded-full bg-red-500/10 flex items-center justify-center">
+								<ArrowRightLeft className="h-4 w-4 text-red-600" />
+							</div>
+						</div>
+						<p className="text-xl font-bold text-red-600 tabular-nums">
 							{formatCurrency(gastosMes)}
-						</div>
-						<p className="text-xs text-muted-foreground">Total del mes</p>
+						</p>
+						<p className="text-[11px] text-muted-foreground mt-1">Total del mes</p>
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card shadow-sm border">
-					<CardHeader>
-						<CardTitle className="text-sm font-medium text-muted-foreground">
-							Saldo del Mes
-						</CardTitle>
-						<DollarSign className="h-4 w-4 text-blue-500" />
-					</CardHeader>
-					<CardContent>
-						<div
-							className={cn(
-								"text-2xl font-bold",
-								saldoMes >= 0 ? "text-blue-600" : "text-red-600",
-							)}
-						>
+				<Card className="relative overflow-hidden border-l-4 border-l-blue-500 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+					<CardContent className="p-4">
+						<div className="flex items-center justify-between mb-2">
+							<span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Saldo del Mes</span>
+							<div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
+								<DollarSign className="h-4 w-4 text-blue-600" />
+							</div>
+						</div>
+						<p className={cn("text-xl font-bold tabular-nums", saldoMes >= 0 ? "text-blue-600" : "text-red-600")}>
 							{formatCurrency(saldoMes)}
-						</div>
-						<p className="text-xs text-muted-foreground">
-							{new Date(0, Number.parseInt(selectedMonth) - 1).toLocaleString(
-								"es-AR",
-								{ month: "long" },
-							)}{" "}
-							{selectedYear}
+						</p>
+						<p className="text-[11px] text-muted-foreground mt-1 capitalize">
+							{new Date(0, Number.parseInt(selectedMonth) - 1).toLocaleString("es-AR", { month: "long" })} {selectedYear}
 						</p>
 					</CardContent>
 				</Card>
 
-				<Card className="bg-card shadow-sm border">
-					<CardHeader>
-						<CardTitle className="text-sm font-medium text-muted-foreground">
-							Total Inicial
-						</CardTitle>
-					</CardHeader>
-					<CardContent>
-						{/* Ahora muestra el saldo inicial del período */}
-						<div className="text-2xl font-bold text-foreground">
-							{formatCurrency(saldoInicialMes)}
+				<Card className="relative overflow-hidden border-l-4 border-l-amber-500 transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
+					<CardContent className="p-4">
+						<div className="flex items-center justify-between mb-2">
+							<span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Total Inicial</span>
+							<div className="h-8 w-8 rounded-full bg-amber-500/10 flex items-center justify-center">
+								<DollarSign className="h-4 w-4 text-amber-600" />
+							</div>
 						</div>
-						<p className="text-xs text-muted-foreground">
-							Saldo al inicio del período actual
+						<p className="text-xl font-bold text-foreground tabular-nums">
+							{formatCurrency(saldoInicialMes)}
 						</p>
+						<p className="text-[11px] text-muted-foreground mt-1">Inicio del período</p>
 					</CardContent>
 				</Card>
 			</div>
 
 			{/* Saldo Cajas Usuarios */}
-			<div className="flex flex-col gap-8 mb-8">
-				<div>
-					<h2 className="text-lg font-semibold text-foreground mb-4">Saldo Cajas Usuarios</h2>
-					<div className="overflow-hidden rounded-xl border">
-						<Table className="w-full">
-								<TableHeader className="bg-muted/50">
-									<TableRow>
-										<TableCell
-											className="px-4 py-3 text-sm font-semibold text-foreground text-left"
-										>
-											Miembro
-										</TableCell>
-										<TableCell
-											className="px-4 py-3 text-sm font-semibold text-foreground text-right"
-										>
-											Saldo Total
-										</TableCell>
-										<TableCell
-											className="px-4 py-3 text-sm font-semibold text-foreground text-right"
-										>
-											Ingresos
-										</TableCell>
-										<TableCell
-											className="px-4 py-3 text-sm font-semibold text-foreground text-right"
-										>
-											Gastos
-										</TableCell>
-										<TableCell
-											className="px-4 py-3 text-sm font-semibold text-foreground text-right"
-										>
-											Accion
-										</TableCell>
-									</TableRow>
-								</TableHeader>
-								<TableBody>
-									{calculatedUserBalances.length > 0 ? (
-										calculatedUserBalances.map((user, index) => (
-											<TableRow
-												key={index}
-												className={cn(
-													index % 2 === 0 ? "bg-background" : "bg-muted/30",
-													"hover:bg-muted/50",
-												)}
-											>
-												<TableCell className="px-4 py-3 text-sm text-foreground">
-													<div className="flex items-center gap-2">
-														<Image
-															src={user.avatar || "/placeholder.svg"}
-															alt="User Avatar"
-															width={32}
-															height={32}
-															className="h-8 w-8 rounded-full object-cover"
-														/>
-														<span>{user.name}</span>
-													</div>
-												</TableCell>
-												<TableCell
-													className={cn(
-														"px-4 py-3 text-sm text-right font-medium",
-														user.totalBalance >= 0
-															? "text-green-600"
-															: "text-red-600",
-													)}
-												>
-													{formatCurrency(user.totalBalance)}
-												</TableCell>
-												<TableCell className="px-4 py-3 text-sm text-right text-green-600">
-													{formatCurrency(user.income)}
-												</TableCell>
-												<TableCell className="px-4 py-3 text-sm text-right text-red-600">
-													{formatCurrency(user.expenses)}
-												</TableCell>
-												<TableCell className="px-4 py-3 text-sm text-right">
-													<Button
-														variant="outline"
-														onClick={() =>
-															router.push(`/admin/cashbox/${user.id}`)
-														}
-													>
-														Detalles
-													</Button>
-												</TableCell>
-											</TableRow>
-										))
-									) : (
-										<TableRow>
-											<TableCell
-												colSpan={5}
-												className="px-4 py-3 text-center text-muted-foreground"
-											>
-												<div className="flex min-h-[300px] flex-col items-center justify-center rounded-lg border border-dashed border-border p-8 text-center">
-													<HandCoins className="h-10 w-10 text-muted-foreground" />
-													<h3 className="mb-2 text-lg font-medium">
-														No hay transacciones
-													</h3>
-													<p className="mb-4 mt-2 text-sm text-muted-foreground">
-														No hay transacciones asociadas a este periodo.
-													</p>
-												</div>
-											</TableCell>
-										</TableRow>
-									)}
-									<TableRow className="font-bold bg-muted/50">
-										<TableCell className="px-4 py-3 text-sm text-foreground">
-											Totales:
-										</TableCell>
-										<TableCell
-											className={cn(
-												"px-4 py-3 text-sm text-right",
-												totalCalculatedUsersBalance >= 0
-													? "text-green-700"
-													: "text-red-700",
-											)}
-										>
-											{formatCurrency(totalCalculatedUsersBalance)}
-										</TableCell>
-										<TableCell className="px-4 py-3 text-sm text-right text-green-700">
-											{formatCurrency(totalCalculatedUsersIncome)}
-										</TableCell>
-										<TableCell className="px-4 py-3 text-sm text-right text-red-700">
-											{formatCurrency(totalCalculatedUsersExpenses)}
-										</TableCell>
-										<TableCell className="px-4 py-3 text-sm text-right">
-											&nbsp;
-										</TableCell>
-									</TableRow>
-								</TableBody>
-							</Table>
-					</div>
-					<div className="mt-4 text-center">
-						<Button variant="outline" onClick={handleViewDetailedMovements}>
-							Ver Movimientos Detallados
-						</Button>
-					</div>
+			{/* Saldo Cajas Usuarios */}
+			<div className="mb-8">
+				<div className="flex items-center justify-between mb-4">
+					<h2 className="text-lg font-semibold text-foreground">Saldo Cajas Usuarios</h2>
+					<Button variant="outline" size="sm" onClick={handleViewDetailedMovements}>
+						Ver Movimientos Detallados
+					</Button>
 				</div>
+				<Card className="overflow-hidden">
+					<Table className="w-full">
+						<TableHeader>
+							<TableRow className="bg-muted/40 hover:bg-muted/40">
+								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-left">Miembro</TableCell>
+								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Saldo Total</TableCell>
+								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Ingresos</TableCell>
+								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Gastos</TableCell>
+								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right w-25" />
+							</TableRow>
+						</TableHeader>
+						<TableBody>
+							{calculatedUserBalances.length > 0 ? (
+								calculatedUserBalances.map((user, index) => (
+									<TableRow
+										key={user.id}
+										className="group transition-colors hover:bg-muted/30 cursor-pointer"
+										onClick={() => router.push(`/admin/cashbox/${user.id}`)}
+									>
+										<TableCell className="px-4 py-2.5">
+											<div className="flex items-center gap-3">
+												<Image
+													src={user.avatar || "/placeholder.svg"}
+													alt={user.name}
+													width={28}
+													height={28}
+													className="h-7 w-7 rounded-full object-cover ring-2 ring-background"
+												/>
+												<span className="text-sm font-medium">{user.name}</span>
+											</div>
+										</TableCell>
+										<TableCell className={cn("px-4 py-2.5 text-sm text-right font-semibold tabular-nums", user.totalBalance >= 0 ? "text-green-600" : "text-red-600")}>
+											{formatCurrency(user.totalBalance)}
+										</TableCell>
+										<TableCell className="px-4 py-2.5 text-sm text-right text-green-600 tabular-nums">
+											{formatCurrency(user.income)}
+										</TableCell>
+										<TableCell className="px-4 py-2.5 text-sm text-right text-red-600 tabular-nums">
+											{formatCurrency(user.expenses)}
+										</TableCell>
+										<TableCell className="px-4 py-2.5 text-right">
+											<Button
+												variant="ghost"
+												size="sm"
+												className="opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+												onClick={(e) => {
+													e.stopPropagation();
+													router.push(`/admin/cashbox/${user.id}`);
+												}}
+											>
+												Detalles
+											</Button>
+										</TableCell>
+									</TableRow>
+								))
+							) : (
+								<TableRow>
+									<TableCell colSpan={5} className="py-12 text-center">
+										<HandCoins className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+										<p className="text-sm text-muted-foreground">No hay transacciones en este período.</p>
+									</TableCell>
+								</TableRow>
+							)}
+							<TableRow className="bg-muted/40 hover:bg-muted/40 border-t-2">
+								<TableCell className="px-4 py-2.5 text-sm font-bold">Totales</TableCell>
+								<TableCell className={cn("px-4 py-2.5 text-sm text-right font-bold tabular-nums", totalCalculatedUsersBalance >= 0 ? "text-green-700" : "text-red-700")}>
+									{formatCurrency(totalCalculatedUsersBalance)}
+								</TableCell>
+								<TableCell className="px-4 py-2.5 text-sm text-right font-bold text-green-700 tabular-nums">
+									{formatCurrency(totalCalculatedUsersIncome)}
+								</TableCell>
+								<TableCell className="px-4 py-2.5 text-sm text-right font-bold text-red-700 tabular-nums">
+									{formatCurrency(totalCalculatedUsersExpenses)}
+								</TableCell>
+								<TableCell />
+							</TableRow>
+						</TableBody>
+					</Table>
+				</Card>
 			</div>
 
 			{/* Main Content Grid */}
-			<div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+			<div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
 				{/* Left Column: Monthly Movements */}
 				<div
 					className="lg:col-span-2 flex flex-col gap-4"
 					ref={monthlyMovementsRef}
 				>
-					<div className="flex items-center justify-between">
-						<h2 className="text-lg font-semibold text-foreground">Detalle de Movimientos del Mes</h2>
-						<div className="flex gap-2">
+					<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+						<h2 className="text-lg font-semibold text-foreground">Movimientos del Mes</h2>
+						<div className="flex items-center gap-2">
 							<Select
 								value={selectedMonth}
 								onValueChange={setSelectedMonth}
@@ -1518,15 +1475,15 @@ export default function CashBoxPage() {
 								onValueChange={setSelectedYear}
 								options={yearOptions}
 								placeholder="Año"
-								className="w-[100px]"
+								className="w-24"
 							/>
 							<Button
 								onClick={handleCloseMonth}
-								variant="default"
+								variant="destructive"
+								size="sm"
 								disabled={loading}
-								className="bg-primary text-primary-foreground hover:bg-primary/85 py-1 px-2"
 							>
-								<Ban className="h-4 w-4" /> Cerrar Caja
+								<Ban className="h-3.5 w-3.5 mr-1" /> Cerrar
 							</Button>
 						</div>
 					</div>
@@ -1701,43 +1658,24 @@ export default function CashBoxPage() {
 				</div>
 
 				{/* Gráfico Ingresos vs Egresos */}
-				<Card className="bg-card shadow-sm border">
-					<CardHeader className="flex flex-row items-center justify-between pb-2">
-						<CardTitle>Ingresos vs Egresos</CardTitle>
-						<div className="flex rounded-lg border border-border overflow-hidden text-xs font-medium">
-							<button
-								onClick={() => setChartView("month")}
-								className={cn(
-									"px-3 py-1.5 transition-colors",
-									chartView === "month"
-										? "bg-primary text-white"
-										: "bg-background text-muted-foreground hover:bg-muted/50",
-								)}
-							>
-								Por Mes
-							</button>
-							<button
-								onClick={() => setChartView("year")}
-								className={cn(
-									"px-3 py-1.5 transition-colors",
-									chartView === "year"
-										? "bg-primary text-white"
-										: "bg-background text-muted-foreground hover:bg-muted/50",
-								)}
-							>
-								Por Año
-							</button>
-							<button
-								onClick={() => setChartView("user")}
-								className={cn(
-									"px-3 py-1.5 transition-colors",
-									chartView === "user"
-										? "bg-primary text-white"
-										: "bg-background text-muted-foreground hover:bg-muted/50",
-								)}
-							>
-								Por Usuario
-							</button>
+				<Card className="overflow-hidden">
+					<CardHeader className="flex flex-row items-center justify-between pb-2 px-4 pt-4">
+						<CardTitle className="text-sm font-semibold">Ingresos vs Egresos</CardTitle>
+						<div className="flex rounded-lg border border-border overflow-hidden text-[11px] font-medium">
+							{(["month", "year", "user"] as const).map((view) => (
+								<button
+									key={view}
+									onClick={() => setChartView(view)}
+									className={cn(
+										"px-2.5 py-1 transition-colors",
+										chartView === view
+											? "bg-primary text-primary-foreground"
+											: "bg-background text-muted-foreground hover:bg-muted/50",
+									)}
+								>
+									{view === "month" ? "Mes" : view === "year" ? "Año" : "Usuario"}
+								</button>
+							))}
 						</div>
 					</CardHeader>
 					<CardContent>
@@ -1772,9 +1710,9 @@ export default function CashBoxPage() {
 				</Card>
 			</div>
 
-			{/* Historial de Cierres de Caja */}
+			{/* Historial de Cierres */}
 			<div className="mb-8">
-				<h2 className="text-lg font-semibold text-foreground mb-4">Historial de Cierres de Caja</h2>
+				<h2 className="text-lg font-semibold text-foreground mb-4">Historial de Cierres</h2>
 				<div className="overflow-hidden rounded-xl border">
 					<Table className="w-full">
 							<TableHeader className="bg-muted/50">

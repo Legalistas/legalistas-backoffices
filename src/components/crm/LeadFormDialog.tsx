@@ -11,9 +11,8 @@ import {
 	LAWYERS_ENDPOINT,
 	LEADS_ENDPOINT,
 	SELLERS_ENDPOINT,
-	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
+import { ART_COMPANIES, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
 import { Role } from "@/constant/user";
 import type { Lead } from "@/types/crm";
 import type { User } from "@/types/users";
@@ -83,6 +82,8 @@ export default function LeadFormDialog({
 		documentationComplete: false,
 		referentId: null as number | null,
 		accidentDate: "",
+		artId: null as number | null,
+		insuranceId: null as number | null,
 	});
 	const router = useRouter();
 	const [searchQuery, setSearchQuery] = useState("");
@@ -95,7 +96,6 @@ export default function LeadFormDialog({
 	const [isSellerLoading, setIsSellerLoading] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
 	const [responsibleLawyers, setResponsibleLawyers] = useState<any[]>([]);
-	const [referentLawyers, setReferentLawyers] = useState<any[]>([]);
 	const [internalLawyers, setInternalLawyers] = useState<any[]>([]);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [hasSelectedCustomer, setHasSelectedCustomer] = useState(false);
@@ -210,35 +210,13 @@ export default function LeadFormDialog({
 		}
 	}, [session?.user?.accessToken]);
 
-	const fetchReferentLawyers = useCallback(async () => {
-		try {
-			const response = await fetch(`${USERS_ENDPOINT}?limit=100000`, {
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${session?.user?.accessToken}`,
-				},
-			});
-			const data = await response.json();
-			if (data?.data) {
-				setReferentLawyers(
-					data.data.filter((u: any) =>
-						u.roleUser?.some((ru: any) => ru.role?.name === Role.REFERENTES),
-					),
-				);
-			}
-		} catch (error) {
-			console.error("Error fetching referents:", error);
-		}
-	}, [session?.user?.accessToken]);
-
 	useEffect(() => {
 		if (open) {
 			fetchCustomers();
 			fetchSellers();
 			fetchDataLawyer();
-			fetchReferentLawyers();
 		}
-	}, [open, fetchCustomers, fetchSellers, fetchDataLawyer, fetchReferentLawyers]);
+	}, [open, fetchCustomers, fetchSellers, fetchDataLawyer]);
 
 	useEffect(() => {
 		if (lead) {
@@ -255,6 +233,8 @@ export default function LeadFormDialog({
 				documentationComplete: lead.documentationComplete || false,
 				referentId: lead.referentId ?? null,
 				accidentDate: lead.accidentDate ? lead.accidentDate.slice(0, 10) : "",
+				artId: lead.artId ?? null,
+				insuranceId: lead.insuranceId ?? null,
 			});
 			if (lead.user) {
 				setSearchQuery(lead.user.name);
@@ -275,6 +255,8 @@ export default function LeadFormDialog({
 				documentationComplete: false,
 				referentId: null,
 				accidentDate: "",
+				artId: null,
+				insuranceId: null,
 			});
 			setSearchQuery("");
 			setSelectedCustomerName("");
@@ -390,6 +372,8 @@ export default function LeadFormDialog({
 				documentationComplete: formData.documentationComplete || false,
 				referentId: formData.referentId ?? null,
 				accidentDate: formData.accidentDate || null,
+				artId: formData.artId || null,
+				insuranceId: formData.insuranceId || null,
 			};
 
 			const endpoint = lead?.id
@@ -420,36 +404,27 @@ export default function LeadFormDialog({
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-2xl">
+			<DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
 				<DialogHeader>
-					<DialogTitle>{lead ? "Editar Lead" : "Crear lead"}</DialogTitle>
-					<DialogDescription className="sr-only">Formulario para gestionar un lead del CRM</DialogDescription>
+					<DialogTitle>{lead ? "Editar Lead" : "Crear Lead"}</DialogTitle>
+					<DialogDescription>
+						{lead
+							? "Modificá los datos del lead y guardá los cambios."
+							: "Completá los datos para registrar un nuevo lead."}
+					</DialogDescription>
 				</DialogHeader>
 
-				<div className="grid gap-4">
+				<div className="space-y-6 py-2">
 					{/* Cliente */}
-					<div className="space-y-2">
-						<div className="flex items-center justify-between">
-							<Label htmlFor="client">
-								<span className="text-red-500 mr-1">*</span> Cliente
-							</Label>
-							<button
-								type="button"
-								onClick={refreshCustomers}
-								className="text-xs text-primary hover:text-primary/80 flex items-center"
-								disabled={isRefreshingCustomers}
-							>
-								<RefreshCw
-									className={`h-3 w-3 mr-1 ${isRefreshingCustomers ? "animate-spin" : ""}`}
-								/>
-								Actualizar clientes
-							</button>
-						</div>
+					<section>
+						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
+							<span className="text-destructive mr-1">*</span> Cliente
+						</h3>
 						<div className="relative">
 							<div className="relative flex-1" ref={searchInputRef}>
 								<Input
 									id="customerSearch"
-									placeholder="Busca un cliente"
+									placeholder="Buscar cliente por nombre o email..."
 									value={searchQuery}
 									onChange={handleSearchChange}
 									onFocus={() => setShowResults(true)}
@@ -470,8 +445,9 @@ export default function LeadFormDialog({
 								)}
 
 								{hasSelectedCustomer && formData.userId > 0 && (
-									<div className="absolute right-0 top-0 flex items-center h-full">
+									<div className="absolute right-0 top-0 flex items-center h-full gap-1 pr-1">
 										<Button
+											size="sm"
 											onClick={() => {
 												const selected = customers.find(
 													(c) => c.id === formData.userId,
@@ -479,22 +455,40 @@ export default function LeadFormDialog({
 												if (selected) handleEdit(selected);
 											}}
 											variant="outline"
-											className="mr-1"
 										>
-											<Pencil className="h-4 w-4" />
+											<Pencil className="h-3.5 w-3.5" />
+										</Button>
+										<Button
+											size="sm"
+											variant="ghost"
+											onClick={refreshCustomers}
+											disabled={isRefreshingCustomers}
+										>
+											<RefreshCw
+												className={`h-3.5 w-3.5 ${isRefreshingCustomers ? "animate-spin" : ""}`}
+											/>
 										</Button>
 									</div>
 								)}
 
 								{!searchQuery && !hasSelectedCustomer && (
-									<div className="absolute right-0 top-0 flex items-center h-full">
+									<div className="absolute right-0 top-0 flex items-center h-full gap-1 pr-1">
 										<Button
-											variant="default"
-											className="mr-1 text-sm"
+											size="sm"
 											onClick={() => setCustomerModalOpen(true)}
 										>
-											<Plus className="h-4 w-4 mr-1" />
-											Agregar cliente
+											<Plus className="h-3.5 w-3.5 mr-1" />
+											Nuevo
+										</Button>
+										<Button
+											size="sm"
+											variant="ghost"
+											onClick={refreshCustomers}
+											disabled={isRefreshingCustomers}
+										>
+											<RefreshCw
+												className={`h-3.5 w-3.5 ${isRefreshingCustomers ? "animate-spin" : ""}`}
+											/>
 										</Button>
 									</div>
 								)}
@@ -502,21 +496,21 @@ export default function LeadFormDialog({
 								{showResults && (
 									<div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
 										{isLoadingCustomers ? (
-											<div className="p-2 text-muted-foreground">
+											<div className="p-3 text-sm text-muted-foreground">
 												Cargando clientes...
 											</div>
 										) : customersError ? (
-											<div className="p-2 text-red-500">{customersError}</div>
+											<div className="p-3 text-sm text-red-500">{customersError}</div>
 										) : filteredCustomers.length > 0 ? (
 											filteredCustomers.map((customer) => (
 												<div
 													key={customer.id}
-													className={`p-2 hover:bg-muted cursor-pointer ${
+													className={`px-3 py-2 hover:bg-muted cursor-pointer transition-colors ${
 														formData.userId === customer.id ? "bg-primary/5" : ""
 													}`}
 													onClick={() => handleCustomerSelect(customer)}
 												>
-													<div className="font-medium">{customer.name}</div>
+													<div className="font-medium text-sm">{customer.name}</div>
 													<div className="text-xs text-muted-foreground">
 														{customer.email && `${customer.email} - `}
 														{customer.userAddresses?.[0]?.state?.name &&
@@ -526,7 +520,7 @@ export default function LeadFormDialog({
 												</div>
 											))
 										) : (
-											<div className="p-2 text-muted-foreground">
+											<div className="p-3 text-sm text-muted-foreground">
 												No se encontraron clientes
 											</div>
 										)}
@@ -548,101 +542,162 @@ export default function LeadFormDialog({
 								mode={modalMode}
 							/>
 						</div>
-					</div>
+					</section>
 
-					{/* Selects grid */}
-					<div className="grid grid-cols-2 gap-4">
-						<FormSelect
-							label="Vendedor"
-							value={formData.sellerId}
-							onChange={(v) => handleSelectChange("sellerId", v)}
-							placeholder="Seleccionar vendedor"
-							options={sellers}
-							disabled={isSellerLoading}
-						/>
-						<FormSelect
-							label="Abogado Interno"
-							value={formData.internalLawyerId}
-							onChange={(v) => handleSelectChange("internalLawyerId", v)}
-							placeholder="Seleccionar abo. Interno"
-							options={internalLawyers}
-							disabled={isLoading}
-						/>
-						<FormSelect
-							label="Referente (opcional)"
-							value={formData.referentId || 0}
-							onChange={(v) => handleSelectChange("referentId", v)}
-							placeholder="Sin referente"
-							options={referentLawyers}
-							disabled={isLoading}
-							allowEmpty
-						/>
-						<FormSelect
-							label="Abogado Responsable"
-							value={formData.responsibleLawyerId}
-							onChange={(v) => handleSelectChange("responsibleLawyerId", v)}
-							placeholder="Seleccionar abo. Responsable"
-							options={responsibleLawyers}
-							disabled={isLoading}
-						/>
-					</div>
-
-					<div className="grid grid-cols-2 gap-4">
-						<div className="space-y-2">
-							<Label>Servicios</Label>
-							<Select
-								value={formData.servicesId ? String(formData.servicesId) : ""}
-								onValueChange={(v) => handleSelectChange("servicesId", v)}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder="Seleccionar servicio" />
-								</SelectTrigger>
-								<SelectContent>
-									{SERVICES_TYPE.map((s) => (
-										<SelectItem key={s.id} value={String(s.id)}>
-											{s.label}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-
-						<div className="space-y-2">
-							<Label>Canal de Ingreso</Label>
-							<Select
-								value={formData.sourceChannelId ? String(formData.sourceChannelId) : ""}
-								onValueChange={(v) => handleSelectChange("sourceChannelId", v)}
-							>
-								<SelectTrigger>
-									<SelectValue placeholder="Seleccionar canal" />
-								</SelectTrigger>
-								<SelectContent>
-									{SOURCE_CHANNEL.map((c) => (
-										<SelectItem key={c.id} value={String(c.id)}>
-											{c.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-						</div>
-
-						<div className="space-y-2">
-							<Label>Fecha de accidente</Label>
-							<Input
-								type="datetime-local"
-								value={formData.accidentDate || ""}
-								onChange={(e) =>
-									setFormData((prev) => ({
-										...prev,
-										accidentDate: e.target.value,
-									}))
-								}
+					{/* Asignación */}
+					<section>
+						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
+							Asignación
+						</h3>
+						<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+							<FormSelect
+								label="Vendedor"
+								value={formData.sellerId}
+								onChange={(v) => handleSelectChange("sellerId", v)}
+								placeholder="Seleccionar"
+								options={sellers}
+								disabled={isSellerLoading}
+							/>
+							<FormSelect
+								label="Abogado Interno"
+								value={formData.internalLawyerId}
+								onChange={(v) => handleSelectChange("internalLawyerId", v)}
+								placeholder="Seleccionar"
+								options={internalLawyers}
+								disabled={isLoading}
+							/>
+							<FormSelect
+								label="Abogado Responsable"
+								value={formData.responsibleLawyerId}
+								onChange={(v) => handleSelectChange("responsibleLawyerId", v)}
+								placeholder="Seleccionar"
+								options={responsibleLawyers}
+								disabled={isLoading}
 							/>
 						</div>
-					</div>
+					</section>
+
+					{/* Detalle del Caso */}
+					<section>
+						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
+							Detalle del Caso
+						</h3>
+						<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+							<div className="space-y-2">
+								<Label>Servicios</Label>
+								<Select
+									value={formData.servicesId ? String(formData.servicesId) : ""}
+									onValueChange={(v) => handleSelectChange("servicesId", v)}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Seleccionar servicio" />
+									</SelectTrigger>
+									<SelectContent>
+										{SERVICES_TYPE.map((s) => (
+											<SelectItem key={s.id} value={String(s.id)}>
+												{s.label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-2">
+								<Label>Canal de Ingreso</Label>
+								<Select
+									value={formData.sourceChannelId ? String(formData.sourceChannelId) : ""}
+									onValueChange={(v) => handleSelectChange("sourceChannelId", v)}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Seleccionar canal" />
+									</SelectTrigger>
+									<SelectContent>
+										{SOURCE_CHANNEL.map((c) => (
+											<SelectItem key={c.id} value={String(c.id)}>
+												{c.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-2">
+								<Label>Fecha de accidente</Label>
+								<Input
+									type="datetime-local"
+									value={formData.accidentDate || ""}
+									onChange={(e) =>
+										setFormData((prev) => ({
+											...prev,
+											accidentDate: e.target.value,
+										}))
+									}
+								/>
+							</div>
+						</div>
+					</section>
+
+					{/* Seguros */}
+					<section>
+						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
+							Seguros
+						</h3>
+						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+							<div className="space-y-2">
+								<Label>ART (opcional)</Label>
+								<Select
+									value={formData.artId ? String(formData.artId) : ""}
+									onValueChange={(v) =>
+										setFormData((prev) => ({
+											...prev,
+											artId: v ? Number(v) : null,
+										}))
+									}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Seleccionar ART" />
+									</SelectTrigger>
+									<SelectContent>
+										{ART_COMPANIES.map((a) => (
+											<SelectItem key={a.id} value={String(a.id)}>
+												{a.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+
+							<div className="space-y-2">
+								<Label>Seguro (opcional)</Label>
+								<Select
+									value={formData.insuranceId ? String(formData.insuranceId) : ""}
+									onValueChange={(v) =>
+										setFormData((prev) => ({
+											...prev,
+											insuranceId: v ? Number(v) : null,
+										}))
+									}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Seleccionar seguro" />
+									</SelectTrigger>
+									<SelectContent>
+										{INSURANCE_COMPANIES.map((i) => (
+											<SelectItem key={i.id} value={String(i.id)}>
+												{i.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
+					</section>
 				</div>
 
 				<DialogFooter>
+					<Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
+						Cancelar
+					</Button>
 					<Button onClick={handleSubmit} disabled={isSubmitting}>
 						{isSubmitting ? (
 							<>
@@ -652,7 +707,7 @@ export default function LeadFormDialog({
 						) : (
 							<>
 								<Plus className="h-4 w-4 mr-2" />
-								Guardar Lead
+								{lead ? "Actualizar Lead" : "Guardar Lead"}
 							</>
 						)}
 					</Button>
