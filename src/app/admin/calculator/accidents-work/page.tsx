@@ -771,6 +771,8 @@ export default function AccidentsWorkPage() {
 			monthNames.indexOf(selectedRipteHasta.month),
 			1,
 		);
+		// Extender 1 mes: el último período usa el RIPTE "hasta" como referencia 3M atrás
+		fechaHasta.setMonth(fechaHasta.getMonth() + 1);
 
 		const tempDate = new Date(fechaDesde);
 
@@ -1087,6 +1089,10 @@ export default function AccidentsWorkPage() {
 				remuneraciones: remuneraciones,
 				porcentajesRipte: porcentajesRipte,
 				selectedRipte: selectedRipte,
+				tasaInteresAnual,
+				interesesCalculados,
+				totalIntereses,
+				totalConIntereses,
 			};
 
 			// Llamar al endpoint para generar PDF
@@ -1408,23 +1414,75 @@ export default function AccidentsWorkPage() {
 				</CardHeader>
 			</Card>
 
-			{/* Case info banner */}
-			{selectedCause && selectedFile && (
-				<Card className="py-3">
-					<CardContent className="flex flex-wrap items-center gap-2 py-0">
-						<Badge variant="secondary"><User className="size-3 mr-1" />{selectedCause.customer.name}</Badge>
-						<Badge variant="outline"><FileText className="size-3 mr-1" />{selectedFile.cuij || "Sin CUIJ"}</Badge>
-						{selectedFile.accidentDate && (
-							<Badge variant="outline">
-								<Calendar className="size-3 mr-1" />
-								{new Date(selectedFile.accidentDate).toLocaleDateString("es-AR")}
-							</Badge>
-						)}
-						<Badge variant="outline"><Cake className="size-3 mr-1" />{customerAge !== null ? `${customerAge} años` : "Sin edad"}</Badge>
-						<Badge variant="outline"><PercentCircle className="size-3 mr-1" />{disabilityPercentage !== null ? `${disabilityPercentage}%` : "Sin %"}</Badge>
-					</CardContent>
-				</Card>
-			)}
+			{/* Vincular causa */}
+			<Card className="py-3">
+				<CardContent className="py-0">
+					<div className="flex items-center gap-2 mb-2">
+						<Label className="text-sm font-semibold">Vincular Causa</Label>
+						<Badge variant="outline" className="text-[10px]">opcional</Badge>
+					</div>
+					{selectedCause && selectedFile ? (
+						<div className="flex flex-wrap items-center gap-2">
+							<Badge variant="secondary"><User className="size-3 mr-1" />{selectedCause.customer.name}</Badge>
+							<Badge variant="outline"><FileText className="size-3 mr-1" />{selectedFile.cuij || "Sin CUIJ"}</Badge>
+							{selectedFile.accidentDate && (
+								<Badge variant="outline">
+									<Calendar className="size-3 mr-1" />
+									{new Date(selectedFile.accidentDate).toLocaleDateString("es-AR")}
+								</Badge>
+							)}
+							<Badge variant="outline"><Cake className="size-3 mr-1" />{customerAge !== null ? `${customerAge} años` : "Sin edad"}</Badge>
+							<Badge variant="outline"><PercentCircle className="size-3 mr-1" />{disabilityPercentage !== null ? `${disabilityPercentage}%` : "Sin %"}</Badge>
+							<Button variant="ghost" size="sm" className="ml-auto" onClick={handleRemoveSelection}>
+								<X className="size-4" />
+							</Button>
+						</div>
+					) : (
+						<div ref={searchRef} className="relative">
+							<Input
+								placeholder="Buscar causa por nombre o CUIJ..."
+								value={searchTerm}
+								onChange={(e) => {
+									setSearchTerm(e.target.value);
+									setShowSuggestions(true);
+								}}
+								onFocus={() => setShowSuggestions(true)}
+							/>
+							{showSuggestions && searchTerm && (
+								<div className="absolute z-50 top-full mt-1 w-full bg-background border rounded-md shadow-lg max-h-60 overflow-y-auto">
+									{loading ? (
+										<p className="p-3 text-sm text-muted-foreground">Cargando...</p>
+									) : filteredCauses.length === 0 ? (
+										<p className="p-3 text-sm text-muted-foreground">Sin resultados</p>
+									) : (
+										filteredCauses.slice(0, 20).map((cause) => (
+											<div key={cause.id} className="border-b last:border-0">
+												<div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+													{cause.id} - {cause.customer.name}
+												</div>
+												{cause.files.map((file) => (
+													<button
+														key={file.id}
+														className="w-full text-left px-4 py-2 hover:bg-muted/50 text-sm flex items-center justify-between"
+														onClick={() => handleSelectFile(cause, file)}
+													>
+														<span className="font-mono text-xs">{file.cuij || "Sin CUIJ"}</span>
+														{file.accidentDate && (
+															<span className="text-xs text-muted-foreground">
+																{new Date(file.accidentDate).toLocaleDateString("es-AR")}
+															</span>
+														)}
+													</button>
+												))}
+											</div>
+										))
+									)}
+								</div>
+							)}
+						</div>
+					)}
+				</CardContent>
+			</Card>
 
 			{/* Main Tabs */}
 			<Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -1811,12 +1869,12 @@ export default function AccidentsWorkPage() {
 								<Button className="w-full" variant="destructive" onClick={handleGeneratePDF} disabled={isGeneratingPDF || !totalFormula}>
 									{isGeneratingPDF ? (<><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Generando...</>) : (<><Download className="size-4" /> Descargar PDF</>)}
 								</Button>
-								{/* <Button className="w-full" onClick={handleSaveLiquidacion} disabled={isSaving || !totalFormula}>
-									{isSaving ? (<><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Guardando...</>) : (<><Save className="size-4" /> Guardar</>)}
+								<Button className="w-full" onClick={handleSaveLiquidacion} disabled={isSaving || !totalFormula || !selectedFile}>
+									{isSaving ? (<><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" /> Guardando...</>) : (<><Save className="size-4" /> Guardar en Causa</>)}
 								</Button>
 								<Button className="w-full" variant="outline" onClick={() => setShowSavedLiquidations(true)} disabled={!selectedFile}>
 									<FileText className="size-4" /> Ver Guardadas ({savedLiquidations.length})
-								</Button> */}
+								</Button>
 							</div>
 						</div>
 					</div>

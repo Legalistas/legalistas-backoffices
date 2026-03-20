@@ -500,7 +500,7 @@ export default function AccidentsTransitPage() {
 			<Card className="py-3">
 				<CardContent className="py-0">
 					<div className="flex items-center gap-2 mb-2">
-						<Label className="text-sm font-semibold">Vincular con Expediente</Label>
+						<Label className="text-sm font-semibold">Vincular Causa</Label>
 						<Badge variant="outline" className="text-[10px]">opcional</Badge>
 					</div>
 					{selectedCause && selectedFile ? (
