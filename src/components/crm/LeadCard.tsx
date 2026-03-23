@@ -83,10 +83,17 @@ export default function LeadCard({ lead, onEdit, onDelete }: LeadCardProps) {
 		return `${province}${city ? ` - ${city}` : " - -"}`;
 	};
 
+	const formatWhatsAppPhone = (phone: string): string => {
+		let clean = phone.replace(/[\s\-()+ ]/g, "");
+		if (clean.startsWith("0")) clean = "54" + clean.substring(1);
+		if (!clean.startsWith("54")) clean = "54" + clean;
+		return clean;
+	};
+
 	// Obtener mensaje de WhatsApp según la etapa
 	const getWhatsappMessage = () => {
 		const columnId = String(lead.columnId || "1");
-		const nombre = lead.user?.name || lead.name || "cliente";
+		const nombre = lead.user?.name?.split(" ")[0] || lead.name?.split(" ")[0] || "cliente";
 		const lastMeeting = lead.crmMeetings?.length
 			? [...lead.crmMeetings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
 			: null;
@@ -100,27 +107,21 @@ export default function LeadCard({ lead, onEdit, onDelete }: LeadCardProps) {
 				: "https://legalistas.ar";
 			msg = msg
 				.replace("{tipoReunion}", MEETING_TYPES.find((mt) => mt.id === lastMeeting.type)?.name || lastMeeting.type)
-				.replace("{fechaReunion}", meetingDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" }))
+				.replace("{fechaReunion}", meetingDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }))
 				.replace("{horaReunion}", meetingDate.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }))
 				.replace("{confirmationUrl}", confirmationUrl);
 		}
 		return msg;
 	};
 
-	// Obtener el teléfono del lead
-	const getLeadPhone = () => {
-		return lead.phone || lead.user?.userProfile?.phone || "";
-	};
-
 	// Abrir WhatsApp con el mensaje
 	const handleWhatsappClick = () => {
-		const phone = getLeadPhone();
+		const phone = lead.phone || lead.user?.userProfile?.phone || "";
 		if (!phone) {
 			toast.error("Este lead no tiene número de teléfono registrado");
 			return;
 		}
-		// Limpiar el teléfono (quitar espacios, guiones, etc.)
-		const cleanPhone = phone.replace(/[\s\-()]/g, "");
+		const cleanPhone = formatWhatsAppPhone(phone);
 		const message = encodeURIComponent(getWhatsappMessage());
 		window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank");
 	};
