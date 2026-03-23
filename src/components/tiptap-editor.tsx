@@ -13,14 +13,12 @@ import {
 	List,
 	ListOrdered,
 	Palette,
-	Pilcrow,
 	Redo,
 	Strikethrough,
 	Type,
 	Undo,
 } from "lucide-react";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
 
 interface TiptapEditorProps {
 	content: string;
@@ -60,6 +58,31 @@ const backgroundColors = [
 	{ label: "Púrpura claro", value: "#E9D8FD" },
 	{ label: "Rosa claro", value: "#FED7E2" },
 ];
+
+const ToolbarBtn = ({
+	onClick,
+	active,
+	children,
+	disabled,
+}: {
+	onClick: () => void;
+	active?: boolean;
+	children: React.ReactNode;
+	disabled?: boolean;
+}) => (
+	<button
+		type="button"
+		onClick={onClick}
+		disabled={disabled}
+		className={`p-1.5 rounded transition-colors ${
+			active
+				? "bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-gray-100"
+				: "text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-200"
+		} disabled:opacity-40`}
+	>
+		{children}
+	</button>
+);
 
 export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 	const [showTextColorPicker, setShowTextColorPicker] = useState(false);
@@ -132,45 +155,35 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 	};
 
 	return (
-		<div className="border rounded-md overflow-hidden">
-			<div className="flex flex-wrap items-center gap-1 p-2 border-b bg-gray-50 dark:bg-gray-800">
-				<Button
-					variant="default"
+		<div className="border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800">
+			{/* Toolbar */}
+			<div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
+				<ToolbarBtn
 					onClick={() => editor.chain().focus().toggleBold().run()}
-					className={
-						editor.isActive("bold")
-							? "bg-gray-200 dark:bg-gray-700 p-2"
-							: " p-2"
-					}
+					active={editor.isActive("bold")}
 				>
-					<Bold className="h-4 w-4" />
-				</Button>
-				<Button
-					variant="default"
+					<Bold className="h-3.5 w-3.5" />
+				</ToolbarBtn>
+				<ToolbarBtn
 					onClick={() => editor.chain().focus().toggleItalic().run()}
-					className={
-						editor.isActive("italic")
-							? "bg-gray-200 dark:bg-gray-700 p-2"
-							: " p-2"
-					}
+					active={editor.isActive("italic")}
 				>
-					<Italic className="h-4 w-4" />
-				</Button>
-				<Button
-					variant="default"
+					<Italic className="h-3.5 w-3.5" />
+				</ToolbarBtn>
+				<ToolbarBtn
 					onClick={() => editor.chain().focus().toggleStrike().run()}
+					active={editor.isActive("strike")}
 					disabled={!editor.can().chain().focus().toggleStrike().run()}
-					className={
-						editor.isActive("strike")
-							? "bg-gray-200 dark:bg-gray-700 p-2"
-							: " p-2"
-					}
 				>
-					<Strikethrough className="h-4 w-4" />
-				</Button>
+					<Strikethrough className="h-3.5 w-3.5" />
+				</ToolbarBtn>
+
+				<div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+				{/* Heading select */}
 				<div className="relative inline-block">
 					<select
-						className="appearance-none bg-transparent border border-gray-300 dark:border-gray-600 rounded px-2 py-1 pr-8 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+						className="appearance-none bg-transparent border border-gray-200 dark:border-gray-600 rounded px-2 py-1 pr-7 focus:outline-none focus:ring-1 focus:ring-primary text-xs text-gray-600 dark:text-gray-300"
 						value={
 							editor.isActive("heading", { level: 1 })
 								? "h1"
@@ -204,48 +217,46 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 						<option value="h5">Título 5</option>
 						<option value="h6">Título 6</option>
 					</select>
-					<div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-						<HeadingIcon className="h-4 w-4" />
+					<div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-1.5 text-gray-400 dark:text-gray-500">
+						<HeadingIcon className="h-3 w-3" />
 					</div>
 				</div>
-				<Button
-					variant="default"
+
+				<div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1" />
+
+				<ToolbarBtn
 					onClick={() => editor.chain().focus().toggleBulletList().run()}
-					className={
-						editor.isActive("bulletList")
-							? "bg-gray-200 dark:bg-gray-700 p-2"
-							: " p-2"
-					}
+					active={editor.isActive("bulletList")}
 				>
-					<List className="h-4 w-4" />
-				</Button>
-				<Button
-					variant="default"
+					<List className="h-3.5 w-3.5" />
+				</ToolbarBtn>
+				<ToolbarBtn
 					onClick={() => editor.chain().focus().toggleOrderedList().run()}
-					className={
-						editor.isActive("orderedList")
-							? "bg-gray-200 dark:bg-gray-700 p-2"
-							: " p-2"
-					}
+					active={editor.isActive("orderedList")}
 				>
-					<ListOrdered className="h-4 w-4" />
-				</Button>
+					<ListOrdered className="h-3.5 w-3.5" />
+				</ToolbarBtn>
+
+				<div className="w-px h-4 bg-gray-200 dark:bg-gray-600 mx-1" />
 
 				{/* Font Size Dropdown */}
 				<div className="relative">
-					<Button
-						variant="default"
-						onClick={() => setShowFontSizePicker(!showFontSizePicker)}
-						className="p-2"
+					<ToolbarBtn
+						onClick={() => {
+							setShowFontSizePicker(!showFontSizePicker);
+							setShowTextColorPicker(false);
+							setShowBgColorPicker(false);
+						}}
 					>
-						<Type className="h-4 w-4" />
-					</Button>
+						<Type className="h-3.5 w-3.5" />
+					</ToolbarBtn>
 					{showFontSizePicker && (
-						<div className="absolute z-10 mt-1 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700">
+						<div className="absolute z-10 mt-1 w-36 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 py-1">
 							{fontSizes.map((size) => (
 								<button
 									key={size.value}
-									className="block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+									type="button"
+									className="block w-full text-left px-3 py-1.5 text-xs text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
 									onClick={() => setFontSize(size.value)}
 								>
 									<span style={{ fontSize: size.value }}>{size.label}</span>
@@ -257,20 +268,23 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
 				{/* Text Color Dropdown */}
 				<div className="relative">
-					<Button
-						variant="default"
-						onClick={() => setShowTextColorPicker(!showTextColorPicker)}
-						className="p-2"
+					<ToolbarBtn
+						onClick={() => {
+							setShowTextColorPicker(!showTextColorPicker);
+							setShowFontSizePicker(false);
+							setShowBgColorPicker(false);
+						}}
 					>
-						<Palette className="h-4 w-4" />
-					</Button>
+						<Palette className="h-3.5 w-3.5" />
+					</ToolbarBtn>
 					{showTextColorPicker && (
-						<div className="absolute z-10 mt-1 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700">
-							<div className="p-2 grid grid-cols-5 gap-1">
+						<div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 p-2">
+							<div className="grid grid-cols-5 gap-1">
 								{textColors.map((color) => (
 									<button
 										key={color.value}
-										className="w-6 h-6 rounded-full border border-gray-300 dark:border-gray-600"
+										type="button"
+										className="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform"
 										style={{ backgroundColor: color.value }}
 										onClick={() => setTextColor(color.value)}
 										title={color.label}
@@ -283,22 +297,25 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 
 				{/* Background Color Dropdown */}
 				<div className="relative">
-					<Button
-						variant="default"
-						onClick={() => setShowBgColorPicker(!showBgColorPicker)}
-						className="p-2"
+					<ToolbarBtn
+						onClick={() => {
+							setShowBgColorPicker(!showBgColorPicker);
+							setShowFontSizePicker(false);
+							setShowTextColorPicker(false);
+						}}
 					>
-						<div className="w-4 h-4 border border-gray-400 rounded">
-							<div className="w-full h-full bg-gray-200" />
+						<div className="w-3.5 h-3.5 border border-gray-400 dark:border-gray-500 rounded-sm">
+							<div className="w-full h-full bg-gray-200 dark:bg-gray-500 rounded-sm" />
 						</div>
-					</Button>
+					</ToolbarBtn>
 					{showBgColorPicker && (
-						<div className="absolute z-10 mt-1 w-40 bg-white dark:bg-gray-800 shadow-lg rounded-md border border-gray-200 dark:border-gray-700">
-							<div className="p-2 grid grid-cols-5 gap-1">
+						<div className="absolute z-10 mt-1 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 p-2">
+							<div className="grid grid-cols-5 gap-1">
 								{backgroundColors.map((color) => (
 									<button
 										key={color.value}
-										className="w-6 h-6 rounded-full border border-gray-300 dark:border-gray-600"
+										type="button"
+										className="w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 hover:scale-110 transition-transform"
 										style={{ backgroundColor: color.value }}
 										onClick={() => setBackgroundColor(color.value)}
 										title={color.label}
@@ -309,28 +326,26 @@ export default function TiptapEditor({ content, onChange }: TiptapEditorProps) {
 					)}
 				</div>
 
-				<div className="ml-auto flex gap-1">
-					<Button
-						variant="default"
-						onClick={() => editor.chain().focus().undo().run()}
-						disabled={!editor.can().undo()}
-						className="p-2"
-					>
-						<Undo className="h-4 w-4" />
-					</Button>
-					<Button
-						variant="default"
-						onClick={() => editor.chain().focus().redo().run()}
-						disabled={!editor.can().redo()}
-						className="p-2"
-					>
-						<Redo className="h-4 w-4" />
-					</Button>
-				</div>
+				<div className="flex-1" />
+
+				<ToolbarBtn
+					onClick={() => editor.chain().focus().undo().run()}
+					disabled={!editor.can().undo()}
+				>
+					<Undo className="h-3.5 w-3.5" />
+				</ToolbarBtn>
+				<ToolbarBtn
+					onClick={() => editor.chain().focus().redo().run()}
+					disabled={!editor.can().redo()}
+				>
+					<Redo className="h-3.5 w-3.5" />
+				</ToolbarBtn>
 			</div>
+
+			{/* Editor */}
 			<EditorContent
 				editor={editor}
-				className="p-3 min-h-[150px] prose dark:prose-invert max-w-none"
+				className="p-3 min-h-[150px] prose prose-sm dark:prose-invert max-w-none"
 			/>
 		</div>
 	);

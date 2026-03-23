@@ -2,6 +2,10 @@
 
 import { Calculator, Info } from "lucide-react";
 
+interface LiquidacionViewProps {
+	disabilityPercentage?: number | null;
+}
+
 const MOCK_LIQUIDACION = {
 	baseLRT: 2850000,
 	porcentajeIncapacidad: 22.5,
@@ -17,7 +21,8 @@ const MOCK_LIQUIDACION = {
 	nota: "Cálculo estimativo sujeto a variación según jurisdicción y criterio del juzgado interviniente.",
 };
 
-export const LiquidacionView = () => {
+export const LiquidacionView = ({ disabilityPercentage }: LiquidacionViewProps) => {
+	const porcentaje = disabilityPercentage ?? MOCK_LIQUIDACION.porcentajeIncapacidad;
 	return (
 		<div className="rounded-xl border border-border bg-card shadow-sm">
 			{/* Header */}
@@ -38,7 +43,7 @@ export const LiquidacionView = () => {
 					{[
 						{
 							label: "% Incapacidad",
-							value: `${MOCK_LIQUIDACION.porcentajeIncapacidad}%`,
+							value: `${porcentaje}%`,
 						},
 						{ label: "Edad", value: `${MOCK_LIQUIDACION.edad} años` },
 						{

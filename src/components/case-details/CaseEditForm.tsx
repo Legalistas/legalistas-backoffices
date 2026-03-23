@@ -46,6 +46,7 @@ export const CaseEditForm = ({
 		responsibleLawyerId: caseData.responsibleLawyerId || undefined,
 		internalLawyerId: caseData.internalLawyerId || undefined,
 		injury: caseData.injury || "",
+		disabilityPercentage: caseData.disabilityPercentage ?? undefined,
 	});
 
 	// Estados para los abogados
@@ -121,6 +122,11 @@ export const CaseEditForm = ({
 		if (type === "checkbox") {
 			const checked = (e.target as HTMLInputElement).checked;
 			setFormData((prev) => ({ ...prev, [name]: checked }));
+		} else if (name === "disabilityPercentage") {
+			setFormData((prev) => ({
+				...prev,
+				[name]: value === "" ? undefined : Number.parseFloat(value),
+			}));
 		} else if (
 			name === "servicesId" ||
 			name === "responsibleLawyerId" ||
@@ -160,6 +166,7 @@ export const CaseEditForm = ({
 			responsibleLawyerId: formData.responsibleLawyerId,
 			internalLawyerId: formData.internalLawyerId,
 			injury: formData.injury || null,
+			disabilityPercentage: formData.disabilityPercentage ?? null,
 		};
 
 		console.log("Submit data:", submitData);
@@ -244,23 +251,45 @@ export const CaseEditForm = ({
 						</div>
 					</div>
 
-					{/* Lesión */}
-					<div className="space-y-2">
-						<label
-							htmlFor="injury"
-							className="block text-sm font-medium text-foreground"
-						>
-							Lesión
-						</label>
-						<input
-							id="injury"
-							name="injury"
-							type="text"
-							value={formData.injury}
-							onChange={handleChange}
-							placeholder="Ej: Fractura de muñeca, lumbalgia, etc."
-							className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-						/>
+					{/* Lesión + Incapacidad */}
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+						<div className="space-y-2">
+							<label
+								htmlFor="injury"
+								className="block text-sm font-medium text-foreground"
+							>
+								Lesión
+							</label>
+							<input
+								id="injury"
+								name="injury"
+								type="text"
+								value={formData.injury}
+								onChange={handleChange}
+								placeholder="Ej: Fractura de muñeca, lumbalgia, etc."
+								className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							/>
+						</div>
+						<div className="space-y-2">
+							<label
+								htmlFor="disabilityPercentage"
+								className="block text-sm font-medium text-foreground"
+							>
+								% Incapacidad
+							</label>
+							<input
+								id="disabilityPercentage"
+								name="disabilityPercentage"
+								type="number"
+								step="0.01"
+								min="0"
+								max="100"
+								value={formData.disabilityPercentage ?? ""}
+								onChange={handleChange}
+								placeholder="Ej: 22.5"
+								className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							/>
+						</div>
 					</div>
 
 					{/* Grid para selects principales */}
