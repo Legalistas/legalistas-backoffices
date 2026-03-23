@@ -505,6 +505,7 @@ export default function KanbanBoard() {
 				leadId: Number(leadBeingDragged.id),
 				columnId: newColumnId,
 				phoneNumber: leadBeingDragged.phone || leadBeingDragged.user?.userProfile?.phone,
+				accessToken: session?.user?.accessToken,
 			});
 
 			toast.success("Etapa actualizada correctamente");
