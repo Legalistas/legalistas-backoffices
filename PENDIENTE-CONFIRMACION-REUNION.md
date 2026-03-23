@@ -42,7 +42,7 @@ Envio directo con nodemailer desde el backend (sin depender del frontend). HTML 
 - `getLeadById()` ya incluye `crmLeadLogs` — se muestran automaticamente en el CRM
 
 ## Que falta
-- [ ] Correr `prisma migrate dev` para agregar columnas a `crm_meetings`
+- [x] Correr `prisma migrate dev` para agregar columnas a `crm_meetings`
 - [x] ~~Crear el modelo en Prisma~~ (campos agregados a CrmMeetings)
 - [x] ~~Crear endpoints en el backend~~
 - [x] ~~Integrar generacion de token en `createMeeting()`~~
