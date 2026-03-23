@@ -393,8 +393,8 @@ export default function LeadFormDialog({
 			if (!response.ok) throw new Error(`Error: ${response.status}`);
 
 			toast.success(`Lead ${lead ? "actualizado" : "creado"} correctamente`);
-			router.push("/admin/crm");
 			onOpenChange(false);
+			window.location.reload();
 		} catch {
 			toast.error("Error al guardar el lead. Inténtalo de nuevo.");
 		} finally {
