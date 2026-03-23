@@ -65,10 +65,11 @@ export default function ChangeStageModal({
 
 			// Enviar email de notificación (no bloquea el flujo)
 			sendStageEmail({
-				email: lead.email,
-				leadName: lead.name,
+				email: lead.email || lead.user?.email,
+				leadName: lead.name || lead.user?.name,
+				leadId: Number(lead.id),
 				columnId: selectedColumnId,
-				phoneNumber: lead.phone,
+				phoneNumber: lead.phone || lead.user?.userProfile?.phone,
 			});
 
 			window.location.reload();

@@ -500,10 +500,11 @@ export default function KanbanBoard() {
 
 			// Enviar email de notificación (no bloquea el flujo)
 			sendStageEmail({
-				email: leadBeingDragged.email,
-				leadName: leadBeingDragged.name,
+				email: leadBeingDragged.email || leadBeingDragged.user?.email,
+				leadName: leadBeingDragged.name || leadBeingDragged.user?.name,
+				leadId: Number(leadBeingDragged.id),
 				columnId: newColumnId,
-				phoneNumber: leadBeingDragged.phone,
+				phoneNumber: leadBeingDragged.phone || leadBeingDragged.user?.userProfile?.phone,
 			});
 
 			toast.success("Etapa actualizada correctamente");
