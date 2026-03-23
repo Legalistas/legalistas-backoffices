@@ -1,5 +1,12 @@
 {
-	"permissions": {
-		"allow": ["Bash(xargs grep -l \"Negotiation\\\\|Negociacion\")"]
-	}
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep -l \"Negotiation\\\\|Negociacion\")",
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/aceptar-servicio/\")",
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/aceptar-servicio/[token]/\")"
+    ],
+    "additionalDirectories": [
+      "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\confirmacion-reunion"
+    ]
+  }
 }

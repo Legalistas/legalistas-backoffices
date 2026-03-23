@@ -39,6 +39,7 @@ import {
 import { CRM_COLUMNS } from "@/constant/crm";
 import { Role } from "@/constant/user";
 import { servicesType } from "@/lib/constant";
+import { sendStageEmail } from "@/lib/send-stage-email";
 import type { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -496,6 +497,15 @@ export default function KanbanBoard() {
 					userId: session?.user?.id,
 				}),
 			});
+
+			// Enviar email de notificación (no bloquea el flujo)
+			sendStageEmail({
+				email: leadBeingDragged.email,
+				leadName: leadBeingDragged.name,
+				columnId: newColumnId,
+				phoneNumber: leadBeingDragged.phone,
+			});
+
 			toast.success("Etapa actualizada correctamente");
 		} catch (error) {
 			console.error("Error actualizando lead en backend:", error);

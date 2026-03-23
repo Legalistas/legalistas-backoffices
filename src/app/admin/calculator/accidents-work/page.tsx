@@ -81,25 +81,34 @@ export default function AccidentsWorkPage() {
 	const searchParams = useSearchParams();
 	const urlCaseId = searchParams.get("caseId");
 	const urlFileId = searchParams.get("fileId");
+
+	// ─── localStorage: leer una sola vez al inicializar ─────
+	const STORAGE_KEY_BASE = "calculator_lrt_data";
+	const getStorageKey = (fileId?: number) =>
+		fileId ? `calculator_data_${fileId}` : STORAGE_KEY_BASE;
+
+	const [_init] = useState<any>(() => {
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY_BASE);
+			return stored ? JSON.parse(stored) : null;
+		} catch { return null; }
+	});
+
 	const [causes, setCauses] = useState<CalculatorCause[]>([]);
-	const [selectedCause, setSelectedCause] = useState<CalculatorCause | null>(
-		null,
-	);
+	const [selectedCause, setSelectedCause] = useState<CalculatorCause | null>(null);
 	const [selectedFile, setSelectedFile] = useState<CaseFile | null>(null);
 	const [searchTerm, setSearchTerm] = useState("");
 	const [showSuggestions, setShowSuggestions] = useState(false);
 	const [loading, setLoading] = useState(false);
-	const [accidentDate, setAccidentDate] = useState("");
-	const [customerAge, setCustomerAge] = useState<number | null>(null);
-	const [disabilityPercentage, setDisabilityPercentage] = useState<
-		number | null
-	>(null);
-	const [dateUntil, setDateUntil] = useState("");
+	const [accidentDate, setAccidentDate] = useState(_init?.accidentDate || "");
+	const [customerAge, setCustomerAge] = useState<number | null>(_init?.customerAge ?? null);
+	const [disabilityPercentage, setDisabilityPercentage] = useState<number | null>(_init?.disabilityPercentage ?? null);
+	const [dateUntil, setDateUntil] = useState(_init?.dateUntil || "");
 	const [riptes, setRiptes] = useState<any[]>([]);
-	const [selectedRipte, setSelectedRipte] = useState<any>(null);
+	const [selectedRipte, setSelectedRipte] = useState<any>(_init?.selectedRipte ?? null);
 	const [latestRipte, setLatestRipte] = useState<any>(null);
 	const [allRiptes, setAllRiptes] = useState<any[]>([]);
-	const [selectedRipteHasta, setSelectedRipteHasta] = useState<any>(null);
+	const [selectedRipteHasta, setSelectedRipteHasta] = useState<any>(_init?.selectedRipteHasta ?? null);
 	const [remuneraciones, setRemuneraciones] = useState<
 		{
 			periodo: string;
@@ -107,53 +116,38 @@ export default function AccidentsWorkPage() {
 			ripteDelMes: number | null;
 			haber_ajustado: number | null;
 		}[]
-	>([]);
+	>(_init?.remuneraciones ?? []);
 	const [porcentajesRipte, setPorcentajesRipte] = useState<
 		{
 			mesPeriodo: string;
 			mesCorriendo: string;
 			riptePercentage: number | null;
 		}[]
-	>([]);
-	const [activar20Porciento, setActivar20Porciento] = useState(false);
-	const [pisoMinimo, setPisoMinimo] = useState<number | null>(null);
-	const [activarPisoMinimo, setActivarPisoMinimo] = useState(false);
+	>(_init?.porcentajesRipte ?? []);
+	const [activar20Porciento, setActivar20Porciento] = useState(_init?.activar20Porciento ?? false);
+	const [pisoMinimo, setPisoMinimo] = useState<number | null>(_init?.pisoMinimo ?? null);
+	const [activarPisoMinimo, setActivarPisoMinimo] = useState(_init?.activarPisoMinimo ?? false);
 	const [isSaving, setIsSaving] = useState(false);
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 	const [savedLiquidations, setSavedLiquidations] = useState<any[]>([]);
 	const [showSavedLiquidations, setShowSavedLiquidations] = useState(false);
 	const [isLoadingFromJSON, setIsLoadingFromJSON] = useState(false);
-	const [tasaInteresAnual, setTasaInteresAnual] = useState<number>(8);
+	const [tasaInteresAnual, setTasaInteresAnual] = useState<number>(_init?.tasaInteresAnual ?? 8);
 	const searchRef = useRef<HTMLDivElement>(null);
 	const [activeTab, setActiveTab] = useState("parametros");
 
-	// Clave única para localStorage basada en el expediente
-	const getStorageKey = (fileId: number) => `calculator_data_${fileId}`;
-
-	// Guardar datos en localStorage
-	const saveToLocalStorage = useCallback((fileId: number, data: any) => {
+	const saveToLocalStorage = useCallback((key: string, data: any) => {
 		try {
-			localStorage.setItem(getStorageKey(fileId), JSON.stringify(data));
+			localStorage.setItem(key, JSON.stringify(data));
 		} catch (error) {
 			console.error("Error saving to localStorage:", error);
 		}
 	}, []);
 
-	// Cargar datos desde localStorage
-	const loadFromLocalStorage = useCallback((fileId: number) => {
-		try {
-			const stored = localStorage.getItem(getStorageKey(fileId));
-			return stored ? JSON.parse(stored) : null;
-		} catch (error) {
-			console.error("Error loading from localStorage:", error);
-			return null;
-		}
-	}, []);
+	const currentStorageKey = getStorageKey(selectedFile?.id);
 
 	// Persistir datos automáticamente cuando cambian
 	useEffect(() => {
-		if (!selectedFile?.id) return;
-
 		const dataToSave = {
 			accidentDate,
 			customerAge,
@@ -166,12 +160,13 @@ export default function AccidentsWorkPage() {
 			activar20Porciento,
 			pisoMinimo,
 			activarPisoMinimo,
+			tasaInteresAnual,
 			timestamp: Date.now(),
 		};
 
-		saveToLocalStorage(selectedFile.id, dataToSave);
+		saveToLocalStorage(currentStorageKey, dataToSave);
 	}, [
-		selectedFile?.id,
+		currentStorageKey,
 		accidentDate,
 		customerAge,
 		disabilityPercentage,
@@ -183,38 +178,9 @@ export default function AccidentsWorkPage() {
 		activar20Porciento,
 		pisoMinimo,
 		activarPisoMinimo,
+		tasaInteresAnual,
 		saveToLocalStorage,
 	]);
-
-	// Cargar datos cuando se selecciona un expediente
-	useEffect(() => {
-		if (!selectedFile?.id) return;
-
-		const savedData = loadFromLocalStorage(selectedFile.id);
-		if (savedData) {
-			console.log("Cargando datos guardados desde localStorage:", savedData);
-
-			if (savedData.accidentDate) setAccidentDate(savedData.accidentDate);
-			if (savedData.customerAge !== null) setCustomerAge(savedData.customerAge);
-			if (savedData.disabilityPercentage !== null)
-				setDisabilityPercentage(savedData.disabilityPercentage);
-			if (savedData.dateUntil) setDateUntil(savedData.dateUntil);
-			if (savedData.selectedRipte) setSelectedRipte(savedData.selectedRipte);
-			if (savedData.selectedRipteHasta)
-				setSelectedRipteHasta(savedData.selectedRipteHasta);
-			if (savedData.remuneraciones) {
-				console.log("Restaurando remuneraciones:", savedData.remuneraciones);
-				setRemuneraciones(savedData.remuneraciones);
-			}
-			if (savedData.porcentajesRipte)
-				setPorcentajesRipte(savedData.porcentajesRipte);
-			if (savedData.activar20Porciento !== undefined)
-				setActivar20Porciento(savedData.activar20Porciento);
-			if (savedData.pisoMinimo !== null) setPisoMinimo(savedData.pisoMinimo);
-			if (savedData.activarPisoMinimo !== undefined)
-				setActivarPisoMinimo(savedData.activarPisoMinimo);
-		}
-	}, [selectedFile?.id, loadFromLocalStorage]);
 
 	// Fetch causas
 	useEffect(() => {
@@ -575,16 +541,10 @@ export default function AccidentsWorkPage() {
 
 	const handleRemoveSelection = () => {
 		// Limpiar localStorage del expediente actual
-		if (selectedFile?.id) {
-			try {
-				localStorage.removeItem(getStorageKey(selectedFile.id));
-				console.log(
-					"Datos limpiados del localStorage para expediente:",
-					selectedFile.id,
-				);
-			} catch (error) {
-				console.error("Error al limpiar localStorage:", error);
-			}
+		try {
+			localStorage.removeItem(currentStorageKey);
+		} catch (error) {
+			console.error("Error al limpiar localStorage:", error);
 		}
 
 		setSelectedCause(null);
@@ -606,12 +566,10 @@ export default function AccidentsWorkPage() {
 
 	// Función para limpiar solo los datos de la calculadora (sin cambiar expediente)
 	const handleClearCalculatorData = () => {
-		if (selectedFile?.id) {
-			try {
-				localStorage.removeItem(getStorageKey(selectedFile.id));
-			} catch (error) {
-				console.error("Error al limpiar localStorage:", error);
-			}
+		try {
+			localStorage.removeItem(currentStorageKey);
+		} catch (error) {
+			console.error("Error al limpiar localStorage:", error);
 		}
 
 		setAccidentDate("");
@@ -634,10 +592,12 @@ export default function AccidentsWorkPage() {
 
 	// Generar tabla de remuneraciones basándose en el RIPTE Vigente seleccionado
 	useEffect(() => {
-		if (!selectedRipte || allRiptes.length === 0) {
+		if (!selectedRipte) {
 			setRemuneraciones([]);
 			return;
 		}
+		// allRiptes aún cargando desde API — no borrar datos existentes
+		if (allRiptes.length === 0) return;
 
 		// No regenerar durante la carga del JSON
 		if (isLoadingFromJSON) {
@@ -716,10 +676,18 @@ export default function AccidentsWorkPage() {
 
 	// Generar tabla de porcentajes RIPTE basado en el rango DNU 669/19
 	useEffect(() => {
-		if (!selectedRipte || !selectedRipteHasta || allRiptes.length === 0) {
+		if (!selectedRipte || !selectedRipteHasta) {
 			setPorcentajesRipte([]);
 			return;
 		}
+		// allRiptes aún cargando desde API — no borrar datos existentes
+		if (allRiptes.length === 0) return;
+
+		// No regenerar durante la carga del JSON
+		if (isLoadingFromJSON) return;
+
+		// Si ya hay porcentajes editados manualmente, no regenerar
+		if (porcentajesRipte.length > 0) return;
 
 		console.log(
 			"Generando tabla de porcentajes RIPTE desde:",
@@ -886,6 +854,15 @@ export default function AccidentsWorkPage() {
 
 		const ripteDesde = Number(selectedRipte.value);
 		return (ripteDesde / ripteDelMes) * haber;
+	};
+
+	const handlePorcentajeChange = (index: number, value: string) => {
+		const newPorcentajes = [...porcentajesRipte];
+		newPorcentajes[index] = {
+			...newPorcentajes[index],
+			riptePercentage: value !== "" ? parseFloat(value) : null,
+		};
+		setPorcentajesRipte(newPorcentajes);
 	};
 
 	const handleHaberesChange = (index: number, value: string) => {
@@ -1297,15 +1274,10 @@ export default function AccidentsWorkPage() {
 			console.log("Remuneraciones cargadas:", data.remuneraciones);
 
 			// Limpiar localStorage antes de cargar nuevos datos para evitar conflictos
-			if (selectedFile?.id) {
-				try {
-					localStorage.removeItem(getStorageKey(selectedFile.id));
-				} catch (error) {
-					console.error(
-						"Error al limpiar localStorage antes de cargar:",
-						error,
-					);
-				}
+			try {
+				localStorage.removeItem(currentStorageKey);
+			} catch (error) {
+				console.error("Error al limpiar localStorage antes de cargar:", error);
 			}
 
 			// Cargar primero las remuneraciones para evitar regeneración
@@ -1348,26 +1320,23 @@ export default function AccidentsWorkPage() {
 
 			// Guardar los datos cargados en localStorage para persistencia
 			setTimeout(() => {
-				if (selectedFile?.id) {
-					const dataToSave = {
-						accidentDate: data.fechaAccidente || "",
-						customerAge: data.edad,
-						disabilityPercentage: data.incapacidad,
-						dateUntil: data.dateUntil || "",
-						selectedRipte: data.selectedRipte,
-						selectedRipteHasta: data.selectedRipteHasta,
-						remuneraciones: data.remuneraciones || [],
-						porcentajesRipte: data.porcentajesRipte || [],
-						activar20Porciento: data.activar20Porciento || false,
-						pisoMinimo: data.pisoMinimo,
-						activarPisoMinimo: data.activarPisoMinimo || false,
-						timestamp: Date.now(),
-						loadedFromJSON: true,
-					};
-					saveToLocalStorage(selectedFile.id, dataToSave);
-					console.log("Datos del JSON guardados en localStorage:", dataToSave);
-				}
-			}, 1500); // Esperar más tiempo para asegurar que todo esté cargado
+				const dataToSave = {
+					accidentDate: data.fechaAccidente || "",
+					customerAge: data.edad,
+					disabilityPercentage: data.incapacidad,
+					dateUntil: data.dateUntil || "",
+					selectedRipte: data.selectedRipte,
+					selectedRipteHasta: data.selectedRipteHasta,
+					remuneraciones: data.remuneraciones || [],
+					porcentajesRipte: data.porcentajesRipte || [],
+					activar20Porciento: data.activar20Porciento || false,
+					pisoMinimo: data.pisoMinimo,
+					activarPisoMinimo: data.activarPisoMinimo || false,
+					timestamp: Date.now(),
+					loadedFromJSON: true,
+				};
+				saveToLocalStorage(currentStorageKey, dataToSave);
+			}, 1500);
 
 			setShowSavedLiquidations(false);
 			toast.success("Liquidación cargada exitosamente");
@@ -1707,8 +1676,13 @@ export default function AccidentsWorkPage() {
 													<tr key={index} className="border-t hover:bg-muted/30">
 														<td className="px-2 py-1.5 font-mono text-muted-foreground">{row.mesPeriodo}</td>
 														<td className="px-2 py-1.5 font-mono text-muted-foreground">{row.mesCorriendo}</td>
-														<td className="px-2 py-1.5 text-right font-medium">
-															{row.riptePercentage !== null ? `${row.riptePercentage.toFixed(2)}` : "-"}
+														<td className="px-2 py-1">
+															<Input
+																className="h-7 text-xs text-right"
+																value={row.riptePercentage !== null ? row.riptePercentage : ""}
+																onChange={(e) => handlePorcentajeChange(index, e.target.value)}
+																placeholder="0.00"
+															/>
 														</td>
 													</tr>
 												))}

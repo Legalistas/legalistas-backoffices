@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { LEADS_ENDPOINT } from "@/constant/api-endpoints";
 import { CRM_COLUMNS } from "@/constant/crm";
+import { sendStageEmail } from "@/lib/send-stage-email";
 import type { Lead } from "@/types/crm";
 
 interface ChangeStageModalProps {
@@ -61,6 +62,14 @@ export default function ChangeStageModal({
 			if (!response.ok) {
 				throw new Error(`Error: ${response.status} ${response.statusText}`);
 			}
+
+			// Enviar email de notificación (no bloquea el flujo)
+			sendStageEmail({
+				email: lead.email,
+				leadName: lead.name,
+				columnId: selectedColumnId,
+				phoneNumber: lead.phone,
+			});
 
 			window.location.reload();
 			toast.success("Etapa actualizada correctamente");

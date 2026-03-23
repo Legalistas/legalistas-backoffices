@@ -100,27 +100,53 @@ export default function DismissalCalculatorPage() {
 	const [loading, setLoading] = useState(false);
 	const searchRef = useRef<HTMLDivElement>(null);
 
-	// Parameters
-	const [fechaIngreso, setFechaIngreso] = useState("");
-	const [fechaEgreso, setFechaEgreso] = useState("");
+	// ─── localStorage persistence ────────────────────────────
+	const STORAGE_KEY = "calculator_dismissal_data";
+
+	const [_init] = useState<any>(() => {
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY);
+			return stored ? JSON.parse(stored) : null;
+		} catch { return null; }
+	});
+
+	// Parameters (inicializados desde localStorage)
+	const [fechaIngreso, setFechaIngreso] = useState(_init?.fechaIngreso || "");
+	const [fechaEgreso, setFechaEgreso] = useState(_init?.fechaEgreso || "");
 	const [mejorRemuneracion, setMejorRemuneracion] = useState<number | null>(
-		null,
+		_init?.mejorRemuneracion ?? null,
 	);
-	const [topeCCT, setTopeCCT] = useState<number | null>(null);
-	const [tipoDespido, setTipoDespido] = useState("sin_causa");
+	const [topeCCT, setTopeCCT] = useState<number | null>(_init?.topeCCT ?? null);
+	const [tipoDespido, setTipoDespido] = useState(_init?.tipoDespido || "sin_causa");
 
 	// Multas switches
-	const [activarArt2_25323, setActivarArt2_25323] = useState(false);
-	const [activarArt1_25323, setActivarArt1_25323] = useState(false);
-	const [activarArt80, setActivarArt80] = useState(false);
-	const [activarDobleIndem, setActivarDobleIndem] = useState(false);
+	const [activarArt2_25323, setActivarArt2_25323] = useState(_init?.activarArt2_25323 ?? false);
+	const [activarArt1_25323, setActivarArt1_25323] = useState(_init?.activarArt1_25323 ?? false);
+	const [activarArt80, setActivarArt80] = useState(_init?.activarArt80 ?? false);
+	const [activarDobleIndem, setActivarDobleIndem] = useState(_init?.activarDobleIndem ?? false);
 
 	// Interest
-	const [tasaInteresAnual, setTasaInteresAnual] = useState<number>(8);
+	const [tasaInteresAnual, setTasaInteresAnual] = useState<number>(_init?.tasaInteresAnual ?? 8);
 
 	// UI
 	const [activeTab, setActiveTab] = useState("parametros");
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+	// Guardar datos automáticamente cuando cambian
+	useEffect(() => {
+		const dataToSave = {
+			fechaIngreso, fechaEgreso, mejorRemuneracion, topeCCT,
+			tipoDespido, activarArt2_25323, activarArt1_25323,
+			activarArt80, activarDobleIndem, tasaInteresAnual,
+		};
+		try {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+		} catch (e) { /* ignore */ }
+	}, [
+		fechaIngreso, fechaEgreso, mejorRemuneracion, topeCCT,
+		tipoDespido, activarArt2_25323, activarArt1_25323,
+		activarArt80, activarDobleIndem, tasaInteresAnual,
+	]);
 
 	// ─── Derived: Antigüedad ────────────────────────────────
 	const antiguedad = useMemo(() => {
@@ -458,6 +484,7 @@ export default function DismissalCalculatorPage() {
 		setActivarArt80(false);
 		setActivarDobleIndem(false);
 		setTasaInteresAnual(8);
+		try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
 	};
 
 	const formatCurrency = (value: number) => {
