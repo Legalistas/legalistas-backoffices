@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Trash2 } from "lucide-react";
+import { CheckCircle2, Clock, CalendarClock, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";

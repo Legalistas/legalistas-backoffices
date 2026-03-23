@@ -343,9 +343,43 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 		}
 		const cleanPhone = phone.replace(/[\s\-()]/g, "");
 		const columnId = String(lead.columnId || "1");
-		const msgTemplate = WHATSAPP_MESSAGES[columnId] || WHATSAPP_MESSAGES["1"];
 		const nombre = lead.user?.name || lead.name || "cliente";
-		const message = encodeURIComponent(msgTemplate.replace("{nombre}", nombre));
+
+		// Buscar la reunión más reciente
+		const lastMeeting = lead.crmMeetings?.length
+			? [...lead.crmMeetings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+			: null;
+
+		const msgs = WHATSAPP_MESSAGES[columnId] || WHATSAPP_MESSAGES["1"];
+		let msgTemplate = lastMeeting ? msgs.withMeeting : msgs.withoutMeeting;
+
+		msgTemplate = msgTemplate.replace("{nombre}", nombre);
+
+		if (lastMeeting) {
+			const meetingDate = new Date(lastMeeting.date);
+			const tipoReunion = MEETING_TYPES.find((mt) => mt.id === lastMeeting.type)?.name || lastMeeting.type;
+			const fechaReunion = meetingDate.toLocaleDateString("es-AR", {
+				weekday: "long",
+				day: "numeric",
+				month: "long",
+			});
+			const horaReunion = meetingDate.toLocaleTimeString("es-AR", {
+				hour: "2-digit",
+				minute: "2-digit",
+				hour12: false,
+				timeZone: "UTC",
+			});
+			const confirmationUrl = lastMeeting.token
+				? `https://legalistas.ar/confirmacion-reunion/${lastMeeting.token}`
+				: "https://legalistas.ar";
+			msgTemplate = msgTemplate
+				.replace("{tipoReunion}", tipoReunion)
+				.replace("{fechaReunion}", fechaReunion)
+				.replace("{horaReunion}", horaReunion)
+				.replace("{confirmationUrl}", confirmationUrl);
+		}
+
+		const message = encodeURIComponent(msgTemplate);
 		window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank");
 	};
 

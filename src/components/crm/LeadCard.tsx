@@ -10,7 +10,7 @@ import { Dropdown } from "@/components/shared/Dropdown";
 import { DropdownItem } from "@/components/shared/DropdownItem";
 import { GroupAvatar } from "@/components/shared/GroupAvatar";
 import { useConfirm } from "@/hooks/useConfirm";
-import { CRM_COLUMNS, SOURCE_CHANNEL, WHATSAPP_MESSAGES } from "@/constant/crm";
+import { CRM_COLUMNS, MEETING_TYPES, SOURCE_CHANNEL, WHATSAPP_MESSAGES } from "@/constant/crm";
 import { formatDateCustom } from "@/lib/functions";
 import type { Lead } from "@/types/crm";
 
@@ -86,9 +86,25 @@ export default function LeadCard({ lead, onEdit, onDelete }: LeadCardProps) {
 	// Obtener mensaje de WhatsApp según la etapa
 	const getWhatsappMessage = () => {
 		const columnId = String(lead.columnId || "1");
-		const message = WHATSAPP_MESSAGES[columnId] || WHATSAPP_MESSAGES["1"];
 		const nombre = lead.user?.name || lead.name || "cliente";
-		return message.replace("{nombre}", nombre);
+		const lastMeeting = lead.crmMeetings?.length
+			? [...lead.crmMeetings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
+			: null;
+		const msgs = WHATSAPP_MESSAGES[columnId] || WHATSAPP_MESSAGES["1"];
+		let msg = lastMeeting ? msgs.withMeeting : msgs.withoutMeeting;
+		msg = msg.replace("{nombre}", nombre);
+		if (lastMeeting) {
+			const meetingDate = new Date(lastMeeting.date);
+			const confirmationUrl = lastMeeting.token
+				? `https://legalistas.ar/confirmacion-reunion/${lastMeeting.token}`
+				: "https://legalistas.ar";
+			msg = msg
+				.replace("{tipoReunion}", MEETING_TYPES.find((mt) => mt.id === lastMeeting.type)?.name || lastMeeting.type)
+				.replace("{fechaReunion}", meetingDate.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" }))
+				.replace("{horaReunion}", meetingDate.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" }))
+				.replace("{confirmationUrl}", confirmationUrl);
+		}
+		return msg;
 	};
 
 	// Obtener el teléfono del lead

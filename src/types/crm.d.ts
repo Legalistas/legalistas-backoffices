@@ -80,11 +80,14 @@ export interface CrmLeadLog {
 export interface CrmMeeting {
 	id: number;
 	leadId: number;
-	type: string; // This corresponds to meetingType in your form
-	date: Date; // This corresponds to scheduledAt in your form
-	note?: string; // This corresponds to notes in your form
+	type: string;
+	date: Date;
+	note?: string;
 	responsibleLawyerId: number;
 	userId: number;
+	confirmationStatus?: string;
+	confirmedAt?: string;
+	token?: string;
 	createdAt: string;
 	updatedAt: string;
 	responsibleLawyer: {
