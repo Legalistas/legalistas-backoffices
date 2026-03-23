@@ -5,6 +5,7 @@ interface SendStageEmailParams {
   leadName?: string;
   leadId: number;
   columnId: number;
+  accessToken?: string;
   meetingType?: string;
   date?: string;
   hours?: string;
@@ -24,6 +25,7 @@ export async function sendStageEmail({
   leadName,
   leadId,
   columnId,
+  accessToken,
   meetingType,
   date,
   hours,
@@ -42,6 +44,7 @@ export async function sendStageEmail({
         leadId,
         columnId,
         isResend,
+        accessToken,
         variables: {
           leadName,
           meetingType,

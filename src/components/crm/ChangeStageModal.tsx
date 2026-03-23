@@ -70,6 +70,7 @@ export default function ChangeStageModal({
 				leadId: Number(lead.id),
 				columnId: selectedColumnId,
 				phoneNumber: lead.phone || lead.user?.userProfile?.phone,
+				accessToken: session?.user?.accessToken,
 			});
 
 			window.location.reload();

@@ -18,7 +18,7 @@ const TEMPLATE_TITLES: Record<string, { sent: string; resent: string }> = {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { to, template, columnId, leadId, isResend, variables } = body;
+    const { to, template, columnId, leadId, isResend, accessToken, variables } = body;
 
     const resolvedTemplate = template ?? CRM_COLUMN_TO_TEMPLATE[columnId];
 
@@ -49,7 +49,10 @@ export async function POST(req: NextRequest) {
           `${BACKEND_URL}/crm/leads/${leadId}/email-log`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
             body: JSON.stringify({
               title: TEMPLATE_TITLES[resolvedTemplate]
                 ? isResend ? TEMPLATE_TITLES[resolvedTemplate].resent : TEMPLATE_TITLES[resolvedTemplate].sent
