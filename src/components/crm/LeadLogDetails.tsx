@@ -129,26 +129,31 @@ export default function LeadLogDetails({ lead }: LeadLogsDetailsProps) {
 											</span>
 										</p>
 										<p className="flex items-center text-xs text-muted-foreground">
-											{getLogLabel(log.type)} por
-											{log.createdByUser.image ? (
-												<Image
-													src={
-														log.createdByUser?.image
-															? log.createdByUser?.image.startsWith("http")
-																? log.createdByUser?.image
-																: `${process.env.NEXT_PUBLIC_BACKEND_URL}${log.createdByUser?.image}`
-															: "/placeholder.svg"
-													}
-													alt={log.createdByUser.name || "User Avatar"}
-													width={20}
-													height={20}
-													quality={100}
-													className="rounded-full mx-1 aspect-square object-cover"
-												/>
+											{getLogLabel(log.type)}
+											{log.createdByUser ? (
+												<>
+													{" por"}
+													{log.createdByUser.image ? (
+														<Image
+															src={
+																log.createdByUser.image.startsWith("http")
+																	? log.createdByUser.image
+																	: `${process.env.NEXT_PUBLIC_BACKEND_URL}${log.createdByUser.image}`
+															}
+															alt={log.createdByUser.name || "User Avatar"}
+															width={20}
+															height={20}
+															quality={100}
+															className="rounded-full mx-1 aspect-square object-cover"
+														/>
+													) : (
+														<User className="h-5 w-5 text-gray-500 mx-1" />
+													)}
+													{log.createdByUser.name}
+												</>
 											) : (
-												<User className="h-5 w-5 text-gray-500" />
+												<span className="ml-1">— Sistema</span>
 											)}
-											{log.createdByUser.name}
 										</p>
 										<p className="text-sm mt-1">{log.description}</p>
 									</div>
