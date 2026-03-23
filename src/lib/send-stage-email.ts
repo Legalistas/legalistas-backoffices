@@ -1,6 +1,4 @@
-import { CRM_COLUMN_TO_TEMPLATE } from "./email";
-
-const CRM_COLUMNS_WITH_EMAIL = [1, 2, 4, 8, 9];
+const CRM_COLUMNS_WITH_EMAIL = [1, 4, 9];
 
 interface SendStageEmailParams {
   email?: string;
@@ -12,6 +10,7 @@ interface SendStageEmailParams {
   hours?: string;
   phoneNumber?: string;
   confirmationUrl?: string;
+  isResend?: boolean;
 }
 
 /**
@@ -30,6 +29,7 @@ export async function sendStageEmail({
   hours,
   phoneNumber,
   confirmationUrl,
+  isResend = false,
 }: SendStageEmailParams): Promise<void> {
   if (!email || !CRM_COLUMNS_WITH_EMAIL.includes(columnId)) return;
 
@@ -41,6 +41,7 @@ export async function sendStageEmail({
         to: email,
         leadId,
         columnId,
+        isResend,
         variables: {
           leadName,
           meetingType,
