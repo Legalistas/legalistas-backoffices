@@ -3,7 +3,9 @@
     "allow": [
       "Bash(xargs grep -l \"Negotiation\\\\|Negociacion\")",
       "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/aceptar-servicio/\")",
-      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/aceptar-servicio/[token]/\")"
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/aceptar-servicio/[token]/\")",
+      "WebFetch(domain:legalistas.ar)",
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/public/images/logo\"*)"
     ],
     "additionalDirectories": [
       "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\confirmacion-reunion"
