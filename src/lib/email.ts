@@ -64,9 +64,7 @@ interface TemplateVars {
 /** Mapea columnId del CRM → template de email (cambio de etapa) */
 export const CRM_COLUMN_TO_TEMPLATE: Partial<Record<number, EmailTemplate>> = {
   1: "crm-nueva-consulta",
-  2: "crm-reunion-concretar",
   4: "crm-en-tratamiento",
-  8: "crm-pendiente-poder",
   9: "crm-ganado-poder",
 };
 

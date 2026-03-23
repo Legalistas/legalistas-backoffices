@@ -7,6 +7,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { LEADS_ENDPOINT } from "@/constant/api-endpoints";
 import { MEETING_TYPES } from "@/constant/crm";
+import moment from "moment";
+import "moment/locale/es";
 import type { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -90,6 +92,30 @@ export default function ScheduleMeetingModal({
 			}
 
 			const data = await response.json();
+
+			// Enviar email con datos de la reunión al cliente
+			const email = lead.email || lead.user?.email;
+			if (email) {
+				const meetingDate = moment.utc(data.meeting.date);
+				const meetingLabel = MEETING_TYPES.find((t) => t.id === meetingType)?.name || meetingType;
+				fetch("/api/notifications/email", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						to: email,
+						leadId: Number(lead.id),
+						template: "crm-reunion-concretar",
+						variables: {
+							leadName: lead.name || lead.user?.name,
+							meetingType: meetingLabel,
+							date: meetingDate.format("dddd D [de] MMMM [de] YYYY"),
+							hours: meetingDate.format("HH:mm"),
+							phoneNumber: lead.phone || lead.user?.userProfile?.phone,
+							confirmationUrl: data.confirmationUrl,
+						},
+					}),
+				}).catch((err) => console.error("[Meeting Email]", err));
+			}
 
 			onLeadUpdate({
 				...lead,

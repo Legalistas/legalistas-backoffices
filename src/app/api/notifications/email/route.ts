@@ -4,21 +4,21 @@ import { sendEmail, CRM_COLUMN_TO_TEMPLATE } from "@/lib/email";
 const BACKEND_URL =
   process.env.NEXT_PUBLIC_BACKEND_URL_API || "http://localhost:5000/api/v1";
 
-const TEMPLATE_TITLES: Record<string, string> = {
-  "crm-nueva-consulta": "Se envió mensaje de Bienvenida",
-  "crm-reunion-concretar": "Se envió mensaje de Reunión a concretar",
-  "crm-reunion-recordatorio": "Se envió recordatorio de Reunión",
-  "crm-en-tratamiento": "Se envió mensaje de En tratamiento",
-  "crm-en-tratamiento-recordatorio": "Se envió recordatorio de Tratamiento",
-  "crm-pendiente-poder": "Se envió mensaje de Pendiente poder",
-  "crm-pendiente-poder-recordatorio": "Se envió recordatorio de Poder",
-  "crm-ganado-poder": "Se envió mensaje de Ganado poder",
+const TEMPLATE_TITLES: Record<string, { sent: string; resent: string }> = {
+  "crm-nueva-consulta": { sent: "Se envió email de Bienvenida", resent: "Se reenvió email de Bienvenida" },
+  "crm-reunion-concretar": { sent: "Se envió email con datos de la reunión", resent: "Se reenvió email con datos de la reunión" },
+  "crm-reunion-recordatorio": { sent: "Se envió recordatorio de reunión", resent: "Se reenvió recordatorio de reunión" },
+  "crm-en-tratamiento": { sent: "Se envió email de En tratamiento", resent: "Se reenvió email de En tratamiento" },
+  "crm-en-tratamiento-recordatorio": { sent: "Se envió recordatorio de tratamiento", resent: "Se reenvió recordatorio de tratamiento" },
+  "crm-pendiente-poder": { sent: "Se envió email de Pendiente poder", resent: "Se reenvió email de Pendiente poder" },
+  "crm-pendiente-poder-recordatorio": { sent: "Se envió recordatorio de poder", resent: "Se reenvió recordatorio de poder" },
+  "crm-ganado-poder": { sent: "Se envió email de Tu trámite está por iniciar", resent: "Se reenvió email de Tu trámite está por iniciar" },
 };
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { to, template, columnId, leadId, variables } = body;
+    const { to, template, columnId, leadId, isResend, variables } = body;
 
     const resolvedTemplate = template ?? CRM_COLUMN_TO_TEMPLATE[columnId];
 
@@ -51,7 +51,9 @@ export async function POST(req: NextRequest) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              title: TEMPLATE_TITLES[resolvedTemplate] || "Se envió email",
+              title: TEMPLATE_TITLES[resolvedTemplate]
+                ? isResend ? TEMPLATE_TITLES[resolvedTemplate].resent : TEMPLATE_TITLES[resolvedTemplate].sent
+                : isResend ? "Se reenvió email" : "Se envió email",
               description: `Email enviado a ${to}`,
             }),
           }

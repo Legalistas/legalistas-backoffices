@@ -325,6 +325,7 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 				leadId: Number(lead.id),
 				columnId: lead.columnId,
 				phoneNumber: lead.phone || lead.user?.userProfile?.phone,
+				isResend: true,
 			});
 			toast.success("Email reenviado correctamente");
 		} catch {
