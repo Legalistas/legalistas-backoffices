@@ -147,53 +147,80 @@ export const INSURANCE_COMPANIES = [
   { id: 18, name: "SURA" },
 ];
 
-export const WHATSAPP_MESSAGES: Record<string, { withMeeting: string; withoutMeeting: string }> = {
+export const WHATSAPP_MESSAGES: Record<
+  string,
+  { withMeeting: string; withoutMeeting: string }
+> = {
   "1": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nGracias por confiar en *Legalistas*. Ya estamos procesando tu consulta.\n\nUn asesor se va a contactar con vos para coordinar una reuni\u00F3n por videollamada con un abogado especializado.\n\nTe mantendremos informado. Cualquier duda, escribinos.\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nGracias por confiar en *Legalistas*. Ya estamos procesando tu consulta.\n\nUn asesor se va a contactar con vos para coordinar una reuni\u00F3n por videollamada con un abogado especializado.\n\nTe mantendremos informado. Cualquier duda, escribinos.\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\nGracias por confiar en *Legalistas*. Ya estamos procesando tu consulta.\n\nUn asesor se va a contactar con vos para coordinar una reuni\u00f3n por videollamada con un abogado especializado.\n\nTe mantendremos informado. Cualquier duda, escribinos.\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nGracias por confiar en *Legalistas*. Ya estamos procesando tu consulta.\n\nUn asesor se va a contactar con vos para coordinar una reuni\u00f3n por videollamada con un abogado especializado.\n\nTe mantendremos informado. Cualquier duda, escribinos.\n\n_Equipo Legalistas_",
   },
   "2": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\uD83D\uDCC5 *{tipoReunion}*\n\uD83D\uDDD3\uFE0F {fechaReunion} a las {horaReunion} hs\n\uD83D\uDCCD Lugar: Alem 80\n\nSi confirm\u00E1s asistencia, toc\u00E1 el siguiente link:\n\uD83D\uDD17 {confirmationUrl}\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nNos comunicamos desde *Legalistas* para coordinar una reuni\u00F3n y poder asesorarte mejor sobre tu caso.\n\n\u00BFQu\u00E9 d\u00EDa y horario te queda m\u00E1s c\u00F3modo?\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\n*{tipoReunion}*\n{fechaReunion} a las {horaReunion} hs\nLugar: Alem 80\n\nSi confirm\u00e1s asistencia, toc\u00e1 el siguiente link:\n{confirmationUrl}\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nNos comunicamos desde *Legalistas* para coordinar una reuni\u00f3n y poder asesorarte mejor sobre tu caso.\n\n\u00bfQu\u00e9 d\u00eda y horario te queda m\u00e1s c\u00f3modo?\n\n_Equipo Legalistas_",
   },
   "3": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\uD83D\uDCC5 *{tipoReunion}*\n\uD83D\uDDD3\uFE0F {fechaReunion} a las {horaReunion} hs\n\uD83D\uDCCD Lugar: Alem 80\n\nSi confirm\u00E1s asistencia, toc\u00E1 el siguiente link:\n\uD83D\uDD17 {confirmationUrl}\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nTe recordamos que tenemos coordinada una reuni\u00F3n pr\u00F3ximamente. \u00BFNos confirm\u00E1s tu asistencia?\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\n*{tipoReunion}*\n{fechaReunion} a las {horaReunion} hs\nLugar: Alem 80\n\nSi confirm\u00e1s asistencia, toc\u00e1 el siguiente link:\n{confirmationUrl}\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nTe recordamos que tenemos coordinada una reuni\u00f3n pr\u00f3ximamente. \u00bfNos confirm\u00e1s tu asistencia?\n\n_Equipo Legalistas_",
   },
   "4": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nEsperamos que te est\u00E9s recuperando bien. En *Legalistas* seguimos atentos a tu caso.\n\n\u26A0\uFE0F Si durante tu tratamiento surge alg\u00FAn inconveniente (falta de asistencia m\u00E9dica, alta prematura, demoras en estudios o cirug\u00EDas), avisanos cuanto antes.\n\nEstamos para ayudarte.\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nEsperamos que te est\u00E9s recuperando bien. En *Legalistas* seguimos atentos a tu caso.\n\n\u26A0\uFE0F Si durante tu tratamiento surge alg\u00FAn inconveniente (falta de asistencia m\u00E9dica, alta prematura, demoras en estudios o cirug\u00EDas), avisanos cuanto antes.\n\nEstamos para ayudarte.\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\nEsperamos que te est\u00e9s recuperando bien. En *Legalistas* seguimos atentos a tu caso.\n\nSi durante tu tratamiento surge alg\u00fan inconveniente (falta de asistencia m\u00e9dica, alta prematura, demoras en estudios o cirug\u00edas), avisanos cuanto antes.\n\nEstamos para ayudarte.\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nEsperamos que te est\u00e9s recuperando bien. En *Legalistas* seguimos atentos a tu caso.\n\nSi durante tu tratamiento surge alg\u00fan inconveniente (falta de asistencia m\u00e9dica, alta prematura, demoras en estudios o cirug\u00edas), avisanos cuanto antes.\n\nEstamos para ayudarte.\n\n_Equipo Legalistas_",
   },
   "12": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\uD83D\uDCC4 Te informamos que hemos enviado el telegrama correspondiente a tu caso. Te mantendremos informado sobre cualquier novedad.\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\uD83D\uDCC4 Te informamos que hemos enviado el telegrama correspondiente a tu caso. Te mantendremos informado sobre cualquier novedad.\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\nTe informamos que hemos enviado el telegrama correspondiente a tu caso. Te mantendremos informado sobre cualquier novedad.\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nTe informamos que hemos enviado el telegrama correspondiente a tu caso. Te mantendremos informado sobre cualquier novedad.\n\n_Equipo Legalistas_",
   },
   "5": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nEstamos esperando tu confirmaci\u00F3n para poder avanzar con tu caso. \u00BFPodemos contar con tu respuesta?\n\nSi ten\u00E9s alguna duda, escribinos.\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nEstamos esperando tu confirmaci\u00F3n para poder avanzar con tu caso. \u00BFPodemos contar con tu respuesta?\n\nSi ten\u00E9s alguna duda, escribinos.\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\nEstamos esperando tu confirmaci\u00f3n para poder avanzar con tu caso. \u00bfPodemos contar con tu respuesta?\n\nSi ten\u00e9s alguna duda, escribinos.\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nEstamos esperando tu confirmaci\u00f3n para poder avanzar con tu caso. \u00bfPodemos contar con tu respuesta?\n\nSi ten\u00e9s alguna duda, escribinos.\n\n_Equipo Legalistas_",
   },
   "6": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\uD83D\uDCC5 *{tipoReunion}*\n\uD83D\uDDD3\uFE0F {fechaReunion} a las {horaReunion} hs\n\uD83D\uDCCD Lugar: Alem 80\n\nSi confirm\u00E1s asistencia, toc\u00E1 el siguiente link:\n\uD83D\uDD17 {confirmationUrl}\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nNecesitamos coordinar una reuni\u00F3n para firmar el poder. \u00BFQu\u00E9 d\u00EDa y horario te vendr\u00EDa bien?\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\n*{tipoReunion}*\n{fechaReunion} a las {horaReunion} hs\nLugar: Alem 80\n\nSi confirm\u00e1s asistencia, toc\u00e1 el siguiente link:\n{confirmationUrl}\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nNecesitamos coordinar una reuni\u00f3n para firmar el poder. \u00bfQu\u00e9 d\u00eda y horario te vendr\u00eda bien?\n\n_Equipo Legalistas_",
   },
   "7": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\uD83D\uDCC5 *{tipoReunion}*\n\uD83D\uDDD3\uFE0F {fechaReunion} a las {horaReunion} hs\n\uD83D\uDCCD Lugar: Alem 80\n\nSi confirm\u00E1s asistencia, toc\u00E1 el siguiente link:\n\uD83D\uDD17 {confirmationUrl}\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nTe recordamos nuestra reuni\u00F3n para la firma del poder. \u00BFNos confirm\u00E1s tu asistencia?\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\n*{tipoReunion}*\n{fechaReunion} a las {horaReunion} hs\nLugar: Alem 80\n\nSi confirm\u00e1s asistencia, toc\u00e1 el siguiente link:\n{confirmationUrl}\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nTe recordamos nuestra reuni\u00f3n para la firma del poder. \u00bfNos confirm\u00e1s tu asistencia?\n\n_Equipo Legalistas_",
   },
   "8": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\uD83D\uDCDD Te recordamos que tu autorizaci\u00F3n sigue pendiente de firma. Este documento es indispensable para que podamos representarte legalmente.\n\nSi todav\u00EDa no pudiste coordinar la firma, escribinos para agendar.\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\uD83D\uDCDD Te recordamos que tu autorizaci\u00F3n sigue pendiente de firma. Este documento es indispensable para que podamos representarte legalmente.\n\nSi todav\u00EDa no pudiste coordinar la firma, escribinos para agendar.\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\nTe recordamos que tu autorizaci\u00f3n sigue pendiente de firma. Este documento es indispensable para que podamos representarte legalmente.\n\nSi todav\u00eda no pudiste coordinar la firma, escribinos para agendar.\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nTe recordamos que tu autorizaci\u00f3n sigue pendiente de firma. Este documento es indispensable para que podamos representarte legalmente.\n\nSi todav\u00eda no pudiste coordinar la firma, escribinos para agendar.\n\n_Equipo Legalistas_",
   },
   "9": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\u2705 Recibimos tu autorizaci\u00F3n y ya estamos trabajando en tu caso.\n\nPod\u00E9s seguir el estado de tu tr\u00E1mite desde la plataforma de clientes:\n\uD83D\uDD17 https://usuarios.legalistas.ar\n\nSi la aseguradora te contacta, es posible que sea por nuestras gestiones. Ante cualquier duda, escribinos.\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\n\u2705 Recibimos tu autorizaci\u00F3n y ya estamos trabajando en tu caso.\n\nPod\u00E9s seguir el estado de tu tr\u00E1mite desde la plataforma de clientes:\n\uD83D\uDD17 https://usuarios.legalistas.ar\n\nSi la aseguradora te contacta, es posible que sea por nuestras gestiones. Ante cualquier duda, escribinos.\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\nRecibimos tu autorizaci\u00f3n y ya estamos trabajando en tu caso.\n\nPod\u00e9s seguir el estado de tu tr\u00e1mite desde la plataforma de clientes:\nhttps://usuarios.legalistas.ar\n\nSi la aseguradora te contacta, es posible que sea por nuestras gestiones. Ante cualquier duda, escribinos.\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nRecibimos tu autorizaci\u00f3n y ya estamos trabajando en tu caso.\n\nPod\u00e9s seguir el estado de tu tr\u00e1mite desde la plataforma de clientes:\nhttps://usuarios.legalistas.ar\n\nSi la aseguradora te contacta, es posible que sea por nuestras gestiones. Ante cualquier duda, escribinos.\n\n_Equipo Legalistas_",
   },
   "10": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nLamentamos que no hayamos podido avanzar con tu caso. Si en el futuro necesit\u00E1s nuestros servicios, no dudes en contactarnos.\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nLamentamos que no hayamos podido avanzar con tu caso. Si en el futuro necesit\u00E1s nuestros servicios, no dudes en contactarnos.\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\nLamentamos que no hayamos podido avanzar con tu caso. Si en el futuro necesit\u00e1s nuestros servicios, no dudes en contactarnos.\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nLamentamos que no hayamos podido avanzar con tu caso. Si en el futuro necesit\u00e1s nuestros servicios, no dudes en contactarnos.\n\n_Equipo Legalistas_",
   },
   "11": {
-    withMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nTu caso se encuentra archivado. Si necesit\u00E1s reactivarlo, estamos a tu disposici\u00F3n.\n\n_Equipo Legalistas_ \u2696\uFE0F",
-    withoutMeeting: "Hola *{nombre}* \uD83D\uDC4B\n\nTu caso se encuentra archivado. Si necesit\u00E1s reactivarlo, estamos a tu disposici\u00F3n.\n\n_Equipo Legalistas_ \u2696\uFE0F",
+    withMeeting:
+      "Hola *{nombre}*,\n\nTu caso se encuentra archivado. Si necesit\u00e1s reactivarlo, estamos a tu disposici\u00f3n.\n\n_Equipo Legalistas_",
+    withoutMeeting:
+      "Hola *{nombre}*,\n\nTu caso se encuentra archivado. Si necesit\u00e1s reactivarlo, estamos a tu disposici\u00f3n.\n\n_Equipo Legalistas_",
   },
 };

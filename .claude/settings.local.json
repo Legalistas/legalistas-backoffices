@@ -5,7 +5,9 @@
       "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/aceptar-servicio/\")",
       "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/aceptar-servicio/[token]/\")",
       "WebFetch(domain:legalistas.ar)",
-      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/public/images/logo\"*)"
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/public/images/logo\"*)",
+      "Bash(grep -r Box c:ProyectLexiasTechLegalistasfrontendsrccomponentscases --include=*.tsx)",
+      "Bash(find c:ProyectLexiasTechLegalistasfrontendsrc -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))"
     ],
     "additionalDirectories": [
       "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\confirmacion-reunion"

@@ -5,12 +5,14 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import {
 	CASES_ENDPOINT,
 	CASES_NOTES_CREATE_ENDPOINT,
 	LAWYERS_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { getServiceName, getStatusName } from "@/lib/functions";
 import { Role } from "@/constant/user";
 import type { Cases } from "@/types/cases";
 import { DataNotFound } from "../common/DataNotFound";
@@ -491,7 +493,6 @@ export default function CasesContent() {
 			if (fromDateApi) url.searchParams.append("fromDate", fromDateApi);
 			if (toDateApi) url.searchParams.append("toDate", toDateApi);
 
-			// Si el usuario es ABOGADO_REPRESENTANTE, forzar filtro por su propio ID como responsibleLawyer
 			if (
 				session?.user?.role === Role.ABOGADO_REPRESENTANTE &&
 				session?.user?.id
@@ -503,8 +504,6 @@ export default function CasesContent() {
 				);
 			}
 
-			// Si el usuario es ASISTENTE_LEGAL (abogado interno) y showAll está OFF,
-			// filtrar por su propio ID como internalLawyer
 			if (
 				session?.user?.role === Role.ASISTENTE_LEGAL &&
 				session?.user?.id &&
@@ -531,26 +530,160 @@ export default function CasesContent() {
 				return;
 			}
 
-			const rows = data.map((c) => ({
-				"N° Caso": c.number ?? "",
-				Título: c.title ?? "",
-				Cliente: c.customer?.name ?? "",
-				"Abogado Representante": c.responsibleLawyer?.name ?? "",
-				"Abogado Interno": c.internalLawyer?.name ?? "",
-				Etapa: c.stageId !== undefined ? String(c.stageId) : "",
-				Servicio: c.servicesId !== undefined ? String(c.servicesId) : "",
-				"Fecha de creación": c.createdAt
-					? new Date(c.createdAt).toLocaleDateString("es-AR")
-					: "",
-			}));
+			// Helper para obtener la última nota
+			const getLastNote = (c: Cases) => {
+				if (!c.notes || c.notes.length === 0) return "";
+				const sorted = [...c.notes].sort(
+					(a, b) =>
+						new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+				);
+				const raw = sorted[0].note || "";
+				return raw.replace(/<[^>]*>/g, "").trim();
+			};
 
-			const ws = XLSX.utils.json_to_sheet(rows);
-			const wb = XLSX.utils.book_new();
-			XLSX.utils.book_append_sheet(wb, ws, "Casos");
-			XLSX.writeFile(
-				wb,
-				`casos_${new Date().toISOString().split("T")[0]}.xlsx`,
-			);
+			// Crear workbook con ExcelJS
+			const workbook = new ExcelJS.Workbook();
+			workbook.creator = "Legalistas";
+			workbook.created = new Date();
+			const worksheet = workbook.addWorksheet("Casos", {
+				properties: { defaultRowHeight: 22 },
+			});
+
+			// Cargar logo
+			let logoId: number | null = null;
+			try {
+				const logoResponse = await fetch("/images/logo/logo-print.png");
+				const logoBlob = await logoResponse.blob();
+				const logoBuffer = await logoBlob.arrayBuffer();
+				logoId = workbook.addImage({
+					buffer: logoBuffer,
+					extension: "png",
+				});
+			} catch {
+				console.warn("No se pudo cargar el logo para el Excel");
+			}
+
+			// Encabezado con logo
+			worksheet.mergeCells("A1:J1");
+			worksheet.mergeCells("A2:J2");
+			worksheet.mergeCells("A3:J3");
+
+			const titleCell = worksheet.getCell("A1");
+			titleCell.value = "LEGALISTAS - Gestor de Casos";
+			titleCell.font = { name: "Calibri", size: 18, bold: true, color: { argb: "FF1A365D" } };
+			titleCell.alignment = { horizontal: "center", vertical: "middle" };
+			worksheet.getRow(1).height = 40;
+
+			const subtitleCell = worksheet.getCell("A2");
+			subtitleCell.value = `Reporte generado el ${new Date().toLocaleDateString("es-AR", { day: "2-digit", month: "long", year: "numeric" })}`;
+			subtitleCell.font = { name: "Calibri", size: 11, italic: true, color: { argb: "FF718096" } };
+			subtitleCell.alignment = { horizontal: "center", vertical: "middle" };
+			worksheet.getRow(2).height = 22;
+
+			const countCell = worksheet.getCell("A3");
+			countCell.value = `Total de casos: ${data.length}`;
+			countCell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF2D3748" } };
+			countCell.alignment = { horizontal: "center", vertical: "middle" };
+			worksheet.getRow(3).height = 22;
+
+			if (logoId !== null) {
+				worksheet.addImage(logoId, {
+					tl: { col: 0, row: 0 },
+					ext: { width: 120, height: 35 },
+				});
+				titleCell.alignment = { horizontal: "center", vertical: "middle" };
+			}
+
+			// Fila vacía de separación
+			worksheet.getRow(4).height = 10;
+
+			// Columnas
+			const columns = [
+				{ header: "N° Caso", key: "number", width: 12 },
+				{ header: "Título", key: "title", width: 30 },
+				{ header: "Servicio", key: "service", width: 20 },
+				{ header: "Etapa", key: "stage", width: 16 },
+				{ header: "Nota", key: "note", width: 35 },
+				{ header: "Abog. Responsable", key: "responsibleLawyer", width: 22 },
+				{ header: "Abog. Interno", key: "internalLawyer", width: 22 },
+				{ header: "Teléfono", key: "phone", width: 18 },
+				{ header: "Email", key: "email", width: 28 },
+				{ header: "Fecha de Creación", key: "createdAt", width: 18 },
+			];
+
+			// Fila de encabezados (fila 5)
+			const headerRow = worksheet.getRow(5);
+			columns.forEach((col, i) => {
+				const cell = headerRow.getCell(i + 1);
+				cell.value = col.header;
+				cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: "FF000000" } };
+				cell.fill = {
+					type: "pattern",
+					pattern: "solid",
+					fgColor: { argb: "FF09A4B5" },
+				};
+				cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+				cell.border = {
+					top: { style: "thin", color: { argb: "FF1A365D" } },
+					bottom: { style: "thin", color: { argb: "FF1A365D" } },
+					left: { style: "thin", color: { argb: "FFE2E8F0" } },
+					right: { style: "thin", color: { argb: "FFE2E8F0" } },
+				};
+			});
+			headerRow.height = 28;
+
+			// Establecer anchos de columna
+			columns.forEach((col, i) => {
+				worksheet.getColumn(i + 1).width = col.width;
+			});
+
+			// Filas de datos
+			data.forEach((c, rowIndex) => {
+				const row = worksheet.getRow(6 + rowIndex);
+				const values = [
+					c.number ?? "",
+					c.title ?? "",
+					c.servicesId !== undefined ? getServiceName(Number(c.servicesId)) : "",
+					c.stageId !== undefined ? getStatusName(Number(c.stageId)) : "",
+					getLastNote(c),
+					c.responsibleLawyer?.name ?? "Sin asignar",
+					c.internalLawyer?.name ?? "Sin asignar",
+					c.customer?.userProfile?.phone ?? "",
+					c.customer?.email ?? "",
+					c.createdAt ? new Date(c.createdAt).toLocaleDateString("es-AR") : "",
+				];
+
+				values.forEach((val, i) => {
+					const cell = row.getCell(i + 1);
+					cell.value = val;
+					cell.font = { name: "Calibri", size: 10, color: { argb: "FF2D3748" } };
+					cell.alignment = { vertical: "middle", wrapText: true };
+					cell.border = {
+						bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+						left: { style: "thin", color: { argb: "FFE2E8F0" } },
+						right: { style: "thin", color: { argb: "FFE2E8F0" } },
+					};
+				});
+
+				// Alternar colores de fila
+				const bgColor = rowIndex % 2 === 0 ? "FFF7FAFC" : "FFFFFFFF";
+				row.eachCell({ includeEmpty: true }, (cell) => {
+					cell.fill = {
+						type: "pattern",
+						pattern: "solid",
+						fgColor: { argb: bgColor },
+					};
+				});
+
+				row.height = 22;
+			});
+
+			// Generar y descargar archivo
+			const buffer = await workbook.xlsx.writeBuffer();
+			const blob = new Blob([buffer], {
+				type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+			});
+			saveAs(blob, `casos_${new Date().toISOString().split("T")[0]}.xlsx`);
 			toast.success(`Exportación completada: ${data.length} casos`);
 		} catch (error) {
 			console.error("Error al exportar:", error);
@@ -558,6 +691,8 @@ export default function CasesContent() {
 		}
 	}, [
 		session?.user?.accessToken,
+		session?.user?.role,
+		session?.user?.id,
 		searchTerm,
 		selectedService,
 		selectedStage,
@@ -1175,15 +1310,15 @@ export default function CasesContent() {
 	// Check if any filters are active
 	const hasActiveFilters = Boolean(
 		searchTerm ||
-			selectedService !== undefined ||
-			selectedStage !== undefined ||
-			(selectedRepresentativeLawyer &&
-				selectedRepresentativeLawyer.length > 0) ||
-			(selectedInternalLawyer && selectedInternalLawyer.length > 0) ||
-			dateFrom ||
-			dateTo ||
-			showArchivedOnly ||
-			showAll,
+		selectedService !== undefined ||
+		selectedStage !== undefined ||
+		(selectedRepresentativeLawyer &&
+			selectedRepresentativeLawyer.length > 0) ||
+		(selectedInternalLawyer && selectedInternalLawyer.length > 0) ||
+		dateFrom ||
+		dateTo ||
+		showArchivedOnly ||
+		showAll,
 	);
 
 	// Loading state - skeleton
