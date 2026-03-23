@@ -334,6 +334,15 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 		}
 	};
 
+	const formatWhatsAppPhone = (phone: string): string => {
+		let clean = phone.replace(/[\s\-()+ ]/g, "");
+		// Si empieza con 0, sacarlo y agregar 54
+		if (clean.startsWith("0")) clean = "54" + clean.substring(1);
+		// Si no empieza con 54, agregarlo
+		if (!clean.startsWith("54")) clean = "54" + clean;
+		return clean;
+	};
+
 	const handleWhatsApp = () => {
 		if (!lead) return;
 		const phone = lead.phone || lead.user?.userProfile?.phone || "";
@@ -341,11 +350,10 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 			toast.error("Este lead no tiene número de teléfono registrado");
 			return;
 		}
-		const cleanPhone = phone.replace(/[\s\-()]/g, "");
+		const cleanPhone = formatWhatsAppPhone(phone);
 		const columnId = String(lead.columnId || "1");
-		const nombre = lead.user?.name || lead.name || "cliente";
+		const nombre = lead.user?.name?.split(" ")[0] || lead.name?.split(" ")[0] || "cliente";
 
-		// Buscar la reunión más reciente
 		const lastMeeting = lead.crmMeetings?.length
 			? [...lead.crmMeetings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
 			: null;
@@ -362,6 +370,7 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 				weekday: "long",
 				day: "numeric",
 				month: "long",
+				year: "numeric",
 			});
 			const horaReunion = meetingDate.toLocaleTimeString("es-AR", {
 				hour: "2-digit",
