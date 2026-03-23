@@ -25,7 +25,7 @@ import {
 	LEADS_NOTES_ENDPOINT,
 	LEADS_NOTES_UPDATE_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { ART_COMPANIES, CRM_COLUMNS, INSURANCE_COMPANIES, SOURCE_CHANNEL, WHATSAPP_MESSAGES } from "@/constant/crm";
+import { ART_COMPANIES, CRM_COLUMNS, INSURANCE_COMPANIES, MEETING_TYPES, SOURCE_CHANNEL, WHATSAPP_MESSAGES } from "@/constant/crm";
 import { servicesType } from "@/lib/constant";
 import { formatDate } from "@/lib/functions";
 import type { Lead } from "@/types/crm";
