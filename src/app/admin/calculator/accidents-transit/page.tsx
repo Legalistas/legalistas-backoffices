@@ -106,25 +106,52 @@ export default function AccidentsTransitPage() {
 	const [loading, setLoading] = useState(false);
 	const searchRef = useRef<HTMLDivElement>(null);
 
-	// Parameters
-	const [accidentDate, setAccidentDate] = useState("");
-	const [sentenceDate, setSentenceDate] = useState("");
-	const [customerAge, setCustomerAge] = useState<number | null>(null);
-	const [disabilityPercentage, setDisabilityPercentage] = useState<number | null>(null);
-	const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null);
-	const [includeSAC, setIncludeSAC] = useState(true);
-	const [formulaType, setFormulaType] = useState("vuotto");
-	const [pureInterestRate, setPureInterestRate] = useState<number>(6);
-	const [retirementAge, setRetirementAge] = useState<number>(65);
-	const [activar20Porciento, setActivar20Porciento] = useState(false);
-	const [tasaInteresAnual, setTasaInteresAnual] = useState<number>(8);
+	// ─── localStorage persistence ────────────────────────────
+	const STORAGE_KEY = "calculator_transit_data";
+
+	// Leer localStorage una sola vez al inicializar
+	const [_init] = useState<any>(() => {
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY);
+			return stored ? JSON.parse(stored) : null;
+		} catch { return null; }
+	});
+
+	// Parameters (inicializados desde localStorage)
+	const [accidentDate, setAccidentDate] = useState(_init?.accidentDate || "");
+	const [sentenceDate, setSentenceDate] = useState(_init?.sentenceDate || "");
+	const [customerAge, setCustomerAge] = useState<number | null>(_init?.customerAge ?? null);
+	const [disabilityPercentage, setDisabilityPercentage] = useState<number | null>(_init?.disabilityPercentage ?? null);
+	const [monthlyIncome, setMonthlyIncome] = useState<number | null>(_init?.monthlyIncome ?? null);
+	const [includeSAC, setIncludeSAC] = useState(_init?.includeSAC ?? true);
+	const [formulaType, setFormulaType] = useState(_init?.formulaType || "vuotto");
+	const [pureInterestRate, setPureInterestRate] = useState<number>(_init?.pureInterestRate ?? 6);
+	const [retirementAge, setRetirementAge] = useState<number>(_init?.retirementAge ?? 65);
+	const [activar20Porciento, setActivar20Porciento] = useState(_init?.activar20Porciento ?? false);
+	const [tasaInteresAnual, setTasaInteresAnual] = useState<number>(_init?.tasaInteresAnual ?? 8);
 
 	// Rubros
-	const [rubros, setRubros] = useState<RubroItem[]>(RUBROS_DEFAULT);
+	const [rubros, setRubros] = useState<RubroItem[]>(_init?.rubros ?? RUBROS_DEFAULT);
 
 	// UI
 	const [activeTab, setActiveTab] = useState("parametros");
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+	// Guardar datos automáticamente cuando cambian
+	useEffect(() => {
+		const dataToSave = {
+			accidentDate, sentenceDate, customerAge, disabilityPercentage,
+			monthlyIncome, includeSAC, formulaType, pureInterestRate,
+			retirementAge, activar20Porciento, tasaInteresAnual, rubros,
+		};
+		try {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+		} catch (e) { /* ignore */ }
+	}, [
+		accidentDate, sentenceDate, customerAge, disabilityPercentage,
+		monthlyIncome, includeSAC, formulaType, pureInterestRate,
+		retirementAge, activar20Porciento, tasaInteresAnual, rubros,
+	]);
 
 	// ─── Derived Calculations ───────────────────────────────
 	const hasCustomerBirthDate = !!selectedCause?.customer?.userProfile?.birthDate;
@@ -364,6 +391,7 @@ export default function AccidentsTransitPage() {
 		setActivar20Porciento(false);
 		setTasaInteresAnual(8);
 		setRubros(RUBROS_DEFAULT);
+		try { localStorage.removeItem(STORAGE_KEY); } catch (e) { /* ignore */ }
 	};
 
 	const handleRubroChange = (id: string, value: string) => {
