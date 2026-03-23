@@ -294,7 +294,7 @@ export const CasesFilters = ({
 	return (
 		<div className="space-y-4">
 			{/* Search and main controls */}
-			<div className="flex flex-wrap items-center gap-3">
+			<div className="flex flex-wrap items-center gap-4">
 				{/* Search Input */}
 				<div className="relative flex-1 min-w-[200px]">
 					<form onSubmit={handleSearch} className="w-full">
@@ -674,6 +674,9 @@ export const CasesFilters = ({
 					)}
 				</div>
 
+				{/* Separator */}
+				<div className="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700" />
+
 				{/* View Mode Toggle Group */}
 				<div className="flex items-center rounded-lg border border-input bg-background p-1 gap-1">
 					<Button
@@ -697,6 +700,9 @@ export const CasesFilters = ({
 						<Columns className="h-4 w-4" />
 					</Button>
 				</div>
+
+				{/* Separator */}
+				<div className="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700" />
 
 				{/* Mis Casos / Todos toggle */}
 				<Can
@@ -733,6 +739,9 @@ export const CasesFilters = ({
 						</Button>
 					</div>
 				</Can>
+
+				{/* Separator */}
+				<div className="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700" />
 
 				{/* Export Excel Button */}
 				<Button
