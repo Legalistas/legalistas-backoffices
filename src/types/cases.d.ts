@@ -197,6 +197,8 @@ export interface Cases {
 	internalLawyerId?: number;
 	responsibleLawyerId?: number;
 	injury?: string | null;
+	disabilityPercentage?: number | null;
+	estadoActual?: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 	customer: User;

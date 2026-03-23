@@ -9,6 +9,7 @@ import {
 	TabsTrigger,
 } from "@/components/ui/tabs";
 import type {
+	Cases,
 	CaseConsultations,
 	CaseLogs,
 	CasesDocuments,
@@ -22,6 +23,7 @@ import ConsultationsView from "./ConsultationsView";
 import { EventosView } from "./EventosView";
 import { FilesListView } from "./FilesListView";
 import { GastosView } from "./GastosView";
+import { InformeTrimestralView } from "./InformeTrimestralView";
 import { LiquidacionView } from "./LiquidacionView";
 import { NotesView } from "./NotesView";
 import { PartesView } from "./PartesView";
@@ -35,9 +37,11 @@ interface CaseTabsProps {
 	documents?: CasesDocuments[];
 	consultation: CaseConsultations[];
 	caseId: string;
+	caseData: Cases;
 	filteredFiles: CasesFiles[];
 	onAddNewFile: () => void;
 	onNotesUpdated?: () => void;
+	onCaseUpdated?: () => void;
 	customer: {
 		name: string;
 	};
@@ -57,10 +61,12 @@ export const CaseTabs = ({
 	consultation = [],
 	documents = [],
 	caseId,
+	caseData,
 	filteredFiles,
 	onAddNewFile,
 	customer,
 	onNotesUpdated = () => {},
+	onCaseUpdated,
 	responsibleLawyer,
 	internalLawyer,
 }: CaseTabsProps) => {
@@ -109,6 +115,7 @@ export const CaseTabs = ({
 				<TabsTrigger value="gastos">Gastos</TabsTrigger>
 				<TabsTrigger value="cedulas">Cédulas</TabsTrigger>
 				<TabsTrigger value="consultations">Consultas</TabsTrigger>
+				<TabsTrigger value="informe">Informe</TabsTrigger>
 			</TabsList>
 
 			{/* 1. Expedientes */}
@@ -165,7 +172,7 @@ export const CaseTabs = ({
 
 			{/* 6. Liquidación */}
 			<TabsContent value="liquidacion" className={tabContentClass}>
-				<LiquidacionView />
+				<LiquidacionView disabilityPercentage={caseData.disabilityPercentage} />
 			</TabsContent>
 
 			{/* 7. Partes */}
@@ -202,6 +209,11 @@ export const CaseTabs = ({
 					caseId={caseId}
 					onCreateConsultation={handleCreateConsultation}
 				/>
+			</TabsContent>
+
+			{/* 11. Informe Trimestral */}
+			<TabsContent value="informe" className={tabContentClass}>
+				<InformeTrimestralView caseData={caseData} onCaseUpdated={onCaseUpdated} />
 			</TabsContent>
 		</Tabs>
 	);

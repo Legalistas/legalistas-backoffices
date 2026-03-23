@@ -7,10 +7,13 @@
       "WebFetch(domain:legalistas.ar)",
       "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/public/images/logo\"*)",
       "Bash(grep -r Box c:ProyectLexiasTechLegalistasfrontendsrccomponentscases --include=*.tsx)",
-      "Bash(find c:ProyectLexiasTechLegalistasfrontendsrc -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))"
+      "Bash(find c:ProyectLexiasTechLegalistasfrontendsrc -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(grep -r \"jspdf\\\\|pdf\\\\|report\" /c/Proyect/LexiasTech/Legalistas/frontend/src --include=*.ts --include=*.tsx -l)",
+      "Bash(grep -l \"export\\\\|function\\\\|const\" /c/Proyect/LexiasTech/Legalistas/frontend/src/components/case-details/*.tsx)"
     ],
     "additionalDirectories": [
-      "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\confirmacion-reunion"
+      "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\confirmacion-reunion",
+      "c:\\Proyect\\LexiasTech\\Legalistas\\backend\\prisma"
     ]
   }
 }

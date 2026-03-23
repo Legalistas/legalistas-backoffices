@@ -295,12 +295,14 @@ export default function CasesDetailsPage() {
 							logs={cases.logs || []}
 							documents={cases.documents || []}
 							caseId={params.caseId as string}
+							caseData={cases}
 							filteredFiles={filteredFiles()}
 							onAddNewFile={handleOpenDialog}
 							customer={cases.customer}
 							responsibleLawyer={cases.responsibleLawyer}
 							internalLawyer={cases.internalLawyer}
 							onNotesUpdated={fetchCaseData}
+							onCaseUpdated={fetchCaseData}
 						/>
 					</div>
 				</div>
