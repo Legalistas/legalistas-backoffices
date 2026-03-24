@@ -84,6 +84,7 @@ export default function LeadFormDialog({
 		accidentDate: "",
 		artId: null as number | null,
 		insuranceId: null as number | null,
+		injury: "",
 	});
 	const router = useRouter();
 	const [searchQuery, setSearchQuery] = useState("");
@@ -235,6 +236,7 @@ export default function LeadFormDialog({
 				accidentDate: lead.accidentDate ? lead.accidentDate.slice(0, 10) : "",
 				artId: lead.artId ?? null,
 				insuranceId: lead.insuranceId ?? null,
+				injury: lead.injury || "",
 			});
 			if (lead.user) {
 				setSearchQuery(lead.user.name);
@@ -257,6 +259,7 @@ export default function LeadFormDialog({
 				accidentDate: "",
 				artId: null,
 				insuranceId: null,
+				injury: "",
 			});
 			setSearchQuery("");
 			setSelectedCustomerName("");
@@ -374,6 +377,7 @@ export default function LeadFormDialog({
 				accidentDate: formData.accidentDate || null,
 				artId: formData.artId || null,
 				insuranceId: formData.insuranceId || null,
+				injury: formData.injury || null,
 			};
 
 			const endpoint = lead?.id
@@ -582,6 +586,20 @@ export default function LeadFormDialog({
 						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
 							Detalle del Caso
 						</h3>
+						<div className="space-y-2 mb-4">
+							<Label htmlFor="injury">Lesión</Label>
+							<Input
+								id="injury"
+								placeholder="Ej: Fractura de muñeca, lumbalgia, etc."
+								value={formData.injury}
+								onChange={(e) =>
+									setFormData((prev) => ({
+										...prev,
+										injury: e.target.value,
+									}))
+								}
+							/>
+						</div>
 						<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div className="space-y-2">
 								<Label>Servicios</Label>

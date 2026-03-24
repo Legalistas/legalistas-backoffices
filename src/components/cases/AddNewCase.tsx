@@ -45,8 +45,10 @@ import {
 	LAWYERS_ENDPOINT,
 	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { ART_COMPANIES, CRM_COLUMNS, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
 import { Role } from "@/constant/user";
 import { servicesType, stageCases } from "@/lib/constant";
+import { sendCaseEmail } from "@/lib/send-case-email";
 import { Badge } from "../ui/badge";
 
 interface Customer {
@@ -76,6 +78,10 @@ interface Customer {
 		updatedAt: string;
 		userId: number;
 		converted: boolean;
+		injury?: string | null;
+		accidentDate?: string | null;
+		artId?: number | null;
+		insuranceId?: number | null;
 	}>;
 }
 
@@ -134,8 +140,9 @@ export default function AddNewCase() {
 		servicesId: 1,
 		responsibleLawyerId: "",
 		internalLawyerId: "",
-		leadId: null as number | null, // 👈 nuevo campo
+		leadId: null as number | null,
 		injury: "",
+		accidentDate: "",
 	});
 
 	// Estado para el formulario de nuevo cliente
@@ -375,7 +382,9 @@ export default function AddNewCase() {
 				responsibleLawyerId: leadToUse.responsibleLawyerId.toString(),
 				servicesId: leadToUse.servicesId,
 				customerId: customer.id,
-				leadId: leadToUse.id, // 👈 acá también
+				leadId: leadToUse.id,
+				injury: leadToUse.injury || "",
+				accidentDate: leadToUse.accidentDate ? leadToUse.accidentDate.slice(0, 10) : "",
 			}));
 			setSelectedLead(leadToUse);
 		}
@@ -400,7 +409,9 @@ export default function AddNewCase() {
 			internalLawyerId: lead.internalLawyerId.toString(),
 			responsibleLawyerId: lead.responsibleLawyerId.toString(),
 			servicesId: lead.servicesId,
-			leadId: lead.id, // 👈 aquí
+			leadId: lead.id,
+			injury: lead.injury || "",
+			accidentDate: lead.accidentDate ? lead.accidentDate.slice(0, 10) : "",
 		}));
 		setSelectedLead(lead);
 		setShowLeadSelector(false);
@@ -511,6 +522,7 @@ export default function AddNewCase() {
 				userId: formData.customerId,
 				leadId: formData.leadId,
 				injury: formData.injury || undefined,
+				accidentDate: formData.accidentDate || undefined,
 				responsibleLawyerId: formData.responsibleLawyerId
 					? Number.parseInt(formData.responsibleLawyerId, 10)
 					: undefined,
@@ -537,6 +549,30 @@ export default function AddNewCase() {
 
 			const data = await response.json();
 			console.log("Caso creado:", data);
+
+			// Enviar certificado de inicio de trámite al cliente
+			if (selectedCustomer?.email) {
+				const serviceName = servicesType.find(
+					(s) => Number(s.value) === formData.servicesId,
+				)?.label;
+				const lawyerName = responsibleLawyers.find(
+					(l: any) => String(l.id) === formData.responsibleLawyerId,
+				)?.name;
+
+				sendCaseEmail({
+					email: selectedCustomer.email,
+					customerName: selectedCustomer.name,
+					caseNumber: data.data?.number,
+					caseTitle: formData.title,
+					serviceName,
+					injury: formData.injury || undefined,
+					accidentDate: formData.accidentDate
+						? new Date(formData.accidentDate).toLocaleDateString("es-AR")
+						: undefined,
+					responsibleLawyerName: lawyerName,
+				});
+			}
+
 			toast.success("Caso creado exitosamente!");
 			router.push("/admin/legal-cases");
 		} catch (err) {
@@ -612,15 +648,15 @@ export default function AddNewCase() {
 	return (
 		<>
 			<div className="mx-auto max-w-2xl z-0">
-				<div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow">
-					<div className="border-b border-gray-200 bg-white px-6 py-4">
+				<div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900 dark:shadow-2xl">
+					<div className="border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-900">
 						<div className="flex justify-between items-center mb-1">
-							<h2 className="text-xl font-semibold text-gray-900">
+							<h2 className="text-xl font-semibold text-gray-900 dark:text-white">
 								Crear nuevo caso
 							</h2>
 							<div className="flex items-center gap-4">
 								<div className="flex items-center gap-2">
-									<span className="text-sm text-gray-700">
+									<span className="text-sm text-gray-700 dark:text-gray-300">
 										{formData.isArchived ? "Archivado" : "No archivado"}
 									</span>
 									<Switch
@@ -630,7 +666,7 @@ export default function AddNewCase() {
 									/>
 								</div>
 								<div className="flex items-center gap-2">
-									<span className="text-sm text-gray-700">
+									<span className="text-sm text-gray-700 dark:text-gray-300">
 										{formData.isActive ? "Activo" : "Inactivo"}
 									</span>
 									<Switch
@@ -641,18 +677,18 @@ export default function AddNewCase() {
 								</div>
 							</div>
 						</div>
-						<p className="mt-1 text-sm text-gray-500">
+						<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
 							Complete la información para crear un nuevo caso
 						</p>
 					</div>
 					{error && (
-						<div className="mx-6 mt-4 rounded-md bg-red-50 p-4">
+						<div className="mx-6 mt-4 rounded-md bg-red-50 p-4 dark:bg-red-900/20">
 							<div className="flex">
 								<div className="shrink-0">
 									<AlertCircle className="h-5 w-5 text-red-400" />
 								</div>
 								<div className="ml-3">
-									<p className="text-sm text-red-700">{error}</p>
+									<p className="text-sm text-red-700 dark:text-red-400">{error}</p>
 								</div>
 							</div>
 						</div>
@@ -669,7 +705,7 @@ export default function AddNewCase() {
 											<Button
 												variant="outline"
 												role="combobox"
-												className="flex-1 justify-between h-auto min-h-10"
+												className="flex-1 justify-between h-auto min-h-10 shadow-sm dark:shadow-md"
 											>
 												{selectedCustomer ? (
 													<Badge className="flex items-center gap-1">
@@ -745,6 +781,83 @@ export default function AddNewCase() {
 								</div>
 							</div>
 
+							{/* Resumen de datos del Lead */}
+							{selectedLead && (
+								<div className="rounded-lg border border-blue-200 bg-blue-50/50 p-4 dark:border-blue-800 dark:bg-blue-950/30">
+									<h4 className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-3">
+										Datos de la oportunidad #{selectedLead.id}
+									</h4>
+									<div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+										{selectedLead.injury && (
+											<div>
+												<span className="text-muted-foreground block text-xs">Lesión</span>
+												<span className="font-medium dark:text-white">{selectedLead.injury}</span>
+											</div>
+										)}
+										{selectedLead.accidentDate && (
+											<div>
+												<span className="text-muted-foreground block text-xs">Fecha accidente</span>
+												<span className="font-medium dark:text-white">
+													{new Date(selectedLead.accidentDate).toLocaleDateString("es-AR")}
+												</span>
+											</div>
+										)}
+										{selectedLead.servicesId > 0 && (
+											<div>
+												<span className="text-muted-foreground block text-xs">Servicio</span>
+												<span className="font-medium dark:text-white">
+													{SERVICES_TYPE.find((s) => s.id === selectedLead.servicesId)?.label || "-"}
+												</span>
+											</div>
+										)}
+										{selectedLead.sourceChannelId > 0 && (
+											<div>
+												<span className="text-muted-foreground block text-xs">Canal de ingreso</span>
+												<span className="font-medium dark:text-white">
+													{SOURCE_CHANNEL.find((c) => c.id === selectedLead.sourceChannelId)?.name || "-"}
+												</span>
+											</div>
+										)}
+										{selectedLead.columnId > 0 && (
+											<div>
+												<span className="text-muted-foreground block text-xs">Etapa CRM</span>
+												<span className="font-medium dark:text-white">
+													{CRM_COLUMNS.find((c) => Number(c.id) === selectedLead.columnId)?.title || "-"}
+												</span>
+											</div>
+										)}
+										<div>
+											<span className="text-muted-foreground block text-xs">Documentación</span>
+											<span className={`font-medium ${selectedLead.documentationComplete ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"}`}>
+												{selectedLead.documentationComplete ? "Completa" : "Pendiente"}
+											</span>
+										</div>
+										{selectedLead.artId && (
+											<div>
+												<span className="text-muted-foreground block text-xs">ART</span>
+												<span className="font-medium dark:text-white">
+													{ART_COMPANIES.find((a) => a.id === selectedLead.artId)?.name || "-"}
+												</span>
+											</div>
+										)}
+										{selectedLead.insuranceId && (
+											<div>
+												<span className="text-muted-foreground block text-xs">Seguro</span>
+												<span className="font-medium dark:text-white">
+													{INSURANCE_COMPANIES.find((i) => i.id === selectedLead.insuranceId)?.name || "-"}
+												</span>
+											</div>
+										)}
+										{selectedLead.notes && (
+											<div className="col-span-2 sm:col-span-3">
+												<span className="text-muted-foreground block text-xs">Notas</span>
+												<span className="font-medium dark:text-white line-clamp-2">{selectedLead.notes}</span>
+											</div>
+										)}
+									</div>
+								</div>
+							)}
+
 							<div className="space-y-2">
 								<div className="flex gap-4">
 									<div className="w-3/4 space-y-2">
@@ -756,6 +869,7 @@ export default function AddNewCase() {
 											value={formData.title}
 											onChange={handleChange}
 											required
+											className="shadow-sm dark:shadow-md"
 										/>
 									</div>
 									<div className="w-1/4 space-y-2">
@@ -766,21 +880,36 @@ export default function AddNewCase() {
 											placeholder="Auto"
 											value={formData.number}
 											onChange={handleChange}
+											className="shadow-sm dark:shadow-md"
 										/>
 									</div>
 								</div>
 							</div>
 
-							{/* Lesión */}
-							<div className="space-y-2">
-								<Label htmlFor="injury">Lesión</Label>
-								<Input
-									id="injury"
-									name="injury"
-									placeholder="Ej: Fractura de muñeca, lumbalgia, etc."
-									value={formData.injury}
-									onChange={handleChange}
-								/>
+							{/* Lesión y Fecha de accidente */}
+							<div className="flex gap-4">
+								<div className="w-2/3 space-y-2">
+									<Label htmlFor="injury">Lesión</Label>
+									<Input
+										id="injury"
+										name="injury"
+										placeholder="Ej: Fractura de muñeca, lumbalgia, etc."
+										value={formData.injury}
+										onChange={handleChange}
+										className="shadow-sm dark:shadow-md"
+									/>
+								</div>
+								<div className="w-1/3 space-y-2">
+									<Label htmlFor="accidentDate">Fecha de accidente</Label>
+									<Input
+										id="accidentDate"
+										name="accidentDate"
+										type="date"
+										value={formData.accidentDate}
+										onChange={handleChange}
+										className="shadow-sm dark:shadow-md"
+									/>
+								</div>
 							</div>
 
 						{/* Tipo de Servicio y Estado del Caso en layout 1/2 + 1/2 */}
@@ -791,7 +920,7 @@ export default function AddNewCase() {
 										value={formData.servicesId?.toString()}
 										onValueChange={(value) => handleServicesIdChange(Number(value))}
 									>
-										<SelectTrigger className="w-full">
+										<SelectTrigger className="w-full shadow-sm dark:shadow-md">
 											<SelectValue placeholder="Seleccionar servicio" />
 										</SelectTrigger>
 										<SelectContent>
@@ -810,7 +939,7 @@ export default function AddNewCase() {
 										value={formData.stageId?.toString()}
 										onValueChange={(value) => handleStageIdChange(Number(value))}
 									>
-										<SelectTrigger className="w-full">
+										<SelectTrigger className="w-full shadow-sm dark:shadow-md">
 											<SelectValue placeholder="Seleccionar etapa" />
 										</SelectTrigger>
 										<SelectContent>
@@ -827,7 +956,7 @@ export default function AddNewCase() {
 							{isLoading ? (
 								<div className="flex items-center justify-center mt-4">
 									<Loader2 className="mr-2 -ml-1 h-4 w-4 animate-spin text-blue-500" />
-									<span className="text-sm text-gray-500">
+									<span className="text-sm text-gray-500 dark:text-gray-400">
 										Cargando abogados...
 									</span>
 								</div>
@@ -840,7 +969,7 @@ export default function AddNewCase() {
 												<Button
 													variant="outline"
 													role="combobox"
-													className="w-full justify-between"
+													className="w-full justify-between shadow-sm dark:shadow-md"
 												>
 													{formData.responsibleLawyerId
 														? filteredResponsibleLawyers.find(
@@ -905,7 +1034,7 @@ export default function AddNewCase() {
 												handleSelectChange(syntheticEvent);
 											}}
 										>
-											<SelectTrigger className="w-full">
+											<SelectTrigger className="w-full shadow-sm dark:shadow-md">
 												<SelectValue placeholder="Seleccione un abogado externo" />
 											</SelectTrigger>
 											<SelectContent>
@@ -920,11 +1049,11 @@ export default function AddNewCase() {
 								</div>
 							)}
 						</div>
-						<div className="flex justify-between border-t border-gray-200 bg-gray-50 px-6 py-4">
+						<div className="flex justify-between border-t border-gray-200 bg-gray-50 px-6 py-4 dark:border-gray-700 dark:bg-gray-800/50">
 							<Button
 								variant="outline"
 								onClick={() => router.back()}
-								className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+								className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:focus:ring-offset-gray-900"
 							>
 								Cancel
 							</Button>

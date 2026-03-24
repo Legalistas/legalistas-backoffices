@@ -8,6 +8,7 @@ import { CrmEnTratamientoRecordatorioTemplate } from "./email/crm-en-tratamiento
 import { CrmPendientePoderTemplate } from "./email/crm-pendiente-poder";
 import { CrmPendientePoderRecordatorioTemplate } from "./email/crm-pendiente-poder-recordatorio";
 import { CrmGanadoPoderTemplate } from "./email/crm-ganado-poder";
+import { CaseInicioTramiteTemplate } from "./email/case-inicio-tramite";
 
 // ─────────────────────────────────────────────────
 // SMTP Configuration
@@ -49,7 +50,8 @@ type EmailTemplate =
   | "crm-en-tratamiento-recordatorio"
   | "crm-pendiente-poder"
   | "crm-pendiente-poder-recordatorio"
-  | "crm-ganado-poder";
+  | "crm-ganado-poder"
+  | "case-inicio-tramite";
 
 interface TemplateVars {
   leadName?: string;
@@ -59,6 +61,14 @@ interface TemplateVars {
   hours?: string;
   phoneNumber?: string;
   confirmationUrl?: string;
+  // Caso
+  customerName?: string;
+  caseNumber?: string;
+  caseTitle?: string;
+  serviceName?: string;
+  injury?: string;
+  accidentDate?: string;
+  responsibleLawyerName?: string;
 }
 
 /** Mapea columnId del CRM → template de email (cambio de etapa) */
@@ -158,6 +168,22 @@ async function renderTemplate(
         subject: "¡Recibimos tu autorización! — Legalistas",
         html: await render(
           CrmGanadoPoderTemplate({ leadName: vars.leadName })
+        ),
+      };
+
+    case "case-inicio-tramite":
+      return {
+        subject: "Certificado de inicio de trámite — Legalistas",
+        html: await render(
+          CaseInicioTramiteTemplate({
+            customerName: vars.customerName,
+            caseNumber: vars.caseNumber,
+            caseTitle: vars.caseTitle,
+            serviceName: vars.serviceName,
+            injury: vars.injury,
+            accidentDate: vars.accidentDate,
+            responsibleLawyerName: vars.responsibleLawyerName,
+          })
         ),
       };
   }
