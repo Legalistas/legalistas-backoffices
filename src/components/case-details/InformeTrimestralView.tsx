@@ -195,7 +195,7 @@ export function InformeTrimestralView({
 
 			// Open WhatsApp Web with pre-filled message
 			const message = `Hola ${caseData.customer?.name || ""}! Le enviamos el informe trimestral del estado de su reclamo (Caso #${caseData.number || caseData.id}). Le adjuntamos el PDF en este chat.`;
-			const customerPhone = (caseData.customer as any)?.phone;
+			const customerPhone = (caseData.customer as any)?.userProfile?.phone;
 			const cleanPhone = customerPhone?.replace(/[\s\-()]/g, "") || "";
 			const waUrl = cleanPhone
 				? `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`
