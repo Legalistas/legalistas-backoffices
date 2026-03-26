@@ -1,5 +1,8 @@
 "use client";
 
+import { format } from "date-fns";
+import { es } from "date-fns/locale";
+import { Download } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -17,7 +20,9 @@ import type {
 	SalesStatsCard,
 	WonLeadPerson,
 } from "@/components/reports/sales";
+import { exportSalesExcel } from "@/components/reports/sales/exportSalesExcel";
 import { getInitialFilters } from "@/components/reports/sales/SalesFilters";
+import { Button } from "@/components/ui/button";
 import { STATISTICS_CRM_ALL_ENDPOINT } from "@/constant/api-endpoints";
 
 const INITIAL_STATS: SalesStatsCard = {
@@ -118,13 +123,37 @@ export default function ReportSalesPage() {
 	return (
 		<div className="space-y-6">
 			{/* Header */}
-			<div>
-				<h1 className="text-2xl font-bold text-foreground">
-					Análisis de Ventas
-				</h1>
-				<p className="text-muted-foreground">
-					Dashboard de oportunidades y conversiones
-				</p>
+			<div className="flex items-center justify-between">
+				<div>
+					<h1 className="text-2xl font-bold text-foreground">
+						Análisis de Ventas
+					</h1>
+					<p className="text-muted-foreground">
+						Dashboard de oportunidades y conversiones
+					</p>
+				</div>
+				<Button
+					variant="outline"
+					className="gap-2"
+					disabled={loading}
+					onClick={() => {
+						const from = new Date(`${filters.startDate}T00:00:00`);
+						const to = new Date(`${filters.endDate}T00:00:00`);
+						const dateRange = `${format(from, "dd MMM", { locale: es })} - ${format(to, "dd MMM yyyy", { locale: es })}`;
+						exportSalesExcel({
+							statsCard,
+							monthlyLeadsData,
+							channelLeadsData,
+							salesBySellerData,
+							salesByLocationData,
+							leadsGanadasPersonas: leadsGanadas,
+							dateRange,
+						});
+					}}
+				>
+					<Download className="h-4 w-4" />
+					Exportar Excel
+				</Button>
 			</div>
 
 			{/* Filters */}
