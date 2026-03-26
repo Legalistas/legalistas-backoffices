@@ -219,9 +219,9 @@ export function InformeTrimestralView({
 				{/* TipTap Editor */}
 				<div className="lg:col-span-2 space-y-3">
 					<div>
-						<label className="text-sm font-semibold text-foreground">
+						<p className="text-sm font-semibold text-foreground">
 							Estado Actual del Caso
-						</label>
+						</p>
 						<p className="text-xs text-muted-foreground mt-0.5">
 							Este texto aparecerá en la sección &quot;Estado Actual&quot; del
 							informe trimestral que recibe el cliente.
@@ -233,9 +233,9 @@ export function InformeTrimestralView({
 				{/* Controls */}
 				<div className="space-y-4">
 					<div className="space-y-2">
-						<label className="text-sm font-semibold text-foreground">
+						<p className="text-sm font-semibold text-foreground">
 							Porcentaje de Incapacidad
-						</label>
+						</p>
 						<div className="relative">
 							<Input
 								type="number"
