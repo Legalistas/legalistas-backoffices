@@ -472,6 +472,9 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 									<InfoField label="Fecha de accidente" value={formatDate(lead.accidentDate)} />
 									<InfoField label="Canal de origen" value={getChannelName(lead.sourceChannelId)} />
 									<InfoField label="Servicios" value={getServiceName(lead.servicesId)} />
+									{lead.injury && (
+										<InfoField label="Lesión" value={lead.injury} />
+									)}
 									{getArtName(lead.artId) && (
 										<InfoField label="ART" value={getArtName(lead.artId)!} />
 									)}

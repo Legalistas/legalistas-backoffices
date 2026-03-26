@@ -238,6 +238,7 @@ export const CasesListView = ({
 												<span className="sr-only">Editar</span>
 											</Link>
 											<button
+												type="button"
 												onClick={(e) => {
 													e.preventDefault();
 													e.stopPropagation();
@@ -264,6 +265,7 @@ export const CasesListView = ({
 										</p>
 										{hasActiveFilters && (
 											<Button
+												type="button"
 												variant="outline"
 												onClick={handleClearSearch}
 												className="mt-3"

@@ -27,6 +27,7 @@ export interface Lead {
 	accidentDate?: string;
 	artId?: number | null;
 	insuranceId?: number | null;
+	injury?: string | null;
 	accepted?: boolean;
 	acceptedAt?: string;
 	services: {
