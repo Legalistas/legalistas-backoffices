@@ -29,6 +29,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import { Pagination } from "@/components/shared/Pagination";
 import { CASH_ENDPOINT } from "@/constant/api-endpoints";
 import { MOVEMENTS } from "@/constant/cash"; // Importar MOVEMENTS y su tipo
 import { cn } from "@/lib/utils";
@@ -45,6 +46,13 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 	const currentYear = String(new Date().getFullYear());
 	const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
 	const [selectedYear, setSelectedYear] = useState<string>(currentYear);
+	const [filterPeriod, setFilterPeriod] = useState<
+		"currentMonth" | "3months" | "6months" | "1year" | "all"
+	>("currentMonth");
+
+	// Pagination
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 15;
 
 	// State for sorting
 	const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -113,6 +121,14 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 		}));
 	}, []);
 
+	const filterPeriodOptions = useMemo(() => [
+		{ value: "currentMonth", label: "Mes Seleccionado" },
+		{ value: "3months", label: "Últimos 3 Meses" },
+		{ value: "6months", label: "Últimos 6 Meses" },
+		{ value: "1year", label: "Último Año" },
+		{ value: "all", label: "Todas las Transacciones" },
+	], []);
+
 	const getSubtypeLabel = useCallback((type: string, subtypeValue: string) => {
 		const movement = MOVEMENTS.find((m) => m.value === type);
 		if (movement && movement.subMovements) {
@@ -136,21 +152,36 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 	const filteredTransactions = useMemo(() => {
 		if (!user?.transaction) return [];
 
-		// Get all transactions from the beginning through the selected month/year
-		const transactionsToFilter = user.transaction.filter((t) => {
-			const transactionDate = new Date(t.date);
-			const transactionYear = transactionDate.getUTCFullYear();
-			const transactionMonth = transactionDate.getUTCMonth() + 1;
-			const selectedYearNum = Number(selectedYear);
-			const selectedMonthNum = Number(selectedMonth);
+		let transactionsToFilter = [...user.transaction];
 
-			// Include all transactions up to and including the selected month/year
-			return (
-				transactionYear < selectedYearNum ||
-				(transactionYear === selectedYearNum &&
-					transactionMonth <= selectedMonthNum)
-			);
-		});
+		if (filterPeriod === "currentMonth") {
+			// Filtrar solo el mes/año seleccionado
+			transactionsToFilter = transactionsToFilter.filter((t) => {
+				const transactionDate = new Date(t.date);
+				const transactionYear = transactionDate.getUTCFullYear();
+				const transactionMonth = transactionDate.getUTCMonth() + 1;
+				return (
+					transactionYear === Number(selectedYear) &&
+					transactionMonth === Number(selectedMonth)
+				);
+			});
+		} else if (filterPeriod !== "all") {
+			const now = new Date();
+			const startDate = new Date(now);
+			if (filterPeriod === "3months") {
+				startDate.setUTCMonth(now.getUTCMonth() - 3);
+			} else if (filterPeriod === "6months") {
+				startDate.setUTCMonth(now.getUTCMonth() - 6);
+			} else if (filterPeriod === "1year") {
+				startDate.setUTCFullYear(now.getUTCFullYear() - 1);
+			}
+			startDate.setUTCHours(0, 0, 0, 0);
+			transactionsToFilter = transactionsToFilter.filter((t) => {
+				const transactionDate = new Date(t.date);
+				transactionDate.setUTCHours(0, 0, 0, 0);
+				return transactionDate >= startDate;
+			});
+		}
 
 		// Apply sorting
 		if (sortColumn) {
@@ -210,6 +241,7 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 		user?.transaction,
 		selectedMonth,
 		selectedYear,
+		filterPeriod,
 		sortColumn,
 		sortDirection,
 		currentViewUserId,
@@ -433,40 +465,54 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 			{/* Transactions Table */}
 			<Card className="bg-white shadow-sm">
 				<CardHeader className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-					<CardTitle>Movimientos Acumulados del Usuario</CardTitle>
+					<CardTitle>Movimientos del Usuario</CardTitle>
 					<div className="flex flex-col md:flex-row items-center gap-2">
-						<Label htmlFor="month-filter" className="sr-only">
-							Mes
-						</Label>
 						<select
-							id="month-filter"
-							className="w-full md:w-[180px] border rounded px-3 py-2"
-							value={selectedMonth}
-							onChange={(e) => setSelectedMonth(e.target.value)}
+							className="w-full md:w-[200px] border rounded px-3 py-2 text-sm"
+							value={filterPeriod}
+							onChange={(e) => {
+								setFilterPeriod(e.target.value as typeof filterPeriod);
+								setCurrentPage(1);
+							}}
 						>
-							<option value="">Selecciona Mes</option>
-							{monthOptions.map((option) => (
+							{filterPeriodOptions.map((option) => (
 								<option key={option.value} value={option.value}>
 									{option.label}
 								</option>
 							))}
 						</select>
-						<Label htmlFor="year-filter" className="sr-only">
-							Año
-						</Label>
-						<select
-							id="year-filter"
-							className="w-full md:w-[150px] border rounded px-3 py-2"
-							value={selectedYear}
-							onChange={(e) => setSelectedYear(e.target.value)}
-						>
-							<option value="">Selecciona Año</option>
-							{years.map((year) => (
-								<option key={year} value={year}>
-									{year}
-								</option>
-							))}
-						</select>
+						{filterPeriod === "currentMonth" && (
+							<>
+								<select
+									className="w-full md:w-[160px] border rounded px-3 py-2 text-sm"
+									value={selectedMonth}
+									onChange={(e) => {
+										setSelectedMonth(e.target.value);
+										setCurrentPage(1);
+									}}
+								>
+									{monthOptions.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+								<select
+									className="w-full md:w-[120px] border rounded px-3 py-2 text-sm"
+									value={selectedYear}
+									onChange={(e) => {
+										setSelectedYear(e.target.value);
+										setCurrentPage(1);
+									}}
+								>
+									{years.map((year) => (
+										<option key={year} value={year}>
+											{year}
+										</option>
+									))}
+								</select>
+							</>
+						)}
 						<Button
 							variant="outline"
 							className="w-full md:w-auto flex items-center gap-2 bg-transparent"
@@ -576,7 +622,7 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 										</TableCell>
 									</TableRow>
 								) : (
-									filteredTransactions.map((transaction, index) => {
+									filteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((transaction, index) => {
 										let displayType = "";
 										let typeColorClass = "";
 										let amountColorClass = "";
@@ -664,6 +710,13 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 								)}
 							</TableBody>
 						</Table>
+						<Pagination
+							currentPage={currentPage}
+							totalPages={Math.ceil(filteredTransactions.length / itemsPerPage)}
+							totalItems={filteredTransactions.length}
+							itemsPerPage={itemsPerPage}
+							onPageChange={setCurrentPage}
+						/>
 					</div>
 				</CardContent>
 			</Card>
