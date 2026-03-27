@@ -20,6 +20,7 @@ export const MOVEMENTS = [
 			{ value: "references", label: "Referentes" },
 			{ value: "fixer", label: "Repuestos Fixer" },
 			{ value: "brixar", label: "Brixar" },
+			{ value: "tarjetas", label: "Tarjetas" },
 			{ value: "other", label: "Otros" },
 		],
 	},
