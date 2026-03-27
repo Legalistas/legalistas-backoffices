@@ -45,8 +45,8 @@ interface CasesFiltersProps {
 	setSearchTerm: (term: string) => void;
 	selectedService: number | undefined;
 	setSelectedService: (service: number | undefined) => void;
-	selectedStage: number | undefined;
-	setSelectedStage: (status: number | undefined) => void;
+	selectedStage: number[];
+	setSelectedStage: React.Dispatch<React.SetStateAction<number[]>>;
 	selectedRepresentativeLawyer: string[];
 	setSelectedRepresentativeLawyer: React.Dispatch<
 		React.SetStateAction<string[]>
@@ -138,13 +138,21 @@ export const CasesFilters = ({
 		[setSelectedService],
 	);
 
-	const handleStageSelect = useCallback(
-		(statusId: number | undefined) => {
-			setSelectedStage(statusId);
-			setIsStageDropdownOpen(false);
+	const handleStageToggle = useCallback(
+		(stageValue: number) => {
+			setSelectedStage((prev) =>
+				prev.includes(stageValue)
+					? prev.filter((v) => v !== stageValue)
+					: [...prev, stageValue],
+			);
 		},
 		[setSelectedStage],
 	);
+
+	const handleStageClear = useCallback(() => {
+		setSelectedStage([]);
+		setIsStageDropdownOpen(false);
+	}, [setSelectedStage]);
 
 	const handleRepresentativeLawyerSelect = useCallback(
 		(lawyerId: string) => {
@@ -411,7 +419,7 @@ export const CasesFilters = ({
 									)}
 								</div>
 
-								{/* Status Filter */}
+								{/* Status Filter - Multi Select */}
 								<div className="relative" ref={statusDropdownRef}>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 										Etapa del caso
@@ -422,9 +430,11 @@ export const CasesFilters = ({
 									>
 										<span className="flex items-center gap-2 text-gray-700 dark:text-gray-300 truncate">
 											<ListFilterPlus className="h-4 w-4 text-gray-500" />
-											{selectedStage !== undefined
-												? getStatusName(selectedStage)
-												: "Seleccionar etapa"}
+											{selectedStage.length === 0
+												? "Seleccionar etapas"
+												: selectedStage.length === 1
+													? getStatusName(selectedStage[0])
+													: `${selectedStage.length} etapas seleccionadas`}
 										</span>
 										<ChevronUp
 											className={
@@ -439,19 +449,20 @@ export const CasesFilters = ({
 										<div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-1 shadow-lg max-h-60 overflow-y-auto">
 											<div
 												className="cursor-pointer px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
-												onClick={() => handleStageSelect(undefined)}
+												onClick={handleStageClear}
 											>
 												Todas las etapas
 											</div>
 											{stageCases.map((stage) => (
 												<div
 													key={stage.id}
-													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 ${selectedStage === stage.value
+													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2 ${selectedStage.includes(stage.value)
 														? "bg-gray-100 dark:bg-white/5 font-medium"
 														: ""
 														}`}
-													onClick={() => handleStageSelect(stage.value)}
+													onClick={() => handleStageToggle(stage.value)}
 												>
+													<Check className={`h-3.5 w-3.5 ${selectedStage.includes(stage.value) ? "opacity-100" : "opacity-0"}`} />
 													{stage.label}
 												</div>
 											))}
@@ -769,11 +780,13 @@ export const CasesFilters = ({
 							</button>
 						</span>
 					)}
-					{selectedStage !== undefined && (
+					{selectedStage.length > 0 && (
 						<span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">
-							{getStatusName(selectedStage)}
+							{selectedStage.length === 1
+								? getStatusName(selectedStage[0])
+								: `${selectedStage.length} etapas`}
 							<button
-								onClick={() => setSelectedStage(undefined)}
+								onClick={() => setSelectedStage([])}
 								className="text-green-600 hover:text-green-800"
 							>
 								<X className="h-3 w-3" />

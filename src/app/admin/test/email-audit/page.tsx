@@ -49,6 +49,7 @@ interface Customer {
 	id: number;
 	name: string;
 	email: string;
+	userProfile?: { phone?: string } | null;
 }
 
 interface CaseWithCustomer {
@@ -69,10 +70,10 @@ interface EmailStats {
 
 interface CaseEmailStats {
 	totalCasosActivos: number;
-	conEmailReal: { caso: CaseWithCustomer; email: string }[];
-	conEmailFalso: { caso: CaseWithCustomer; email: string }[];
-	sinEmail: { caso: CaseWithCustomer }[];
-	porEtapa: Record<number, { total: number; reales: number; falsos: number; sinEmail: number }>;
+	conEmailReal: { caso: CaseWithCustomer; email: string; phone: string }[];
+	conEmailFalso: { caso: CaseWithCustomer; email: string; phone: string }[];
+	sinEmail: { caso: CaseWithCustomer; phone: string }[];
+	porEtapa: Record<number, { total: number; reales: number; falsos: number; sinEmail: number; falsosConTel: number; falsosSinTel: number }>;
 }
 
 function classifyEmail(email: string | null | undefined): "real" | "falso" | "sin_email" {
@@ -152,37 +153,45 @@ export default function EmailAuditPage() {
 			setStats({ total: customers.length, reales, falsos, sinEmail, dominiosReales, dominiosFalsos });
 
 			// ── Clasificar casos activos por email del cliente ──
-			// Mapear customerId → email
+			// Mapear customerId → email y teléfono
 			const customerEmailMap = new Map<number, string>();
+			const customerPhoneMap = new Map<number, string>();
 			for (const c of customers) {
 				customerEmailMap.set(c.id, c.email);
+				if (c.userProfile?.phone) customerPhoneMap.set(c.id, c.userProfile.phone);
 			}
 
-			const conEmailReal: { caso: CaseWithCustomer; email: string }[] = [];
-			const conEmailFalso: { caso: CaseWithCustomer; email: string }[] = [];
-			const casosSinEmail: { caso: CaseWithCustomer }[] = [];
-			const porEtapa: Record<number, { total: number; reales: number; falsos: number; sinEmail: number }> = {};
+			const conEmailReal: { caso: CaseWithCustomer; email: string; phone: string }[] = [];
+			const conEmailFalso: { caso: CaseWithCustomer; email: string; phone: string }[] = [];
+			const casosSinEmail: { caso: CaseWithCustomer; phone: string }[] = [];
+			const porEtapa: Record<number, { total: number; reales: number; falsos: number; sinEmail: number; falsosConTel: number; falsosSinTel: number }> = {};
 
 			for (const caso of cases) {
 				const customerId = caso.customer?.id;
 				const email = customerId ? customerEmailMap.get(customerId) || null : null;
+				const phone = customerId ? customerPhoneMap.get(customerId) || "" : "";
 				const tipo = classifyEmail(email);
 
 				// Agrupar por etapa principal (1-7)
 				const mainStage = caso.stageId;
 				if (!porEtapa[mainStage]) {
-					porEtapa[mainStage] = { total: 0, reales: 0, falsos: 0, sinEmail: 0 };
+					porEtapa[mainStage] = { total: 0, reales: 0, falsos: 0, sinEmail: 0, falsosConTel: 0, falsosSinTel: 0 };
 				}
 				porEtapa[mainStage].total++;
 
 				if (tipo === "real") {
-					conEmailReal.push({ caso, email: email! });
+					conEmailReal.push({ caso, email: email!, phone });
 					porEtapa[mainStage].reales++;
 				} else if (tipo === "falso") {
-					conEmailFalso.push({ caso, email: email! });
+					conEmailFalso.push({ caso, email: email!, phone });
 					porEtapa[mainStage].falsos++;
+					if (phone) {
+						porEtapa[mainStage].falsosConTel++;
+					} else {
+						porEtapa[mainStage].falsosSinTel++;
+					}
 				} else {
-					casosSinEmail.push({ caso });
+					casosSinEmail.push({ caso, phone });
 					porEtapa[mainStage].sinEmail++;
 				}
 			}
@@ -324,6 +333,7 @@ export default function EmailAuditPage() {
 											<tr>
 												<th className="px-3 py-2 text-left font-medium">ID</th>
 												<th className="px-3 py-2 text-left font-medium">Nombre</th>
+												<th className="px-3 py-2 text-left font-medium">Teléfono</th>
 												<th className="px-3 py-2 text-left font-medium">Email</th>
 												<th className="px-3 py-2 text-left font-medium">Dominio</th>
 											</tr>
@@ -333,6 +343,7 @@ export default function EmailAuditPage() {
 												<tr key={c.id} className="border-t hover:bg-muted/30">
 													<td className="px-3 py-1.5 font-mono text-muted-foreground">{c.id}</td>
 													<td className="px-3 py-1.5">{c.name || "-"}</td>
+													<td className="px-3 py-1.5 font-mono text-xs">{c.userProfile?.phone || "-"}</td>
 													<td className="px-3 py-1.5 font-mono text-xs">{c.email || "-"}</td>
 													<td className="px-3 py-1.5 font-mono text-xs">{c.email?.split("@")[1] || "-"}</td>
 												</tr>
@@ -375,6 +386,10 @@ export default function EmailAuditPage() {
 								<p className="text-xs text-muted-foreground">
 									{caseStats.totalCasosActivos > 0 ? ((caseStats.conEmailFalso.length / caseStats.totalCasosActivos) * 100).toFixed(1) : 0}%
 								</p>
+								<div className="mt-2 flex gap-3 text-[11px]">
+									<span className="text-green-600">{caseStats.conEmailFalso.filter((r) => r.phone).length} con tel.</span>
+									<span className="text-amber-600">{caseStats.conEmailFalso.filter((r) => !r.phone).length} sin tel.</span>
+								</div>
 							</CardContent>
 						</Card>
 						<Card>
@@ -396,9 +411,9 @@ export default function EmailAuditPage() {
 						const isExpanded = expandedStage === stage.id;
 						const activeFilter = isExpanded ? stageFilter : "todos";
 						const casosEtapa = [
-							...caseStats.conEmailReal.filter((r) => r.caso.stageId === stage.id).map((r) => ({ ...r.caso, email: r.email, tipo: "real" as const })),
-							...caseStats.conEmailFalso.filter((r) => r.caso.stageId === stage.id).map((r) => ({ ...r.caso, email: r.email, tipo: "falso" as const })),
-							...caseStats.sinEmail.filter((r) => r.caso.stageId === stage.id).map((r) => ({ ...r.caso, email: null, tipo: "sin_email" as const })),
+							...caseStats.conEmailReal.filter((r) => r.caso.stageId === stage.id).map((r) => ({ ...r.caso, email: r.email, phone: r.phone, tipo: "real" as const })),
+							...caseStats.conEmailFalso.filter((r) => r.caso.stageId === stage.id).map((r) => ({ ...r.caso, email: r.email, phone: r.phone, tipo: "falso" as const })),
+							...caseStats.sinEmail.filter((r) => r.caso.stageId === stage.id).map((r) => ({ ...r.caso, email: null, phone: r.phone, tipo: "sin_email" as const })),
 						];
 						const casosFiltered = activeFilter === "todos"
 							? casosEtapa
@@ -464,6 +479,12 @@ export default function EmailAuditPage() {
 											<p className="text-[10px] text-muted-foreground">
 												{data.total > 0 ? ((data.falsos / data.total) * 100).toFixed(1) : 0}%
 											</p>
+											{data.falsos > 0 && (
+												<div className="mt-1 flex justify-center gap-2 text-[10px]">
+													<span className="text-green-600">{data.falsosConTel} tel</span>
+													<span className="text-amber-600">{data.falsosSinTel} s/tel</span>
+												</div>
+											)}
 										</div>
 										<div
 											className={`rounded-lg p-3 text-center cursor-pointer transition-all ${isExpanded && activeFilter === "sin_email" ? "ring-2 ring-amber-500 bg-amber-100 dark:bg-amber-900/40" : "bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30"}`}
@@ -485,6 +506,7 @@ export default function EmailAuditPage() {
 														<th className="px-3 py-2 text-left font-medium">ID</th>
 														<th className="px-3 py-2 text-left font-medium">Causa</th>
 														<th className="px-3 py-2 text-left font-medium">Cliente</th>
+														<th className="px-3 py-2 text-left font-medium">Teléfono</th>
 														<th className="px-3 py-2 text-left font-medium">Email</th>
 														<th className="px-3 py-2 text-left font-medium">Estado</th>
 													</tr>
@@ -495,6 +517,7 @@ export default function EmailAuditPage() {
 															<td className="px-3 py-1.5 font-mono text-muted-foreground">{c.id}</td>
 															<td className="px-3 py-1.5 font-medium">{c.title || "-"}</td>
 															<td className="px-3 py-1.5">{c.customer?.name || "-"}</td>
+															<td className="px-3 py-1.5 font-mono text-xs">{c.phone || "-"}</td>
 															<td className="px-3 py-1.5 font-mono text-xs">{c.email || "-"}</td>
 															<td className="px-3 py-1.5">
 																<span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${

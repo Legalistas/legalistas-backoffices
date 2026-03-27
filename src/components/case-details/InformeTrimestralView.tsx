@@ -2,26 +2,54 @@
 
 import {
 	Archive,
+	Check,
+	Copy,
 	FileDown,
 	FileText,
 	HeartPulse,
 	Landmark,
+	Link,
 	Loader2,
 	Percent,
+	Save,
 	Scale,
 	Send,
 	ShieldCheck,
 	Star,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import TiptapEditor from "@/components/tiptap-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CASES_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	CASES_ENDPOINT,
+	CASE_INFORME_ENDPOINT,
+} from "@/constant/api-endpoints";
+import { BASE_URL } from "@/constant/api-endpoints";
 import { stageCases } from "@/lib/constant";
 import type { Cases } from "@/types/cases";
+
+const STAGE_DEFAULT_MESSAGES: Record<number, string> = {
+	1: "<p>Estamos reuniendo y validando <strong>toda la documentación necesaria</strong> para impulsar tu reclamo de manera sólida. Este paso es clave para <strong>asegurar un proceso eficiente y con respaldo</strong>.</p><p>Nos estaremos comunicando en caso de requerir información o documentación adicional.</p>",
+	2: "<p>Tu caso se encuentra en <strong>etapa administrativa</strong> y ya está en curso. En esta instancia se <strong>analizan los antecedentes</strong> y se realiza la <strong>evaluación médica correspondiente</strong>.</p><p>A partir de ello, se emitirá un <strong>dictamen que definirá tu situación</strong>.</p>",
+	3: "<p>Tu caso se encuentra actualmente en <strong>etapa judicial</strong>. Nuestro objetivo es lograr una <strong>resolución favorable con el mejor resultado posible</strong>.</p>",
+	4: "<p>Se determinó tu <strong>grado de incapacidad</strong> conforme a la evaluación médica. Este porcentaje es la <strong>base para calcular la indemnización correspondiente</strong>.</p>",
+	5: "<p>Nos encontramos gestionando el <strong>cierre económico de tu caso</strong>. Trabajamos en la <strong>negociación para maximizar el resultado de tu indemnización</strong>. Te mantendremos informado en cada avance hasta su finalización.</p>",
+	6: "<p>Tu experiencia es <strong>muy importante para nosotros</strong>. Queremos conocer tu <strong>opinión sobre el proceso con Legalistas</strong>. Nos ayuda a <strong>seguir mejorando nuestro servicio día a día</strong>.</p>",
+	7: "<p>Tu caso ha sido <strong>finalizado correctamente</strong>. Toda la información quedó <strong>registrada en nuestra plataforma para su resguardo</strong>. Quedamos a tu disposición ante cualquier consulta futura.</p>",
+};
+
+const STAGE_WA_MESSAGES: Record<number, string> = {
+	1: "Estamos reuniendo y validando *toda la documentación necesaria* para impulsar tu reclamo de manera sólida. Este paso es clave para *asegurar un proceso eficiente y con respaldo*.\nNos estaremos comunicando en caso de requerir información o documentación adicional.",
+	2: "Tu caso se encuentra en *etapa administrativa* y ya está en curso. En esta instancia se *analizan los antecedentes* y se realiza la *evaluación médica correspondiente*.\nA partir de ello, se emitirá un *dictamen que definirá tu situación*.",
+	3: "Tu caso se encuentra actualmente en *etapa judicial*. Nuestro objetivo es lograr una *resolución favorable con el mejor resultado posible*.",
+	4: "Se determinó tu *grado de incapacidad* conforme a la evaluación médica. Este porcentaje es la *base para calcular la indemnización correspondiente*.",
+	5: "Nos encontramos gestionando el *cierre económico de tu caso*. Trabajamos en la *negociación para maximizar el resultado de tu indemnización*. Te mantendremos informado en cada avance hasta su finalización.",
+	6: "Tu experiencia es *muy importante para nosotros*. Queremos conocer tu *opinión sobre el proceso con Legalistas*. Nos ayuda a *seguir mejorando nuestro servicio día a día*.",
+	7: "Tu caso ha sido *finalizado correctamente*. Toda la información quedó *registrada en nuestra plataforma para su resguardo*. Quedamos a tu disposición ante cualquier consulta futura.",
+};
 
 interface InformeTrimestralViewProps {
 	caseData: Cases;
@@ -33,9 +61,11 @@ export function InformeTrimestralView({
 	onCaseUpdated,
 }: InformeTrimestralViewProps) {
 	const { data: session } = useSession();
+	const currentStageId = Number(caseData.stageId) || 1;
 	const [estadoActual, setEstadoActual] = useState(
 		caseData.estadoActual ||
-		"<p>Su caso se encuentra actualmente en etapa judicial.</p><p><strong>Estamos trabajando</strong> para avanzar en la <strong>NEGOCIACIÓN</strong> del reclamo y lograr una resolución favorable.</p>",
+		STAGE_DEFAULT_MESSAGES[currentStageId] ||
+		STAGE_DEFAULT_MESSAGES[1],
 	);
 	const [incapacityPercentage, setIncapacityPercentage] = useState(
 		caseData.disabilityPercentage != null
@@ -45,17 +75,43 @@ export function InformeTrimestralView({
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [isSending, setIsSending] = useState(false);
 	const [isSaving, setIsSaving] = useState(false);
+	const [downloadLink, setDownloadLink] = useState<string | null>(null);
+	const [copied, setCopied] = useState(false);
 	const previewRef = useRef<HTMLDivElement>(null);
-
-	const currentStageId = Number(caseData.stageId) || 1;
 	const stageLabel =
 		stageCases.find((s) => s.value === currentStageId)?.label ||
 		"Documentación";
+
+	// Cargar link de descarga existente al montar
+	useEffect(() => {
+		const fetchExistingInforme = async () => {
+			try {
+				const response = await fetch(CASE_INFORME_ENDPOINT(caseData.id), {
+					headers: {
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+				});
+				if (response.ok) {
+					const result = await response.json();
+					if (result.data?.downloadToken) {
+						setDownloadLink(`https://legalistas.ar/informes/${result.data.downloadToken}`);
+					}
+				}
+			} catch {
+				// silently ignore
+			}
+		};
+		if (session?.user?.accessToken) {
+			fetchExistingInforme();
+		}
+	}, [caseData.id, session?.user?.accessToken]);
 
 	const saveToDb = useCallback(
 		async (fields: {
 			estadoActual?: string;
 			disabilityPercentage?: number | null;
+			informeSavedAt?: string;
+			informeSentWhatsappAt?: string;
 		}) => {
 			setIsSaving(true);
 			try {
@@ -82,18 +138,64 @@ export function InformeTrimestralView({
 		[caseData.id, session?.user?.accessToken, onCaseUpdated],
 	);
 
+	const uploadPdfBlob = async (blob: Blob): Promise<string | null> => {
+		const fileName = `Informe_Trimestral_${caseData.number || caseData.id}_${caseData.customer?.name?.replace(/\s+/g, "_") || "cliente"}.pdf`;
+		const formData = new FormData();
+		formData.append("file", blob, fileName);
+		formData.append(
+			"title",
+			`Informe Trimestral - Caso #${caseData.number || caseData.id} - ${caseData.customer?.name || ""}`,
+		);
+
+		const response = await fetch(CASE_INFORME_ENDPOINT(caseData.id), {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${session?.user?.accessToken}`,
+			},
+			body: formData,
+		});
+
+		if (!response.ok) throw new Error("Error al subir el PDF");
+		const result = await response.json();
+		return result.data?.downloadToken || null;
+	};
+
 	const handleSave = async () => {
-		const fields: {
-			estadoActual: string;
-			disabilityPercentage: number | null;
-		} = {
-			estadoActual,
-			disabilityPercentage: incapacityPercentage
-				? Number.parseFloat(incapacityPercentage)
-				: null,
-		};
-		await saveToDb(fields);
-		toast.success("Datos del informe guardados");
+		setIsSaving(true);
+		try {
+			// 1. Generar el PDF primero (antes de cualquier re-render)
+			toast.info("Generando informe...");
+			const blob = await generatePdfBlob();
+			if (!blob) throw new Error("No se pudo generar el PDF");
+
+			// 2. Guardar datos en la DB
+			const fields: {
+				estadoActual: string;
+				disabilityPercentage: number | null;
+				informeSavedAt: string;
+			} = {
+				estadoActual,
+				disabilityPercentage: incapacityPercentage
+					? Number.parseFloat(incapacityPercentage)
+					: null,
+				informeSavedAt: new Date().toISOString(),
+			};
+			await saveToDb(fields);
+
+			// 3. Subir el PDF generado al backend
+			toast.info("Subiendo informe al servidor...");
+			const token = await uploadPdfBlob(blob);
+			if (token) {
+				setDownloadLink(`https://legalistas.ar/informes/${token}`);
+			}
+			onCaseUpdated?.();
+			toast.success("Informe guardado correctamente");
+		} catch (error) {
+			console.error("Error saving informe:", error);
+			toast.error("Error al guardar el informe");
+		} finally {
+			setIsSaving(false);
+		}
 	};
 
 	const handleGeneratePdf = async () => {
@@ -178,30 +280,31 @@ export function InformeTrimestralView({
 		setIsSending(true);
 		toast.info("Preparando informe para WhatsApp...");
 		try {
-			const blob = await generatePdfBlob();
-			if (!blob) throw new Error("No se pudo generar el PDF");
+			// Si no hay link, primero guardar y generar
+			let link = downloadLink;
+			if (!link) {
+				const blob = await generatePdfBlob();
+				if (!blob) throw new Error("No se pudo generar el PDF");
+				const token = await uploadPdfBlob(blob);
+				if (token) {
+					link = `https://legalistas.ar/informes/${token}`;
+					setDownloadLink(link);
+				}
+			}
 
-			const fileName = `Informe_Trimestral_${caseData.number || caseData.id}.pdf`;
-
-			// Download the PDF first
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = fileName;
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			URL.revokeObjectURL(url);
-
-			// Open WhatsApp Web with pre-filled message
-			const message = `Hola ${caseData.customer?.name || ""}! Le enviamos el informe trimestral del estado de su reclamo (Caso #${caseData.number || caseData.id}). Le adjuntamos el PDF en este chat. Si observa algún error en el documento, por favor avísenos para corregirlo a la brevedad.`
+			const stageMsg = STAGE_WA_MESSAGES[currentStageId] || "";
+			const message = `Hola ${caseData.customer?.name || ""}! Le enviamos el informe trimestral del estado de su reclamo (Caso #${caseData.number || caseData.id}).\n\n${stageMsg}\n\n${link ? `Puede descargar su informe completo en PDF aquí:\n${link}` : ""}\n\nSi observa algún error en el documento, por favor avísenos para corregirlo a la brevedad.`;
 			const customerPhone = (caseData.customer as any)?.userProfile?.phone;
 			const cleanPhone = customerPhone?.replace(/[\s\-()]/g, "") || "";
 			const waUrl = cleanPhone
 				? `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`
 				: `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`;
 			window.open(waUrl, "_blank");
-			toast.success("PDF descargado. Adjuntalo en el chat de WhatsApp.");
+
+			// Registrar envío por WhatsApp en la DB
+			await saveToDb({ informeSentWhatsappAt: new Date().toISOString() });
+			onCaseUpdated?.();
+			toast.success("WhatsApp abierto con el link del informe.");
 		} catch (error) {
 			if ((error as Error)?.name !== "AbortError") {
 				console.error("Error sending via WhatsApp:", error);
@@ -210,6 +313,14 @@ export function InformeTrimestralView({
 		} finally {
 			setIsSending(false);
 		}
+	};
+
+	const handleCopyLink = async () => {
+		if (!downloadLink) return;
+		await navigator.clipboard.writeText(downloadLink);
+		setCopied(true);
+		toast.success("Link copiado al portapapeles");
+		setTimeout(() => setCopied(false), 2000);
 	};
 
 	return (
@@ -256,14 +367,16 @@ export function InformeTrimestralView({
 					<div className="pt-2 space-y-2">
 						<Button
 							onClick={handleSave}
-							disabled={isSaving}
+							disabled={isSaving || isGenerating}
 							variant="outline"
 							className="w-full"
 						>
 							{isSaving ? (
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							) : null}
-							{isSaving ? "Guardando..." : "Guardar datos"}
+							) : (
+								<Save className="mr-2 h-4 w-4" />
+							)}
+							{isSaving ? "Guardando..." : "Guardar y subir informe"}
 						</Button>
 						<Button
 							onClick={handleGeneratePdf}
@@ -279,7 +392,7 @@ export function InformeTrimestralView({
 						</Button>
 						<Button
 							onClick={handleSendWhatsApp}
-							disabled={isSending || isGenerating}
+							disabled={isSending || isGenerating || isSaving}
 							className="w-full bg-[#25D366] hover:bg-[#1ebe57] text-white"
 						>
 							{isSending ? (
@@ -290,6 +403,38 @@ export function InformeTrimestralView({
 							{isSending ? "Enviando..." : "Enviar por WhatsApp"}
 						</Button>
 					</div>
+
+					{/* Link de descarga generado */}
+					{downloadLink && (
+						<div className="rounded-lg border border-green-200 bg-green-50 p-3 space-y-2">
+							<div className="flex items-center gap-2">
+								<Link className="h-4 w-4 text-green-600" />
+								<p className="text-xs font-semibold text-green-700">
+									Link de descarga generado
+								</p>
+							</div>
+							<div className="flex items-center gap-2">
+								<input
+									type="text"
+									readOnly
+									value={downloadLink}
+									className="flex-1 text-xs bg-white border rounded px-2 py-1.5 text-gray-700 select-all"
+								/>
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={handleCopyLink}
+									className="shrink-0 h-8"
+								>
+									{copied ? (
+										<Check className="h-3.5 w-3.5 text-green-600" />
+									) : (
+										<Copy className="h-3.5 w-3.5" />
+									)}
+								</Button>
+							</div>
+						</div>
+					)}
 
 					{/* Quick info */}
 					<div className="rounded-lg bg-muted/50 p-3 space-y-1.5">
@@ -308,6 +453,28 @@ export function InformeTrimestralView({
 							<p>
 								<span className="text-muted-foreground">Etapa:</span>{" "}
 								{stageLabel}
+							</p>
+							<p>
+								<span className="text-muted-foreground">Guardado:</span>{" "}
+								{caseData.informeSavedAt ? (
+									<span className="text-green-600 inline-flex items-center gap-1">
+										<Check className="h-3.5 w-3.5 shrink-0" />
+										{new Date(caseData.informeSavedAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+									</span>
+								) : (
+									<span className="text-muted-foreground">No</span>
+								)}
+							</p>
+							<p>
+								<span className="text-muted-foreground">WhatsApp:</span>{" "}
+								{caseData.informeSentWhatsappAt ? (
+									<span className="text-green-600 inline-flex items-center gap-1">
+										<Check className="h-3.5 w-3.5 shrink-0" />
+										{new Date(caseData.informeSentWhatsappAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+									</span>
+								) : (
+									<span className="text-muted-foreground">No</span>
+								)}
 							</p>
 						</div>
 					</div>

@@ -55,9 +55,7 @@ export default function CasesContent() {
 	const [selectedService, setSelectedService] = useState<number | undefined>(
 		undefined,
 	);
-	const [selectedStage, setSelectedStage] = useState<number | undefined>(
-		undefined,
-	);
+	const [selectedStage, setSelectedStage] = useState<number[]>([]);
 	const [selectedRepresentativeLawyer, setSelectedRepresentativeLawyer] =
 		useState<string[]>([]);
 	const [selectedInternalLawyer, setSelectedInternalLawyer] = useState<
@@ -89,7 +87,7 @@ export default function CasesContent() {
 		(filters: {
 			searchTerm: string;
 			selectedService?: number;
-			selectedStage?: number;
+			selectedStage: number[];
 			selectedRepresentativeLawyer: string[];
 			selectedInternalLawyer: string[];
 			dateFrom: string;
@@ -153,9 +151,9 @@ export default function CasesContent() {
 					selectedService: searchParams.get("service")
 						? Number.parseInt(searchParams.get("service")!)
 						: undefined,
-					selectedStage: searchParams.get("stage")
-						? Number.parseInt(searchParams.get("stage")!)
-						: undefined,
+					selectedStage: searchParams.get("stages")
+						? searchParams.get("stages")!.split(",").map(Number).filter(Boolean)
+						: [],
 					currentPage: searchParams.get("page")
 						? Number.parseInt(searchParams.get("page")!)
 						: 1,
@@ -186,7 +184,7 @@ export default function CasesContent() {
 				// Aplicar filtros al estado
 				setSearchTerm(filters.searchTerm || "");
 				setSelectedService(filters.selectedService);
-				setSelectedStage(filters.selectedStage);
+				setSelectedStage(Array.isArray(filters.selectedStage) ? filters.selectedStage : filters.selectedStage ? [filters.selectedStage] : []);
 				setCurrentPage(filters.currentPage || 1);
 				setSelectedRepresentativeLawyer(validRepLawyers);
 				setSelectedInternalLawyer(validIntLawyers);
@@ -291,7 +289,7 @@ export default function CasesContent() {
 			page: number,
 			search: string,
 			serviceId?: number,
-			stageId?: number,
+			stageIds?: number[],
 			fromDate?: string,
 			toDate?: string,
 			representativeLawyerIds?: string[],
@@ -317,9 +315,8 @@ export default function CasesContent() {
 					url.searchParams.append("servicesId", serviceId.toString());
 				}
 
-				if (stageId !== undefined) {
-					// Etapa específica del dropdown siempre tiene prioridad
-					url.searchParams.append("stageId", stageId.toString());
+				if (stageIds && stageIds.length > 0) {
+					stageIds.forEach((id) => url.searchParams.append("stageId", id.toString()));
 				} else if (showArchivedCasesOnly) {
 					// Archivados: solo stageId 7
 					url.searchParams.append("stageId", "7");
@@ -471,8 +468,8 @@ export default function CasesContent() {
 			if (selectedService !== undefined)
 				url.searchParams.append("servicesId", selectedService.toString());
 
-			if (selectedStage !== undefined) {
-				url.searchParams.append("stageId", selectedStage.toString());
+			if (selectedStage.length > 0) {
+				selectedStage.forEach((id) => url.searchParams.append("stageId", id.toString()));
 			} else if (showArchivedOnly) {
 				url.searchParams.append("stageId", "7");
 			} else if (showAll) {
@@ -746,7 +743,7 @@ export default function CasesContent() {
 		(filters: {
 			search?: string;
 			service?: number;
-			stage?: number;
+			stages?: number[];
 			page?: number;
 			repLawyers?: string[];
 			intLawyers?: string[];
@@ -760,8 +757,8 @@ export default function CasesContent() {
 			if (filters.search) params.set("search", filters.search);
 			if (filters.service !== undefined)
 				params.set("service", filters.service.toString());
-			if (filters.stage !== undefined)
-				params.set("stage", filters.stage.toString());
+			if (filters.stages && filters.stages.length > 0)
+				params.set("stages", filters.stages.join(","));
 			if (filters.page !== undefined && filters.page > 1)
 				params.set("page", filters.page.toString());
 
@@ -795,7 +792,7 @@ export default function CasesContent() {
 			saveFiltersToStorage({
 				searchTerm: filters.search || "",
 				selectedService: filters.service,
-				selectedStage: filters.stage,
+				selectedStage: filters.stages || [],
 				selectedRepresentativeLawyer: filters.repLawyers || [],
 				selectedInternalLawyer: filters.intLawyers || [],
 				dateFrom: filters.dateFrom || "",
@@ -830,7 +827,7 @@ export default function CasesContent() {
 			updateURL({
 				search: searchTerm,
 				service: selectedService,
-				stage: selectedStage,
+				stages: selectedStage,
 				page: 1,
 				repLawyers: selectedRepresentativeLawyer,
 				intLawyers: selectedInternalLawyer,
@@ -873,7 +870,7 @@ export default function CasesContent() {
 				updateURL({
 					search: appliedFilters.searchTerm,
 					service: appliedFilters.selectedService,
-					stage: appliedFilters.selectedStage,
+					stages: Array.isArray(appliedFilters.selectedStage) ? appliedFilters.selectedStage : appliedFilters.selectedStage ? [appliedFilters.selectedStage] : [],
 					page: appliedFilters.currentPage,
 					repLawyers: appliedFilters.selectedRepresentativeLawyer,
 					intLawyers: appliedFilters.selectedInternalLawyer,
@@ -947,7 +944,7 @@ export default function CasesContent() {
 			updateURL({
 				search: searchTerm,
 				service: selectedService,
-				stage: selectedStage,
+				stages: selectedStage,
 				page: 1, // Reset to page 1 when filters change
 				repLawyers: selectedRepresentativeLawyer,
 				intLawyers: selectedInternalLawyer,
@@ -997,7 +994,7 @@ export default function CasesContent() {
 	const handleClearSearch = useCallback(() => {
 		setSearchTerm("");
 		setSelectedService(undefined);
-		setSelectedStage(undefined);
+		setSelectedStage([]);
 		setSelectedRepresentativeLawyer([]);
 		setSelectedInternalLawyer([]);
 		setHasSearched(false);
@@ -1236,7 +1233,7 @@ export default function CasesContent() {
 			updateURL({
 				search: searchTerm,
 				service: selectedService,
-				stage: selectedStage,
+				stages: selectedStage,
 				page: page,
 				repLawyers: selectedRepresentativeLawyer,
 				intLawyers: selectedInternalLawyer,
@@ -1311,7 +1308,7 @@ export default function CasesContent() {
 	const hasActiveFilters = Boolean(
 		searchTerm ||
 		selectedService !== undefined ||
-		selectedStage !== undefined ||
+		selectedStage.length > 0 ||
 		(selectedRepresentativeLawyer &&
 			selectedRepresentativeLawyer.length > 0) ||
 		(selectedInternalLawyer && selectedInternalLawyer.length > 0) ||
