@@ -14,6 +14,7 @@ import {
 	Clock,
 	FileText,
 	Handshake,
+	Download,
 	KanbanSquare,
 	List,
 	Mail,
@@ -46,6 +47,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import Can from "../auth/Can";
+import { exportLeadsExcel } from "./exportLeadsExcel";
 import KanbanList from "./KanbanList";
 
 const columnConfig: Record<string, { bg: string; color: string; borderColor: string; icon: typeof FileText }> = {
@@ -602,6 +604,18 @@ export default function KanbanBoard() {
 							Nuevo Lead
 						</Button>
 					</Can>
+
+					{/* Export */}
+					<Button
+						variant="outline"
+						size="sm"
+						className="gap-1.5"
+						onClick={() => exportLeadsExcel(leads)}
+						disabled={leads.length === 0}
+					>
+						<Download className="size-4" />
+						Exportar
+					</Button>
 
 					{/* View toggle */}
 					<Button
