@@ -40,6 +40,10 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
 		label: "Personal",
 		color: "bg-purple-50 text-purple-700 border-purple-200",
 	},
+	informe_trimestral: {
+		label: "Informe Trimestral",
+		color: "bg-teal-50 text-teal-700 border-teal-200",
+	},
 };
 
 export default function CaseDocuments({
@@ -282,11 +286,14 @@ export default function CaseDocuments({
 		}
 	};
 
-	// Filtrar documentos por categoría
+	// Ordenar documentos por fecha descendente y filtrar por categoría
+	const sortedDocuments = [...documents].sort(
+		(a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
+	);
 	const filteredDocuments =
 		filterCategory === "all"
-			? documents
-			: documents.filter(
+			? sortedDocuments
+			: sortedDocuments.filter(
 					(d) => (d.category || "general").toLowerCase() === filterCategory,
 				);
 

@@ -63,9 +63,7 @@ export function InformeTrimestralView({
 	const { data: session } = useSession();
 	const currentStageId = Number(caseData.stageId) || 1;
 	const [estadoActual, setEstadoActual] = useState(
-		caseData.estadoActual ||
-		STAGE_DEFAULT_MESSAGES[currentStageId] ||
-		STAGE_DEFAULT_MESSAGES[1],
+		STAGE_DEFAULT_MESSAGES[currentStageId] || STAGE_DEFAULT_MESSAGES[1],
 	);
 	const [incapacityPercentage, setIncapacityPercentage] = useState(
 		caseData.disabilityPercentage != null
@@ -78,9 +76,20 @@ export function InformeTrimestralView({
 	const [downloadLink, setDownloadLink] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const previewRef = useRef<HTMLDivElement>(null);
+	const prevStageIdRef = useRef(currentStageId);
 	const stageLabel =
 		stageCases.find((s) => s.value === currentStageId)?.label ||
 		"Documentación";
+
+	// Si cambia la etapa, actualizar el texto del estado actual
+	useEffect(() => {
+		if (prevStageIdRef.current !== currentStageId) {
+			prevStageIdRef.current = currentStageId;
+			setEstadoActual(
+				STAGE_DEFAULT_MESSAGES[currentStageId] || STAGE_DEFAULT_MESSAGES[1],
+			);
+		}
+	}, [currentStageId]);
 
 	// Cargar link de descarga existente al montar
 	useEffect(() => {
