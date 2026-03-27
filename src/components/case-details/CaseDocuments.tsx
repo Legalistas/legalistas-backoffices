@@ -44,6 +44,31 @@ const CATEGORY_CONFIG: Record<string, { label: string; color: string }> = {
 		label: "Informe Trimestral",
 		color: "bg-teal-50 text-teal-700 border-teal-200",
 	},
+	liquidacion_lrt: {
+		label: "Liquidación LRT",
+		color: "bg-yellow-50 text-yellow-700 border-yellow-200",
+	},
+	comprobante_domicilio: {
+		label: "Comprobante de Domicilio",
+		color: "bg-orange-50 text-orange-700 border-orange-200",
+	},
+	declaracion_jurada: {
+		label: "Declaración Jurada",
+		color: "bg-red-50 text-red-700 border-red-200",
+	},
+	carta_poder: {
+		label: "Carta Poder",
+		color: "bg-pink-50 text-pink-700 border-pink-200",
+	},
+	dni_dorso: {
+		label: "DNI Dorsal",
+		color: "bg-cyan-50 text-cyan-700 border-cyan-200",
+	},
+	dni_frente: {
+		label: "DNI Frontal",
+		color: "bg-indigo-50 text-indigo-700 border-indigo-200",
+	},
+	OTROS: { label: "Otros", color: "bg-muted text-foreground border-border" },
 };
 
 export default function CaseDocuments({
@@ -286,16 +311,17 @@ export default function CaseDocuments({
 		}
 	};
 
-	// Ordenar documentos por fecha descendente y filtrar por categoría
-	const sortedDocuments = [...documents].sort(
+	// Ocultar archivos JSON (solo uso interno) y ordenar por fecha descendente
+	const visibleDocuments = documents.filter((d) => d.fileType !== "application/json");
+	const sortedDocuments = [...visibleDocuments].sort(
 		(a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime(),
 	);
 	const filteredDocuments =
 		filterCategory === "all"
 			? sortedDocuments
 			: sortedDocuments.filter(
-					(d) => (d.category || "general").toLowerCase() === filterCategory,
-				);
+				(d) => (d.category || "general").toLowerCase() === filterCategory,
+			);
 
 	// Obtener categorías únicas de los documentos
 	const uniqueCategories = Array.from(

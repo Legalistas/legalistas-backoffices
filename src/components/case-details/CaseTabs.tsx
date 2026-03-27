@@ -172,7 +172,7 @@ export const CaseTabs = ({
 
 			{/* 6. Liquidación */}
 			<TabsContent value="liquidacion" className={tabContentClass}>
-				<LiquidacionView disabilityPercentage={caseData.disabilityPercentage} />
+				<LiquidacionView caseData={caseData} />
 			</TabsContent>
 
 			{/* 7. Partes */}
