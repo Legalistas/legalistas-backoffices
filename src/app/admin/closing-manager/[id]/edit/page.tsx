@@ -22,7 +22,13 @@ import {
 import type { ClosingManagerEntry } from "@/types/closing-manager";
 
 const inputClass =
-	"w-full h-11 px-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all";
+	"w-full h-11 px-3 rounded-lg border border-input bg-background text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all";
+
+const readOnlyClass =
+	"w-full h-11 px-3 rounded-lg border border-border bg-muted text-sm outline-none cursor-default";
+
+const displayClass =
+	"h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm";
 
 const formatARS = (n: number) =>
 	new Intl.NumberFormat("es-AR", {
@@ -194,7 +200,7 @@ export default function EditClosingPage() {
 	if (!closing) {
 		return (
 			<div className="text-center py-12">
-				<p className="text-red-600">No se pudo cargar el cierre</p>
+				<p className="text-destructive">No se pudo cargar el cierre</p>
 				<Link href="/admin/closing-manager">
 					<Button variant="outline" className="mt-4">
 						Volver
@@ -215,55 +221,55 @@ export default function EditClosingPage() {
 					</Button>
 				</Link>
 				<div>
-					<h1 className="text-2xl font-bold tracking-tight text-gray-900">
+					<h1 className="text-2xl font-bold tracking-tight text-foreground">
 						Editar Cierre
 					</h1>
-					<p className="text-sm text-gray-500 mt-0.5">
+					<p className="text-sm text-muted-foreground mt-0.5">
 						Modifica los datos del cierre
 					</p>
 				</div>
 			</div>
 
-			<div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+			<div className="rounded-xl border border-border bg-card shadow-sm">
 				{/* Info del case (solo lectura) */}
-				<div className="bg-gradient-to-r from-primary/5 to-primary/10 border-b border-gray-200 rounded-t-xl p-5">
+				<div className="bg-primary/5 dark:bg-primary/10 border-b border-border rounded-t-xl p-5">
 					<h4 className="font-semibold text-sm text-primary mb-3">
 						Datos del Case ID
 					</h4>
 					<div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-						<div className="bg-white/60 rounded-lg p-3">
-							<span className="text-gray-500 text-xs block mb-1">Causa</span>
-							<span className="font-medium text-gray-900">
+						<div className="bg-background/60 dark:bg-background/30 rounded-lg p-3">
+							<span className="text-muted-foreground text-xs block mb-1">Causa</span>
+							<span className="font-medium text-foreground">
 								{closing.case?.title || "-"}
 							</span>
 						</div>
-						<div className="bg-white/60 rounded-lg p-3">
-							<span className="text-gray-500 text-xs block mb-1">
+						<div className="bg-background/60 dark:bg-background/30 rounded-lg p-3">
+							<span className="text-muted-foreground text-xs block mb-1">
 								Expediente
 							</span>
-							<span className="font-medium text-gray-900">
+							<span className="font-medium text-foreground">
 								{closing.case?.number || "-"}
 							</span>
 						</div>
-						<div className="bg-white/60 rounded-lg p-3">
-							<span className="text-gray-500 text-xs block mb-1">
+						<div className="bg-background/60 dark:bg-background/30 rounded-lg p-3">
+							<span className="text-muted-foreground text-xs block mb-1">
 								Representante
 							</span>
-							<span className="font-medium text-gray-900">
+							<span className="font-medium text-foreground">
 								{closing.case?.responsibleLawyer?.name || "-"}
 							</span>
 						</div>
-						<div className="bg-white/60 rounded-lg p-3">
-							<span className="text-gray-500 text-xs block mb-1">
+						<div className="bg-background/60 dark:bg-background/30 rounded-lg p-3">
+							<span className="text-muted-foreground text-xs block mb-1">
 								Abogado Interno
 							</span>
-							<span className="font-medium text-gray-900">
+							<span className="font-medium text-foreground">
 								{closing.case?.internalLawyer?.name || "-"}
 							</span>
 						</div>
-						<div className="bg-white/60 rounded-lg p-3">
-							<span className="text-gray-500 text-xs block mb-1">Fecha</span>
-							<span className="font-medium text-gray-900">
+						<div className="bg-background/60 dark:bg-background/30 rounded-lg p-3">
+							<span className="text-muted-foreground text-xs block mb-1">Fecha</span>
+							<span className="font-medium text-foreground">
 								{formatDate(closing.date)}
 							</span>
 						</div>
@@ -272,7 +278,7 @@ export default function EditClosingPage() {
 
 				<form onSubmit={handleSubmit} className="p-6 space-y-6">
 					{error && (
-						<div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+						<div className="bg-destructive/10 border border-destructive/30 text-destructive px-4 py-3 rounded-lg text-sm">
 							{error}
 						</div>
 					)}
@@ -280,8 +286,8 @@ export default function EditClosingPage() {
 					{/* Estados y tipo */}
 					<div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-gray-700">
-								Tipo de Cierre <span className="text-red-500">*</span>
+							<label className="text-sm font-medium text-foreground">
+								Tipo de Cierre <span className="text-destructive">*</span>
 							</label>
 							<Select value={type} onValueChange={setType}>
 								<SelectTrigger className="h-11">
@@ -302,11 +308,11 @@ export default function EditClosingPage() {
 							</Select>
 						</div>
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-gray-700">
+							<label className="text-sm font-medium text-foreground">
 								Capital ($)
 							</label>
 							<div className="relative">
-								<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+								<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
 									$
 								</span>
 								<input
@@ -320,8 +326,8 @@ export default function EditClosingPage() {
 							</div>
 						</div>
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-gray-700">
-								Estado Capital <span className="text-red-500">*</span>
+							<label className="text-sm font-medium text-foreground">
+								Estado Capital <span className="text-destructive">*</span>
 							</label>
 							<Select value={capitalState} onValueChange={setCapitalState}>
 								<SelectTrigger className="h-11">
@@ -343,8 +349,8 @@ export default function EditClosingPage() {
 							</Select>
 						</div>
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-gray-700">
-								Estado Honorarios <span className="text-red-500">*</span>
+							<label className="text-sm font-medium text-foreground">
+								Estado Honorarios <span className="text-destructive">*</span>
 							</label>
 							<Select value={feeStatus} onValueChange={setFeeStatus}>
 								<SelectTrigger className="h-11">
@@ -376,13 +382,13 @@ export default function EditClosingPage() {
 					</div>
 
 					{/* HP */}
-					<div className="border border-gray-200 rounded-xl p-5 space-y-4">
-						<h4 className="font-semibold text-sm text-gray-800">
+					<div className="border border-border rounded-xl p-5 space-y-4">
+						<h4 className="font-semibold text-sm text-foreground">
 							Honorarios Pactados (HP)
 						</h4>
 						<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">
+								<label className="text-xs text-muted-foreground">
 									HP Convenido (%)
 								</label>
 								<div className="relative">
@@ -395,15 +401,15 @@ export default function EditClosingPage() {
 										onChange={(e) => setHpAgreed(e.target.value)}
 										className={`${inputClass} pr-8`}
 									/>
-									<span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+									<span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
 										%
 									</span>
 								</div>
 							</div>
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">HP Total ($)</label>
+								<label className="text-xs text-muted-foreground">HP Total ($)</label>
 								<div className="relative">
-									<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+									<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
 										$
 									</span>
 									<input
@@ -412,25 +418,25 @@ export default function EditClosingPage() {
 										min="0"
 										value={hpTotal}
 										readOnly
-										className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-200 bg-gray-50 text-sm outline-none cursor-default"
+										className={`${readOnlyClass} pl-7`}
 									/>
 								</div>
 							</div>
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">
+								<label className="text-xs text-muted-foreground">
 									HP Representante ($)
 								</label>
 								<div
-									className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!withRepresentante ? "text-gray-400" : "font-medium"}`}
+									className={`${displayClass} ${!withRepresentante ? "text-muted-foreground" : "font-medium text-foreground"}`}
 								>
 									{formatARS(calc.hpRep)}
 								</div>
 							</div>
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">
+								<label className="text-xs text-muted-foreground">
 									HP Legalistas ($)
 								</label>
-								<div className="h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-900">
+								<div className={`${displayClass} font-semibold text-foreground`}>
 									{formatARS(calc.hpLeg)}
 								</div>
 							</div>
@@ -438,13 +444,13 @@ export default function EditClosingPage() {
 					</div>
 
 					{/* PCL */}
-					<div className="border border-gray-200 rounded-xl p-5 space-y-4">
-						<h4 className="font-semibold text-sm text-gray-800">
+					<div className="border border-border rounded-xl p-5 space-y-4">
+						<h4 className="font-semibold text-sm text-foreground">
 							Pacto de Cuota Litis (PCL)
 						</h4>
 						<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">
+								<label className="text-xs text-muted-foreground">
 									PCL Convenido (%)
 								</label>
 								<div className="relative">
@@ -457,15 +463,15 @@ export default function EditClosingPage() {
 										onChange={(e) => setPclAgreed(e.target.value)}
 										className={`${inputClass} pr-8`}
 									/>
-									<span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+									<span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
 										%
 									</span>
 								</div>
 							</div>
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">PCL Total ($)</label>
+								<label className="text-xs text-muted-foreground">PCL Total ($)</label>
 								<div className="relative">
-									<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+									<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
 										$
 									</span>
 									<input
@@ -474,25 +480,25 @@ export default function EditClosingPage() {
 										min="0"
 										value={pclTotal}
 										readOnly
-										className="w-full h-11 pl-7 pr-3 rounded-lg border border-gray-200 bg-gray-50 text-sm outline-none cursor-default"
+										className={`${readOnlyClass} pl-7`}
 									/>
 								</div>
 							</div>
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">
+								<label className="text-xs text-muted-foreground">
 									PCL Representante ($)
 								</label>
 								<div
-									className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!withRepresentante ? "text-gray-400" : "font-medium"}`}
+									className={`${displayClass} ${!withRepresentante ? "text-muted-foreground" : "font-medium text-foreground"}`}
 								>
 									{formatARS(calc.pclRep)}
 								</div>
 							</div>
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">
+								<label className="text-xs text-muted-foreground">
 									PCL Legalistas ($)
 								</label>
-								<div className="h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm font-semibold text-gray-900">
+								<div className={`${displayClass} font-semibold text-foreground`}>
 									{formatARS(calc.pclLeg)}
 								</div>
 							</div>
@@ -500,21 +506,21 @@ export default function EditClosingPage() {
 					</div>
 
 					{/* Aportes */}
-					<div className="border border-gray-200 rounded-xl p-5 space-y-4">
+					<div className="border border-border rounded-xl p-5 space-y-4">
 						<div className="flex items-center justify-between">
-							<h4 className="font-semibold text-sm text-gray-800">Aportes</h4>
-							<div className="flex items-center gap-2 text-sm text-gray-600">
+							<h4 className="font-semibold text-sm text-foreground">Aportes</h4>
+							<div className="flex items-center gap-2 text-sm text-muted-foreground">
 								<span>Aplicar aportes</span>
 								<Switch checked={applyContributions} onCheckedChange={setApplyContributions} />
 							</div>
 						</div>
 						<div className="grid grid-cols-3 gap-4">
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">
+								<label className="text-xs text-muted-foreground">
 									Aportes Totales ($)
 								</label>
 								<div className="relative">
-									<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+									<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
 										$
 									</span>
 									<input
@@ -524,32 +530,32 @@ export default function EditClosingPage() {
 										value={contributionsAmount}
 										onChange={(e) => setContributionsAmount(e.target.value)}
 										disabled={!applyContributions}
-										className={`${inputClass} pl-7 disabled:bg-gray-100 disabled:text-gray-400`}
+										className={`${inputClass} pl-7 disabled:bg-muted disabled:text-muted-foreground`}
 									/>
 								</div>
 							</div>
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">
+								<label className="text-xs text-muted-foreground">
 									Aportes Representante ($)
 								</label>
 								<div
-									className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!applyContributions || !withRepresentante ? "text-gray-400" : ""}`}
+									className={`${displayClass} ${!applyContributions || !withRepresentante ? "text-muted-foreground" : "text-foreground"}`}
 								>
 									{formatARS(calc.aportesRep)}
 								</div>
 							</div>
 							<div className="space-y-1">
-								<label className="text-xs text-gray-500">
+								<label className="text-xs text-muted-foreground">
 									Aportes Legalistas ($)
 								</label>
 								<div
-									className={`h-11 flex items-center px-3 rounded-lg bg-gray-50 border border-gray-200 text-sm ${!applyContributions ? "text-gray-400" : ""}`}
+									className={`${displayClass} ${!applyContributions ? "text-muted-foreground" : "text-foreground"}`}
 								>
 									{formatARS(calc.aportesLeg)}
 								</div>
 							</div>
 						</div>
-						<p className="text-xs text-gray-400">
+						<p className="text-xs text-muted-foreground">
 							Monto manual ingresado por la contadora.{" "}
 							{withRepresentante ? "Distribución: 75% Legalistas / 25% Representante." : "Distribución: 100% Legalistas."}
 						</p>
@@ -558,35 +564,35 @@ export default function EditClosingPage() {
 					{/* Monto a Transferir + Gastos de la Causa */}
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 						<div
-							className={`rounded-xl p-5 border-2 lg:col-span-2 ${calc.montoTransferir < 0 ? "border-red-300 bg-red-50" : "border-primary/30 bg-primary/5"}`}
+							className={`rounded-xl p-5 border-2 lg:col-span-2 ${calc.montoTransferir < 0 ? "border-destructive/30 bg-destructive/5" : "border-primary/30 bg-primary/5"}`}
 						>
 							<div className="flex items-center justify-between">
 								<div>
-									<h4 className="font-semibold text-sm text-gray-800">
+									<h4 className="font-semibold text-sm text-foreground">
 										Monto a Transferir a Legalistas
 									</h4>
-									<p className="text-xs text-gray-500 mt-0.5">
+									<p className="text-xs text-muted-foreground mt-0.5">
 										HP Legalistas + PCL Legalistas - Aportes Legalistas
 									</p>
 								</div>
 								<span
-									className={`text-3xl font-bold ${calc.montoTransferir < 0 ? "text-red-700" : "text-primary"}`}
+									className={`text-3xl font-bold ${calc.montoTransferir < 0 ? "text-destructive" : "text-primary"}`}
 								>
 									{formatARS(calc.montoTransferir)}
 								</span>
 							</div>
 						</div>
-						<div className="rounded-xl p-5 border-2 border-amber-200 bg-amber-50">
+						<div className="rounded-xl p-5 border-2 border-amber-500/30 bg-amber-500/5 dark:border-amber-400/30 dark:bg-amber-400/5">
 							<div className="flex flex-col justify-between h-full">
 								<div>
-									<h4 className="font-semibold text-sm text-gray-800">
+									<h4 className="font-semibold text-sm text-foreground">
 										Gastos de la Causa
 									</h4>
-									<p className="text-xs text-gray-500 mt-0.5">
+									<p className="text-xs text-muted-foreground mt-0.5">
 										Total acumulado (solo lectura)
 									</p>
 								</div>
-								<span className="text-2xl font-bold text-amber-700 mt-2">
+								<span className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-2">
 									{formatARS(closing.totalCaseExpenses || 0)}
 								</span>
 							</div>
@@ -596,7 +602,7 @@ export default function EditClosingPage() {
 					{/* Estado PCL */}
 					<div className="grid grid-cols-2 gap-5">
 						<div className="space-y-1.5">
-							<label className="text-sm font-medium text-gray-700">
+							<label className="text-sm font-medium text-foreground">
 								Estado PCL
 							</label>
 							<Select value={pclStatus} onValueChange={setPclStatus}>
@@ -621,18 +627,18 @@ export default function EditClosingPage() {
 
 					{/* Detalle */}
 					<div className="space-y-1.5">
-						<label className="text-sm font-medium text-gray-700">Detalle</label>
+						<label className="text-sm font-medium text-foreground">Detalle</label>
 						<textarea
 							value={detail}
 							onChange={(e) => setDetail(e.target.value)}
 							rows={3}
-							className="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-y"
+							className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none resize-y"
 							placeholder="Descripción de la situación del cierre..."
 						/>
 					</div>
 
 					{/* Actions */}
-					<div className="flex justify-end gap-3 pt-6 border-t border-gray-200">
+					<div className="flex justify-end gap-3 pt-6 border-t border-border">
 						<Link href="/admin/closing-manager">
 							<Button type="button" variant="outline" className="px-6">
 								Cancelar
@@ -641,7 +647,7 @@ export default function EditClosingPage() {
 						<Button
 							type="submit"
 							disabled={isSubmitting}
-							className="px-6 bg-primary text-white hover:bg-primary/85"
+							className="px-6"
 						>
 							{isSubmitting ? (
 								<>
