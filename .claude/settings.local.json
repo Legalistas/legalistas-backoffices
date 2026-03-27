@@ -9,11 +9,18 @@
       "Bash(grep -r Box c:ProyectLexiasTechLegalistasfrontendsrccomponentscases --include=*.tsx)",
       "Bash(find c:ProyectLexiasTechLegalistasfrontendsrc -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
       "Bash(grep -r \"jspdf\\\\|pdf\\\\|report\" /c/Proyect/LexiasTech/Legalistas/frontend/src --include=*.ts --include=*.tsx -l)",
-      "Bash(grep -l \"export\\\\|function\\\\|const\" /c/Proyect/LexiasTech/Legalistas/frontend/src/components/case-details/*.tsx)"
+      "Bash(grep -l \"export\\\\|function\\\\|const\" /c/Proyect/LexiasTech/Legalistas/frontend/src/components/case-details/*.tsx)",
+      "Bash(grep -n \"uploadDocuments\\\\|documents\\\\|download\" /c/Proyect/LexiasTech/Legalistas/backend/src/routes/*.ts)",
+      "Bash(grep -n \"whatsapp\\\\|twilio\\\\|sendMessage\" /c/Proyect/LexiasTech/Legalistas/backend/src/controllers/*.ts)",
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/\")",
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/certificado/\")",
+      "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/certificado/[token]/\")"
     ],
     "additionalDirectories": [
       "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\confirmacion-reunion",
-      "c:\\Proyect\\LexiasTech\\Legalistas\\backend\\prisma"
+      "c:\\Proyect\\LexiasTech\\Legalistas\\backend\\prisma",
+      "c:\\Proyect\\LexiasTech\\Legalistas\\frontend\\src\\app\\informes",
+      "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\informes"
     ]
   }
 }

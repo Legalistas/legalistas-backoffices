@@ -199,6 +199,8 @@ export interface Cases {
 	injury?: string | null;
 	disabilityPercentage?: number | null;
 	estadoActual?: string | null;
+	informeSavedAt?: string | null;
+	informeSentWhatsappAt?: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 	customer: User;

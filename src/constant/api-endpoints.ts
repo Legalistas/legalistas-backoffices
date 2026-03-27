@@ -324,5 +324,9 @@ export const POSTS_RECENT_ENDPOINT = `${API_BASE_URL}/posts/recent`;
 // Search posts
 export const POSTS_SEARCH_ENDPOINT = `${API_BASE_URL}/posts/search`;
 
+// INFORME TRIMESTRAL
+export const CASE_INFORME_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/informe`;
+
 // LEXIA - Analista IA
 export const LEXIA_ANALYTICS_ENDPOINT = `${API_BASE_URL}/lexia/analytics`;
