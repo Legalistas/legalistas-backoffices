@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import CalendarView from "@/components/calendar/CalendarView";
+import { GoogleCalendarSync } from "@/components/calendar/GoogleCalendarSync";
 import "./calendar.module.css";
 import {
 	Calendar,
@@ -82,6 +83,7 @@ export default function CalendarPage() {
 				<h2 className="text-2xl font-bold">Calendario</h2>
 
 				<div className="flex items-center gap-2">
+					<GoogleCalendarSync />
 					{/* Botón Nuevo Evento */}
 					<Button
 						variant="default"
