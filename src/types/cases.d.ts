@@ -3,7 +3,7 @@ export interface User {
 	name: string;
 	email: string;
 	image: string;
-	userProfile?: { phone?: string };
+	userProfile?: { phone?: string; birthDate?: string };
 }
 
 export interface CasesFiles {
@@ -197,6 +197,7 @@ export interface Cases {
 	internalLawyerId?: number;
 	responsibleLawyerId?: number;
 	injury?: string | null;
+	accidentDate?: string | null;
 	disabilityPercentage?: number | null;
 	estadoActual?: string | null;
 	informeSavedAt?: string | null;

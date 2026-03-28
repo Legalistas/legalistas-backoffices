@@ -1191,8 +1191,37 @@ export default function AccidentsWorkPage() {
 			if (!response.ok) throw new Error("Error al guardar liquidación");
 
 			const result = await response.json();
-			console.log("=== RESPUESTA DEL SERVIDOR ===");
-			console.log("Liquidación guardada exitosamente:", result);
+
+			// Generar y subir PDF al caso
+			try {
+				toast.info("Generando PDF de la liquidación...");
+				const pdfResponse = await fetch("/api/generate-lrt-pdf", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(calculationData),
+				});
+
+				if (pdfResponse.ok) {
+					const pdfBlob = await pdfResponse.blob();
+					const pdfFileName = `Liquidacion_LRT_${selectedCause.customer.name}_${new Date().toLocaleDateString("es-AR").replace(/\//g, "-")}.pdf`;
+					const formData = new FormData();
+					formData.append("file", pdfBlob, pdfFileName);
+					formData.append("caseId", String(selectedFile.caseId));
+					formData.append("category", "LIQUIDACION_LRT");
+					formData.append("description", `Liquidación LRT PDF - ${selectedCause.customer.name}`);
+
+					await fetch(`${API_BASE_URL}/cases/${selectedFile.caseId}/documents`, {
+						method: "POST",
+						headers: {
+							Authorization: `Bearer ${session.user.accessToken}`,
+						},
+						body: formData,
+					});
+				}
+			} catch (pdfError) {
+				console.error("Error al generar/subir PDF:", pdfError);
+			}
+
 			toast.success("Liquidación guardada exitosamente en el expediente");
 
 			// Verificar inmediatamente lo que se guardó

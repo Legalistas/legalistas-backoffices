@@ -226,6 +226,13 @@ export const CALENDAR_UNIFIED_ENDPOINT = `${API_BASE_URL}/calendar/unified`;
 export const CALENDAR_EVENT_BY_ID_ENDPOINT = (id: string | number) =>
 	`${API_BASE_URL}/calendar/${id}`;
 
+// Google Calendar
+export const GOOGLE_CALENDAR_AUTH_URL_ENDPOINT = `${API_BASE_URL}/google-calendar/auth-url`;
+export const GOOGLE_CALENDAR_CALLBACK_ENDPOINT = `${API_BASE_URL}/google-calendar/callback`;
+export const GOOGLE_CALENDAR_STATUS_ENDPOINT = `${API_BASE_URL}/google-calendar/status`;
+export const GOOGLE_CALENDAR_DISCONNECT_ENDPOINT = `${API_BASE_URL}/google-calendar/disconnect`;
+export const GOOGLE_CALENDAR_SYNC_ENDPOINT = `${API_BASE_URL}/google-calendar/sync`;
+
 export const NOTIFICATIONS_ENDPOINT = (userId: number) =>
 	`${API_BASE_URL}/notifications/${userId}`;
 export const NOTIFICATIONS_READ_ENDPOINT = (notificationId: number) =>
