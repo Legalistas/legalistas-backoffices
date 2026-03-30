@@ -1,5 +1,5 @@
 "use client";
-import { Plus, Search, Sheet, Loader2, Users2 } from "lucide-react";
+import { Plus, Search, Sheet, Loader2, Users2, Archive } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -17,7 +17,7 @@ import CustomerRegistrationModal from "./CustomerRegistrationModal";
 import CustomersTable from "./CustomersTable";
 
 interface ApiResponse {
-	data: User[];
+	data: any[];
 	meta: {
 		total: number;
 		page: number;
@@ -26,71 +26,78 @@ interface ApiResponse {
 	};
 }
 
+type TabType = "active" | "archived";
+
+/** Cliente con causas activas = al menos una causa con stageId entre 1 y 5 */
+function hasActiveCases(customer: any): boolean {
+	const cases = customer.customerCases;
+	if (!Array.isArray(cases) || cases.length === 0) return false;
+	return cases.some(
+		(c: any) => c.stageId >= 1 && c.stageId <= 5 && c.isActive,
+	);
+}
+
 export default function CustomersContent() {
 	const { data: session } = useSession();
 	const [allCustomers, setAllCustomers] = useState<any[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [searchTerm, setSearchTerm] = useState("");
-	const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-	const [showFilters, setShowFilters] = useState(false);
-	const [originalPagination, setOriginalPagination] = useState({
-		page: 1,
-		limit: 10,
-		total: 0,
-		totalPages: 0,
-	});
+	const [activeTab, setActiveTab] = useState<TabType>("active");
 	const [hasSearched, setHasSearched] = useState(false);
 	const [customerModalOpen, setCustomerModalOpen] = useState(false);
 	const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
 	const [modalMode, setModalMode] = useState<"create" | "edit">("create");
 	const [isExporting, setIsExporting] = useState(false);
 
-	// Use refs to track if this is the initial render
 	const isInitialRender = useRef(true);
-	const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const searchInputRef = useRef<HTMLInputElement>(null);
 
-	// Filtrado local de clientes
+	// Split customers into active and archived
+	const { activeCustomers, archivedCustomers } = useMemo(() => {
+		const active: any[] = [];
+		const archived: any[] = [];
+
+		for (const customer of allCustomers) {
+			if (hasActiveCases(customer)) {
+				active.push(customer);
+			} else {
+				archived.push(customer);
+			}
+		}
+
+		return { activeCustomers: active, archivedCustomers: archived };
+	}, [allCustomers]);
+
+	// Current tab's customers
+	const tabCustomers = useMemo(
+		() => (activeTab === "active" ? activeCustomers : archivedCustomers),
+		[activeTab, activeCustomers, archivedCustomers],
+	);
+
+	// Search filter
 	const filteredCustomers = useMemo(() => {
-		let filtered = [...allCustomers];
+		if (!searchTerm.trim()) return tabCustomers;
 
-		// Filtrar por término de búsqueda
-		if (searchTerm.trim()) {
-			const searchLower = searchTerm.toLowerCase().trim();
-			filtered = filtered.filter((customer) => {
-				return (
-					customer.name?.toLowerCase().includes(searchLower) ||
-					customer.email?.toLowerCase().includes(searchLower) ||
-					customer.roleUser?.[0]?.role?.displayName
-						?.toLowerCase()
-						.includes(searchLower)
-				);
-			});
-		}
+		const searchLower = searchTerm.toLowerCase().trim();
+		return tabCustomers.filter((customer) => {
+			return (
+				customer.name?.toLowerCase().includes(searchLower) ||
+				customer.email?.toLowerCase().includes(searchLower) ||
+				customer.roleUser?.[0]?.role?.displayName
+					?.toLowerCase()
+					.includes(searchLower)
+			);
+		});
+	}, [tabCustomers, searchTerm]);
 
-		// Filtrar por roles seleccionados
-		if (selectedRoles.length > 0) {
-			filtered = filtered.filter((customer) => {
-				// Verificar si el cliente tiene alguno de los roles seleccionados
-				return customer.roleUser?.some((roleUser: any) => {
-					return selectedRoles.includes(roleUser.roleId?.toString());
-				});
-			});
-		}
-
-		return filtered;
-	}, [allCustomers, searchTerm, selectedRoles]);
-
-	// Paginación local
+	// Local pagination
 	const paginatedCustomers = useMemo(() => {
 		const itemsPerPage = 10;
 		const startIndex = (currentPage - 1) * itemsPerPage;
-		const endIndex = startIndex + itemsPerPage;
-		return filteredCustomers.slice(startIndex, endIndex);
+		return filteredCustomers.slice(startIndex, startIndex + itemsPerPage);
 	}, [filteredCustomers, currentPage]);
 
-	// Calcular paginación basada en filtros locales
 	const localPagination = useMemo(() => {
 		const itemsPerPage = 10;
 		const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
@@ -105,10 +112,9 @@ export default function CustomersContent() {
 	const fetchCustomers = useCallback(async () => {
 		try {
 			setLoading(true);
-			// Obtener todos los clientes sin filtros
 			const url = new URL(`${CUSTOMERS_ENDPOINT}`, window.location.origin);
 			url.searchParams.append("page", "1");
-			url.searchParams.append("limit", "1000000"); // Obtener todos los clientes
+			url.searchParams.append("limit", "1000000");
 
 			const response = await fetch(url.toString(), {
 				method: "GET",
@@ -125,20 +131,13 @@ export default function CustomersContent() {
 
 			const result: ApiResponse = await response.json();
 
-			// Si quieres filtrar solo por "cliente"
 			const clientesOnly = result.data.filter((user) => {
 				return user.roleUser.some(
-					(roleUser) => roleUser.role.name === "cliente",
+					(roleUser: any) => roleUser.role.name === "cliente",
 				);
 			});
 
 			setAllCustomers(clientesOnly);
-			setOriginalPagination({
-				page: result.meta.page,
-				limit: result.meta.limit,
-				total: clientesOnly.length,
-				totalPages: Math.ceil(clientesOnly.length / result.meta.limit),
-			});
 		} catch (error) {
 			toast.error("Error al cargar los clientes");
 		} finally {
@@ -146,24 +145,17 @@ export default function CustomersContent() {
 		}
 	}, [session?.user?.accessToken]);
 
-	// Initial fetch on component mount
 	useEffect(() => {
 		if (isInitialRender.current && session?.user?.accessToken) {
 			fetchCustomers();
 			isInitialRender.current = false;
 		}
-	}, [
-		currentPage,
-		fetchCustomers,
-		searchTerm,
-		selectedRoles,
-		session?.user?.accessToken,
-	]);
+	}, [fetchCustomers, session?.user?.accessToken]);
 
-	// Reset page when filters change
+	// Reset page when tab or search changes
 	useEffect(() => {
 		setCurrentPage(1);
-	}, [searchTerm, selectedRoles]);
+	}, [searchTerm, activeTab]);
 
 	const handleDelete = useCallback(
 		async (id: number) => {
@@ -176,16 +168,13 @@ export default function CustomersContent() {
 					},
 				});
 
-				if (!response.ok) {
-					throw new Error("Failed to delete user");
-				}
+				if (!response.ok) throw new Error("Failed to delete user");
 
-				toast.success("Miembro eliminado correctamente");
-				// Recargar todos los miembros después de eliminar
+				toast.success("Cliente eliminado correctamente");
 				fetchCustomers();
 			} catch (error) {
-				console.error("Error al eliminar el miembro:", error);
-				toast.error("Error al eliminar el miembro");
+				console.error("Error al eliminar el cliente:", error);
+				toast.error("Error al eliminar el cliente");
 			}
 		},
 		[session?.user?.accessToken, fetchCustomers],
@@ -193,9 +182,7 @@ export default function CustomersContent() {
 
 	const handleClearSearch = useCallback(() => {
 		setSearchTerm("");
-		setSelectedRoles([]);
 		setHasSearched(false);
-		setShowFilters(false);
 		setCurrentPage(1);
 	}, []);
 
@@ -218,26 +205,12 @@ export default function CustomersContent() {
 		setCurrentPage(page);
 	}, []);
 
-	const handleRoleChange = useCallback((roles: string[]) => {
-		console.log("Roles selected:", roles);
-		setSelectedRoles(roles);
-		setCurrentPage(1); // Reset to first page when filters change
-	}, []);
-
-	// Check if any filters are active
-	const hasActiveFilters = Boolean(
-		searchTerm.trim() || selectedRoles.length > 0,
-	);
-
-	// No se requiere handleCustomerSelect porque no hay formulario;
-	// el cliente se selecciona directamente del fetch de contactos para convertirlo en cliente.
-
-	const handleCustomerCreated = (newCustomer: any) => {
+	const handleCustomerCreated = () => {
 		toast.success("Cliente creado correctamente");
 		setCustomerModalOpen(false);
 		setEditingCustomer(null);
 		setModalMode("create");
-		fetchCustomers(); // Recargar datos después de crear
+		fetchCustomers();
 	};
 
 	const handleEdit = useCallback((customer: User) => {
@@ -246,15 +219,11 @@ export default function CustomersContent() {
 		setCustomerModalOpen(true);
 	}, []);
 
-	const handleCustomerUpdated = (updatedCustomer: any) => {
+	const handleCustomerUpdated = () => {
 		toast.success("Cliente actualizado correctamente");
 		setEditingCustomer(null);
 		setModalMode("create");
-		fetchCustomers(); // Recargar datos después de actualizar
-	};
-
-	const refreshCustomers = async () => {
-		await fetchCustomers();
+		fetchCustomers();
 	};
 
 	const handleExport = async () => {
@@ -285,6 +254,8 @@ export default function CustomersContent() {
 		}
 	};
 
+	const hasActiveFilters = Boolean(searchTerm.trim());
+
 	// Loading skeleton
 	if (loading && allCustomers.length === 0 && !hasSearched) {
 		return (
@@ -298,14 +269,17 @@ export default function CustomersContent() {
 						</div>
 					</div>
 					<Skeleton className="h-11 w-full max-w-md rounded-lg" />
-					<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-						<div className="bg-gray-50 dark:bg-white/5 px-4 py-3 flex gap-4">
+					<div className="overflow-hidden rounded-xl border border-border">
+						<div className="bg-muted/50 px-4 py-3 flex gap-4">
 							{[5, 15, 18, 10, 15, 12, 10, 10].map((w, i) => (
 								<Skeleton key={i} className="h-4" style={{ width: `${w}%` }} />
 							))}
 						</div>
 						{Array.from({ length: 10 }).map((_, i) => (
-							<div key={i} className="flex items-center gap-4 px-4 py-3 border-t border-gray-100 dark:border-gray-800">
+							<div
+								key={i}
+								className="flex items-center gap-4 px-4 py-3 border-t border-border"
+							>
 								<Skeleton className="h-4 w-[5%]" />
 								<Skeleton className="h-4 w-[15%]" />
 								<Skeleton className="h-4 w-[18%]" />
@@ -325,21 +299,12 @@ export default function CustomersContent() {
 		);
 	}
 
-	// Render the main content
-	// if (allCustomers.length === 0 && !loading) {
-	//     return (
-	//         <div className="flex h-full flex-1 flex-col justify-center items-center gap-4 rounded-xl p-4">
-	//             <p className="text-gray-500">No se encontraron clientes.</p>
-	//         </div>
-	//     )
-	// }
-
 	return (
 		<div>
 			<div className="flex flex-col gap-6 mb-2">
 				{/* Header */}
 				<div className="flex items-center justify-between">
-					<h1 className="text-3xl font-bold tracking-tight text-black dark:text-gray-100 flex items-center gap-2">
+					<h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-2">
 						<Users2 className="h-6 w-6" />
 						Clientes
 					</h1>
@@ -360,7 +325,7 @@ export default function CustomersContent() {
 						</Button>
 						<Button
 							variant="default"
-							className="flex items-center gap-2 bg-primary text-white hover:bg-primary/80 hover:text-gray-dark p-2"
+							className="flex items-center gap-2 p-2"
 							onClick={() => setCustomerModalOpen(true)}
 						>
 							<Plus className="h-4 w-4" />
@@ -369,58 +334,101 @@ export default function CustomersContent() {
 					</div>
 				</div>
 
-				{/* Filters */}
-				<div className="flex flex-col gap-4">
-					<div className="flex flex-wrap items-center gap-3">
-						<div className="relative flex-1 min-w-[200px]">
-							<form onSubmit={handleSearch} className="w-full">
-								<div className="relative">
-									<div className="absolute -translate-y-1/2 left-4 top-1/2 pointer-events-none">
-										<Search className="w-5 h-5 stroke-gray-500 dark:stroke-gray-400" />
-									</div>
-									<Input
-										type="search"
-										placeholder="Buscar cliente..."
-										className="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-primary/30 focus:outline-hidden focus:ring-3 focus:ring-primary/10 dark:border-gray-800 dark:bg-gray-900 dark:bg-white/[0.03] dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-primary/40 xl:w-[430px]"
-										defaultValue={searchTerm}
-										onChange={handleSearchChange}
-										ref={searchInputRef}
-									/>
-									{searchTerm && (
-										<button
-											type="button"
-											onClick={() => {
-												setSearchTerm("");
-												setHasSearched(false);
-											}}
-											className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-										>
-											<span className="sr-only">Clear search</span>
-											<svg
-												xmlns="http://www.w3.org/2000/svg"
-												width="16"
-												height="16"
-												viewBox="0 0 24 24"
-												fill="none"
-												stroke="currentColor"
-												strokeWidth="2"
-												strokeLinecap="round"
-												strokeLinejoin="round"
-											>
-												<line x1="18" y1="6" x2="6" y2="18"></line>
-												<line x1="6" y1="6" x2="18" y2="18"></line>
-											</svg>
-										</button>
-									)}
-								</div>
-							</form>
-						</div>
+				{/* Tabs */}
+				<div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-1 w-fit">
+					<button
+						type="button"
+						onClick={() => setActiveTab("active")}
+						className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+							activeTab === "active"
+								? "bg-background text-foreground shadow-sm"
+								: "text-muted-foreground hover:text-foreground"
+						}`}
+					>
+						<Users2 className="h-4 w-4" />
+						Activos
+						<span
+							className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+								activeTab === "active"
+									? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+									: "bg-muted text-muted-foreground"
+							}`}
+						>
+							{activeCustomers.length}
+						</span>
+					</button>
+					<button
+						type="button"
+						onClick={() => setActiveTab("archived")}
+						className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+							activeTab === "archived"
+								? "bg-background text-foreground shadow-sm"
+								: "text-muted-foreground hover:text-foreground"
+						}`}
+					>
+						<Archive className="h-4 w-4" />
+						Archivados
+						<span
+							className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+								activeTab === "archived"
+									? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+									: "bg-muted text-muted-foreground"
+							}`}
+						>
+							{archivedCustomers.length}
+						</span>
+					</button>
+				</div>
 
-						<div className="flex items-center gap-2"></div>
+				{/* Search */}
+				<div className="flex flex-wrap items-center gap-3">
+					<div className="relative flex-1 min-w-[200px]">
+						<form onSubmit={handleSearch} className="w-full">
+							<div className="relative">
+								<div className="absolute -translate-y-1/2 left-4 top-1/2 pointer-events-none">
+									<Search className="w-5 h-5 text-muted-foreground" />
+								</div>
+								<Input
+									type="search"
+									placeholder="Buscar cliente..."
+									className="h-11 w-full rounded-lg border border-input bg-transparent py-2.5 pl-12 pr-14 text-sm shadow-sm placeholder:text-muted-foreground focus:border-primary/30 focus:ring-3 focus:ring-primary/10 xl:w-[430px]"
+									defaultValue={searchTerm}
+									onChange={handleSearchChange}
+									ref={searchInputRef}
+								/>
+								{searchTerm && (
+									<button
+										type="button"
+										onClick={() => {
+											setSearchTerm("");
+											setHasSearched(false);
+										}}
+										className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+									>
+										<span className="sr-only">Clear search</span>
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											width="16"
+											height="16"
+											viewBox="0 0 24 24"
+											fill="none"
+											stroke="currentColor"
+											strokeWidth="2"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+										>
+											<line x1="18" y1="6" x2="6" y2="18" />
+											<line x1="6" y1="6" x2="18" y2="18" />
+										</svg>
+									</button>
+								)}
+							</div>
+						</form>
 					</div>
 				</div>
+
 				{/* Table */}
-				<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+				<div className="overflow-hidden rounded-xl border border-border">
 					<div className="w-full overflow-x-auto">
 						<CustomersTable
 							customers={paginatedCustomers}
@@ -453,7 +461,7 @@ export default function CustomersContent() {
 				}}
 				onCustomerCreated={handleCustomerCreated}
 				onCustomerUpdated={handleCustomerUpdated}
-				onRefreshCustomers={refreshCustomers}
+				onRefreshCustomers={fetchCustomers}
 				editingCustomer={editingCustomer}
 				mode={modalMode}
 			/>

@@ -35,22 +35,25 @@ function GoogleCallbackContent() {
 			},
 			body: JSON.stringify({ code }),
 		})
-			.then((res) => {
-				if (!res.ok) throw new Error("Error al conectar");
+			.then(async (res) => {
+				if (!res.ok) {
+					const errorData = await res.json().catch(() => ({}));
+					console.error("[Google Calendar] Backend error:", res.status, errorData);
+					throw new Error(errorData.error || `Error ${res.status}`);
+				}
 				return res.json();
 			})
 			.then(() => {
 				setStatus("success");
-				setMessage("Google Calendar vinculado exitosamente");
-				// Notify parent window and close popup
-				if (window.opener) {
-					window.opener.postMessage("google-calendar-connected", "*");
-					setTimeout(() => window.close(), 1500);
-				}
+				setMessage("Google Calendar vinculado exitosamente. Redirigiendo...");
+				setTimeout(() => {
+					window.location.href = "/admin/calendar";
+				}, 2000);
 			})
-			.catch(() => {
+			.catch((err) => {
+				console.error("[Google Calendar] Error completo:", err);
 				setStatus("error");
-				setMessage("Error al vincular Google Calendar");
+				setMessage(`Error al vincular: ${err.message}`);
 			});
 	}, [searchParams, session?.user?.accessToken]);
 

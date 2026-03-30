@@ -247,6 +247,7 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 		currentViewUserId,
 	]);
 
+	// KPIs sobre el histórico completo (todas las transacciones del usuario)
 	const {
 		totalIncome,
 		totalExpenses,
@@ -254,12 +255,12 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 		totalMovements,
 		currentMonthMovements,
 	} = useMemo(() => {
+		const allTx = user?.transaction || [];
 		let incomeSum = 0;
 		let expenseSum = 0;
-		let transferNetEffect = 0;
 		let currentMonthCount = 0;
 
-		filteredTransactions.forEach((t) => {
+		allTx.forEach((t: any) => {
 			const transactionDate = new Date(t.date);
 			const isCurrentMonth =
 				transactionDate.getUTCMonth() + 1 === Number(selectedMonth) &&
@@ -270,16 +271,15 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 			}
 
 			if (t.type === "income") {
-				incomeSum += t.amount;
+				incomeSum += Number(t.amount) || 0;
 			} else if (t.type === "expense") {
-				expenseSum += t.amount;
+				expenseSum += Number(t.amount) || 0;
 			} else if (t.type === "transfer") {
-				if (t.subtype === "Enviado") {
-					// Transferencia enviada, restar del saldo
-					transferNetEffect -= t.amount;
-				} else if (t.subtype === "Recibido") {
-					// Transferencia recibida, sumar al saldo
-					transferNetEffect += t.amount;
+				const amount = Number(t.amount) || 0;
+				if (t.subtype === "Enviado" || t.subtype === "sent") {
+					expenseSum += amount;
+				} else if (t.subtype === "Recibido" || t.subtype === "received") {
+					incomeSum += amount;
 				}
 			}
 		});
@@ -287,11 +287,11 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 		return {
 			totalIncome: incomeSum,
 			totalExpenses: expenseSum,
-			netBalance: incomeSum - expenseSum + transferNetEffect,
-			totalMovements: filteredTransactions.length,
+			netBalance: incomeSum - expenseSum,
+			totalMovements: allTx.length,
 			currentMonthMovements: currentMonthCount,
 		};
-	}, [filteredTransactions, currentViewUserId, selectedMonth, selectedYear]);
+	}, [user?.transaction, selectedMonth, selectedYear]);
 
 	const handleExportToExcel = async () => {
 		try {

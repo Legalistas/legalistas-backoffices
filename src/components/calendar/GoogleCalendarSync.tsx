@@ -58,16 +58,8 @@ export function GoogleCalendarSync() {
 			const res = await fetch(GOOGLE_CALENDAR_AUTH_URL_ENDPOINT, { headers });
 			const data = await res.json();
 			if (data.authUrl) {
-				// Open Google consent in a popup
-				const width = 500;
-				const height = 600;
-				const left = window.screenX + (window.outerWidth - width) / 2;
-				const top = window.screenY + (window.outerHeight - height) / 2;
-				window.open(
-					data.authUrl,
-					"google-calendar-auth",
-					`width=${width},height=${height},left=${left},top=${top}`,
-				);
+				// Redirect in same window so we can see errors
+				window.location.href = data.authUrl;
 			}
 		} catch {
 			toast.error("Error al obtener URL de autorización");
