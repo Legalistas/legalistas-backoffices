@@ -28,12 +28,12 @@ interface ApiResponse {
 
 type TabType = "active" | "archived";
 
-/** Cliente con causas activas = al menos una causa con stageId entre 1 y 5 */
+/** Cliente con causas activas = al menos una causa que no esté archivada */
 function hasActiveCases(customer: any): boolean {
 	const cases = customer.customerCases;
 	if (!Array.isArray(cases) || cases.length === 0) return false;
 	return cases.some(
-		(c: any) => c.stageId >= 1 && c.stageId <= 5 && c.isActive,
+		(c: any) => c.stageId !== 7 && !c.isArchived,
 	);
 }
 
