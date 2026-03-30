@@ -41,6 +41,16 @@ const STAGE_DEFAULT_MESSAGES: Record<number, string> = {
 	7: "<p>Tu caso ha sido <strong>finalizado correctamente</strong>. Toda la información quedó <strong>registrada en nuestra plataforma para su resguardo</strong>. Quedamos a tu disposición ante cualquier consulta futura.</p>",
 };
 
+const STAGE_WA_MESSAGES: Record<number, string> = {
+	1: "Estamos reuniendo y validando toda la documentación necesaria para impulsar tu reclamo de manera sólida. Este paso es clave para asegurar un proceso eficiente y con respaldo.\n\nNos estaremos comunicando en caso de requerir información o documentación adicional.",
+	2: "Tu caso se encuentra en etapa administrativa y ya está en curso. En esta instancia se analizan los antecedentes y se realiza la evaluación médica correspondiente.\n\nA partir de ello, se emitirá un dictamen que definirá tu situación.",
+	3: "Tu caso se encuentra actualmente en etapa judicial. Nuestro objetivo es lograr una resolución favorable con el mejor resultado posible.",
+	4: "Se determinó tu grado de incapacidad conforme a la evaluación médica. Este porcentaje es la base para calcular la indemnización correspondiente.",
+	5: "Nos encontramos gestionando el cierre económico de tu caso. Trabajamos en la negociación para maximizar el resultado de tu indemnización. Te mantendremos informado en cada avance hasta su finalización.",
+	6: "Tu experiencia es muy importante para nosotros. Queremos conocer tu opinión sobre el proceso con Legalistas. Nos ayuda a seguir mejorando nuestro servicio día a día.",
+	7: "Tu caso ha sido finalizado correctamente. Toda la información quedó registrada en nuestra plataforma para su resguardo. Quedamos a tu disposición ante cualquier consulta futura.",
+};
+
 interface InformeTrimestralViewProps {
 	caseData: Cases;
 	onCaseUpdated?: () => void;
