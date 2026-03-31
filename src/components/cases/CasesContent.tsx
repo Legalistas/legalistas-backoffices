@@ -385,10 +385,19 @@ export default function CasesContent() {
 				// "Mis Casos": cuando showAll está OFF, filtrar por el usuario logueado
 				if (!showAllCases && session?.user?.id) {
 					const userId = session.user.id.toString();
+					// Roles que NO son abogados → no filtrar por lawyerId
+					const nonLawyerRoles: string[] = [
+						Role.DIRECTORA_AREA_VENTAS,
+						Role.REPRESENTANTE_VENTAS,
+						Role.DIRECTORA_AREA_CONTABLE,
+					];
 					if (session.user.role === Role.ASISTENTE_LEGAL) {
 						url.searchParams.delete("internalLawyerId");
 						url.searchParams.append("internalLawyerId", userId);
-					} else if (session.user.role !== Role.ABOGADO_REPRESENTANTE) {
+					} else if (
+						session.user.role !== Role.ABOGADO_REPRESENTANTE &&
+						!nonLawyerRoles.includes(session.user.role as string)
+					) {
 						// Admin, Director, Coordinador, etc: filtrar como responsable o interno
 						url.searchParams.delete("lawyerId");
 						url.searchParams.append("lawyerId", userId);
