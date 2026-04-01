@@ -40,6 +40,7 @@ export const SUPERADMIN = [
   ADMINISTRATOR,
   DIRECTOR_GENERAL_CEO,
   DIRECTOR_AREA_IT,
+  DIRECTORA_AREA_CONTABLE,
 ];
 
 // ── Grupos de acceso ───────────────────────────────────────────────
