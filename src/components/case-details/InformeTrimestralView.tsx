@@ -306,7 +306,7 @@ export function InformeTrimestralView({
 			const customerPhone = (caseData.customer as any)?.userProfile?.phone;
 			const cleanPhone = customerPhone?.replace(/[\s\-()]/g, "") || "";
 			const waUrl = cleanPhone
-				? `https://web.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(message)}`
+				? `https://web.whatsapp.com/send?phone=+549${cleanPhone}&text=${encodeURIComponent(message)}`
 				: `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`;
 			window.open(waUrl, "_blank");
 
