@@ -15,13 +15,15 @@
       "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/\")",
       "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/certificado/\")",
       "Bash(ls \"c:/Proyect/LexiasTech/Legalistas_Landing_Page/src/app/\\(main\\)/certificado/[token]/\")",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(npx tsx:*)"
     ],
     "additionalDirectories": [
       "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\confirmacion-reunion",
       "c:\\Proyect\\LexiasTech\\Legalistas\\backend\\prisma",
       "c:\\Proyect\\LexiasTech\\Legalistas\\frontend\\src\\app\\informes",
-      "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\informes"
+      "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\informes",
+      "c:\\Proyect\\LexiasTech\\Legalistas\\backend"
     ]
   }
 }
