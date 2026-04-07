@@ -96,7 +96,7 @@ export const MENU_ITEMS: NavItem[] = [
     icon: Users2,
     name: "Clientes",
     path: "/admin/customers",
-    roles: [...LEGAL_INTERNO, ...VENTAS],
+    roles: [...LEGAL_INTERNO, ...VENTAS, DIRECTORA_AREA_MARKETING],
   },
   {
     icon: Scale,
