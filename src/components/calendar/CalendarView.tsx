@@ -484,7 +484,7 @@ const CalendarView = ({
 		};
 
 		try {
-			let savedId = updatedEvent.id;
+			let savedId = selectedEvent?.id;
 
 			if (isNewEvent) {
 				const res = await fetch(CALENDARS_EVENTS_ENDPOINT, {
@@ -495,8 +495,8 @@ const CalendarView = ({
 				if (!res.ok) throw new Error("Error al crear evento");
 				const json = await res.json();
 				savedId = String(json.data.id);
-			} else if (updatedEvent.id) {
-				const rawId = updatedEvent.id.replace(/^cal-/, "");
+			} else if (selectedEvent?.id) {
+				const rawId = selectedEvent.id.replace(/^cal-/, "");
 				const res = await fetch(CALENDAR_EVENT_BY_ID_ENDPOINT(rawId), {
 					method: "PUT",
 					headers: authHeaders(),
