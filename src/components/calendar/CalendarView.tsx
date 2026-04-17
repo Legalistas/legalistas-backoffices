@@ -496,14 +496,12 @@ const CalendarView = ({
 				const json = await res.json();
 				savedId = String(json.data.id);
 			} else if (updatedEvent.id) {
-				const res = await fetch(
-					CALENDAR_EVENT_BY_ID_ENDPOINT(updatedEvent.id),
-					{
-						method: "PUT",
-						headers: authHeaders(),
-						body: JSON.stringify(body),
-					},
-				);
+				const rawId = updatedEvent.id.replace(/^cal-/, "");
+				const res = await fetch(CALENDAR_EVENT_BY_ID_ENDPOINT(rawId), {
+					method: "PUT",
+					headers: authHeaders(),
+					body: JSON.stringify(body),
+				});
 				if (!res.ok) throw new Error("Error al actualizar evento");
 			}
 
@@ -550,13 +548,11 @@ const CalendarView = ({
 	const handleDeleteEvent = async () => {
 		if (!isNewEvent && selectedEvent?.id) {
 			try {
-				const res = await fetch(
-					CALENDAR_EVENT_BY_ID_ENDPOINT(selectedEvent.id),
-					{
-						method: "DELETE",
-						headers: authHeaders(),
-					},
-				);
+				const rawId = selectedEvent.id.replace(/^cal-/, "");
+				const res = await fetch(CALENDAR_EVENT_BY_ID_ENDPOINT(rawId), {
+					method: "DELETE",
+					headers: authHeaders(),
+				});
 				if (!res.ok) throw new Error("Error al eliminar evento");
 				setEvents((prev) => prev.filter((e) => e.id !== selectedEvent.id));
 			} catch (err) {
