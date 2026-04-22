@@ -11,6 +11,24 @@ export interface User {
 	roleUser: RoleUser[];
 	Transaction: Transaction[];
 	transaction: Transaction[];
+	employment?: Employment | null;
+}
+
+export interface Employment {
+	id: number;
+	userId: number;
+	cuil: string | null;
+	hireDate: string | null;
+	terminationDate: string | null;
+	position: string | null;
+	area: string | null;
+	collectiveAgreement: string | null;
+	healthInsurance: string | null;
+	artProvider: string | null;
+	baseSalary: string | null;
+	status: "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "TERMINATED";
+	createdAt: string;
+	updatedAt: string;
 }
 
 export interface Profile {

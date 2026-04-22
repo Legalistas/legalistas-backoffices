@@ -314,7 +314,7 @@ export default function AddNewCase() {
 						(ru: any) =>
 							ru.role?.name === Role.ASISTENTE_LEGAL ||
 							ru.role?.name === Role.GERENTE_GENERAL_COO ||
-							ru.role?.name === Role.ASISTENTE_LEGAL,
+							ru.role?.name === Role.DIRECTORA_AREA_LEGAL,
 					),
 				);
 
@@ -912,7 +912,7 @@ export default function AddNewCase() {
 								</div>
 							</div>
 
-						{/* Tipo de Servicio y Estado del Caso en layout 1/2 + 1/2 */}
+							{/* Tipo de Servicio y Estado del Caso en layout 1/2 + 1/2 */}
 							<div className="flex gap-4">
 								<div className="w-1/2 space-y-2">
 									<Label htmlFor="servicesId">Tipo de Servicio</Label>

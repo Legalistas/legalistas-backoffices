@@ -4,6 +4,7 @@ import {
 	Camera,
 	ChevronRight,
 	Chrome,
+	Clock,
 	Eye,
 	EyeOff,
 	Globe,
@@ -26,7 +27,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -102,6 +103,71 @@ export default function ProfileContent() {
 	}
 	const [activeSessions, setActiveSessions] = useState<SessionLog[]>([]);
 
+	const formatDuration = (secs: number | null | undefined) => {
+		if (!secs) return "";
+		const h = Math.floor(secs / 3600);
+		const m = Math.floor((secs % 3600) / 60);
+		if (h > 0) return `${h}h ${m}m`;
+		return `${m}m`;
+	};
+
+	const formatHour = (iso: string) =>
+		new Date(iso).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+
+	const groupedSessions = useMemo(() => {
+		if (!activeSessions.length) return [] as {
+			dayKey: string;
+			label: string;
+			firstEntry: SessionLog;
+			totalSecs: number;
+			sessions: SessionLog[];
+		}[];
+
+		const dayKeyOf = (iso: string) => {
+			const d = new Date(iso);
+			return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+		};
+
+		const now = new Date();
+		const todayKey = dayKeyOf(now.toISOString());
+		const yesterday = new Date(now);
+		yesterday.setDate(yesterday.getDate() - 1);
+		const yesterdayKey = dayKeyOf(yesterday.toISOString());
+
+		const labelFor = (iso: string) => {
+			const k = dayKeyOf(iso);
+			if (k === todayKey) return "Hoy";
+			if (k === yesterdayKey) return "Ayer";
+			const d = new Date(iso);
+			return d.toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+		};
+
+		const byDay = new Map<string, SessionLog[]>();
+		for (const s of activeSessions) {
+			const key = dayKeyOf(s.loginAt);
+			const bucket = byDay.get(key) ?? [];
+			bucket.push(s);
+			byDay.set(key, bucket);
+		}
+
+		const groups = Array.from(byDay.entries()).map(([dayKey, sessions]) => {
+			const asc = [...sessions].sort(
+				(a, b) => new Date(a.loginAt).getTime() - new Date(b.loginAt).getTime(),
+			);
+			const totalSecs = asc.reduce((acc, s) => acc + (s.durationSecs || 0), 0);
+			return {
+				dayKey,
+				label: labelFor(asc[0].loginAt),
+				firstEntry: asc[0],
+				totalSecs,
+				sessions: asc,
+			};
+		});
+
+		groups.sort((a, b) => (a.dayKey < b.dayKey ? 1 : -1));
+		return groups.slice(0, 7);
+	}, [activeSessions]);
+
 	// Fetch profile
 	useEffect(() => {
 		if (!session?.user?.id || status !== "authenticated") return;
@@ -129,14 +195,14 @@ export default function ProfileContent() {
 				}
 				setEmailVerified(data.emailVerified || null);
 
-				// Fetch last 5 sessions
+				// Fetch historial de sesiones (se agrupa por día en el render)
 				const sessionsRes = await fetch(ACTIVITY_LOGS_BY_USER_ENDPOINT(Number(session.user.id)), {
 					headers: { Authorization: `Bearer ${session.user.accessToken}` },
 				});
 				if (sessionsRes.ok) {
 					const sessionsData = await sessionsRes.json();
 					const all = sessionsData.data || sessionsData || [];
-					setActiveSessions(all.slice(0, 5));
+					setActiveSessions(all);
 				}
 			} catch (err) {
 				toast.error("Error al cargar el perfil");
@@ -508,66 +574,85 @@ export default function ProfileContent() {
 							{/* Active Sessions */}
 							<div className="pt-6 border-t border-border space-y-4">
 								<div>
-									<h3 className="text-sm font-semibold text-foreground">Últimas sesiones</h3>
-									<p className="text-xs text-muted-foreground mt-0.5">Últimos 5 accesos a tu cuenta</p>
+									<h3 className="text-sm font-semibold text-foreground">Historial de sesiones</h3>
+									<p className="text-xs text-muted-foreground mt-0.5">Accesos agrupados por día · primera entrada destacada</p>
 								</div>
 
-								{activeSessions.length > 0 ? (
-									<div className="space-y-2">
-										{activeSessions.map((s) => {
-											const DeviceIcon = s.device === "mobile" ? Smartphone : s.device === "tablet" ? Tablet : Laptop;
-											const isCurrentSession = s.id === session?.user?.activityLogId;
-											const isActive = !s.logoutAt;
-											const formatDuration = (secs: number | null) => {
-												if (!secs) return "";
-												const h = Math.floor(secs / 3600);
-												const m = Math.floor((secs % 3600) / 60);
-												if (h > 0) return `${h}h ${m}m`;
-												return `${m}m`;
-											};
-											return (
-												<div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border ${isCurrentSession ? "border-primary/30 bg-primary/5" : "border-border"}`}>
-													<div className="flex items-center gap-3">
-														<div className={`flex h-9 w-9 items-center justify-center rounded-lg ${isCurrentSession ? "bg-primary/10" : "bg-muted"}`}>
-															<DeviceIcon className={`h-4 w-4 ${isCurrentSession ? "text-primary" : "text-muted-foreground"}`} />
-														</div>
-														<div>
-															<div className="flex items-center gap-2">
-																<p className="text-sm font-medium text-foreground">
-																	{s.browser || "Desconocido"}{s.browserVersion ? ` ${s.browserVersion.split(".")[0]}` : ""}
-																</p>
-																{s.loginMethod && (
-																	<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded uppercase ${s.loginMethod === "google" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "bg-muted text-muted-foreground"}`}>
-																		{s.loginMethod}
-																	</span>
-																)}
-															</div>
-															<p className="text-xs text-muted-foreground">
-																{s.os || "SO desconocido"}
-																{s.ipAddress && ` · ${s.ipAddress}`}
-																{` · ${new Date(s.loginAt).toLocaleDateString("es-AR", { day: "numeric", month: "short" })}, ${new Date(s.loginAt).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}`}
-																{s.durationSecs ? ` · ${formatDuration(s.durationSecs)}` : ""}
-															</p>
-														</div>
+								{groupedSessions.length > 0 ? (
+									<div className="space-y-5">
+										{groupedSessions.map((g) => (
+											<div key={g.dayKey} className="space-y-2">
+												<div className="flex flex-wrap items-center justify-between gap-2 px-1">
+													<div className="flex items-center gap-2">
+														<span className="text-xs font-semibold text-foreground capitalize">{g.label}</span>
+														<span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+															<Clock className="h-3 w-3" />
+															1ª entrada {formatHour(g.firstEntry.loginAt)}
+														</span>
 													</div>
-													{isCurrentSession ? (
-														<span className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-															<span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-															Actual
-														</span>
-													) : isActive ? (
-														<span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2.5 py-1 rounded-full">
-															<span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-															Activa
-														</span>
-													) : (
-														<span className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
-															Cerrada
+													{g.totalSecs > 0 && (
+														<span className="text-[11px] text-muted-foreground">
+															Total trabajado: <span className="font-medium text-foreground">{formatDuration(g.totalSecs)}</span>
 														</span>
 													)}
 												</div>
-											);
-										})}
+												<div className="space-y-2">
+													{g.sessions.map((s, idx) => {
+														const DeviceIcon = s.device === "mobile" ? Smartphone : s.device === "tablet" ? Tablet : Laptop;
+														const isCurrentSession = s.id === session?.user?.activityLogId;
+														const isActive = !s.logoutAt;
+														const isFirstOfDay = idx === 0;
+														return (
+															<div key={s.id} className={`flex items-center justify-between p-3 rounded-lg border ${isCurrentSession ? "border-primary/30 bg-primary/5" : isFirstOfDay ? "border-primary/20 bg-primary/2" : "border-border"}`}>
+																<div className="flex items-center gap-3">
+																	<div className={`flex h-9 w-9 items-center justify-center rounded-lg ${isCurrentSession || isFirstOfDay ? "bg-primary/10" : "bg-muted"}`}>
+																		<DeviceIcon className={`h-4 w-4 ${isCurrentSession || isFirstOfDay ? "text-primary" : "text-muted-foreground"}`} />
+																	</div>
+																	<div>
+																		<div className="flex items-center gap-2 flex-wrap">
+																			<p className="text-sm font-medium text-foreground">
+																				{s.browser || "Desconocido"}{s.browserVersion ? ` ${s.browserVersion.split(".")[0]}` : ""}
+																			</p>
+																			{isFirstOfDay && (
+																				<span className="text-[10px] font-semibold px-1.5 py-0.5 rounded uppercase bg-primary/10 text-primary">
+																					1ª del día
+																				</span>
+																			)}
+																			{s.loginMethod && (
+																				<span className={`text-[10px] font-medium px-1.5 py-0.5 rounded uppercase ${s.loginMethod === "google" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400" : "bg-muted text-muted-foreground"}`}>
+																					{s.loginMethod}
+																				</span>
+																			)}
+																		</div>
+																		<p className="text-xs text-muted-foreground">
+																			{s.os || "SO desconocido"}
+																			{s.ipAddress && ` · ${s.ipAddress}`}
+																			{` · ${formatHour(s.loginAt)}`}
+																			{s.durationSecs ? ` · ${formatDuration(s.durationSecs)}` : ""}
+																		</p>
+																	</div>
+																</div>
+																{isCurrentSession ? (
+																	<span className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+																		<span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+																		Actual
+																	</span>
+																) : isActive ? (
+																	<span className="flex items-center gap-1.5 text-xs text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-2.5 py-1 rounded-full">
+																		<span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+																		Activa
+																	</span>
+																) : (
+																	<span className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full">
+																		Cerrada
+																	</span>
+																)}
+															</div>
+														);
+													})}
+												</div>
+											</div>
+										))}
 									</div>
 								) : (
 									<div className="text-center py-6 text-sm text-muted-foreground">

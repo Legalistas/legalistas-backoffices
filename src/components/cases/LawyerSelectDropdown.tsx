@@ -33,7 +33,11 @@ const responsibleRoles = [
 	Role.ABOGADO_REPRESENTANTE,
 ];
 
-const internalRoles = [Role.ASISTENTE_LEGAL, Role.GERENTE_GENERAL_COO];
+const internalRoles = [
+	Role.ASISTENTE_LEGAL,
+	Role.GERENTE_GENERAL_COO,
+	Role.DIRECTORA_AREA_LEGAL,
+];
 
 export function LawyerSelectDropdown({
 	currentLawyerId,

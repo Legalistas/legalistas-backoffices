@@ -169,7 +169,7 @@ export const MENU_ITEMS: NavItem[] = [
     icon: User,
     name: "Equipo",
     path: "/admin/teams",
-    roles: LEGAL_INTERNO,
+    roles: [...LEGAL_INTERNO, ...CONTABLE],
   },
   // {
   //   icon: Pencil,

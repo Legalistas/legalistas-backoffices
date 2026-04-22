@@ -27,6 +27,15 @@ import {
 	statusCapital,
 	statusData,
 } from "@/constant/closing-manager";
+import { Role } from "@/constant/user";
+
+const RESPONSIBLE_LAWYER_ROLES = [
+	Role.DIRECTOR_GENERAL_CEO,
+	Role.GERENTE_GENERAL_COO,
+	Role.DIRECTORA_AREA_LEGAL,
+	Role.COORDINADOR_LEGAL,
+	Role.ABOGADO_REPRESENTANTE,
+] as string[];
 
 export interface ClosingFiltersState {
 	search: string;
@@ -111,11 +120,17 @@ export default function ClosingFilters({
 				if (response.ok) {
 					const data = await response.json();
 					const list = Array.isArray(data) ? data : data.data || [];
-					setLawyers(
-						list.sort((a: { name: string }, b: { name: string }) =>
+					const representatives = list
+						.filter((u: any) =>
+							u?.roleUser?.some((ru: any) =>
+								RESPONSIBLE_LAWYER_ROLES.includes(ru?.role?.name),
+							),
+						)
+						.map((u: any) => ({ id: u.id, name: u.name ?? "" }))
+						.sort((a: { name: string }, b: { name: string }) =>
 							a.name.localeCompare(b.name),
-						),
-					);
+						);
+					setLawyers(representatives);
 				}
 			} catch {
 				// silent
@@ -138,7 +153,7 @@ export default function ClosingFilters({
 	}, []);
 
 	const filteredLawyers = lawyers.filter((l) =>
-		l.name.toLowerCase().includes(lawyerSearch.toLowerCase()),
+		(l.name ?? "").toLowerCase().includes(lawyerSearch.toLowerCase()),
 	);
 
 	const selectedLawyerName =
