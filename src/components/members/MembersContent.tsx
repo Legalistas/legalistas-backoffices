@@ -1,7 +1,9 @@
 "use client";
 import {
 	Activity,
+	Briefcase,
 	Filter,
+	Network,
 	Plus,
 	Scale,
 	Search,
@@ -23,12 +25,7 @@ import { useConfirm } from "@/hooks/useConfirm";
 import type { User } from "@/types/users";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-	Card,
-	CardContent,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
 	Dialog,
 	DialogContent,
@@ -51,6 +48,19 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pagination } from "@/components/shared/Pagination";
 import MembersTable from "./MembersTable";
 import RoleMultiSelect from "./RoleMultiSelect";
+import { Can } from "@/components/auth/Can";
+import { Role } from "@/constant/user";
+import { SUPERADMIN } from "@/constant/menu";
+
+const EMPLOYMENT_ALLOWED_ROLES = [
+	...SUPERADMIN,
+	Role.COORDINADOR_FINANCIERO,
+	Role.DIRECTOR_FINANCIERO,
+	Role.CONTADOR_SENIOR,
+	Role.ANALISTA_FINANCIERO,
+	Role.TESORERO,
+	Role.AUDITOR_INTERNO,
+];
 
 // Roles internos del equipo
 const INTERNAL_TEAM_ROLES = [
@@ -148,6 +158,7 @@ export default function MembersContent() {
 			total: internalMembers.length,
 			lawyers: internalMembers.filter(isLawyer).length,
 			staff: internalMembers.filter((m) => !isLawyer(m)).length,
+			hr: internalMembers.filter((m) => m.employment).length,
 		};
 	}, [allMembers]);
 
@@ -685,6 +696,15 @@ export default function MembersContent() {
 					Equipo
 				</h1>
 				<div className="flex items-center gap-2">
+					<Can role={EMPLOYMENT_ALLOWED_ROLES}>
+						<Button
+							variant="outline"
+							onClick={() => router.push("/admin/teams/organigrama")}
+						>
+							<Network className="h-4 w-4 mr-2" />
+							Organigrama
+						</Button>
+					</Can>
 					<Button
 						variant="outline"
 						onClick={() => router.push("/admin/activity-logs")}
@@ -700,48 +720,48 @@ export default function MembersContent() {
 			</div>
 
 			{/* Stats Cards */}
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-				<Card className="border-l-4 border-l-blue-500">
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium text-muted-foreground">
-							Total Equipo
-						</CardTitle>
-						<Users className="h-4 w-4 text-blue-500" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-foreground">
-							{memberStats.total}
+			<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+				<Card className="border-l-2 border-l-blue-500 py-0">
+					<div className="flex items-center justify-between px-3 py-2">
+						<div>
+							<p className="text-[11px] font-medium text-muted-foreground">Total Equipo</p>
+							<p className="text-lg font-bold text-foreground leading-none mt-1">{memberStats.total}</p>
 						</div>
-					</CardContent>
+						<Users className="h-4 w-4 text-blue-500 shrink-0" />
+					</div>
 				</Card>
 
-				<Card className="border-l-4 border-l-purple-500">
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium text-muted-foreground">
-							Abogados
-						</CardTitle>
-						<Scale className="h-4 w-4 text-purple-500" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-foreground">
-							{memberStats.lawyers}
+				<Card className="border-l-2 border-l-purple-500 py-0">
+					<div className="flex items-center justify-between px-3 py-2">
+						<div>
+							<p className="text-[11px] font-medium text-muted-foreground">Abogados</p>
+							<p className="text-lg font-bold text-foreground leading-none mt-1">{memberStats.lawyers}</p>
 						</div>
-					</CardContent>
+						<Scale className="h-4 w-4 text-purple-500 shrink-0" />
+					</div>
 				</Card>
 
-				<Card className="border-l-4 border-l-orange-500">
-					<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-						<CardTitle className="text-sm font-medium text-muted-foreground">
-							Personal
-						</CardTitle>
-						<UserCog className="h-4 w-4 text-orange-500" />
-					</CardHeader>
-					<CardContent>
-						<div className="text-2xl font-bold text-foreground">
-							{memberStats.staff}
+				<Card className="border-l-2 border-l-orange-500 py-0">
+					<div className="flex items-center justify-between px-3 py-2">
+						<div>
+							<p className="text-[11px] font-medium text-muted-foreground">Personal</p>
+							<p className="text-lg font-bold text-foreground leading-none mt-1">{memberStats.staff}</p>
 						</div>
-					</CardContent>
+						<UserCog className="h-4 w-4 text-orange-500 shrink-0" />
+					</div>
 				</Card>
+
+				<Can role={EMPLOYMENT_ALLOWED_ROLES}>
+					<Card className="border-l-2 border-l-emerald-500 py-0">
+						<div className="flex items-center justify-between px-3 py-2">
+							<div>
+								<p className="text-[11px] font-medium text-muted-foreground">RRHH con ficha</p>
+								<p className="text-lg font-bold text-foreground leading-none mt-1">{memberStats.hr}</p>
+							</div>
+							<Briefcase className="h-4 w-4 text-emerald-500 shrink-0" />
+						</div>
+					</Card>
+				</Can>
 			</div>
 
 			{/* Tabs + Search */}
@@ -1134,6 +1154,7 @@ export default function MembersContent() {
 					</form>
 				</DialogContent>
 			</Dialog>
+
 		{ConfirmationDialog}
 		</div>
 	);

@@ -252,7 +252,8 @@ export default function CasesContent() {
 					user.roleUser.some(
 						(ru: any) =>
 							ru.role.name === Role.ASISTENTE_LEGAL ||
-							ru.role.name === Role.GERENTE_GENERAL_COO,
+							ru.role.name === Role.GERENTE_GENERAL_COO ||
+							ru.role.name === Role.DIRECTORA_AREA_LEGAL,
 					),
 				);
 

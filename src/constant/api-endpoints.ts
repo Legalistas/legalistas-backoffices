@@ -18,6 +18,67 @@ export const ACTIVITY_LOGS_STATS_ENDPOINT = `${API_BASE_URL}/activity-logs/stats
 export const ACTIVITY_LOGS_BY_USER_ENDPOINT = (userId: number) =>
 	`${API_BASE_URL}/activity-logs/user/${userId}`;
 
+// RRHH — Ficha de empleado (UserEmployment)
+export const EMPLOYMENT_ENDPOINT = `${API_BASE_URL}/employment`;
+export const EMPLOYMENT_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}`;
+
+// RRHH — Contratos laborales
+export const CONTRACTS_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/contracts`;
+export const CONTRACT_BY_ID_ENDPOINT = (contractId: number) =>
+	`${API_BASE_URL}/contracts/${contractId}`;
+
+// RRHH — Control de asistencia
+export const ATTENDANCE_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/attendance`;
+export const ATTENDANCE_TOGGLE_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/attendance/toggle`;
+export const ATTENDANCE_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/attendance/${id}`;
+
+// RRHH — Licencias y vacaciones
+export const LEAVES_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/leaves`;
+export const LEAVE_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/leaves/${id}`;
+export const LEAVE_APPROVE_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/leaves/${id}/approve`;
+export const LEAVE_REJECT_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/leaves/${id}/reject`;
+export const LEAVE_CANCEL_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/leaves/${id}/cancel`;
+
+// RRHH — Recibos de sueldo
+export const PAYROLLS_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/payrolls`;
+export const PAYROLL_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/payrolls/${id}`;
+
+// RRHH — Legajo disciplinario
+export const DISCIPLINARY_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/disciplinary`;
+export const DISCIPLINARY_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/disciplinary/${id}`;
+export const DISCIPLINARY_ACKNOWLEDGE_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/disciplinary/${id}/acknowledge`;
+
+// RRHH — Capacitaciones y certificaciones
+export const TRAININGS_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/trainings`;
+export const TRAINING_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/trainings/${id}`;
+
+// RRHH — Evaluaciones de desempeño
+export const REVIEWS_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/reviews`;
+export const REVIEW_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/reviews/${id}`;
+export const REVIEW_SUBMIT_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/reviews/${id}/submit`;
+export const REVIEW_ACKNOWLEDGE_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/reviews/${id}/acknowledge`;
+
 // LEGAL CASES
 export const CASES_ENDPOINT = `${API_BASE_URL}/cases`;
 export const CASES_EXPIRATION_ALERTS_ENDPOINT = `${API_BASE_URL}/cases/expiration-alerts`;
