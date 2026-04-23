@@ -35,6 +35,7 @@ import {
 } from "@/constant/api-endpoints";
 import { useConfirm } from "@/hooks/useConfirm";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
+import { cn } from "@/lib/utils";
 import type {
 	Negotiation,
 	NegotiationStatus,
@@ -708,7 +709,11 @@ export function NegotiationsTable({
 	const ColHeader = ({ id, label }: { id: string; label: string }) =>
 		isColumnVisible(id) ? (
 			<TableCell
-				className="px-4 py-3 text-left text-sm font-semibold"
+				className={cn(
+					"px-4 py-3 text-left text-sm font-semibold",
+					id === "causa" &&
+						"sticky left-0 z-20 bg-gray-50 dark:bg-gray-800 w-[260px] min-w-[260px]",
+				)}
 			>
 				<button
 					onClick={() => handleSort(id)}
@@ -809,9 +814,9 @@ export function NegotiationsTable({
 						</TableHeader>
 						<TableBody>
 							{filteredNegotiations.map((neg) => (
-								<TableRow key={neg.id} className="hover:bg-muted/50">
+								<TableRow key={neg.id} className="group hover:bg-muted/50">
 									{isColumnVisible("causa") && (
-										<TableCell className="px-4 py-3 text-sm font-medium">
+										<TableCell className="sticky left-0 z-10 bg-white dark:bg-gray-900 group-hover:bg-muted/50 w-[260px] min-w-[260px] px-4 py-3 text-sm font-medium">
 											<div className="flex items-center gap-2">
 												<span>{neg.case.title || `Causa #${neg.caseId}`}</span>
 												<span

@@ -139,6 +139,31 @@ export default function ClosingManagerTable({
 		return ALWAYS_VISIBLE.includes(columnId) || visibleColumns.includes(columnId);
 	};
 
+	const STICKY_COLS: Record<string, { left: string; width: string }> = {
+		date: { left: "left-0", width: "w-[110px] min-w-[110px]" },
+		case: { left: "left-[110px]", width: "w-[230px] min-w-[230px]" },
+	};
+
+	const getStickyHeaderClass = (columnId: string) => {
+		const col = STICKY_COLS[columnId];
+		if (!col) return "";
+		return cn(
+			"sticky z-20 bg-gray-50 dark:bg-gray-800",
+			col.left,
+			col.width,
+		);
+	};
+
+	const getStickyBodyClass = (columnId: string) => {
+		const col = STICKY_COLS[columnId];
+		if (!col) return "";
+		return cn(
+			"sticky z-10 bg-white dark:bg-gray-900 group-hover:bg-gray-50 dark:group-hover:bg-white/[0.07]",
+			col.left,
+			col.width,
+		);
+	};
+
 	// =========================================================================
 	// Formatters
 	// =========================================================================
@@ -480,6 +505,7 @@ export default function ClosingManagerTable({
 											col.align === "right" ? "text-right" : "text-left",
 											col.id === "montoTransferir" &&
 												"bg-primary/5 text-primary",
+											getStickyHeaderClass(col.id),
 										)}
 									>
 										{col.label}
@@ -496,7 +522,7 @@ export default function ClosingManagerTable({
 					<TableBody>
 						{closings.length > 0 ? (
 							closings.map((closing) => (
-								<TableRow key={closing.id} className="hover:bg-gray-50 dark:hover:bg-white/5">
+								<TableRow key={closing.id} className="group hover:bg-gray-50 dark:hover:bg-white/5">
 									{COLUMNS.map((col) =>
 										isColumnVisible(col.id) ? (
 											<TableCell
@@ -507,6 +533,7 @@ export default function ClosingManagerTable({
 														(closing.montoTransferir < 0
 															? "bg-red-50 dark:bg-red-900/20"
 															: "bg-primary/5 dark:bg-primary/10"),
+													getStickyBodyClass(col.id),
 												)}
 											>
 												{renderCellContent(closing, col.id)}

@@ -8,6 +8,7 @@ import {
 	FileText,
 	FileWarning,
 	GraduationCap,
+	ListChecks,
 	Loader2,
 	Palmtree,
 	Receipt,
@@ -25,6 +26,7 @@ import { SUPERADMIN } from "@/constant/menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { USERS_ENDPOINT } from "@/constant/api-endpoints";
 import AttendanceTab from "./AttendanceTab";
+import ChecklistsTab from "./ChecklistsTab";
 import ContractsTab from "./ContractsTab";
 import DisciplinaryTab from "./DisciplinaryTab";
 import EmploymentDataForm from "./EmploymentDataForm";
@@ -51,7 +53,8 @@ type SectionKey =
 	| "payrolls"
 	| "disciplinary"
 	| "trainings"
-	| "performance";
+	| "performance"
+	| "checklists";
 
 const SECTIONS: {
 	key: SectionKey;
@@ -67,6 +70,7 @@ const SECTIONS: {
 	{ key: "disciplinary", label: "Legajo disciplinario", icon: FileWarning, color: "text-red-600" },
 	{ key: "trainings", label: "Capacitaciones", icon: GraduationCap, color: "text-indigo-600" },
 	{ key: "performance", label: "Evaluaciones", icon: ClipboardCheck, color: "text-fuchsia-600" },
+	{ key: "checklists", label: "Onboarding / Offboarding", icon: ListChecks, color: "text-teal-600" },
 ];
 
 const getInitials = (name: string | null | undefined) => {
@@ -272,6 +276,7 @@ export default function EmployeeHrPage({ userId }: EmployeeHrPageProps) {
 								{s.key === "disciplinary" && <DisciplinaryTab userId={userId} />}
 								{s.key === "trainings" && <TrainingsTab userId={userId} />}
 								{s.key === "performance" && <PerformanceTab userId={userId} />}
+								{s.key === "checklists" && <ChecklistsTab userId={userId} />}
 							</TabsContent>
 						))}
 					</Tabs>

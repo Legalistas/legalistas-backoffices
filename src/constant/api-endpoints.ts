@@ -79,6 +79,29 @@ export const REVIEW_SUBMIT_ENDPOINT = (id: number) =>
 export const REVIEW_ACKNOWLEDGE_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/reviews/${id}/acknowledge`;
 
+// RRHH — Reclutamiento (candidatos)
+export const CANDIDATES_ENDPOINT = `${API_BASE_URL}/rrhh/candidates`;
+export const CANDIDATE_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/rrhh/candidates/${id}`;
+export const CANDIDATE_STAGE_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/rrhh/candidates/${id}/stage`;
+export const CANDIDATE_CV_UPLOAD_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/rrhh/candidates/${id}/cv`;
+
+// RRHH — Onboarding / Offboarding (checklists)
+export const CHECKLISTS_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/checklists`;
+export const CHECKLIST_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/checklists/${id}`;
+export const CHECKLIST_ITEMS_ENDPOINT = (checklistId: number) =>
+	`${API_BASE_URL}/checklists/${checklistId}/items`;
+export const CHECKLIST_ITEM_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/checklist-items/${id}`;
+
+// RRHH — Self-service del empleado logueado
+export const ME_ATTENDANCE_STATUS_ENDPOINT = `${API_BASE_URL}/me/attendance/status`;
+export const ME_ATTENDANCE_ACTION_ENDPOINT = `${API_BASE_URL}/me/attendance/action`;
+
 // LEGAL CASES
 export const CASES_ENDPOINT = `${API_BASE_URL}/cases`;
 export const CASES_EXPIRATION_ALERTS_ENDPOINT = `${API_BASE_URL}/cases/expiration-alerts`;

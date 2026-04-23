@@ -6,6 +6,7 @@ import {
 	LogOut,
 	Settings,
 	Ticket,
+	UserCircle,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -204,6 +205,12 @@ export default function LayoutSidebar() {
 									</div>
 								</DropdownMenuLabel>
 								<DropdownMenuSeparator />
+								<DropdownMenuItem asChild>
+									<Link href="/admin/perfil" className="cursor-pointer">
+										<UserCircle className="mr-2 size-4" />
+										Mi perfil
+									</Link>
+								</DropdownMenuItem>
 								<DropdownMenuItem asChild>
 									<Link href="/admin/profile" className="cursor-pointer">
 										<Settings className="mr-2 size-4" />

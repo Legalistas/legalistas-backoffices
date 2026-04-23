@@ -8,6 +8,7 @@ import {
   LayoutDashboard,
   MessageCircle,
   Pencil,
+  PieChart,
   Scale,
   Settings,
   SquareKanban,
@@ -24,6 +25,7 @@ import type { MenuSection, NavItem } from "@/types/navigation";
 const {
   ADMINISTRATOR,
   DIRECTOR_GENERAL_CEO,
+  DIRECTORA_AREA_LEGAL,
   DIRECTOR_AREA_IT,
   DIRECTORA_AREA_VENTAS,
   REPRESENTANTE_VENTAS,
@@ -52,8 +54,9 @@ const LEGAL = [
   ABOGADO_REPRESENTANTE,
   DIRECTORA_AREA_CONTABLE,
   DIRECTORA_AREA_VENTAS,
+  DIRECTORA_AREA_LEGAL,
 ];
-const LEGAL_INTERNO = [...SUPERADMIN, ASISTENTE_LEGAL];
+const LEGAL_INTERNO = [...SUPERADMIN, ASISTENTE_LEGAL, DIRECTORA_AREA_LEGAL];
 const VENTAS = [...SUPERADMIN, DIRECTORA_AREA_VENTAS, REPRESENTANTE_VENTAS];
 const CAJA = [
   ...SUPERADMIN,
@@ -170,6 +173,18 @@ export const MENU_ITEMS: NavItem[] = [
     name: "Equipo",
     path: "/admin/teams",
     roles: [...LEGAL_INTERNO, ...CONTABLE],
+  },
+  {
+    icon: PieChart,
+    name: "Reportes RRHH",
+    path: "/admin/rrhh/reports",
+    roles: SUPERADMIN,
+  },
+  {
+    icon: Users2,
+    name: "Reclutamiento",
+    path: "/admin/rrhh/recruitment",
+    roles: SUPERADMIN,
   },
   // {
   //   icon: Pencil,
