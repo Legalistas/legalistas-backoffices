@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import type React from "react";
 import { useEffect } from "react";
 import { Toaster } from "sonner";
+import AttendanceChecker from "@/components/attendance/AttendanceChecker";
 import FloatingChatBubble from "@/components/FloatingChatBubble";
 import Header from "@/components/layout/Header";
 import LayoutSidebar from "@/components/layout/Sidebar";
@@ -49,6 +50,7 @@ export default function AdminLayout({
 					</SidebarInset>
 				</SidebarProvider>
 				<FloatingChatBubble />
+				<AttendanceChecker />
 				<Toaster />
 			</NotificationProvider>
 		</ChatProvider>
