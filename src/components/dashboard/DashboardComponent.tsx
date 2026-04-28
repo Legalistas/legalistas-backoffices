@@ -9,7 +9,6 @@ import {
 	Clock,
 	ListChecks,
 	MapPin,
-	RefreshCw,
 	Scale,
 	Users2,
 } from "lucide-react";
@@ -17,7 +16,6 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
@@ -29,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { DASHBOARD_LEGAL_STATS_ENDPOINT } from "@/constant/api-endpoints";
 import { SUPERADMIN } from "@/constant/menu";
 import { Role } from "@/constant/user";
+import DashboardGreetingHeader from "./DashboardGreetingHeader";
 import { SalesConversion } from "./SalesConversion";
 import { SalesLead } from "./SalesLead";
 import { SalesLocation } from "./SalesLocation";
@@ -37,24 +36,6 @@ import SalesPerformance from "./SalesPerformance";
 import { SalesSource } from "./SalesSource";
 
 // ── Helpers ────────────────────────────────────────────────────────
-
-function getGreeting(): string {
-	const hour = new Date().getHours();
-	if (hour < 12) return "Buenos días";
-	if (hour < 19) return "Buenas tardes";
-	return "Buenas noches";
-}
-
-function formatDate(): string {
-	return new Date()
-		.toLocaleDateString("es-AR", {
-			weekday: "long",
-			year: "numeric",
-			month: "long",
-			day: "numeric",
-		})
-		.replace(/^\w/, (c) => c.toUpperCase());
-}
 
 function formatTime(): string {
 	return new Date().toLocaleTimeString("es-AR", {
@@ -427,16 +408,9 @@ function LegalDashboard() {
 
 	return (
 		<div className="flex flex-col gap-6">
-			{/* Header */}
-			<div className="flex items-start justify-between">
-				<div>
-					<h1 className="text-2xl font-bold tracking-tight">
-						{getGreeting()}
-					</h1>
-					<p className="text-sm text-muted-foreground mt-1">
-						{formatDate()}
-					</p>
-					<p className="text-sm text-muted-foreground mt-0.5">
+			<DashboardGreetingHeader
+				subtitle={
+					<>
 						Hoy tienes{" "}
 						<span
 							className={
@@ -450,31 +424,17 @@ function LegalDashboard() {
 						y{" "}
 						<span
 							className={
-								stats.pendingTasks > 0
-									? "text-primary font-medium"
-									: ""
+								stats.pendingTasks > 0 ? "text-primary font-medium" : ""
 							}
 						>
 							{stats.pendingTasks} tareas pendientes
 						</span>
-					</p>
-				</div>
-				<div className="flex flex-col items-end gap-1">
-					<Button
-						variant="outline"
-						onClick={() => fetchData()}
-						disabled={isRefreshing}
-					>
-						<RefreshCw
-							className={`size-3.5 mr-1.5 ${isRefreshing ? "animate-spin" : ""}`}
-						/>
-						Actualizar
-					</Button>
-					<span className="text-xs text-muted-foreground">
-						{lastUpdated}
-					</span>
-				</div>
-			</div>
+					</>
+				}
+				onRefresh={() => fetchData()}
+				isRefreshing={isRefreshing}
+				lastUpdated={lastUpdated}
+			/>
 
 			<UrgentAlerts />
 
@@ -856,6 +816,7 @@ function LegalDashboard() {
 function SalesDashboard() {
 	return (
 		<div className="flex flex-col gap-6">
+			<DashboardGreetingHeader />
 			<UrgentAlerts />
 			<SalesOverview />
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

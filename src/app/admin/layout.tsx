@@ -11,6 +11,7 @@ import Header from "@/components/layout/Header";
 import LayoutSidebar from "@/components/layout/Sidebar";
 import { NotificationProvider } from "@/components/notification-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { AttendanceProvider } from "@/context/AttendanceContext";
 import { ChatProvider } from "@/context/ChatContext";
 import { useSessionTracker } from "@/hooks/useSessionTracker";
 
@@ -38,20 +39,22 @@ export default function AdminLayout({
 	return (
 		<ChatProvider userId={userId}>
 			<NotificationProvider>
-				<SidebarProvider>
-					<LayoutSidebar />
-					<SidebarInset>
-						<Header />
-						<div className="flex-1 overflow-auto">
-							<div className="p-4 mx-auto max-w-screen-2xl md:p-6">
-								{children}
+				<AttendanceProvider>
+					<SidebarProvider>
+						<LayoutSidebar />
+						<SidebarInset>
+							<Header />
+							<div className="flex-1 overflow-auto">
+								<div className="p-4 mx-auto max-w-screen-2xl md:p-6">
+									{children}
+								</div>
 							</div>
-						</div>
-					</SidebarInset>
-				</SidebarProvider>
-				<FloatingChatBubble />
-				<AttendanceChecker />
-				<Toaster />
+						</SidebarInset>
+					</SidebarProvider>
+					<FloatingChatBubble />
+					<AttendanceChecker />
+					<Toaster />
+				</AttendanceProvider>
 			</NotificationProvider>
 		</ChatProvider>
 	);
