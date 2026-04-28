@@ -1,6 +1,8 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
 import {
+	ChevronDown,
 	Coffee,
 	Loader2,
 	LogOut,
@@ -8,9 +10,7 @@ import {
 	Play,
 	Timer,
 } from "lucide-react";
-import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -20,132 +20,19 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import {
-	ME_ATTENDANCE_ACTION_ENDPOINT,
-	ME_ATTENDANCE_STATUS_ENDPOINT,
-} from "@/constant/api-endpoints";
-import type {
-	AttendanceAction,
-	AttendanceRecord,
-	AttendanceState,
-	MyAttendanceStatus,
-} from "@/types/attendance";
-
-function formatHMS(totalSecs: number): string {
-	const s = Math.max(0, Math.floor(totalSecs));
-	const h = Math.floor(s / 3600);
-	const m = Math.floor((s % 3600) / 60);
-	const sec = s % 60;
-	return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-}
-
-function computeWorkedSecs(record: AttendanceRecord): number {
-	const start = new Date(record.checkIn).getTime();
-	const end = record.checkOut
-		? new Date(record.checkOut).getTime()
-		: Date.now();
-	const gross = Math.max(0, Math.floor((end - start) / 1000));
-	let pause = record.pauseSecs ?? 0;
-	if (record.pausedAt && !record.checkOut) {
-		pause += Math.floor(
-			(Date.now() - new Date(record.pausedAt).getTime()) / 1000,
-		);
-	}
-	return Math.max(0, gross - pause);
-}
-
-function computePauseSecs(record: AttendanceRecord): number {
-	let pause = record.pauseSecs ?? 0;
-	if (record.pausedAt && !record.checkOut) {
-		pause += Math.floor(
-			(Date.now() - new Date(record.pausedAt).getTime()) / 1000,
-		);
-	}
-	return pause;
-}
+	computePauseSecs,
+	computeWorkedSecs,
+	formatHMS,
+	useAttendance,
+} from "@/context/AttendanceContext";
 
 export default function AttendanceChecker() {
-	const { data: session, status: sessionStatus } = useSession();
-	const token = session?.user?.accessToken;
+	const { state, record, submitting, doAction } = useAttendance();
+	const [collapsed, setCollapsed] = useState(false);
 
-	const [state, setState] = useState<AttendanceState | null>(null);
-	const [record, setRecord] = useState<AttendanceRecord | null>(null);
-	const [loading, setLoading] = useState(false);
-	const [submitting, setSubmitting] = useState(false);
-	const [, setTick] = useState(0);
-	const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-	const fetchStatus = useCallback(async () => {
-		if (!token) return;
-		try {
-			const res = await fetch(ME_ATTENDANCE_STATUS_ENDPOINT, {
-				headers: { Authorization: `Bearer ${token}` },
-			});
-			if (!res.ok) throw new Error(`Error ${res.status}`);
-			const json = (await res.json()) as { data: MyAttendanceStatus };
-			setState(json.data.state);
-			setRecord(json.data.currentRecord);
-		} catch (err) {
-			console.error("Error fetching attendance status:", err);
-		}
-	}, [token]);
-
-	useEffect(() => {
-		if (sessionStatus !== "authenticated") return;
-		fetchStatus();
-	}, [fetchStatus, sessionStatus]);
-
-	// Tick cada segundo mientras haya registro abierto (para timer en vivo)
-	useEffect(() => {
-		if (record && !record.checkOut) {
-			intervalRef.current = setInterval(() => {
-				setTick((t) => t + 1);
-			}, 1000);
-			return () => {
-				if (intervalRef.current) clearInterval(intervalRef.current);
-			};
-		}
-		if (intervalRef.current) clearInterval(intervalRef.current);
-	}, [record]);
-
-	const doAction = useCallback(
-		async (action: AttendanceAction) => {
-			if (!token || submitting) return;
-			setSubmitting(true);
-			try {
-				const res = await fetch(ME_ATTENDANCE_ACTION_ENDPOINT, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${token}`,
-					},
-					body: JSON.stringify({ action }),
-				});
-				const json = await res.json();
-				if (!res.ok) throw new Error(json?.message || `Error ${res.status}`);
-
-				const messages: Record<AttendanceAction, string> = {
-					"check-in": "Entrada registrada",
-					pause: "Pausa iniciada",
-					resume: "Pausa finalizada",
-					"check-out": "Salida registrada",
-				};
-				toast.success(messages[action]);
-				await fetchStatus();
-			} catch (err) {
-				const msg = err instanceof Error ? err.message : "Error";
-				toast.error(msg);
-			} finally {
-				setSubmitting(false);
-			}
-		},
-		[token, submitting, fetchStatus],
-	);
-
-	// No mostramos nada mientras cargamos la sesión o el estado
-	if (sessionStatus !== "authenticated" || state === null) return null;
+	if (state === null) return null;
 	if (state === "NO_EMPLOYMENT" || state === "COMPLETED") return null;
 
-	// Modal bloqueante para check-in pendiente
 	if (state === "NEEDS_CHECK_IN") {
 		return (
 			<Dialog open modal>
@@ -202,7 +89,6 @@ export default function AttendanceChecker() {
 		);
 	}
 
-	// Modal bloqueante en pausa
 	if (state === "PAUSED" && record) {
 		const pauseSecs = computePauseSecs(record);
 		return (
@@ -251,51 +137,94 @@ export default function AttendanceChecker() {
 		);
 	}
 
-	// Widget flotante mientras está trabajando
 	if (state === "WORKING" && record) {
 		const workedSecs = computeWorkedSecs(record);
+
 		return (
-			<div className="fixed bottom-4 right-4 z-40 rounded-lg border border-border bg-card shadow-lg p-3 flex items-center gap-3 min-w-60">
-				<div className="flex items-center gap-2 flex-1">
-					<div className="relative flex h-2.5 w-2.5">
-						<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-						<span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-					</div>
-					<div>
-						<div className="text-xs text-muted-foreground leading-none">
-							Trabajando
-						</div>
-						<div className="text-sm font-semibold tabular-nums">
-							{formatHMS(workedSecs)}
-						</div>
-					</div>
-				</div>
-				<div className="flex items-center gap-1">
-					<Button
-						size="icon"
-						variant="ghost"
-						className="h-8 w-8"
-						title="Pausar"
-						disabled={submitting}
-						onClick={() => doAction("pause")}
-					>
-						<Pause className="h-4 w-4" />
-					</Button>
-					<Button
-						size="icon"
-						variant="ghost"
-						className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-						title="Salir"
-						disabled={submitting}
-						onClick={() => {
-							if (confirm("¿Registrar salida y cerrar el día?")) {
-								doAction("check-out");
-							}
-						}}
-					>
-						<LogOut className="h-4 w-4" />
-					</Button>
-				</div>
+			<div
+				className="fixed z-40"
+				style={{ bottom: "90px", right: "20px" }}
+				data-testid="attendance-floating-widget"
+			>
+				<AnimatePresence mode="wait" initial={false}>
+					{collapsed ? (
+						<motion.button
+							key="collapsed"
+							initial={{ opacity: 0, scale: 0.7 }}
+							animate={{ opacity: 1, scale: 1 }}
+							exit={{ opacity: 0, scale: 0.7 }}
+							whileHover={{ scale: 1.05 }}
+							whileTap={{ scale: 0.95 }}
+							onClick={() => setCollapsed(false)}
+							title={`Trabajando ${formatHMS(workedSecs)}`}
+							className="relative flex items-center justify-center w-14 h-14 rounded-full bg-card border border-border text-foreground shadow-lg hover:bg-accent transition-colors"
+						>
+							<Timer className="h-5 w-5" />
+							<span className="absolute -top-1 -right-1 flex h-3 w-3">
+								<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+								<span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-card" />
+							</span>
+						</motion.button>
+					) : (
+						<motion.div
+							key="expanded"
+							initial={{ opacity: 0, scale: 0.85, y: 10 }}
+							animate={{ opacity: 1, scale: 1, y: 0 }}
+							exit={{ opacity: 0, scale: 0.85, y: 10 }}
+							className="rounded-lg border border-border bg-card shadow-lg p-3 flex items-center gap-3 min-w-60"
+						>
+							<div className="flex items-center gap-2 flex-1">
+								<div className="relative flex h-2.5 w-2.5">
+									<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+									<span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+								</div>
+								<div>
+									<div className="text-xs text-muted-foreground leading-none">
+										Trabajando
+									</div>
+									<div className="text-sm font-semibold tabular-nums">
+										{formatHMS(workedSecs)}
+									</div>
+								</div>
+							</div>
+							<div className="flex items-center gap-1">
+								<Button
+									size="icon"
+									variant="ghost"
+									className="h-8 w-8"
+									title="Pausar"
+									disabled={submitting}
+									onClick={() => doAction("pause")}
+								>
+									<Pause className="h-4 w-4" />
+								</Button>
+								<Button
+									size="icon"
+									variant="ghost"
+									className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+									title="Salir"
+									disabled={submitting}
+									onClick={() => {
+										if (confirm("¿Registrar salida y cerrar el día?")) {
+											doAction("check-out");
+										}
+									}}
+								>
+									<LogOut className="h-4 w-4" />
+								</Button>
+								<Button
+									size="icon"
+									variant="ghost"
+									className="h-8 w-8 text-muted-foreground"
+									title="Minimizar"
+									onClick={() => setCollapsed(true)}
+								>
+									<ChevronDown className="h-4 w-4" />
+								</Button>
+							</div>
+						</motion.div>
+					)}
+				</AnimatePresence>
 			</div>
 		);
 	}

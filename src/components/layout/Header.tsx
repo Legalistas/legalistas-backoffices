@@ -1,11 +1,12 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
+import AttendanceHeaderIndicator from "@/components/attendance/AttendanceHeaderIndicator";
+import NotificationDropdown from "@/components/header/NotificationDropdown";
+import GlobalSearch from "@/components/layout/GlobalSearch";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import NotificationDropdown from "@/components/header/NotificationDropdown";
-import GlobalSearch from "@/components/layout/GlobalSearch";
 import { useTheme } from "@/context/ThemeContext";
 
 export default function Header() {
@@ -22,7 +23,8 @@ export default function Header() {
 				<GlobalSearch />
 			</div>
 
-			<div className="ml-auto flex items-center gap-1">
+			<div className="ml-auto flex items-center gap-2">
+				<AttendanceHeaderIndicator />
 				<Button
 					variant="ghost"
 					size="icon"
