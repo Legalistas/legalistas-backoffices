@@ -24,9 +24,11 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DASHBOARD_LEGAL_STATS_ENDPOINT } from "@/constant/api-endpoints";
 import { SUPERADMIN } from "@/constant/menu";
 import { Role } from "@/constant/user";
+import AccountingDashboard from "./AccountingDashboard";
 import DashboardGreetingHeader from "./DashboardGreetingHeader";
 import { SalesConversion } from "./SalesConversion";
 import { SalesLead } from "./SalesLead";
@@ -115,6 +117,11 @@ function UrgentAlerts() {
 
 // ── Component ──────────────────────────────────────────────────────
 
+const accountingPanelRoles: string[] = [
+	Role.DIRECTORA_AREA_CONTABLE,
+	Role.DIRECTOR_AREA_IT,
+];
+
 export default function DashboardComponent() {
 	const { data: session } = useSession();
 	const userRole = session?.user?.roleDetails?.name;
@@ -126,11 +133,30 @@ export default function DashboardComponent() {
 		return "default";
 	}, [userRole]);
 
-	if (dashboardType === "sales") {
-		return <SalesDashboard />;
+	const baseDashboard =
+		dashboardType === "sales" ? <SalesDashboard /> : <LegalDashboard />;
+
+	const showAccountingTab =
+		userRole !== undefined && accountingPanelRoles.includes(userRole);
+
+	if (showAccountingTab) {
+		return (
+			<Tabs defaultValue="main" className="w-full">
+				<TabsList>
+					<TabsTrigger value="main">Mi Dashboard</TabsTrigger>
+					<TabsTrigger value="accounting">Panel Contable</TabsTrigger>
+				</TabsList>
+				<TabsContent value="main" className="mt-4">
+					{baseDashboard}
+				</TabsContent>
+				<TabsContent value="accounting" className="mt-4">
+					<AccountingDashboard />
+				</TabsContent>
+			</Tabs>
+		);
 	}
 
-	return <LegalDashboard />;
+	return baseDashboard;
 }
 
 // ── Tipos de respuesta API ─────────────────────────────────────────

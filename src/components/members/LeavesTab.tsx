@@ -129,6 +129,14 @@ const statusBadge: Record<
 	},
 };
 
+// Para campos "día calendario" (startDate, endDate) almacenados como medianoche UTC:
+// extraemos YYYY-MM-DD del ISO para evitar el shift por zona horaria.
+const formatDay = (iso: string) => {
+	const [y, m, d] = iso.slice(0, 10).split("-");
+	return `${d}/${m}/${y}`;
+};
+
+// Para timestamps reales (approvedAt, createdAt) sí queremos la zona horaria local.
 const formatDate = (iso: string) =>
 	new Date(iso).toLocaleDateString("es-AR", {
 		day: "2-digit",
@@ -477,7 +485,7 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 										</span>
 									</div>
 									<p className="text-xs text-muted-foreground mt-0.5">
-										{formatDate(l.startDate)} → {formatDate(l.endDate)}
+										{formatDay(l.startDate)} → {formatDay(l.endDate)}
 									</p>
 									{l.reason && (
 										<p className="text-xs text-muted-foreground mt-1 italic">
