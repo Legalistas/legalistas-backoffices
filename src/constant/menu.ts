@@ -9,6 +9,7 @@ import {
   MessageCircle,
   Pencil,
   PieChart,
+  Receipt,
   Scale,
   Settings,
   SquareKanban,
@@ -154,6 +155,12 @@ export const MENU_ITEMS: NavItem[] = [
     icon: Landmark,
     name: "Caja Principal",
     path: "/admin/cashbox",
+    roles: CONTABLE,
+  },
+  {
+    icon: Receipt,
+    name: "Gastos e Ingresos",
+    path: "/admin/accounting",
     roles: CONTABLE,
   },
   {

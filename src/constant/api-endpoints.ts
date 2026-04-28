@@ -325,6 +325,21 @@ export const NOTIFICATIONS_READ_ENDPOINT = (notificationId: number) =>
 export const CASH_ENDPOINT = `${API_BASE_URL}/cash`;
 
 // ============================================================================
+// CONTABLE - Gestor de Gastos e Ingresos (A Cobrar / A Pagar)
+// ============================================================================
+
+export const SCHEDULED_TX_ENDPOINT = `${API_BASE_URL}/accounting/scheduled`;
+export const SCHEDULED_TX_SUMMARY_ENDPOINT = `${API_BASE_URL}/accounting/scheduled/summary`;
+export const SCHEDULED_TX_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/accounting/scheduled/${id}`;
+export const SCHEDULED_TX_MARK_PAID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/accounting/scheduled/${id}/mark-paid`;
+export const SCHEDULED_TX_MARK_PENDING_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/accounting/scheduled/${id}/mark-pending`;
+export const SCHEDULED_TX_CANCEL_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/accounting/scheduled/${id}/cancel`;
+
+// ============================================================================
 // NEGOTIATIONS MODULE - Sistema de Negociaciones
 // ============================================================================
 
