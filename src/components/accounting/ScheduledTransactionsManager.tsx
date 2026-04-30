@@ -27,14 +27,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
-import {
 	SCHEDULED_TX_BY_ID_ENDPOINT,
 	SCHEDULED_TX_CANCEL_ENDPOINT,
 	SCHEDULED_TX_ENDPOINT,
@@ -61,14 +53,6 @@ const formatCurrency = (n: number) =>
 const formatDate = (iso: string) => {
 	const [y, m, d] = iso.slice(0, 10).split("-");
 	return `${d}/${m}/${y}`;
-};
-
-const isOverdue = (iso: string) => {
-	const today = new Date();
-	today.setHours(0, 0, 0, 0);
-	const due = new Date(iso);
-	due.setHours(0, 0, 0, 0);
-	return due < today;
 };
 
 const STATUS_LABEL: Record<ScheduledStatus, string> = {
@@ -364,20 +348,17 @@ export default function ScheduledTransactionsManager() {
 			)}
 
 			{/* A COBRAR */}
-			<Card className="border-emerald-200 dark:border-emerald-900">
-				<CardHeader className="bg-emerald-50 dark:bg-emerald-950/30 rounded-t-xl">
+			<Card className="border-emerald-200 dark:border-emerald-900 overflow-hidden gap-0 py-0">
+				<CardHeader className="bg-emerald-50 dark:bg-emerald-950/30 px-4 py-3">
 					<div className="flex items-center justify-between">
-						<CardTitle className="text-base flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+						<CardTitle className="text-base font-semibold flex items-center text-emerald-800 dark:text-emerald-300">
 							<ArrowUpCircle className="size-5" />
 							A COBRAR
 						</CardTitle>
-						<Badge
-							variant="outline"
-							className="bg-emerald-100 text-emerald-800 border-emerald-300"
-						>
+						<span className="inline-flex items-center rounded-full bg-emerald-100/80 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
 							{incomes.length}{" "}
 							{incomes.length === 1 ? "registro" : "registros"}
-						</Badge>
+						</span>
 					</div>
 				</CardHeader>
 				<CardContent className="p-0">
@@ -427,20 +408,17 @@ export default function ScheduledTransactionsManager() {
 			</Card>
 
 			{/* A PAGAR */}
-			<Card className="border-red-200 dark:border-red-900">
-				<CardHeader className="bg-red-50 dark:bg-red-950/30 rounded-t-xl">
+			<Card className="border-red-200 dark:border-red-900 overflow-hidden gap-0 py-0">
+				<CardHeader className="bg-red-50 dark:bg-red-950/30 px-4 py-3">
 					<div className="flex items-center justify-between">
-						<CardTitle className="text-base flex items-center gap-2 text-red-800 dark:text-red-300">
+						<CardTitle className="text-base font-semibold flex items-center text-red-800 dark:text-red-300">
 							<ArrowDownCircle className="size-5" />
 							A PAGAR
 						</CardTitle>
-						<Badge
-							variant="outline"
-							className="bg-red-100 text-red-800 border-red-300"
-						>
+						<span className="inline-flex items-center rounded-full bg-red-100/80 px-3 py-1 text-xs font-medium text-red-700 dark:bg-red-900/40 dark:text-red-300">
 							{expenses.length}{" "}
 							{expenses.length === 1 ? "registro" : "registros"}
-						</Badge>
+						</span>
 					</div>
 				</CardHeader>
 				<CardContent className="p-0">
@@ -528,7 +506,7 @@ function DataTable({
 
 	if (loading) {
 		return (
-			<div className="p-4 space-y-2">
+			<div className="p-6 space-y-2">
 				{[1, 2, 3].map((i) => (
 					<Skeleton key={i} className="h-10 w-full" />
 				))}
@@ -538,58 +516,59 @@ function DataTable({
 
 	if (items.length === 0) {
 		return (
-			<div className="text-center py-8 text-sm text-muted-foreground">
+			<div className="flex items-center justify-center py-14 text-sm text-muted-foreground">
 				Sin registros en este período
 			</div>
 		);
 	}
 
+	const dateColor = isIncome ? "text-emerald-600" : "text-red-600";
+
 	return (
 		<div className="overflow-x-auto">
-			<Table>
-				<TableHeader>
-					<TableRow>
-						<TableHead className="w-32">FECHA</TableHead>
-						<TableHead>{conceptHeader}</TableHead>
-						<TableHead>DETALLE</TableHead>
-						<TableHead className="text-right w-40">MONTO</TableHead>
-						<TableHead className="w-24 text-center">ESTADO</TableHead>
-						<TableHead className="w-12" />
-					</TableRow>
-				</TableHeader>
-				<TableBody>
-					{items.map((item) => {
-						const overdue =
-							!isIncome &&
-							item.status === "pending" &&
-							isOverdue(item.dueDate);
+			<table className="w-full text-sm">
+				<thead>
+					<tr className="border-b border-border/60 text-[11px] font-semibold tracking-wider text-muted-foreground">
+						<th className="w-32 px-4 py-3 text-left">FECHA</th>
+						<th className="px-4 py-3 text-left">{conceptHeader}</th>
+						<th className="px-4 py-3 text-left">DETALLE</th>
+						<th className="w-40 px-4 py-3 text-right">MONTO</th>
+						<th className="w-28 px-4 py-3 text-center">ESTADO</th>
+						<th className="w-12 px-2 py-3" />
+					</tr>
+				</thead>
+				<tbody>
+					{items.map((item, idx) => {
 						const isCancelled = item.status === "cancelled";
 						const isPaid = item.status === "paid";
+						const isLast = idx === items.length - 1;
 						return (
-							<TableRow
+							<tr
 								key={item.id}
-								className={isCancelled ? "opacity-50" : undefined}
+								className={`${isLast ? "" : "border-b border-border/40"} transition-colors hover:bg-muted/30 ${isCancelled ? "opacity-50" : ""}`}
 							>
-								<TableCell
-									className={`font-mono text-xs ${overdue ? "text-red-600 font-semibold" : ""} ${isPaid ? "line-through" : ""}`}
+								<td
+									className={`px-4 py-3 align-middle font-medium ${dateColor} ${isPaid ? "line-through" : ""}`}
 								>
 									{formatDate(item.dueDate)}
-								</TableCell>
-								<TableCell className={isPaid ? "line-through" : ""}>
+								</td>
+								<td
+									className={`px-4 py-3 align-middle font-medium text-foreground ${isPaid ? "line-through" : ""}`}
+								>
 									{item.concept}
-								</TableCell>
-								<TableCell className="text-muted-foreground text-xs">
+								</td>
+								<td className="px-4 py-3 align-middle text-xs text-muted-foreground uppercase">
 									{item.detail || "—"}
-								</TableCell>
-								<TableCell
-									className={`text-right tabular-nums font-medium ${isPaid ? "line-through" : ""}`}
+								</td>
+								<td
+									className={`px-4 py-3 align-middle text-right tabular-nums font-semibold text-foreground ${isPaid ? "line-through" : ""}`}
 								>
 									{formatCurrency(Number(item.amount || 0))}
-								</TableCell>
-								<TableCell className="text-center">
+								</td>
+								<td className="px-4 py-3 align-middle text-center">
 									<StatusBadge status={item.status} />
-								</TableCell>
-								<TableCell>
+								</td>
+								<td className="px-2 py-3 align-middle">
 									<DropdownMenu>
 										<DropdownMenuTrigger asChild>
 											<Button
@@ -638,12 +617,12 @@ function DataTable({
 											</DropdownMenuItem>
 										</DropdownMenuContent>
 									</DropdownMenu>
-								</TableCell>
-							</TableRow>
+								</td>
+							</tr>
 						);
 					})}
-				</TableBody>
-			</Table>
+				</tbody>
+			</table>
 		</div>
 	);
 }
