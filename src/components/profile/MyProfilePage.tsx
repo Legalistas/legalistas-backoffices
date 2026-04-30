@@ -15,7 +15,10 @@ import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { USERS_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	EMPLOYMENT_BY_USER_ENDPOINT,
+	USERS_ENDPOINT,
+} from "@/constant/api-endpoints";
 import AttendanceTab from "@/components/members/AttendanceTab";
 import ChecklistsTab from "@/components/members/ChecklistsTab";
 import LeavesTab from "@/components/members/LeavesTab";
@@ -84,22 +87,30 @@ export default function MyProfilePage() {
 		if (!token || !userId || status !== "authenticated") return;
 		let cancelled = false;
 		setLoading(true);
-		fetch(`${USERS_ENDPOINT}/${userId}`, {
-			headers: { Authorization: `Bearer ${token}` },
-		})
-			.then((res) => (res.ok ? res.json() : null))
-			.then((json) => {
-				if (cancelled || !json) return;
-				const u = json.data || json.user || json;
+
+		const headers = { Authorization: `Bearer ${token}` };
+
+		Promise.all([
+			fetch(`${USERS_ENDPOINT}/${userId}`, { headers }).then((res) =>
+				res.ok ? res.json() : null,
+			),
+			fetch(EMPLOYMENT_BY_USER_ENDPOINT(userId), { headers })
+				.then((res) => (res.ok ? res.json() : null))
+				.catch(() => null),
+		])
+			.then(([userJson, empJson]) => {
+				if (cancelled || !userJson) return;
+				const u = userJson.data || userJson.user || userJson;
 				if (!u?.id) return;
 				const role = u.roleUser?.[0]?.role;
+				const emp = empJson?.data?.employment ?? u.employment ?? null;
 				setUser({
 					id: u.id,
 					name: u.name || "",
 					email: u.email || null,
 					image: u.image || null,
 					roleDisplayName: role?.displayName || null,
-					employment: u.employment || null,
+					employment: emp,
 				});
 			})
 			.catch(() => setUser(null))
