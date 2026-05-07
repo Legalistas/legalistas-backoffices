@@ -19,9 +19,7 @@ import { toast } from "sonner";
 import ClosingFilters, {
 	type ClosingFiltersState,
 } from "@/components/closing-manager/ClosingFilters";
-import ClosingManagerTable, {
-	ALL_CLOSING_COLUMNS,
-} from "@/components/closing-manager/closing-manager-table";
+import ClosingManagerTable from "@/components/closing-manager/closing-manager-table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -85,9 +83,18 @@ export default function ClosingManagerPage() {
 		feeStatus: "",
 		pclStatus: "",
 		responsibleLawyerId: "",
+		internalLawyerId: "",
 	});
 	const [visibleColumns, setVisibleColumns] = useState<string[]>([
-		...ALL_CLOSING_COLUMNS,
+		"case",
+		"lawyer",
+		"internalLawyer",
+		"type",
+		"capitalAmount",
+		"hpTotal",
+		"pclTotal",
+		"capitalState",
+		"montoTransferir",
 	]);
 
 	// =========================================================================
@@ -113,6 +120,8 @@ export default function ClosingManagerPage() {
 				if (filters.pclStatus) params.pclStatus = filters.pclStatus;
 				if (filters.responsibleLawyerId)
 					params.responsibleLawyerId = filters.responsibleLawyerId;
+				if (filters.internalLawyerId)
+					params.internalLawyerId = filters.internalLawyerId;
 
 				const url = buildFilteredUrl(CLOSINGS_ENDPOINT, permissions, params);
 				const response = await fetch(url, {

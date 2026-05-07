@@ -39,32 +39,39 @@ import ViewClosingModal from "./ViewClosingModal";
 // Definición de columnas v2 — 21 columnas (sin intimation ni sepblac)
 // =============================================================================
 const COLUMNS = [
-	{ id: "date", label: "Fecha", align: "left" },
-	{ id: "case", label: "Causa", align: "left" },
-	{ id: "lawyer", label: "Representante", align: "left" },
-	{ id: "type", label: "Tipo de Cierre", align: "left" },
-	{ id: "capitalAmount", label: "Capital ($)", align: "right" },
-	{ id: "capitalState", label: "Estado Capital", align: "left" },
-	{ id: "hpAgreed", label: "HP Convenido (%)", align: "right" },
-	{ id: "hpTotal", label: "HP Total ($)", align: "right" },
-	{ id: "hpRepresentante", label: "HP Representante ($)", align: "right" },
-	{ id: "hpLegalistas", label: "HP Legalistas ($)", align: "right" },
-	{ id: "feeStatus", label: "Estado Honorarios", align: "left" },
-	{ id: "pclAgreed", label: "PCL Convenido (%)", align: "right" },
-	{ id: "pclTotal", label: "PCL Total ($)", align: "right" },
-	{ id: "pclRepresentante", label: "PCL Representante ($)", align: "right" },
-	{ id: "pclLegalistas", label: "PCL Legalistas ($)", align: "right" },
-	{ id: "pclStatus", label: "Estado PCL", align: "left" },
-	{ id: "contributionsAmount", label: "Aportes Totales ($)", align: "right" },
+	{ id: "date", label: "Fecha", align: "left", width: "w-[8%]" },
+	{ id: "case", label: "Causa", align: "left", width: "w-[14%]" },
+	{ id: "lawyer", label: "Representante", align: "left", width: "w-[11%]" },
+	{
+		id: "internalLawyer",
+		label: "Abogado Interno",
+		align: "left",
+		width: "w-[11%]",
+	},
+	{ id: "type", label: "Tipo de Cierre", align: "left", width: "w-[10%]" },
+	{ id: "capitalAmount", label: "Capital ($)", align: "right", width: "w-[9%]" },
+	{ id: "capitalState", label: "Estado Capital", align: "left", width: "w-[12%]" },
+	{ id: "hpAgreed", label: "HP Convenido (%)", align: "right", width: "" },
+	{ id: "hpTotal", label: "HP Total ($)", align: "right", width: "w-[8%]" },
+	{ id: "hpRepresentante", label: "HP Representante ($)", align: "right", width: "" },
+	{ id: "hpLegalistas", label: "HP Legalistas ($)", align: "right", width: "" },
+	{ id: "feeStatus", label: "Estado Honorarios", align: "left", width: "" },
+	{ id: "pclAgreed", label: "PCL Convenido (%)", align: "right", width: "" },
+	{ id: "pclTotal", label: "PCL Total ($)", align: "right", width: "w-[8%]" },
+	{ id: "pclRepresentante", label: "PCL Representante ($)", align: "right", width: "" },
+	{ id: "pclLegalistas", label: "PCL Legalistas ($)", align: "right", width: "" },
+	{ id: "pclStatus", label: "Estado PCL", align: "left", width: "" },
+	{ id: "contributionsAmount", label: "Aportes Totales ($)", align: "right", width: "" },
 	{
 		id: "aportesRepresentante",
 		label: "Aportes Representante ($)",
 		align: "right",
+		width: "",
 	},
-	{ id: "aportesLegalistas", label: "Aportes Legalistas ($)", align: "right" },
-	{ id: "montoTransferir", label: "Monto a Transferir ($)", align: "right" },
-	{ id: "totalCaseExpenses", label: "Gastos Causa ($)", align: "right" },
-	{ id: "detail", label: "Detalle", align: "left" },
+	{ id: "aportesLegalistas", label: "Aportes Legalistas ($)", align: "right", width: "" },
+	{ id: "montoTransferir", label: "Monto a Transferir ($)", align: "right", width: "w-[10%]" },
+	{ id: "totalCaseExpenses", label: "Gastos Causa ($)", align: "right", width: "" },
+	{ id: "detail", label: "Detalle", align: "left", width: "" },
 ] as const;
 
 // Columna montoTransferir siempre visible (no se puede ocultar)
@@ -139,30 +146,6 @@ export default function ClosingManagerTable({
 		return ALWAYS_VISIBLE.includes(columnId) || visibleColumns.includes(columnId);
 	};
 
-	const STICKY_COLS: Record<string, { left: string; width: string }> = {
-		date: { left: "left-0", width: "w-[110px] min-w-[110px]" },
-		case: { left: "left-[110px]", width: "w-[230px] min-w-[230px]" },
-	};
-
-	const getStickyHeaderClass = (columnId: string) => {
-		const col = STICKY_COLS[columnId];
-		if (!col) return "";
-		return cn(
-			"sticky z-20 bg-gray-50 dark:bg-gray-800",
-			col.left,
-			col.width,
-		);
-	};
-
-	const getStickyBodyClass = (columnId: string) => {
-		const col = STICKY_COLS[columnId];
-		if (!col) return "";
-		return cn(
-			"sticky z-10 bg-white dark:bg-gray-900 group-hover:bg-gray-50 dark:group-hover:bg-white/[0.07]",
-			col.left,
-			col.width,
-		);
-	};
 
 	// =========================================================================
 	// Formatters
@@ -253,8 +236,8 @@ export default function ClosingManagerTable({
 	// Render helpers
 	// =========================================================================
 	const headerCellClass =
-		"px-4 py-3 text-sm font-semibold text-gray-700 dark:text-gray-400 whitespace-nowrap";
-	const cellClass = "px-4 py-3 text-sm text-gray-700 dark:text-gray-300";
+		"px-3 py-3 text-sm font-semibold text-gray-700 dark:text-gray-400";
+	const cellClass = "px-3 py-3 text-sm text-gray-700 dark:text-gray-300 truncate";
 
 	const renderCellContent = (
 		closing: ClosingManagerEntry,
@@ -267,22 +250,39 @@ export default function ClosingManagerTable({
 			case "case":
 				return (
 					<span
-						className="max-w-[200px] truncate block"
+						className="block truncate"
 						title={closing.case.title}
 					>
 						{closing.case.title}
 					</span>
 				);
 
-			case "lawyer":
-				return <span>{closing.case?.responsibleLawyer?.name || "-"}</span>;
+			case "lawyer": {
+				const name = closing.case?.responsibleLawyer?.name || "-";
+				return (
+					<span className="block truncate" title={name}>
+						{name}
+					</span>
+				);
+			}
+
+			case "internalLawyer": {
+				const name = closing.case?.internalLawyer?.name || "-";
+				return (
+					<span className="block truncate" title={name}>
+						{name}
+					</span>
+				);
+			}
 
 			case "type":
 				return (
 					<Badge
 						className={cn(
+							"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
 							closingTypeColors[closing.type] || "bg-gray-200 text-gray-800",
 						)}
+						title={closingType[closing.type] || closing.type}
 					>
 						{closingType[closing.type] || closing.type}
 					</Badge>
@@ -295,14 +295,20 @@ export default function ClosingManagerTable({
 					</span>
 				);
 
-			case "capitalState":
+			case "capitalState": {
+				const label = statusCapital[closing.capitalState] || "-";
 				return (
 					<Badge
-						className={cn(statusCapitalColor[closing.capitalState] || "")}
+						className={cn(
+							"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
+							statusCapitalColor[closing.capitalState] || "",
+						)}
+						title={label}
 					>
-						{statusCapital[closing.capitalState] || "-"}
+						{label}
 					</Badge>
 				);
+			}
 
 			case "hpAgreed":
 				return (
@@ -332,14 +338,20 @@ export default function ClosingManagerTable({
 					</span>
 				);
 
-			case "feeStatus":
+			case "feeStatus": {
+				const label = statusData[closing.feeStatus] || "-";
 				return (
 					<Badge
-						className={cn(statusColors[closing.feeStatus] || "")}
+						className={cn(
+							"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
+							statusColors[closing.feeStatus] || "",
+						)}
+						title={label}
 					>
-						{statusData[closing.feeStatus] || "-"}
+						{label}
 					</Badge>
 				);
+			}
 
 			case "pclAgreed":
 				return (
@@ -371,16 +383,21 @@ export default function ClosingManagerTable({
 					</span>
 				);
 
-			case "pclStatus":
-				return closing.pclStatus ? (
+			case "pclStatus": {
+				if (!closing.pclStatus) return <span>-</span>;
+				const label = statusData[closing.pclStatus] || "-";
+				return (
 					<Badge
-						className={cn(statusColors[closing.pclStatus] || "")}
+						className={cn(
+							"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
+							statusColors[closing.pclStatus] || "",
+						)}
+						title={label}
 					>
-						{statusData[closing.pclStatus] || "-"}
+						{label}
 					</Badge>
-				) : (
-					<span>-</span>
 				);
+			}
 
 			case "contributionsAmount":
 				return (
@@ -492,8 +509,8 @@ export default function ClosingManagerTable({
 	// =========================================================================
 	return (
 		<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-			<div className="w-full overflow-x-auto">
-				<Table className="w-full min-w-[2800px]">
+			<div className="w-full">
+				<Table className="w-full table-fixed">
 					<TableHeader className="bg-gray-50 dark:bg-white/5">
 						<TableRow>
 							{COLUMNS.map((col) =>
@@ -503,9 +520,9 @@ export default function ClosingManagerTable({
 										className={cn(
 											headerCellClass,
 											col.align === "right" ? "text-right" : "text-left",
+											col.width,
 											col.id === "montoTransferir" &&
 												"bg-primary/5 text-primary",
-											getStickyHeaderClass(col.id),
 										)}
 									>
 										{col.label}
@@ -513,7 +530,7 @@ export default function ClosingManagerTable({
 								) : null,
 							)}
 							<TableCell
-								className={cn(headerCellClass, "text-right")}
+								className={cn(headerCellClass, "text-right w-[9%]")}
 							>
 								Acción
 							</TableCell>
@@ -533,7 +550,6 @@ export default function ClosingManagerTable({
 														(closing.montoTransferir < 0
 															? "bg-red-50 dark:bg-red-900/20"
 															: "bg-primary/5 dark:bg-primary/10"),
-													getStickyBodyClass(col.id),
 												)}
 											>
 												{renderCellContent(closing, col.id)}

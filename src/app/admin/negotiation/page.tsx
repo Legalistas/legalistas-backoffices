@@ -15,14 +15,24 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ColumnSelector } from "@/components/negotiations/ColumnSelector";
 import type { ColumnConfig } from "@/components/negotiations/ColumnSelector";
+import {
+	NegotiationFilters,
+	EMPTY_FILTERS,
+	type FilterState,
+} from "@/components/negotiations/NegotiationFilters";
 import { NegotiationsTable } from "@/components/negotiations/NegotiationsTable";
-import { NegotiationTabs } from "@/components/negotiations/NegotiationTabs";
 import { RoleIndicator } from "@/components/negotiations/RoleIndicator";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NEGOTIATIONS_COUNT_ENDPOINT } from "@/constant/api-endpoints";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
-import type { ViewMode } from "@/types/negotiations";
+
+const EMPTY_UNIQUE_VALUES = {
+	abogadosRepresentantes: [] as string[],
+	abogadosInternos: [] as string[],
+	abogadosContraparte: [] as string[],
+	lesiones: [] as string[],
+};
 
 export default function NegotiationPage() {
 	const { data: session, status } = useSession();
@@ -34,7 +44,6 @@ export default function NegotiationPage() {
 			return id ? parseInt(id, 10) : null;
 		},
 	);
-	const [viewMode, setViewMode] = useState<ViewMode>("curso");
 	const [counts, setCounts] = useState({
 		iniciar: 0,
 		curso: 0,
@@ -44,17 +53,21 @@ export default function NegotiationPage() {
 	});
 	const [columnConfig, setColumnConfig] = useState<ColumnConfig[]>([]);
 
+	const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
+	const [uniqueValues, setUniqueValues] = useState(EMPTY_UNIQUE_VALUES);
+	const [results, setResults] = useState({ total: 0, filtered: 0 });
+
 	const initialColumnConfig = useMemo(
 		() => [
 			{ id: "causa", label: "Causa", visible: true, required: true },
 			{ id: "abogadoRepresentante", label: "Abogado Representante", visible: true },
-			{ id: "abogadoInterno", label: "Abogado Interno", visible: true },
+			{ id: "abogadoInterno", label: "Abogado Interno", visible: false },
 			{ id: "abogadoContraparte", label: "Abogado Contraparte", visible: true },
-			{ id: "lesion", label: "Lesión", visible: true },
-			{ id: "servicio", label: "Servicio", visible: true },
-			{ id: "incLegalistas", label: "% Legalistas", visible: true },
+			{ id: "lesion", label: "Lesión", visible: false },
+			{ id: "servicio", label: "Servicio", visible: false },
+			{ id: "incLegalistas", label: "% Legalistas", visible: false },
 			{ id: "deArt", label: "% PMO", visible: true },
-			{ id: "liquidacion100", label: "Liquidación 100%", visible: true },
+			{ id: "liquidacion100", label: "Liquidación 100%", visible: false },
 			{ id: "liquidacion80", label: "Liquidación 80%", visible: true },
 			{ id: "ultimaOferta", label: "Última Oferta", visible: true },
 		],
@@ -101,6 +114,47 @@ export default function NegotiationPage() {
 	const handleColumnChange = useCallback((newColumns: ColumnConfig[]) => {
 		setColumnConfig(newColumns);
 	}, []);
+
+	const handleClearFilters = useCallback(() => {
+		setFilters(EMPTY_FILTERS);
+	}, []);
+
+	const handleUniqueValuesChange = useCallback(
+		(values: typeof EMPTY_UNIQUE_VALUES) => {
+			setUniqueValues((prev) => {
+				const same =
+					prev.abogadosRepresentantes.length ===
+						values.abogadosRepresentantes.length &&
+					prev.abogadosInternos.length === values.abogadosInternos.length &&
+					prev.abogadosContraparte.length ===
+						values.abogadosContraparte.length &&
+					prev.lesiones.length === values.lesiones.length &&
+					prev.abogadosRepresentantes.every(
+						(v, i) => v === values.abogadosRepresentantes[i],
+					) &&
+					prev.abogadosInternos.every(
+						(v, i) => v === values.abogadosInternos[i],
+					) &&
+					prev.abogadosContraparte.every(
+						(v, i) => v === values.abogadosContraparte[i],
+					) &&
+					prev.lesiones.every((v, i) => v === values.lesiones[i]);
+				return same ? prev : values;
+			});
+		},
+		[],
+	);
+
+	const handleResultsChange = useCallback(
+		(next: { total: number; filtered: number }) => {
+			setResults((prev) =>
+				prev.total === next.total && prev.filtered === next.filtered
+					? prev
+					: next,
+			);
+		},
+		[],
+	);
 
 	const totalActivas = counts.iniciar + counts.curso + counts.suspenso;
 	const totalNegociaciones = totalActivas + counts.finalizadas + counts.perdidas;
@@ -173,12 +227,7 @@ export default function NegotiationPage() {
 						<Skeleton key={i} className="h-24 rounded-xl" />
 					))}
 				</div>
-				<div className="flex gap-2 border-b border-border pb-2">
-					{Array.from({ length: 5 }).map((_, i) => (
-						<Skeleton key={i} className="h-9 w-28" />
-					))}
-				</div>
-				<Skeleton className="h-10 w-full" />
+				<Skeleton className="h-24 w-full rounded-lg" />
 				<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
 					<div className="bg-gray-50 dark:bg-white/5 px-4 py-3 flex gap-4">
 						{Array.from({ length: 8 }).map((_, i) => (
@@ -227,7 +276,7 @@ export default function NegotiationPage() {
 						<ColumnSelector
 							columns={columnConfig}
 							onColumnsChange={handleColumnChange}
-							storageKey="negotiations-columns"
+							storageKey="negotiations-columns-v2"
 						/>
 					)}
 					{/* Exportar */}
@@ -282,21 +331,26 @@ export default function NegotiationPage() {
 				))}
 			</div>
 
-			{/* Tabs */}
-			<NegotiationTabs
-				viewMode={viewMode}
-				onViewModeChange={setViewMode}
-				counts={counts}
+			{/* Filtros globales */}
+			<NegotiationFilters
+				filters={filters}
+				onFiltersChange={setFilters}
+				onClearFilters={handleClearFilters}
+				totalResults={results.total}
+				filteredResults={results.filtered}
+				uniqueValues={uniqueValues}
 			/>
 
 			{/* Table */}
 			<NegotiationsTable
-				viewMode={viewMode}
 				columnConfig={columnConfig}
 				onColumnChange={handleColumnChange}
 				onDataChange={fetchCounts}
 				openNegotiationId={openNegotiationId}
 				onOpenNegotiationHandled={() => setOpenNegotiationId(null)}
+				filters={filters}
+				onUniqueValuesChange={handleUniqueValuesChange}
+				onResultsChange={handleResultsChange}
 			/>
 		</div>
 	);

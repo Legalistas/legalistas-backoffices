@@ -35,20 +35,22 @@ import {
 } from "@/constant/api-endpoints";
 import { useConfirm } from "@/hooks/useConfirm";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
-import { cn } from "@/lib/utils";
 import type {
 	Negotiation,
 	NegotiationStatus,
-	ViewMode,
 } from "@/types/negotiations";
 import { servicesType } from "@/lib/constant";
 import type { ColumnConfig } from "./ColumnSelector";
 import EditNegotiation from "./EditNegotiation";
-import { NegotiationFilters } from "./NegotiationFilters";
+import type { FilterState } from "./NegotiationFilters";
 
-// ============================================================================
-// Map ViewMode → NegotiationStatus
-// ============================================================================
+interface UniqueValues {
+	abogadosRepresentantes: string[];
+	abogadosInternos: string[];
+	abogadosContraparte: string[];
+	lesiones: string[];
+}
+
 const VALID_TRANSITIONS: Record<
 	NegotiationStatus,
 	{ value: NegotiationStatus; label: string }[]
@@ -78,14 +80,6 @@ const STATUS_BADGE_STYLES: Record<NegotiationStatus, string> = {
 	PERDIDAS: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
 };
 
-const VIEW_TO_STATUS: Record<ViewMode, NegotiationStatus> = {
-	iniciar: "INICIAR",
-	curso: "CURSO",
-	suspenso: "SUSPENSO",
-	finalizadas: "FINALIZADAS",
-	perdidas: "PERDIDAS",
-};
-
 const STATUS_LABELS: Record<NegotiationStatus, string> = {
 	INICIAR: "Iniciar",
 	CURSO: "En Curso",
@@ -94,45 +88,32 @@ const STATUS_LABELS: Record<NegotiationStatus, string> = {
 	PERDIDAS: "Perdida",
 };
 
-interface FilterState {
-	searchTerm: string;
-	abogadoInterno: string;
-	abogadoContraparte: string;
-	lesion: string;
-	estado: string;
-	rangoMonto: { min: string; max: string };
-}
-
 interface NegotiationsTableProps {
-	viewMode: ViewMode;
 	columnConfig: ColumnConfig[];
 	onColumnChange: (columns: ColumnConfig[]) => void;
 	onDataChange?: () => void;
 	/** Auto-open offers dialog for this negotiation ID (from global search) */
 	openNegotiationId?: number | null;
 	onOpenNegotiationHandled?: () => void;
+	filters: FilterState;
+	onUniqueValuesChange?: (values: UniqueValues) => void;
+	onResultsChange?: (totals: { total: number; filtered: number }) => void;
 }
 
 export function NegotiationsTable({
-	viewMode,
 	columnConfig,
 	onColumnChange,
 	onDataChange,
 	openNegotiationId,
 	onOpenNegotiationHandled,
+	filters,
+	onUniqueValuesChange,
+	onResultsChange,
 }: NegotiationsTableProps) {
 	const { data: session } = useSession();
 	const { confirm, ConfirmationDialog } = useConfirm();
 	const permissions = useRolePermissions();
 	const [negotiations, setNegotiations] = useState<Negotiation[]>([]);
-	const [filters, setFilters] = useState<FilterState>({
-		searchTerm: "",
-		abogadoInterno: "",
-		abogadoContraparte: "",
-		lesion: "",
-		estado: "",
-		rangoMonto: { min: "", max: "" },
-	});
 	const [sortConfig, setSortConfig] = useState<{
 		key: string;
 		direction: "asc" | "desc";
@@ -164,7 +145,9 @@ export function NegotiationsTable({
 
 		try {
 			const params = new URLSearchParams();
-			params.append("status", VIEW_TO_STATUS[viewMode]);
+			if (filters.estado) {
+				params.append("status", filters.estado);
+			}
 			params.append("limit", "5000");
 
 			if (isLawyer && userId) {
@@ -233,7 +216,7 @@ export function NegotiationsTable({
 		} finally {
 			setIsLoading(false);
 		}
-	}, [session?.user?.accessToken, viewMode, isLawyer, userId]);
+	}, [session?.user?.accessToken, filters.estado, isLawyer, userId]);
 
 	useEffect(() => {
 		fetchNegotiations();
@@ -254,6 +237,13 @@ export function NegotiationsTable({
 	// ─── Filters & sort ───
 	const filteredNegotiations = useMemo(() => {
 		const filtered = negotiations.filter((neg) => {
+			if (
+				neg.status === "FINALIZADAS" &&
+				!filters.showFinalizadas &&
+				filters.estado !== "FINALIZADAS"
+			) {
+				return false;
+			}
 			if (filters.searchTerm) {
 				const s = filters.searchTerm.toLowerCase();
 				const fields = [
@@ -266,6 +256,11 @@ export function NegotiationsTable({
 				if (!fields.some((f) => (f || "").toLowerCase().includes(s)))
 					return false;
 			}
+			if (
+				filters.abogadoRepresentante &&
+				neg.case.responsibleLawyer?.name !== filters.abogadoRepresentante
+			)
+				return false;
 			if (
 				filters.abogadoInterno &&
 				neg.case.internalLawyer?.name !== filters.abogadoInterno
@@ -354,8 +349,15 @@ export function NegotiationsTable({
 		return filtered;
 	}, [negotiations, filters, sortConfig]);
 
-	const uniqueValues = useMemo(
+	const uniqueValues = useMemo<UniqueValues>(
 		() => ({
+			abogadosRepresentantes: [
+				...new Set(
+					negotiations
+						.map((n) => n.case.responsibleLawyer?.name)
+						.filter(Boolean),
+				),
+			] as string[],
 			abogadosInternos: [
 				...new Set(
 					negotiations.map((n) => n.case.internalLawyer?.name).filter(Boolean),
@@ -372,6 +374,17 @@ export function NegotiationsTable({
 		}),
 		[negotiations],
 	);
+
+	useEffect(() => {
+		onUniqueValuesChange?.(uniqueValues);
+	}, [uniqueValues, onUniqueValuesChange]);
+
+	useEffect(() => {
+		onResultsChange?.({
+			total: negotiations.length,
+			filtered: filteredNegotiations.length,
+		});
+	}, [negotiations.length, filteredNegotiations.length, onResultsChange]);
 
 	// ─── Helpers ───
 	const formatCurrency = (value: number | null) => {
@@ -708,13 +721,7 @@ export function NegotiationsTable({
 	// ─── Column header helper ───
 	const ColHeader = ({ id, label }: { id: string; label: string }) =>
 		isColumnVisible(id) ? (
-			<TableCell
-				className={cn(
-					"px-4 py-3 text-left text-sm font-semibold",
-					id === "causa" &&
-						"sticky left-0 z-20 bg-gray-50 dark:bg-gray-800 w-[260px] min-w-[260px]",
-				)}
-			>
+			<TableCell className="px-4 py-3 text-left text-sm font-semibold">
 				<button
 					onClick={() => handleSort(id)}
 					className="flex items-center gap-2 hover:text-primary transition-colors"
@@ -727,23 +734,6 @@ export function NegotiationsTable({
 
 	return (
 		<>
-			<NegotiationFilters
-				onFiltersChange={setFilters}
-				onClearFilters={() =>
-					setFilters({
-						searchTerm: "",
-						abogadoInterno: "",
-						abogadoContraparte: "",
-						lesion: "",
-						estado: "",
-						rangoMonto: { min: "", max: "" },
-					})
-				}
-				totalResults={negotiations.length}
-				filteredResults={filteredNegotiations.length}
-				uniqueValues={uniqueValues}
-			/>
-
 			{isLoading ? (
 				<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
 					<div className="bg-gray-50 dark:bg-white/5 px-4 py-3 flex gap-4">
@@ -777,15 +767,16 @@ export function NegotiationsTable({
 						No hay negociaciones
 					</h3>
 					<p className="mt-1 text-sm text-muted-foreground">
-						No hay negociaciones en estado &quot;
-						{STATUS_LABELS[VIEW_TO_STATUS[viewMode]]}&quot;
+						{filters.estado
+							? `No hay negociaciones en estado "${STATUS_LABELS[filters.estado as NegotiationStatus]}"`
+							: "No hay negociaciones que coincidan con los filtros"}
 					</p>
 				</div>
 			) : (
 
 			<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-				<div className="w-full overflow-x-auto">
-					<Table className="w-full">
+				<div className="w-full">
+					<Table className="w-full table-fixed">
 						<TableHeader>
 							<TableRow className="bg-gray-50 dark:bg-white/5">
 								<ColHeader id="causa" label="Causa" />
@@ -816,11 +807,13 @@ export function NegotiationsTable({
 							{filteredNegotiations.map((neg) => (
 								<TableRow key={neg.id} className="group hover:bg-muted/50">
 									{isColumnVisible("causa") && (
-										<TableCell className="sticky left-0 z-10 bg-white dark:bg-gray-900 group-hover:bg-muted/50 w-[260px] min-w-[260px] px-4 py-3 text-sm font-medium">
-											<div className="flex items-center gap-2">
-												<span>{neg.case.title || `Causa #${neg.caseId}`}</span>
+										<TableCell className="px-4 py-3 text-sm font-medium">
+											<div className="flex items-center gap-2 min-w-0">
+												<span className="truncate">
+													{neg.case.title || `Causa #${neg.caseId}`}
+												</span>
 												<span
-													className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE_STYLES[neg.status]}`}
+													className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE_STYLES[neg.status]}`}
 												>
 													{STATUS_LABELS[neg.status]}
 												</span>
