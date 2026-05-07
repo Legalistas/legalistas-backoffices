@@ -37,6 +37,13 @@ const RESPONSIBLE_LAWYER_ROLES = [
 	Role.ABOGADO_REPRESENTANTE,
 ] as string[];
 
+const INTERNAL_LAWYER_ROLES = [
+	Role.DIRECTORA_AREA_LEGAL,
+	Role.COORDINADOR_LEGAL,
+	Role.ASISTENTE_LEGAL,
+	Role.REFERENTES,
+] as string[];
+
 export interface ClosingFiltersState {
 	search: string;
 	type: string;
@@ -44,6 +51,7 @@ export interface ClosingFiltersState {
 	feeStatus: string;
 	pclStatus: string;
 	responsibleLawyerId: string;
+	internalLawyerId: string;
 }
 
 interface ClosingFiltersProps {
@@ -63,6 +71,7 @@ const columnLabels: Record<string, string> = {
 	date: "Fecha",
 	case: "Causa",
 	lawyer: "Representante",
+	internalLawyer: "Abogado Interno",
 	type: "Tipo de Cierre",
 	capitalAmount: "Capital ($)",
 	capitalState: "Estado Capital",
@@ -105,6 +114,9 @@ export default function ClosingFilters({
 	const [showColumnsMenu, setShowColumnsMenu] = useState(false);
 	const [showAdvanced, setShowAdvanced] = useState(false);
 	const [lawyers, setLawyers] = useState<{ id: number; name: string }[]>([]);
+	const [internalLawyers, setInternalLawyers] = useState<
+		{ id: number; name: string }[]
+	>([]);
 	const [lawyerSearch, setLawyerSearch] = useState("");
 	const [showLawyerDropdown, setShowLawyerDropdown] = useState(false);
 	const lawyerDropdownRef = useRef<HTMLDivElement>(null);
@@ -120,17 +132,19 @@ export default function ClosingFilters({
 				if (response.ok) {
 					const data = await response.json();
 					const list = Array.isArray(data) ? data : data.data || [];
-					const representatives = list
-						.filter((u: any) =>
-							u?.roleUser?.some((ru: any) =>
-								RESPONSIBLE_LAWYER_ROLES.includes(ru?.role?.name),
-							),
-						)
-						.map((u: any) => ({ id: u.id, name: u.name ?? "" }))
-						.sort((a: { name: string }, b: { name: string }) =>
-							a.name.localeCompare(b.name),
-						);
-					setLawyers(representatives);
+					const byRoles = (allowed: string[]) =>
+						list
+							.filter((u: any) =>
+								u?.roleUser?.some((ru: any) =>
+									allowed.includes(ru?.role?.name),
+								),
+							)
+							.map((u: any) => ({ id: u.id, name: u.name ?? "" }))
+							.sort((a: { name: string }, b: { name: string }) =>
+								a.name.localeCompare(b.name),
+							);
+					setLawyers(byRoles(RESPONSIBLE_LAWYER_ROLES));
+					setInternalLawyers(byRoles(INTERNAL_LAWYER_ROLES));
 				}
 			} catch {
 				// silent
@@ -175,6 +189,7 @@ export default function ClosingFilters({
 			feeStatus: "",
 			pclStatus: "",
 			responsibleLawyerId: "",
+			internalLawyerId: "",
 		});
 	};
 
@@ -184,13 +199,15 @@ export default function ClosingFilters({
 		filters.capitalState ||
 		filters.feeStatus ||
 		filters.pclStatus ||
-		filters.responsibleLawyerId;
+		filters.responsibleLawyerId ||
+		filters.internalLawyerId;
 	const activeFilterCount = [
 		filters.type,
 		filters.capitalState,
 		filters.feeStatus,
 		filters.pclStatus,
 		filters.responsibleLawyerId,
+		filters.internalLawyerId,
 	].filter(Boolean).length;
 
 	const toggleColumn = (columnId: string) => {
@@ -288,6 +305,64 @@ export default function ClosingFilters({
 							className="w-full h-9 pl-9 pr-3 rounded-lg border border-gray-200 bg-gray-50 dark:bg-white/5 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:bg-white dark:focus:bg-white/5 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-colors"
 						/>
 					</div>
+
+					{/* Tipo de Cierre — siempre visible */}
+					<Select
+						value={filters.type || "all"}
+						onValueChange={(value) =>
+							onFiltersChange({ ...filters, type: value === "all" ? "" : value })
+						}
+					>
+						<SelectTrigger className="h-9 w-44 bg-gray-50 dark:bg-white/5 text-sm">
+							<SelectValue placeholder="Tipo de Cierre" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">Todos los tipos</SelectItem>
+							<SelectItem value="SRT">{closingType.SRT}</SelectItem>
+							<SelectItem value="JUDICIAL">{closingType.JUDICIAL}</SelectItem>
+							<SelectItem value="EXTRAJUDICIAL">
+								{closingType.EXTRAJUDICIAL}
+							</SelectItem>
+							<SelectItem value="DIRECTO">{closingType.DIRECTO}</SelectItem>
+							<SelectItem value="OTROS">{closingType.OTROS}</SelectItem>
+						</SelectContent>
+					</Select>
+
+					{/* Estado Capital — siempre visible (crítico) */}
+					<Select
+						value={filters.capitalState || "all"}
+						onValueChange={(value) =>
+							onFiltersChange({
+								...filters,
+								capitalState: value === "all" ? "" : value,
+							})
+						}
+					>
+						<SelectTrigger className="h-9 w-52 bg-gray-50 dark:bg-white/5 text-sm">
+							<SelectValue placeholder="Estado Capital" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">Todos los estados</SelectItem>
+							<SelectItem value="AGREEMENT_IN_MANAGEMENT">
+								{statusCapital.AGREEMENT_IN_MANAGEMENT}
+							</SelectItem>
+							<SelectItem value="AGREEMENT_PRESENTED">
+								{statusCapital.AGREEMENT_PRESENTED}
+							</SelectItem>
+							<SelectItem value="AWAITING_DEADLINE">
+								{statusCapital.AWAITING_DEADLINE}
+							</SelectItem>
+							<SelectItem value="REQUESTED_OP">
+								{statusCapital.REQUESTED_OP}
+							</SelectItem>
+							<SelectItem value="TRANSFER_REQUESTED">
+								{statusCapital.TRANSFER_REQUESTED}
+							</SelectItem>
+							<SelectItem value="K_RECEIVED_BY_ACTOR">
+								{statusCapital.K_RECEIVED_BY_ACTOR}
+							</SelectItem>
+						</SelectContent>
+					</Select>
 
 					{/* Filtros avanzados toggle */}
 					<button
@@ -393,7 +468,7 @@ export default function ClosingFilters({
 				{/* Filtros avanzados — expandible */}
 				{showAdvanced && (
 					<div className="px-3 pb-3 pt-0">
-						<div className="grid grid-cols-5 gap-3 p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-100 dark:border-gray-800">
+						<div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-3 bg-gray-50 dark:bg-white/5 rounded-lg border border-gray-100 dark:border-gray-800">
 							<div className="space-y-1.5" ref={lawyerDropdownRef}>
 								<label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
 									Representante
@@ -489,12 +564,15 @@ export default function ClosingFilters({
 
 							<div className="space-y-1.5">
 								<label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-									Tipo de Cierre
+									Abogado Interno
 								</label>
 								<Select
-									value={filters.type || "all"}
+									value={filters.internalLawyerId || "all"}
 									onValueChange={(value) =>
-										onFiltersChange({ ...filters, type: value === "all" ? "" : value })
+										onFiltersChange({
+											...filters,
+											internalLawyerId: value === "all" ? "" : value,
+										})
 									}
 								>
 									<SelectTrigger className="h-9 bg-white">
@@ -502,54 +580,11 @@ export default function ClosingFilters({
 									</SelectTrigger>
 									<SelectContent>
 										<SelectItem value="all">Todos</SelectItem>
-										<SelectItem value="SRT">{closingType.SRT}</SelectItem>
-										<SelectItem value="JUDICIAL">
-											{closingType.JUDICIAL}
-										</SelectItem>
-										<SelectItem value="EXTRAJUDICIAL">
-											{closingType.EXTRAJUDICIAL}
-										</SelectItem>
-										<SelectItem value="DIRECTO">
-											{closingType.DIRECTO}
-										</SelectItem>
-										<SelectItem value="OTROS">{closingType.OTROS}</SelectItem>
-									</SelectContent>
-								</Select>
-							</div>
-
-							<div className="space-y-1.5">
-								<label className="text-xs font-medium text-gray-500 uppercase tracking-wider">
-									Estado Capital
-								</label>
-								<Select
-									value={filters.capitalState || "all"}
-									onValueChange={(value) =>
-										onFiltersChange({ ...filters, capitalState: value === "all" ? "" : value })
-									}
-								>
-									<SelectTrigger className="h-9 bg-white">
-										<SelectValue placeholder="Todos" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="all">Todos</SelectItem>
-										<SelectItem value="AGREEMENT_IN_MANAGEMENT">
-											{statusCapital.AGREEMENT_IN_MANAGEMENT}
-										</SelectItem>
-										<SelectItem value="AGREEMENT_PRESENTED">
-											{statusCapital.AGREEMENT_PRESENTED}
-										</SelectItem>
-										<SelectItem value="AWAITING_DEADLINE">
-											{statusCapital.AWAITING_DEADLINE}
-										</SelectItem>
-										<SelectItem value="REQUESTED_OP">
-											{statusCapital.REQUESTED_OP}
-										</SelectItem>
-										<SelectItem value="TRANSFER_REQUESTED">
-											{statusCapital.TRANSFER_REQUESTED}
-										</SelectItem>
-										<SelectItem value="K_RECEIVED_BY_ACTOR">
-											{statusCapital.K_RECEIVED_BY_ACTOR}
-										</SelectItem>
+										{internalLawyers.map((l) => (
+											<SelectItem key={l.id} value={String(l.id)}>
+												{l.name}
+											</SelectItem>
+										))}
 									</SelectContent>
 								</Select>
 							</div>
