@@ -117,6 +117,9 @@ export default function CreateClosingPage() {
 
 	// ── Common form fields ──
 	const [type, setType] = useState("SRT");
+	const [closingDate, setClosingDate] = useState(
+		new Date().toISOString().slice(0, 10),
+	);
 	const [capitalState, setCapitalState] = useState("AGREEMENT_IN_MANAGEMENT");
 	const [feeStatus, setFeeStatus] = useState("EARRINGS");
 	const [hpAgreedPercentage, setHpAgreedPercentage] = useState("20");
@@ -169,6 +172,7 @@ export default function CreateClosingPage() {
 
 	const resetForm = () => {
 		setType("SRT");
+		setClosingDate(new Date().toISOString().slice(0, 10));
 		setCapitalState("AGREEMENT_IN_MANAGEMENT");
 		setFeeStatus("EARRINGS");
 		setHpAgreedPercentage("20");
@@ -387,6 +391,7 @@ export default function CreateClosingPage() {
 						},
 						body: JSON.stringify({
 							type,
+							date: closingDate || undefined,
 							capitalState,
 							feeStatus,
 							hpAgreed: parseFloat(hpAgreedPercentage) || 20,
@@ -420,6 +425,7 @@ export default function CreateClosingPage() {
 					body: JSON.stringify({
 						caseId: selectedCase.id,
 						type,
+						date: closingDate || undefined,
 						capitalAmount: parseFloat(capitalAmount),
 						capitalState,
 						feeStatus,
@@ -1102,6 +1108,17 @@ export default function CreateClosingPage() {
 										Datos del Cierre
 									</h3>
 									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+										<div className="space-y-1.5">
+											<label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+												Fecha <span className="text-red-500">*</span>
+											</label>
+											<input
+												type="date"
+												value={closingDate}
+												onChange={(e) => setClosingDate(e.target.value)}
+												className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+											/>
+										</div>
 										<div className="space-y-1.5">
 											<label className="text-sm font-medium text-gray-700 dark:text-gray-300">
 												Tipo de Cierre <span className="text-red-500">*</span>

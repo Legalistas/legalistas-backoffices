@@ -1,9 +1,11 @@
-import { Link, Text } from "@react-email/components";
+import { Button, Heading, Hr, Section, Text } from "@react-email/components";
 import { EmailLayout } from "./layout";
 
 interface Props {
   leadName?: string;
   meetingType?: string;
+  meetingTypeId?: "VIDEO_CALL" | "IN_PERSON_MEETING" | "POWER_MEETING";
+  meetingNotes?: string;
   date?: string;
   hours?: string;
   phoneNumber?: string;
@@ -13,90 +15,129 @@ interface Props {
 export function CrmReunionRecordatorioTemplate({
   leadName = "Cliente",
   meetingType = "Videollamada",
+  meetingTypeId = "VIDEO_CALL",
+  meetingNotes = "",
   date = "",
   hours = "",
   phoneNumber = "",
   confirmationUrl = "https://legalistas.ar/confirmacion-reunion",
 }: Props) {
   const firstName = leadName.split(" ")[0];
+  const isInPerson = meetingTypeId === "IN_PERSON_MEETING";
+  const isPowerMeeting = meetingTypeId === "POWER_MEETING";
+
+  const headline = isPowerMeeting
+    ? "Tu reunión para la firma de poder es pronto"
+    : `Tu ${meetingType.toLowerCase()} es pronto`;
+
+  const logisticsLabel = isInPerson
+    ? "Lugar"
+    : isPowerMeeting && meetingNotes
+      ? "Lugar / Detalles"
+      : "Te llamaremos al";
+
+  const logisticsValue = isInPerson
+    ? meetingNotes || "Te confirmaremos la dirección a la brevedad."
+    : isPowerMeeting && meetingNotes
+      ? meetingNotes
+      : phoneNumber;
 
   return (
     <EmailLayout preview="Recordatorio: tu reunión es pronto — Legalistas">
-      <Text className="text-[#333333] text-[24px] font-bold leading-tight m-0 mb-5">
-        ¡Hola, {firstName}!
+      <Text className="text-[#6b7280] text-[12px] uppercase tracking-wider font-semibold m-0">
+        Recordatorio · Hola, {firstName}
+      </Text>
+      <Heading
+        as="h2"
+        className="text-[#111827] text-[26px] font-bold m-0 mt-1 leading-tight"
+      >
+        {headline}
+      </Heading>
+
+      <Text className="text-[#374151] text-[15px] leading-7 m-0 mt-5">
+        Te recordamos los datos para que los tengas a mano y no se te pase.
       </Text>
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-5">
-        Te recordamos que tu {meetingType} está próxima. Queremos asegurarnos
-        de que tengas toda la información a mano.
-      </Text>
-
-      <table
-        cellPadding="0"
-        cellSpacing="0"
-        role="presentation"
+      <Section
         style={{
+          marginTop: "20px",
+          padding: "20px 24px",
           backgroundColor: "#f9fafb",
-          borderRadius: "8px",
-          padding: "20px",
-          width: "100%",
-          marginBottom: "20px",
+          borderLeft: "4px solid #09A7B2",
+          borderRadius: "0 8px 8px 0",
         }}
       >
-        <tr>
-          <td style={{ padding: "20px" }}>
-            <Text className="text-[#333333] text-[16px] leading-8 m-0">
-              <strong>Fecha:</strong> {date}
-              <br />
-              <strong>Hora:</strong> {hours}
-              <br />
-              <strong>Te llamaremos al:</strong> {phoneNumber}
+        <Text className="text-[#6b7280] text-[11px] uppercase tracking-wider font-bold m-0">
+          Tipo
+        </Text>
+        <Text className="text-[#111827] text-[15px] font-semibold m-0 mt-1">
+          {meetingType}
+        </Text>
+
+        <Text className="text-[#6b7280] text-[11px] uppercase tracking-wider font-bold m-0 mt-4">
+          Fecha
+        </Text>
+        <Text className="text-[#111827] text-[15px] font-semibold m-0 mt-1">
+          {date}
+        </Text>
+
+        <Text className="text-[#6b7280] text-[11px] uppercase tracking-wider font-bold m-0 mt-4">
+          Hora
+        </Text>
+        <Text className="text-[#111827] text-[15px] font-semibold m-0 mt-1">
+          {hours}
+        </Text>
+
+        {logisticsValue ? (
+          <>
+            <Text className="text-[#6b7280] text-[11px] uppercase tracking-wider font-bold m-0 mt-4">
+              {logisticsLabel}
             </Text>
-          </td>
-        </tr>
-      </table>
+            <Text className="text-[#111827] text-[15px] font-semibold m-0 mt-1">
+              {logisticsValue}
+            </Text>
+          </>
+        ) : null}
+      </Section>
 
-      <table
-        cellPadding="0"
-        cellSpacing="0"
-        role="presentation"
-        align="center"
-        style={{ margin: "0 auto 20px" }}
-      >
-        <tr>
-          <td
-            align="center"
-            style={{
-              backgroundColor: "#09A7B2",
-              borderRadius: "6px",
-            }}
-          >
-            <Link
-              href={confirmationUrl}
-              style={{
-                color: "#ffffff",
-                fontSize: "16px",
-                fontWeight: "bold",
-                textDecoration: "none",
-                display: "inline-block",
-                padding: "14px 32px",
-              }}
-            >
-              Confirmar asistencia
-            </Link>
-          </td>
-        </tr>
-      </table>
+      {isPowerMeeting && (
+        <Section
+          style={{
+            marginTop: "16px",
+            padding: "12px 16px",
+            backgroundColor: "#fef3c7",
+            border: "1px solid #fcd34d",
+            borderRadius: "6px",
+          }}
+        >
+          <Text className="text-[#92400e] text-[14px] leading-6 m-0">
+            <strong>Importante:</strong> recordá tener a mano tu DNI para la
+            firma del poder.
+          </Text>
+        </Section>
+      )}
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-5">
-        Si no podés asistir o necesitás reprogramar, avisanos cuanto antes
-        para reorganizar la agenda.
+      <Section className="text-center mt-6">
+        <Button
+          href={confirmationUrl}
+          className="bg-[#09A7B2] text-white text-[15px] font-bold no-underline rounded-md"
+          style={{ padding: "14px 32px" }}
+        >
+          Confirmar asistencia
+        </Button>
+      </Section>
+
+      <Text className="text-[#374151] text-[14px] leading-6 m-0 mt-6 text-center">
+        Si no podés asistir o necesitás reprogramar,{" "}
+        <strong>avisanos cuanto antes</strong> para reorganizar la agenda.
       </Text>
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-0">
+      <Hr className="border-[#e5e7eb] my-6" />
+
+      <Text className="text-[#6b7280] text-[14px] leading-6 m-0">
         Saludos,
         <br />
-        Equipo Legalistas
+        <strong className="text-[#1f2937]">Equipo Legalistas</strong>
       </Text>
     </EmailLayout>
   );

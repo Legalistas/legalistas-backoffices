@@ -37,11 +37,6 @@ const formatARS = (n: number) =>
 		minimumFractionDigits: 2,
 	}).format(n);
 
-const formatDate = (d: string) => {
-	const date = new Date(d);
-	return `${String(date.getDate()).padStart(2, "0")}/${String(date.getMonth() + 1).padStart(2, "0")}/${date.getFullYear()}`;
-};
-
 export default function EditClosingPage() {
 	const router = useRouter();
 	const params = useParams();
@@ -53,6 +48,7 @@ export default function EditClosingPage() {
 
 	// Form state
 	const [type, setType] = useState("SRT");
+	const [closingDate, setClosingDate] = useState("");
 	const [capitalAmount, setCapitalAmount] = useState("");
 	const [capitalState, setCapitalState] = useState("AGREEMENT_IN_MANAGEMENT");
 	const [feeStatus, setFeeStatus] = useState("EARRINGS");
@@ -128,6 +124,7 @@ export default function EditClosingPage() {
 				setClosing(data);
 
 				setType(data.type || "SRT");
+				setClosingDate(data.date ? String(data.date).slice(0, 10) : "");
 				setCapitalAmount(String(data.capitalAmount ?? 0));
 				setCapitalState(data.capitalState || "AGREEMENT_IN_MANAGEMENT");
 				setFeeStatus(data.feeStatus || "EARRINGS");
@@ -162,6 +159,7 @@ export default function EditClosingPage() {
 				},
 				body: JSON.stringify({
 					type,
+					date: closingDate || undefined,
 					capitalAmount: parseFloat(capitalAmount) || 0,
 					capitalState,
 					feeStatus,
@@ -268,10 +266,13 @@ export default function EditClosingPage() {
 							</span>
 						</div>
 						<div className="bg-background/60 dark:bg-background/30 rounded-lg p-3">
-							<span className="text-muted-foreground text-xs block mb-1">Fecha</span>
-							<span className="font-medium text-foreground">
-								{formatDate(closing.date)}
-							</span>
+							<label className="text-muted-foreground text-xs block mb-1">Fecha</label>
+							<input
+								type="date"
+								value={closingDate}
+								onChange={(e) => setClosingDate(e.target.value)}
+								className="w-full bg-transparent border-0 p-0 text-sm font-medium text-foreground focus:outline-none focus:ring-0"
+							/>
 						</div>
 					</div>
 				</div>
