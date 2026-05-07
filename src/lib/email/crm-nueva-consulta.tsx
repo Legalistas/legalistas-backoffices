@@ -1,4 +1,4 @@
-import { Text } from "@react-email/components";
+import { Heading, Hr, Section, Text } from "@react-email/components";
 import { EmailLayout } from "./layout";
 
 interface Props {
@@ -10,39 +10,57 @@ export function CrmNuevaConsultaTemplate({ leadName = "Cliente" }: Props) {
 
   return (
     <EmailLayout preview="¡Gracias por contactarnos! — Legalistas">
-      <Text className="text-[#333333] text-[24px] font-bold leading-tight m-0 mb-5">
-        ¡Hola, {firstName}!
+      <Text className="text-[#6b7280] text-[12px] uppercase tracking-wider font-semibold m-0">
+        Hola, {firstName}
       </Text>
+      <Heading
+        as="h2"
+        className="text-[#111827] text-[26px] font-bold m-0 mt-1 leading-tight"
+      >
+        Recibimos tu consulta
+      </Heading>
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-5">
+      <Text className="text-[#374151] text-[15px] leading-7 m-0 mt-5">
         Gracias por confiar en Legalistas. Nuestro equipo ya está procesando
-        tu consulta.
+        tu consulta y vamos a contactarte muy pronto.
       </Text>
 
-      <Text className="text-[#555555] text-[16px] font-bold leading-6 m-0 mb-3">
-        Próximos pasos:
+      <Section
+        style={{
+          marginTop: "20px",
+          padding: "20px 24px",
+          backgroundColor: "rgba(9, 167, 178, 0.06)",
+          border: "1px solid rgba(9, 167, 178, 0.25)",
+          borderRadius: "8px",
+        }}
+      >
+        <Text className="text-[#09A7B2] text-[12px] uppercase tracking-wider font-bold m-0">
+          Próximos pasos
+        </Text>
+
+        <Text className="text-[#1f2937] text-[14px] leading-6 m-0 mt-3">
+          <strong>1.</strong> Un asesor del Departamento de Atención al
+          Cliente se contactará con vos para coordinar una reunión por
+          videollamada con un abogado especializado.
+        </Text>
+
+        <Text className="text-[#1f2937] text-[14px] leading-6 m-0 mt-3">
+          <strong>2.</strong> Te informaremos por este medio el día y horario
+          de la videollamada — te pedimos estar atento a tu correo.
+        </Text>
+      </Section>
+
+      <Text className="text-[#374151] text-[15px] leading-7 m-0 mt-6">
+        Si tenés dudas o querés agregar información, podés responder este
+        mismo correo.
       </Text>
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-3">
-        1. Un asesor del Departamento de Atención al Cliente se contactará
-        con vos para coordinar una reunión por videollamada con un abogado
-        especializado.
-      </Text>
+      <Hr className="border-[#e5e7eb] my-6" />
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-3">
-        2. Te informaremos por este medio el día y horario de la
-        videollamada, por lo que te pedimos estar atento a tu correo.
-      </Text>
-
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-5">
-        Nos comunicaremos pronto con más detalles. Si tenés dudas, respondé
-        este mail.
-      </Text>
-
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-0">
+      <Text className="text-[#6b7280] text-[14px] leading-6 m-0">
         Saludos,
         <br />
-        Equipo Legalistas
+        <strong className="text-[#1f2937]">Equipo Legalistas</strong>
       </Text>
     </EmailLayout>
   );

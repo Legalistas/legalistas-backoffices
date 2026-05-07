@@ -719,12 +719,22 @@ export function NegotiationsTable({
 	};
 
 	// ─── Column header helper ───
-	const ColHeader = ({ id, label }: { id: string; label: string }) =>
+	const ColHeader = ({
+		id,
+		label,
+		align = "left",
+	}: {
+		id: string;
+		label: string;
+		align?: "left" | "right";
+	}) =>
 		isColumnVisible(id) ? (
-			<TableCell className="px-4 py-3 text-left text-sm font-semibold">
+			<TableCell
+				className={`px-4 py-2 text-sm font-semibold whitespace-nowrap ${align === "right" ? "text-right" : "text-left"}`}
+			>
 				<button
 					onClick={() => handleSort(id)}
-					className="flex items-center gap-2 hover:text-primary transition-colors"
+					className={`inline-flex items-center gap-2 hover:text-primary transition-colors ${align === "right" ? "ml-auto" : ""}`}
 				>
 					{label}
 					{getSortIcon(id)}
@@ -774,9 +784,9 @@ export function NegotiationsTable({
 				</div>
 			) : (
 
-			<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
+			<div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
 				<div className="w-full">
-					<Table className="w-full table-fixed">
+					<Table className="w-full">
 						<TableHeader>
 							<TableRow className="bg-gray-50 dark:bg-white/5">
 								<ColHeader id="causa" label="Causa" />
@@ -791,13 +801,13 @@ export function NegotiationsTable({
 								/>
 								<ColHeader id="lesion" label="Lesión" />
 								<ColHeader id="servicio" label="Servicio" />
-								<ColHeader id="incLegalistas" label="% Legalistas" />
-								<ColHeader id="deArt" label="% PMO" />
-								<ColHeader id="liquidacion100" label="Liquidación 100%" />
-								<ColHeader id="liquidacion80" label="Liquidación 80%" />
-								<ColHeader id="ultimaOferta" label="Última Oferta" />
+								<ColHeader id="incLegalistas" label="% Legalistas" align="right" />
+								<ColHeader id="deArt" label="% PMO" align="right" />
+								<ColHeader id="liquidacion100" label="Liquidación 100%" align="right" />
+								<ColHeader id="liquidacion80" label="Liquidación 80%" align="right" />
+								<ColHeader id="ultimaOferta" label="Última Oferta" align="right" />
 								<TableCell
-									className="px-4 py-3 text-right text-sm font-semibold"
+									className="px-4 py-2 text-right text-sm font-semibold whitespace-nowrap"
 								>
 									Acción
 								</TableCell>
@@ -807,9 +817,9 @@ export function NegotiationsTable({
 							{filteredNegotiations.map((neg) => (
 								<TableRow key={neg.id} className="group hover:bg-muted/50">
 									{isColumnVisible("causa") && (
-										<TableCell className="px-4 py-3 text-sm font-medium">
-											<div className="flex items-center gap-2 min-w-0">
-												<span className="truncate">
+										<TableCell className="px-4 py-2 text-sm font-medium whitespace-nowrap">
+											<div className="flex items-center gap-2">
+												<span>
 													{neg.case.title || `Causa #${neg.caseId}`}
 												</span>
 												<span
@@ -821,71 +831,71 @@ export function NegotiationsTable({
 										</TableCell>
 									)}
 									{isColumnVisible("abogadoRepresentante") && (
-										<TableCell className="px-4 py-3 text-sm">
+										<TableCell className="px-4 py-2 text-sm whitespace-nowrap">
 											{neg.case.responsibleLawyer?.name || "-"}
 										</TableCell>
 									)}
 									{isColumnVisible("abogadoInterno") && (
-										<TableCell className="px-4 py-3 text-sm">
+										<TableCell className="px-4 py-2 text-sm whitespace-nowrap">
 											{neg.case.internalLawyer?.name || "-"}
 										</TableCell>
 									)}
 									{isColumnVisible("abogadoContraparte") && (
-										<TableCell className="px-4 py-3 text-sm">
+										<TableCell className="px-4 py-2 text-sm whitespace-nowrap">
 											{neg.contraparteLawyer || "-"}
 										</TableCell>
 									)}
 									{isColumnVisible("lesion") && (
-										<TableCell className="px-4 py-3 text-sm">
+										<TableCell className="px-4 py-2 text-sm whitespace-nowrap">
 											{neg.case.injury || (
 												<span className="text-muted-foreground italic">Sin lesión</span>
 											)}
 										</TableCell>
 									)}
 									{isColumnVisible("servicio") && (
-										<TableCell className="px-4 py-3 text-sm">
+										<TableCell className="px-4 py-2 text-sm whitespace-nowrap">
 											{getServiceBadge(neg.case.servicesId)}
 										</TableCell>
 									)}
 									{isColumnVisible("incLegalistas") && (
-										<TableCell className="px-4 py-3 text-sm">
+										<TableCell className="px-4 py-2 text-sm text-right whitespace-nowrap">
 											{formatPercentage(neg.incLegalistas)}
 										</TableCell>
 									)}
 									{isColumnVisible("deArt") && (
-										<TableCell className="px-4 py-3 text-sm">
+										<TableCell className="px-4 py-2 text-sm text-right whitespace-nowrap">
 											{formatPercentage(neg.deArt)}
 										</TableCell>
 									)}
 									{isColumnVisible("liquidacion100") && (
-										<TableCell className="px-4 py-3 text-sm text-right">
+										<TableCell className="px-4 py-2 text-sm text-right whitespace-nowrap">
 											{formatCurrency(neg.liquidacion100)}
 										</TableCell>
 									)}
 									{isColumnVisible("liquidacion80") && (
-										<TableCell className="px-4 py-3 text-sm text-right">
+										<TableCell className="px-4 py-2 text-sm text-right whitespace-nowrap">
 											{formatCurrency(neg.liquidacion80)}
 										</TableCell>
 									)}
 									{isColumnVisible("ultimaOferta") && (
-										<TableCell className="px-4 py-3 text-sm text-right">
+										<TableCell className="px-4 py-2 text-sm text-right whitespace-nowrap">
 											{neg.lastOfferAmount ? (
-												<div className="flex flex-col items-end">
+												<span className="inline-flex items-baseline gap-1.5">
 													<span className="font-medium">
 														{formatCurrency(neg.lastOfferAmount)}
 													</span>
-													<span className="text-xs text-gray-500">
+													<span className="text-[10px] text-gray-500">
 														{neg.lastOfferSource === "art"
 															? "ART"
 															: "LEGALISTAS"}
 													</span>
-												</div>
+												</span>
 											) : (
 												<span className="text-muted-foreground">-</span>
 											)}
 										</TableCell>
 									)}
-									<TableCell className="px-4 py-3 text-right">
+									<TableCell className="px-4 py-2 text-right whitespace-nowrap">
 										<div className="flex items-center justify-end gap-1">
 											{/* Ver Ofertas */}
 											<button

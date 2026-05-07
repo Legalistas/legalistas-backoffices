@@ -2,7 +2,7 @@
 
 import { profile } from "console";
 
-import { FileDown, Loader2, Pencil, Trash2 } from "lucide-react";
+import { FileDown, Loader2, Mail, Pencil, Trash2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import type React from "react";
 import { useRef, useState } from "react";
@@ -16,9 +16,11 @@ import { CASES_ENDPOINT } from "@/constant/api-endpoints";
 import {
 	STUDIO_NAME,
 	STUDIO_PHONE,
+	servicesType,
 	stageCases,
 	stageDefaultMessages,
 } from "@/lib/constant";
+import { sendCaseStageEmail } from "@/lib/send-case-stage-email";
 import type { Cases } from "@/types/cases";
 
 interface CaseDetailsProps {
@@ -59,6 +61,20 @@ export const CaseDetails = ({
 		stageCases.find((s) => s.value === Number(caseData.stageId))?.label ||
 		"Documentación";
 
+	const buildStageEmailPayload = (stageId: number) => ({
+		email: caseData.customer?.email,
+		customerName: caseData.customer?.name,
+		caseId: Number(caseData.id),
+		stageId,
+		caseNumber: caseData.number ?? String(caseData.id),
+		caseTitle: caseData.title ?? undefined,
+		serviceName: servicesType.find(
+			(s) => Number(s.id) === Number(caseData.servicesId),
+		)?.label,
+		responsibleLawyerName: caseData.responsibleLawyer?.name,
+		accessToken: session?.user?.accessToken,
+	});
+
 	const handleStageChange = async (newStageId: number) => {
 		setIsUpdatingStage(true);
 		try {
@@ -84,12 +100,38 @@ export const CaseDetails = ({
 			if (defaultMsg) {
 				setWhatsappMessage(fillMessageVariables(defaultMsg));
 			}
+
+			// Enviar email automático al cliente con el nuevo estado de la etapa
+			sendCaseStageEmail(buildStageEmailPayload(newStageId));
+
 			onCaseUpdated?.();
 		} catch (error) {
 			console.error("Error updating case stage:", error);
 			toast.error("No se pudo actualizar la etapa del caso.");
 		} finally {
 			setIsUpdatingStage(false);
+		}
+	};
+
+	const handleResendStageEmail = async () => {
+		const email = caseData.customer?.email;
+		if (!email) {
+			toast.error("Este cliente no tiene email registrado");
+			return;
+		}
+		const stageId = Number(caseData.stageId);
+		if (!stageId) {
+			toast.error("La causa no tiene etapa asignada");
+			return;
+		}
+		try {
+			await sendCaseStageEmail({
+				...buildStageEmailPayload(stageId),
+				isResend: true,
+			});
+			toast.success("Email reenviado correctamente");
+		} catch {
+			toast.error("Error al reenviar el email");
 		}
 	};
 
@@ -227,6 +269,21 @@ export const CaseDetails = ({
 									<path d="M12.04 2C6.58 2 2.16 6.42 2.16 11.88c0 1.92.5 3.72 1.46 5.32L2 22l4.95-1.6c1.55.85 3.32 1.3 5.09 1.3h.01c5.46 0 9.88-4.42 9.88-9.88S17.5 2 12.04 2zm0 17.9c-1.63 0-3.23-.44-4.63-1.26l-.33-.19-2.94.95.96-2.86-.21-.34a7.8 7.8 0 01-1.2-4.12c0-4.32 3.52-7.84 7.85-7.84 2.09 0 4.05.81 5.53 2.29a7.78 7.78 0 012.3 5.55c0 4.33-3.52 7.82-7.83 7.82zm4.3-5.87c-.24-.12-1.4-.69-1.62-.77-.22-.08-.38-.12-.54.12-.16.24-.62.77-.76.93-.14.16-.28.18-.52.06-.24-.12-1.01-.37-1.92-1.18-.71-.63-1.18-1.4-1.32-1.64-.14-.24-.01-.37.11-.49.11-.11.24-.28.36-.42.12-.14.16-.24.24-.4.08-.16.04-.3-.02-.42-.06-.12-.54-1.3-.74-1.78-.2-.48-.4-.42-.54-.43h-.46c-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2s.86 2.32.98 2.48c.12.16 1.7 2.6 4.12 3.65.58.25 1.03.4 1.38.51.58.18 1.1.16 1.52.1.46-.07 1.4-.57 1.6-1.12.2-.55.2-1.02.14-1.12-.06-.1-.22-.16-.46-.28z" />
 								</svg>
 								Estado del caso
+							</Button>
+							<Button
+								variant="outline"
+								onClick={handleResendStageEmail}
+								disabled={!caseData.customer?.email || !caseData.stageId}
+								title={
+									!caseData.customer?.email
+										? "Este cliente no tiene email registrado"
+										: !caseData.stageId
+											? "La causa no tiene etapa asignada"
+											: "Reenviar email de la etapa actual"
+								}
+							>
+								<Mail className="mr-1.5 h-4 w-4" />
+								Reenviar email
 							</Button>
 							<Button
 								variant="outline"

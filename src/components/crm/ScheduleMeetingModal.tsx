@@ -108,6 +108,8 @@ export default function ScheduleMeetingModal({
 						variables: {
 							leadName: lead.name || lead.user?.name,
 							meetingType: meetingLabel,
+							meetingTypeId: meetingType,
+							meetingNotes: notes,
 							date: meetingDate.format("dddd D [de] MMMM [de] YYYY"),
 							hours: meetingDate.format("HH:mm"),
 							phoneNumber: lead.phone || lead.user?.userProfile?.phone,

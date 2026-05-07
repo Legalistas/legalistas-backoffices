@@ -9,6 +9,13 @@ import { CrmPendientePoderTemplate } from "./email/crm-pendiente-poder";
 import { CrmPendientePoderRecordatorioTemplate } from "./email/crm-pendiente-poder-recordatorio";
 import { CrmGanadoPoderTemplate } from "./email/crm-ganado-poder";
 import { CaseInicioTramiteTemplate } from "./email/case-inicio-tramite";
+import { CaseStageDocumentacionTemplate } from "./email/case-stage-documentacion";
+import { CaseStageAdministrativoTemplate } from "./email/case-stage-administrativo";
+import { CaseStageJudicialTemplate } from "./email/case-stage-judicial";
+import { CaseStageIncapacidadTemplate } from "./email/case-stage-incapacidad";
+import { CaseStageCierreTemplate } from "./email/case-stage-cierre";
+import { CaseStageExperienciaTemplate } from "./email/case-stage-experiencia";
+import { CaseStageArchivadoTemplate } from "./email/case-stage-archivado";
 
 // ─────────────────────────────────────────────────
 // SMTP Configuration
@@ -51,12 +58,21 @@ type EmailTemplate =
   | "crm-pendiente-poder"
   | "crm-pendiente-poder-recordatorio"
   | "crm-ganado-poder"
-  | "case-inicio-tramite";
+  | "case-inicio-tramite"
+  | "case-stage-documentacion"
+  | "case-stage-administrativo"
+  | "case-stage-judicial"
+  | "case-stage-incapacidad"
+  | "case-stage-cierre"
+  | "case-stage-experiencia"
+  | "case-stage-archivado";
 
 interface TemplateVars {
   leadName?: string;
   // Reunión
   meetingType?: string;
+  meetingTypeId?: "VIDEO_CALL" | "IN_PERSON_MEETING" | "POWER_MEETING";
+  meetingNotes?: string;
   date?: string;
   hours?: string;
   phoneNumber?: string;
@@ -69,6 +85,8 @@ interface TemplateVars {
   injury?: string;
   accidentDate?: string;
   responsibleLawyerName?: string;
+  // Etapa de causa (Experiencia)
+  reviewUrl?: string;
 }
 
 /** Mapea columnId del CRM → template de email (cambio de etapa) */
@@ -76,6 +94,17 @@ export const CRM_COLUMN_TO_TEMPLATE: Partial<Record<number, EmailTemplate>> = {
   1: "crm-nueva-consulta",
   4: "crm-en-tratamiento",
   9: "crm-ganado-poder",
+};
+
+/** Mapea stageId del Gestor de Causas → template de email (cambio de etapa) */
+export const CASE_STAGE_TO_TEMPLATE: Partial<Record<number, EmailTemplate>> = {
+  1: "case-stage-documentacion",
+  2: "case-stage-administrativo",
+  3: "case-stage-judicial",
+  4: "case-stage-incapacidad",
+  5: "case-stage-cierre",
+  6: "case-stage-experiencia",
+  7: "case-stage-archivado",
 };
 
 async function renderTemplate(
@@ -98,6 +127,8 @@ async function renderTemplate(
           CrmReunionConcretarTemplate({
             leadName: vars.leadName,
             meetingType: vars.meetingType,
+            meetingTypeId: vars.meetingTypeId,
+            meetingNotes: vars.meetingNotes,
             date: vars.date,
             hours: vars.hours,
             phoneNumber: vars.phoneNumber,
@@ -113,6 +144,8 @@ async function renderTemplate(
           CrmReunionRecordatorioTemplate({
             leadName: vars.leadName,
             meetingType: vars.meetingType,
+            meetingTypeId: vars.meetingTypeId,
+            meetingNotes: vars.meetingNotes,
             date: vars.date,
             hours: vars.hours,
             phoneNumber: vars.phoneNumber,
@@ -182,6 +215,105 @@ async function renderTemplate(
             serviceName: vars.serviceName,
             injury: vars.injury,
             accidentDate: vars.accidentDate,
+            responsibleLawyerName: vars.responsibleLawyerName,
+          })
+        ),
+      };
+
+    case "case-stage-documentacion":
+      return {
+        subject: "Comenzamos a trabajar en tu caso — Legalistas",
+        html: await render(
+          CaseStageDocumentacionTemplate({
+            customerName: vars.customerName,
+            caseNumber: vars.caseNumber,
+            caseTitle: vars.caseTitle,
+            serviceName: vars.serviceName,
+            responsibleLawyerName: vars.responsibleLawyerName,
+          })
+        ),
+      };
+
+    case "case-stage-administrativo":
+      return {
+        subject: "Tu caso está en etapa administrativa — Legalistas",
+        html: await render(
+          CaseStageAdministrativoTemplate({
+            customerName: vars.customerName,
+            caseNumber: vars.caseNumber,
+            caseTitle: vars.caseTitle,
+            serviceName: vars.serviceName,
+            responsibleLawyerName: vars.responsibleLawyerName,
+          })
+        ),
+      };
+
+    case "case-stage-judicial":
+      return {
+        subject: "Tu caso ingresó a etapa judicial — Legalistas",
+        html: await render(
+          CaseStageJudicialTemplate({
+            customerName: vars.customerName,
+            caseNumber: vars.caseNumber,
+            caseTitle: vars.caseTitle,
+            serviceName: vars.serviceName,
+            responsibleLawyerName: vars.responsibleLawyerName,
+          })
+        ),
+      };
+
+    case "case-stage-incapacidad":
+      return {
+        subject: "Etapa de determinación de incapacidad — Legalistas",
+        html: await render(
+          CaseStageIncapacidadTemplate({
+            customerName: vars.customerName,
+            caseNumber: vars.caseNumber,
+            caseTitle: vars.caseTitle,
+            serviceName: vars.serviceName,
+            responsibleLawyerName: vars.responsibleLawyerName,
+          })
+        ),
+      };
+
+    case "case-stage-cierre":
+      return {
+        subject: "Tu caso está en su etapa final — Legalistas",
+        html: await render(
+          CaseStageCierreTemplate({
+            customerName: vars.customerName,
+            caseNumber: vars.caseNumber,
+            caseTitle: vars.caseTitle,
+            serviceName: vars.serviceName,
+            responsibleLawyerName: vars.responsibleLawyerName,
+          })
+        ),
+      };
+
+    case "case-stage-experiencia":
+      return {
+        subject: "¡Tu caso fue resuelto! — Legalistas",
+        html: await render(
+          CaseStageExperienciaTemplate({
+            customerName: vars.customerName,
+            caseNumber: vars.caseNumber,
+            caseTitle: vars.caseTitle,
+            serviceName: vars.serviceName,
+            responsibleLawyerName: vars.responsibleLawyerName,
+            reviewUrl: vars.reviewUrl,
+          })
+        ),
+      };
+
+    case "case-stage-archivado":
+      return {
+        subject: "Tu caso fue archivado — Legalistas",
+        html: await render(
+          CaseStageArchivadoTemplate({
+            customerName: vars.customerName,
+            caseNumber: vars.caseNumber,
+            caseTitle: vars.caseTitle,
+            serviceName: vars.serviceName,
             responsibleLawyerName: vars.responsibleLawyerName,
           })
         ),

@@ -1,4 +1,4 @@
-import { Text } from "@react-email/components";
+import { Heading, Hr, Section, Text } from "@react-email/components";
 import { EmailLayout } from "./layout";
 
 interface Props {
@@ -10,29 +10,58 @@ export function CrmEnTratamientoTemplate({ leadName = "Cliente" }: Props) {
 
   return (
     <EmailLayout preview="Tu caso está en tratamiento — Legalistas">
-      <Text className="text-[#333333] text-[24px] font-bold leading-tight m-0 mb-5">
-        ¡Hola, {firstName}!
+      <Text className="text-[#6b7280] text-[12px] uppercase tracking-wider font-semibold m-0">
+        Hola, {firstName}
+      </Text>
+      <Heading
+        as="h2"
+        className="text-[#111827] text-[26px] font-bold m-0 mt-1 leading-tight"
+      >
+        Esperamos que te recuperes pronto
+      </Heading>
+
+      <Text className="text-[#374151] text-[15px] leading-7 m-0 mt-5">
+        En Legalistas nos importa tu bienestar. Sabemos que durante la
+        rehabilitación pueden surgir inconvenientes — y queremos que sepas
+        que estamos atentos.
       </Text>
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-5">
-        Esperamos que te recuperes pronto y de la mejor manera.
+      {/* Bloque destacado: situaciones a las que prestar atención */}
+      <Section
+        style={{
+          marginTop: "20px",
+          padding: "20px 24px",
+          backgroundColor: "rgba(9, 167, 178, 0.06)",
+          border: "1px solid rgba(9, 167, 178, 0.25)",
+          borderRadius: "8px",
+        }}
+      >
+        <Text className="text-[#09A7B2] text-[12px] uppercase tracking-wider font-bold m-0">
+          Si te pasa algo de esto, escribinos
+        </Text>
+
+        <Text className="text-[#1f2937] text-[14px] leading-6 m-0 mt-3">
+          • Falta de asistencia médica.
+        </Text>
+        <Text className="text-[#1f2937] text-[14px] leading-6 m-0 mt-2">
+          • Alta prematura.
+        </Text>
+        <Text className="text-[#1f2937] text-[14px] leading-6 m-0 mt-2">
+          • Demoras en estudios o cirugías.
+        </Text>
+      </Section>
+
+      <Text className="text-[#374151] text-[15px] leading-7 m-0 mt-6">
+        Vamos a acompañarte y asegurarnos de que recibas todo lo que
+        necesitás. Respondé este correo o contactanos cuando lo necesites.
       </Text>
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-5">
-        En Legalistas, nos importa tu bienestar. Sabemos que durante la
-        rehabilitación pueden surgir inconvenientes, como falta de asistencia
-        médica, alta prematura o demoras en cirugías.
-      </Text>
+      <Hr className="border-[#e5e7eb] my-6" />
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-5">
-        Si te pasa algo así, escribinos cuanto antes. Vamos a acompañarte y
-        asegurarnos de que recibas todo lo que necesitás.
-      </Text>
-
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-0">
+      <Text className="text-[#6b7280] text-[14px] leading-6 m-0">
         Saludos,
         <br />
-        Equipo Legalistas
+        <strong className="text-[#1f2937]">Equipo Legalistas</strong>
       </Text>
     </EmailLayout>
   );

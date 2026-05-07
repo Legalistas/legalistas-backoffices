@@ -14,6 +14,7 @@ import {
 } from "@/constant/api-endpoints";
 import { ART_COMPANIES, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
 import { Role } from "@/constant/user";
+import { sendStageEmail } from "@/lib/send-stage-email";
 import type { Lead } from "@/types/crm";
 import type { User } from "@/types/users";
 import CustomerRegistrationModal from "../customers/CustomerRegistrationModal";
@@ -381,10 +382,11 @@ export default function LeadFormDialog({
 				injury: formData.injury || null,
 			};
 
-			const endpoint = lead?.id
-				? `${LEADS_ENDPOINT}/${lead.id}`
-				: LEADS_ENDPOINT;
-			const method = lead?.id ? "PUT" : "POST";
+			const isCreating = !lead?.id;
+			const endpoint = isCreating
+				? LEADS_ENDPOINT
+				: `${LEADS_ENDPOINT}/${lead?.id}`;
+			const method = isCreating ? "POST" : "PUT";
 
 			const response = await fetch(endpoint, {
 				method,
@@ -396,6 +398,26 @@ export default function LeadFormDialog({
 			});
 
 			if (!response.ok) throw new Error(`Error: ${response.status}`);
+
+			if (isCreating) {
+				const responseData = await response.json().catch(() => null);
+				const newLeadId = Number(
+					responseData?.data?.id ?? responseData?.id ?? 0,
+				);
+				const selectedCustomer = customers.find(
+					(c) => c.id === formData.userId,
+				);
+				if (selectedCustomer?.email) {
+					await sendStageEmail({
+						email: selectedCustomer.email,
+						leadName: selectedCustomer.name,
+						leadId: newLeadId,
+						columnId: dataToSend.columnId,
+						phoneNumber: selectedCustomer.userProfile?.phone,
+						accessToken: session?.user?.accessToken,
+					});
+				}
+			}
 
 			toast.success(`Lead ${lead ? "actualizado" : "creado"} correctamente`);
 			onOpenChange(false);

@@ -1,4 +1,4 @@
-import { Link, Text } from "@react-email/components";
+import { Button, Heading, Hr, Section, Text } from "@react-email/components";
 import { EmailLayout } from "./layout";
 
 interface Props {
@@ -22,82 +22,95 @@ export function CrmPendientePoderTemplate({
 
   return (
     <EmailLayout preview="Firma de autorización pendiente — Legalistas">
-      <Text className="text-[#333333] text-[24px] font-bold leading-tight m-0 mb-5">
-        ¡Hola, {firstName}!
+      <Text className="text-[#6b7280] text-[12px] uppercase tracking-wider font-semibold m-0">
+        Hola, {firstName}
+      </Text>
+      <Heading
+        as="h2"
+        className="text-[#111827] text-[26px] font-bold m-0 mt-1 leading-tight"
+      >
+        Firma de autorización pendiente
+      </Heading>
+
+      <Text className="text-[#374151] text-[15px] leading-7 m-0 mt-5">
+        Para poder avanzar con tu caso necesitamos que firmes la
+        autorización. Tu <strong>{meetingType.toLowerCase()}</strong> fue
+        registrada para coordinar la firma.
       </Text>
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-5">
-        Para poder avanzar con tu caso, necesitamos que firmes la
-        autorización. Tu {meetingType} fue registrada para coordinar la
-        firma.
-      </Text>
-
-      <table
-        cellPadding="0"
-        cellSpacing="0"
-        role="presentation"
+      {/* Card con datos de la reunión */}
+      <Section
         style={{
+          marginTop: "20px",
+          padding: "20px 24px",
           backgroundColor: "#f9fafb",
-          borderRadius: "8px",
-          padding: "20px",
-          width: "100%",
-          marginBottom: "20px",
+          borderLeft: "4px solid #09A7B2",
+          borderRadius: "0 8px 8px 0",
         }}
       >
-        <tr>
-          <td style={{ padding: "20px" }}>
-            <Text className="text-[#333333] text-[16px] leading-8 m-0">
-              <strong>Fecha:</strong> {date}
-              <br />
-              <strong>Hora:</strong> {hours}
-              <br />
-              <strong>Te llamaremos al:</strong> {phoneNumber}
+        <Text className="text-[#6b7280] text-[11px] uppercase tracking-wider font-bold m-0">
+          Fecha
+        </Text>
+        <Text className="text-[#111827] text-[15px] font-semibold m-0 mt-1">
+          {date}
+        </Text>
+
+        <Text className="text-[#6b7280] text-[11px] uppercase tracking-wider font-bold m-0 mt-4">
+          Hora
+        </Text>
+        <Text className="text-[#111827] text-[15px] font-semibold m-0 mt-1">
+          {hours}
+        </Text>
+
+        {phoneNumber ? (
+          <>
+            <Text className="text-[#6b7280] text-[11px] uppercase tracking-wider font-bold m-0 mt-4">
+              Te llamaremos al
             </Text>
-          </td>
-        </tr>
-      </table>
+            <Text className="text-[#111827] text-[15px] font-semibold m-0 mt-1">
+              {phoneNumber}
+            </Text>
+          </>
+        ) : null}
+      </Section>
 
-      <table
-        cellPadding="0"
-        cellSpacing="0"
-        role="presentation"
-        align="center"
-        style={{ margin: "0 auto 20px" }}
+      {/* Importante */}
+      <Section
+        style={{
+          marginTop: "16px",
+          padding: "12px 16px",
+          backgroundColor: "#fef3c7",
+          border: "1px solid #fcd34d",
+          borderRadius: "6px",
+        }}
       >
-        <tr>
-          <td
-            align="center"
-            style={{
-              backgroundColor: "#09A7B2",
-              borderRadius: "6px",
-            }}
-          >
-            <Link
-              href={confirmationUrl}
-              style={{
-                color: "#ffffff",
-                fontSize: "16px",
-                fontWeight: "bold",
-                textDecoration: "none",
-                display: "inline-block",
-                padding: "14px 32px",
-              }}
-            >
-              Confirmar asistencia
-            </Link>
-          </td>
-        </tr>
-      </table>
+        <Text className="text-[#92400e] text-[14px] leading-6 m-0">
+          <strong>Importante:</strong> sin la autorización firmada no podemos
+          representarte legalmente. Recordá tener tu DNI a mano.
+        </Text>
+      </Section>
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-5">
-        Recordá que sin la autorización firmada no podemos representarte
-        legalmente. Si no podés asistir, avisanos con anticipación.
+      <Section className="text-center mt-6">
+        <Button
+          href={confirmationUrl}
+          className="bg-[#09A7B2] text-white text-[15px] font-bold no-underline rounded-md"
+          style={{ padding: "14px 32px" }}
+        >
+          Confirmar asistencia
+        </Button>
+      </Section>
+
+      <Text className="text-[#374151] text-[14px] leading-6 m-0 mt-6 text-center">
+        Si no podés asistir, <strong>avisanos con anticipación</strong> para
+        reprogramar.
       </Text>
 
-      <Text className="text-[#555555] text-[16px] leading-6 m-0 mb-0">
+      <Hr className="border-[#e5e7eb] my-6" />
+
+      <Text className="text-[#6b7280] text-[14px] leading-6 m-0">
         Saludos,
         <br />
-        Equipo Legalistas
+        <strong className="text-[#1f2937]">Equipo Legalistas</strong>
       </Text>
     </EmailLayout>
   );

@@ -16,6 +16,8 @@ import {
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import moment from "moment";
+import "moment/locale/es";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -103,6 +105,34 @@ function getAvatarSrc(image: string | null | undefined) {
 	return image.startsWith("http")
 		? image
 		: `${process.env.NEXT_PUBLIC_BACKEND_URL}${image}`;
+}
+
+// Columnas con email asignado en CRM_COLUMN_TO_TEMPLATE (ver src/lib/email.ts)
+const TEMPLATED_COLUMNS = [1, 4, 9];
+// Columnas de etapas de reunión — el reenvío manda el mail de la reunión
+const MEETING_COLUMNS = [2, 3, 6, 7];
+
+function getMostRecentMeeting(lead: Lead) {
+	if (!lead.crmMeetings?.length) return null;
+	return [...lead.crmMeetings].sort(
+		(a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+	)[0];
+}
+
+type ResendStrategy =
+	| { type: "meeting"; meeting: NonNullable<ReturnType<typeof getMostRecentMeeting>> }
+	| { type: "column" }
+	| null;
+
+function getResendStrategy(lead: Lead): ResendStrategy {
+	const lastMeeting = getMostRecentMeeting(lead);
+	if (MEETING_COLUMNS.includes(lead.columnId) && lastMeeting) {
+		return { type: "meeting", meeting: lastMeeting };
+	}
+	if (TEMPLATED_COLUMNS.includes(lead.columnId)) {
+		return { type: "column" };
+	}
+	return null;
 }
 
 // --- Sub-componente para miembros del equipo ---
@@ -318,21 +348,70 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 			toast.error("Este lead no tiene email registrado");
 			return;
 		}
+
+		const strategy = getResendStrategy(lead);
+		if (!strategy) {
+			toast.error("No hay email para reenviar en esta etapa");
+			return;
+		}
+
+		const accessToken = session?.user?.accessToken;
+		const leadName = lead.name || lead.user?.name;
+		const phoneNumber = lead.phone || lead.user?.userProfile?.phone;
+
 		try {
-			await sendStageEmail({
-				email,
-				leadName: lead.name || lead.user?.name,
-				leadId: Number(lead.id),
-				columnId: lead.columnId,
-				phoneNumber: lead.phone || lead.user?.userProfile?.phone,
-				accessToken: session?.user?.accessToken,
-				isResend: true,
-			});
+			if (strategy.type === "meeting") {
+				const m = strategy.meeting;
+				const meetingDate = moment.utc(m.date as unknown as string | Date);
+				const meetingLabel =
+					MEETING_TYPES.find((t) => t.id === m.type)?.name || m.type;
+				const confirmationUrl = m.token
+					? `https://legalistas.ar/confirmacion-reunion/${m.token}`
+					: "https://legalistas.ar";
+
+				const res = await fetch("/api/notifications/email", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						to: email,
+						leadId: Number(lead.id),
+						template: "crm-reunion-concretar",
+						isResend: true,
+						accessToken,
+						variables: {
+							leadName,
+							meetingType: meetingLabel,
+							meetingTypeId: m.type,
+							meetingNotes: m.note,
+							date: meetingDate.format("dddd D [de] MMMM [de] YYYY"),
+							hours: meetingDate.format("HH:mm"),
+							phoneNumber,
+							confirmationUrl,
+						},
+					}),
+				});
+				if (!res.ok) throw new Error(`Error: ${res.status}`);
+			} else {
+				await sendStageEmail({
+					email,
+					leadName,
+					leadId: Number(lead.id),
+					columnId: lead.columnId,
+					phoneNumber,
+					accessToken,
+					isResend: true,
+				});
+			}
 			toast.success("Email reenviado correctamente");
 		} catch {
 			toast.error("Error al reenviar el email");
 		}
 	};
+
+	const canResendEmail =
+		!!lead &&
+		!!(lead.email || lead.user?.email) &&
+		getResendStrategy(lead) !== null;
 
 	const formatWhatsAppPhone = (phone: string): string => {
 		let clean = phone.replace(/[\s\-()+ ]/g, "");
@@ -654,6 +733,12 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 										variant="outline"
 										className="w-full"
 										onClick={handleResendEmail}
+										disabled={!canResendEmail}
+										title={
+											canResendEmail
+												? "Reenvía el último email correspondiente al estado del lead"
+												: "No hay email para reenviar en esta etapa"
+										}
 									>
 										<Mail className="h-4 w-4 mr-2" />
 										Reenviar email
