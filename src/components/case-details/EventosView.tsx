@@ -267,9 +267,9 @@ export const EventosView = ({
 
 		setIsSubmitting(true);
 		try {
-			const dateISO = new Date(
-				`${newEvent.date}T${newEvent.time}`,
-			).toISOString();
+			const timeWithSeconds =
+				newEvent.time.length === 5 ? `${newEvent.time}:00` : newEvent.time;
+			const dateISO = `${newEvent.date}T${timeWithSeconds}`;
 			const isEditing = editingEventId !== null;
 
 			const url = isEditing
@@ -348,8 +348,7 @@ export const EventosView = ({
 		setEditingEventId(event.id);
 		setSelectedType(event.type);
 		setSelectedSubType(event.subType ?? null);
-		const eventDate = event.date ? new Date(event.date) : null;
-		const datePart = eventDate ? eventDate.toISOString().split("T")[0] : "";
+		const datePart = event.date ? String(event.date).split("T")[0] : "";
 		setNewEvent({
 			fileId: event.fileId || "",
 			title: event.title || "",
