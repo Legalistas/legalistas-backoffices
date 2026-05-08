@@ -34,6 +34,8 @@ export const viewport: Viewport = {
 	userScalable: false,
 };
 
+// Hola
+
 export default function RootLayout({
 	children,
 }: Readonly<{
