@@ -16,6 +16,7 @@ import {
 import { LEADS_ENDPOINT } from "@/constant/api-endpoints";
 import { CRM_COLUMNS } from "@/constant/crm";
 import { sendStageEmail } from "@/lib/send-stage-email";
+import { moveLeadFolderOnColumnChange } from "@/lib/storage-move";
 import type { Lead } from "@/types/crm";
 
 interface ChangeStageModalProps {
@@ -71,6 +72,14 @@ export default function ChangeStageModal({
 				columnId: selectedColumnId,
 				phoneNumber: lead.phone || lead.user?.userProfile?.phone,
 				accessToken: session?.user?.accessToken,
+			});
+
+			// Mover la carpeta del lead en MinIO al nuevo prefix de etapa
+			// (o a casos/documentacion/ si se marcó como Ganado).
+			await moveLeadFolderOnColumnChange({
+				folderName: lead.folderName,
+				fromColumnId: lead.columnId,
+				toColumnId: selectedColumnId,
 			});
 
 			window.location.reload();

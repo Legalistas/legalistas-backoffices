@@ -93,6 +93,7 @@ interface TemplateVars {
 export const CRM_COLUMN_TO_TEMPLATE: Partial<Record<number, EmailTemplate>> = {
   1: "crm-nueva-consulta",
   4: "crm-en-tratamiento",
+  8: "crm-pendiente-poder",
   9: "crm-ganado-poder",
 };
 
@@ -172,15 +173,10 @@ async function renderTemplate(
 
     case "crm-pendiente-poder":
       return {
-        subject: "Firma de autorización pendiente — Legalistas",
+        subject: "Te entregamos el poder — Legalistas",
         html: await render(
           CrmPendientePoderTemplate({
             leadName: vars.leadName,
-            meetingType: vars.meetingType,
-            date: vars.date,
-            hours: vars.hours,
-            phoneNumber: vars.phoneNumber,
-            confirmationUrl: vars.confirmationUrl,
           })
         ),
       };

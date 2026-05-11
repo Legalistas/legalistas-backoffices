@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import CounterpartyLawyerSelect from "./CounterpartyLawyerSelect";
 import {
 	Select,
 	SelectContent,
@@ -40,14 +41,6 @@ const STATUS_OPTIONS: { value: NegotiationStatus; label: string }[] = [
 	{ value: "FINALIZADAS", label: "Finalizadas" },
 	{ value: "PERDIDAS", label: "Perdidas" },
 ];
-
-const VALID_TRANSITIONS: Record<string, string[]> = {
-	INICIAR: ["CURSO", "PERDIDAS"],
-	CURSO: ["SUSPENSO", "FINALIZADAS", "PERDIDAS"],
-	SUSPENSO: ["CURSO", "PERDIDAS"],
-	FINALIZADAS: [],
-	PERDIDAS: [],
-};
 
 export default function EditNegotiation({
 	negotiation,
@@ -96,7 +89,9 @@ export default function EditNegotiation({
 		}
 	}, [formData.liquidacion100]);
 
-	const allowedTransitions = VALID_TRANSITIONS[negotiation.status] || [];
+	const availableStatuses = STATUS_OPTIONS.filter(
+		(opt) => opt.value !== negotiation.status,
+	);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -188,47 +183,43 @@ export default function EditNegotiation({
 						</div>
 
 						{/* Status change */}
-						{allowedTransitions.length > 0 && (
-							<div className="space-y-2">
-								<Label>Cambiar Estado</Label>
-								<Select
-									value={formData.status || "none"}
-									onValueChange={(v) =>
-										setFormData({ ...formData, status: v === "none" ? "" as any : v as NegotiationStatus })
-									}
-								>
-									<SelectTrigger>
-										<SelectValue placeholder="Sin cambio" />
-									</SelectTrigger>
-									<SelectContent>
-										<SelectItem value="none">Sin cambio</SelectItem>
-										{STATUS_OPTIONS.filter((opt) =>
-											allowedTransitions.includes(opt.value),
-										).map((opt) => (
-											<SelectItem key={opt.value} value={opt.value}>
-												{opt.label}
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
-								{formData.status === "FINALIZADAS" && (
-									<p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-										Esto generará un cierre automático en el Gestor de Cierres
-									</p>
-								)}
-							</div>
-						)}
+						<div className="space-y-2">
+							<Label>Cambiar Estado</Label>
+							<Select
+								value={formData.status || "none"}
+								onValueChange={(v) =>
+									setFormData({ ...formData, status: v === "none" ? "" as any : v as NegotiationStatus })
+								}
+							>
+								<SelectTrigger>
+									<SelectValue placeholder="Sin cambio" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="none">Sin cambio</SelectItem>
+									{availableStatuses.map((opt) => (
+										<SelectItem key={opt.value} value={opt.value}>
+											{opt.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							{formData.status === "FINALIZADAS" && (
+								<p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+									Esto generará un cierre automático en el Gestor de Cierres
+								</p>
+							)}
+						</div>
 
 						{/* Editable fields */}
 						<div className="grid grid-cols-2 gap-4">
 							<div className="space-y-2">
 								<Label>Abogado Contraparte</Label>
-								<Input
+								<CounterpartyLawyerSelect
+									caseId={negotiation.case?.id ?? negotiation.caseId}
 									value={formData.contraparteLawyer}
-									onChange={(e) =>
-										setFormData({ ...formData, contraparteLawyer: e.target.value })
+									onChange={(name) =>
+										setFormData({ ...formData, contraparteLawyer: name })
 									}
-									placeholder="Nombre del abogado contraparte"
 								/>
 							</div>
 

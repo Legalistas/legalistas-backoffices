@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import CounterpartyLawyerSelect from "./CounterpartyLawyerSelect";
 import {
 	NEGOTIATIONS_ENDPOINT,
 	NEGOTIATIONS_NEGOTIABLE_CAUSES_ENDPOINT,
@@ -336,12 +337,12 @@ export default function AddNewNegotiation() {
 									<div className="grid grid-cols-2 gap-4">
 										<div className="space-y-1.5">
 											<Label>Abogado Contraparte</Label>
-											<Input
+											<CounterpartyLawyerSelect
+												caseId={selectedCause?.id ?? null}
 												value={formData.contraparteLawyer}
-												onChange={(e) =>
-													setFormData({ ...formData, contraparteLawyer: e.target.value })
+												onChange={(name) =>
+													setFormData({ ...formData, contraparteLawyer: name })
 												}
-												placeholder="Nombre del abogado contraparte"
 											/>
 										</div>
 

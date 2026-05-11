@@ -12,19 +12,19 @@ import {
 	SquareKanban,
 	X,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
-import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { formatDistanceToNow } from "@/utils/format";
 import { useNotifications } from "../notification-provider";
 import { Button } from "@/components/ui/button";
 import { Dropdown } from "@/components/shared/Dropdown";
-import { DropdownItem } from "@/components/shared/DropdownItem";
 
 export interface Notification {
 	id: number;
 	message: string;
 	type: string;
+	link?: string | null;
 	read: boolean;
 	userId: number;
 	createdAt: string;
@@ -32,8 +32,14 @@ export interface Notification {
 }
 
 export default function NotificationDropdown() {
-	const { unreadCount, refreshNotifications, notifications, loading } =
-		useNotifications();
+	const router = useRouter();
+	const {
+		unreadCount,
+		refreshNotifications,
+		notifications,
+		loading,
+		markNotificationAsRead,
+	} = useNotifications();
 	const [isOpen, setIsOpen] = useState(false);
 	const [notifying, setNotifying] = useState(true);
 
@@ -48,6 +54,18 @@ export default function NotificationDropdown() {
 	const handleClick = () => {
 		toggleDropdown();
 		setNotifying(false);
+	};
+
+	const handleNotificationClick = (notification: Notification) => {
+		closeDropdown();
+		if (!notification.read) {
+			markNotificationAsRead(notification.id);
+		}
+		if (notification.link) {
+			router.push(notification.link);
+		} else {
+			router.push("/admin/notifications");
+		}
 	};
 
 	const getIcon = (type: string) => {
@@ -135,26 +153,30 @@ export default function NotificationDropdown() {
 					) : (
 						notifications.map((notification: Notification) => (
 							<li key={String(notification.id)}>
-								<DropdownItem
-									onItemClick={closeDropdown}
-									className="flex gap-2.5 px-4 py-2.5 hover:bg-muted border-b border-border last:border-b-0"
+								<button
+									type="button"
+									onClick={() => handleNotificationClick(notification)}
+									className="w-full flex items-start gap-2.5 px-4 py-2.5 text-left hover:bg-muted border-b border-border last:border-b-0 transition-colors"
 								>
-									<span className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-muted">
+									<span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-muted mt-0.5">
 										{getIcon(notification.type)}
 									</span>
 									<span className="flex-1 min-w-0">
 										<p
-											className={`text-xs leading-snug text-foreground line-clamp-2 ${notification.read ? "" : "font-medium"}`}
+											className={`text-xs leading-snug text-foreground text-left line-clamp-2 ${notification.read ? "" : "font-medium"}`}
 										>
 											{notification.message}
 										</p>
-										<span className="text-[11px] text-muted-foreground mt-0.5 block">
+										<span className="text-[11px] text-muted-foreground mt-0.5 block text-left">
 											{formatDistanceToNow(
 												new Date(notification.createdAt).getTime(),
 											)}
 										</span>
 									</span>
-								</DropdownItem>
+									{!notification.read && (
+										<span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
+									)}
+								</button>
 							</li>
 						))
 					)}

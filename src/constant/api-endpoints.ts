@@ -436,3 +436,18 @@ export const CASE_INFORME_ENDPOINT = (caseId: number) =>
 
 // LEXIA - Analista IA
 export const LEXIA_ANALYTICS_ENDPOINT = `${API_BASE_URL}/lexia/analytics`;
+
+// ============================================================================
+// REPRESENTATIVES MODULE - Seguimiento de desempeño de representantes
+// ============================================================================
+
+// Agregador de KPIs por período (mes/año) — devuelve global + lista ordenada
+export const REPRESENTATIVES_KPIS_ENDPOINT = `${API_BASE_URL}/representatives/kpis`;
+
+// Asignación de nivel para un (mes, año) específico — se guarda en historial
+export const REPRESENTATIVE_LEVEL_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/representatives/${userId}/level`;
+
+// Historial completo de medallas de un representante (todas las entradas)
+export const REPRESENTATIVE_LEVELS_HISTORY_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/representatives/${userId}/levels`;

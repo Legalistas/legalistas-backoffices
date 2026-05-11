@@ -20,6 +20,7 @@ export interface Notification {
 	id: number;
 	message: string;
 	type: string;
+	link?: string | null;
 	read: boolean;
 	userId: number;
 	createdAt: string;
@@ -175,6 +176,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 						id: notification.id,
 						message: notification.message || "",
 						type: notification.type || "info",
+						link: notification.link ?? null,
 						read: Boolean(notification.read),
 						userId: notification.userId,
 						createdAt: notification.createdAt || new Date().toISOString(),

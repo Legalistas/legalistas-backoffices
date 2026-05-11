@@ -202,6 +202,7 @@ export interface Cases {
 	estadoActual?: string | null;
 	informeSavedAt?: string | null;
 	informeSentWhatsappAt?: string | null;
+	folderName?: string | null;
 	createdAt: Date;
 	updatedAt: Date;
 	customer: User;

@@ -17,6 +17,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { toDateTimeLocalFormat } from "@/constant/calendar";
 import { Button } from "@/components/ui/button";
+import { DateTimeQuarterInput } from "@/components/ui/datetime-quarter-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -188,8 +189,7 @@ export const EventModal = ({
 		}
 	}, [event, validateDate]);
 
-	const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-		const newDate = e.target.value;
+	const handleStartChange = (newDate: string) => {
 		setStart(newDate);
 		const dateOnly = newDate.split("T")[0];
 		setDateError(
@@ -378,12 +378,20 @@ export const EventModal = ({
 							</p>
 						) : (
 							<>
-								<Input
-									type={allDay ? "date" : "datetime-local"}
-									value={allDay ? start.split("T")[0] : start}
-									onChange={handleDateChange}
-									className={dateError ? "border-red-500 focus-visible:ring-red-500" : ""}
-								/>
+								{allDay ? (
+									<Input
+										type="date"
+										value={start.split("T")[0]}
+										onChange={(e) => handleStartChange(e.target.value)}
+										className={dateError ? "border-red-500 focus-visible:ring-red-500" : ""}
+									/>
+								) : (
+									<DateTimeQuarterInput
+										value={start}
+										onChange={handleStartChange}
+										className={dateError ? "[&_input]:border-red-500" : ""}
+									/>
+								)}
 								{dateError && (
 									<p className="text-red-500 text-xs">{dateError}</p>
 								)}
@@ -395,11 +403,7 @@ export const EventModal = ({
 					{!allDay && !isReadOnly && (
 						<div className="space-y-2">
 							<Label>Fecha y hora de fin (opcional)</Label>
-							<Input
-								type="datetime-local"
-								value={end}
-								onChange={(e) => setEnd(e.target.value)}
-							/>
+							<DateTimeQuarterInput value={end} onChange={setEnd} />
 						</div>
 					)}
 

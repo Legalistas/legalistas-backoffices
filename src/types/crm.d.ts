@@ -30,6 +30,7 @@ export interface Lead {
 	injury?: string | null;
 	accepted?: boolean;
 	acceptedAt?: string;
+	folderName?: string | null;
 	services: {
 		values: number;
 		label: string;

@@ -2,20 +2,14 @@
 
 import {
 	AlertTriangle,
-	Briefcase,
 	Calendar,
 	CheckCheck,
 	CheckCircle,
-	Eye,
 	FileText,
-	Folder,
 	Info,
-	MoreVertical,
 	Scale,
 	Settings,
 	SquareKanban,
-	Trash,
-	Users,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Notification } from "@/components/notification-provider";
@@ -32,26 +26,19 @@ export default function NotificationCard({
 	notification,
 }: NotificationCardProps) {
 	const { markNotificationAsRead } = useNotifications();
-	const [isExpanded, setIsExpanded] = useState(false);
 	const [relativeDate, setRelativeDate] = useState<string>("");
 	const [localDate, setLocalDate] = useState<string>("");
 
 	useEffect(() => {
-		// Formatear las fechas cuando el componente se monta o la notificación cambia
 		try {
-			// Usar las funciones de utilidad que preservan la hora original
 			setRelativeDate(formatDistanceToNow(notification.createdAt));
 			setLocalDate(formatLocalDateTime(notification.createdAt));
-
-			// Logs para depuración
-			console.log("Notification date:", notification.createdAt);
-			console.log("Formatted as:", relativeDate, "and", localDate);
 		} catch (error) {
 			console.error("Error formatting dates:", error);
 			setRelativeDate("fecha desconocida");
 			setLocalDate("fecha desconocida");
 		}
-	}, [localDate, notification.createdAt, relativeDate]);
+	}, [notification.createdAt]);
 
 	const handleMarkAsRead = () => {
 		markNotificationAsRead(notification.id);
@@ -161,49 +148,22 @@ export default function NotificationCard({
 							</span>
 						</div>
 						<p
-							className={`text-sm ${notification.read ? "" : "font-medium"} ${isExpanded ? "" : "line-clamp-2"} mb-2`}
+							className={`text-sm whitespace-pre-wrap wrap-break-word ${notification.read ? "" : "font-medium"}`}
 						>
 							{notification.message}
 						</p>
-						<div className="flex items-center justify-between mt-2">
-							<Button
-								variant="default"
-								onClick={() => setIsExpanded(!isExpanded)}
-							>
-								<Eye className="h-4 w-4 mr-1" />
-								{isExpanded ? "Ver menos" : "Ver más"}
-							</Button>
-							<div className="flex items-center gap-2">
-								{!notification.read && (
-									<Button
-										variant="default"
-										onClick={handleMarkAsRead}
-									>
-										<CheckCheck className="h-4 w-4 mr-1" />
-										Marcar como leída
-									</Button>
-								)}
-								{/* <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon">
-                                            <MoreVertical className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end">
-                                        {!notification.read && (
-                                            <DropdownMenuItem onClick={handleMarkAsRead}>
-                                                <CheckCheck className="h-4 w-4 mr-2" />
-                                                Marcar como leída
-                                            </DropdownMenuItem>
-                                        )}
-                                        <DropdownMenuItem className="text-red-600">
-                                            <Trash className="h-4 w-4 mr-2" />
-                                            Eliminar
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu> */}
+						{!notification.read && (
+							<div className="flex justify-end mt-3">
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={handleMarkAsRead}
+								>
+									<CheckCheck className="h-4 w-4 mr-1.5" />
+									Marcar como leída
+								</Button>
 							</div>
-						</div>
+						)}
 					</div>
 				</div>
 			</CardContent>
