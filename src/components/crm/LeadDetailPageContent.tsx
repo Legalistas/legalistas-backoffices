@@ -48,6 +48,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import AddDocumentButton from "./AddDocumentButton";
 import ChangeStageButton from "./ChangeStageButton";
+import ChangeStageDropdown from "./ChangeStageDropdown";
 import LeadActivity from "./LeadActivity";
 import LeadDocuments from "./LeadDocuments";
 import LeadFormDialog from "./LeadFormDialog";
@@ -517,13 +518,17 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 						</p>
 					</div>
 					<Can role="asistente_legal" inverse>
-						<div className="ml-auto flex gap-2">
+						<div className="ml-auto flex items-center gap-2">
 							{statusCfg && (
 								<Badge className={`${statusCfg.className} px-5`}>
 									<statusCfg.icon className="h-4 w-4 mr-2" />
 									{statusCfg.label}
 								</Badge>
 							)}
+							<ChangeStageDropdown
+								lead={lead}
+								onLeadUpdate={handleLeadUpdate}
+							/>
 							<Button
 								variant="outline"
 								size="icon"

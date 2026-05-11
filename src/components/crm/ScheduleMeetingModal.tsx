@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { Loader2, Video } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
@@ -11,6 +11,7 @@ import moment from "moment";
 import "moment/locale/es";
 import type { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
+import { DateTimeQuarterInput } from "@/components/ui/datetime-quarter-input";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -50,6 +51,7 @@ export default function ScheduleMeetingModal({
 		String(lead.responsibleLawyerId || lead.internalLawyerId || ""),
 	);
 	const [meetingDateTime, setMeetingDateTime] = useState("");
+	const [meetLink, setMeetLink] = useState("");
 	const [notes, setNotes] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -84,6 +86,9 @@ export default function ScheduleMeetingModal({
 					userId: Number(session?.user?.id),
 					customerId: lead.userId,
 					notes,
+					meetLink: meetingType === "VIDEO_CALL" && meetLink.trim()
+						? meetLink.trim()
+						: null,
 				}),
 			});
 
@@ -182,13 +187,28 @@ export default function ScheduleMeetingModal({
 
 					<div className="space-y-2">
 						<Label htmlFor="meeting-datetime">Fecha y hora</Label>
-						<Input
+						<DateTimeQuarterInput
 							id="meeting-datetime"
-							type="datetime-local"
 							value={meetingDateTime}
-							onChange={(e) => setMeetingDateTime(e.target.value)}
+							onChange={setMeetingDateTime}
 						/>
 					</div>
+
+					{meetingType === "VIDEO_CALL" && (
+						<div className="space-y-2">
+							<Label htmlFor="meet-link" className="flex items-center gap-1.5">
+								<Video className="h-4 w-4 text-emerald-500" />
+								Link de Google Meet (opcional)
+							</Label>
+							<Input
+								id="meet-link"
+								type="url"
+								value={meetLink}
+								onChange={(e) => setMeetLink(e.target.value)}
+								placeholder="https://meet.google.com/..."
+							/>
+						</div>
+					)}
 
 					<div className="space-y-2">
 						<Label htmlFor="notes">Notas</Label>

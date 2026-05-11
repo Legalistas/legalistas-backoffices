@@ -27,7 +27,6 @@ export const CRM_COLUMNS: CRMColumn[] = [
   { id: "12", title: "Telegramas" },
   { id: "5", title: "Pendiente De Confirmación" },
   { id: "6", title: "Coordinar Reunión Poder" },
-  { id: "7", title: "Reunión De Poder" },
   { id: "8", title: "Pendiente Poder" },
   { id: "9", title: "Ganado - Trajo Poder" },
   { id: "10", title: "Perdida" },
@@ -193,23 +192,17 @@ export const WHATSAPP_MESSAGES: Record<
     withoutMeeting:
       "Hola *{nombre}*,\n\nNecesitamos coordinar una reuni\u00f3n para firmar el poder. \u00bfQu\u00e9 d\u00eda y horario te vendr\u00eda bien?\n\n_Equipo Legalistas_",
   },
-  "7": {
-    withMeeting:
-      "Hola *{nombre}*,\n\n*{tipoReunion}*\n{fechaReunion} a las {horaReunion} hs\nLugar: Alem 80\n\nSi confirm\u00e1s asistencia, toc\u00e1 el siguiente link:\n{confirmationUrl}\n\n_Equipo Legalistas_",
-    withoutMeeting:
-      "Hola *{nombre}*,\n\nTe recordamos nuestra reuni\u00f3n para la firma del poder. \u00bfNos confirm\u00e1s tu asistencia?\n\n_Equipo Legalistas_",
-  },
   "8": {
     withMeeting:
-      "Hola *{nombre}*,\n\nTe recordamos que tu autorizaci\u00f3n sigue pendiente de firma. Este documento es indispensable para que podamos representarte legalmente.\n\nSi todav\u00eda no pudiste coordinar la firma, escribinos para agendar.\n\n_Equipo Legalistas_",
+      "Hola *{nombre}*,\n\nYa te entregamos el poder para comenzar tu representaci\u00f3n. Quedamos al aguardo de que lo entregues firmado para poder poner en marcha tu gesti\u00f3n.\n\n_Equipo Legalistas_",
     withoutMeeting:
-      "Hola *{nombre}*,\n\nTe recordamos que tu autorizaci\u00f3n sigue pendiente de firma. Este documento es indispensable para que podamos representarte legalmente.\n\nSi todav\u00eda no pudiste coordinar la firma, escribinos para agendar.\n\n_Equipo Legalistas_",
+      "Hola *{nombre}*,\n\nYa te entregamos el poder para comenzar tu representaci\u00f3n. Quedamos al aguardo de que lo entregues firmado para poder poner en marcha tu gesti\u00f3n.\n\n_Equipo Legalistas_",
   },
   "9": {
     withMeeting:
-      "Hola *{nombre}*,\n\nRecibimos tu autorizaci\u00f3n y ya estamos trabajando en tu caso.\n\nPod\u00e9s seguir el estado de tu tr\u00e1mite desde la plataforma de clientes:\nhttps://usuarios.legalistas.ar\n\nSi la aseguradora te contacta, es posible que sea por nuestras gestiones. Ante cualquier duda, escribinos.\n\n_Equipo Legalistas_",
+      "Hola *{nombre}*,\n\n\u00a1Recibimos tu autorizaci\u00f3n y ya estamos trabajando en tu caso!\n\n\ud83d\udce7 Te enviamos a tu email tu usuario y contrase\u00f1a para acceder a la plataforma de clientes.\n\n\ud83d\udcf1 Descargate la app de Legalistas:\n\u2022 Android: https://play.google.com/store/apps/details?id=com.lexiatechs.legalistas&hl=es_AR\n\u2022 iPhone: https://apps.apple.com/ar/app/legalistas/id6762129942\n\nTambi\u00e9n pod\u00e9s ingresar desde la web:\nhttps://usuarios.legalistas.ar\n\nSi la aseguradora te contacta, es posible que sea por nuestras gestiones. Ante cualquier duda, escribinos.\n\n_Equipo Legalistas_",
     withoutMeeting:
-      "Hola *{nombre}*,\n\nRecibimos tu autorizaci\u00f3n y ya estamos trabajando en tu caso.\n\nPod\u00e9s seguir el estado de tu tr\u00e1mite desde la plataforma de clientes:\nhttps://usuarios.legalistas.ar\n\nSi la aseguradora te contacta, es posible que sea por nuestras gestiones. Ante cualquier duda, escribinos.\n\n_Equipo Legalistas_",
+      "Hola *{nombre}*,\n\n\u00a1Recibimos tu autorizaci\u00f3n y ya estamos trabajando en tu caso!\n\n\ud83d\udce7 Te enviamos a tu email tu usuario y contrase\u00f1a para acceder a la plataforma de clientes.\n\n\ud83d\udcf1 Descargate la app de Legalistas:\n\u2022 Android: https://play.google.com/store/apps/details?id=com.lexiatechs.legalistas&hl=es_AR\n\u2022 iPhone: https://apps.apple.com/ar/app/legalistas/id6762129942\n\nTambi\u00e9n pod\u00e9s ingresar desde la web:\nhttps://usuarios.legalistas.ar\n\nSi la aseguradora te contacta, es posible que sea por nuestras gestiones. Ante cualquier duda, escribinos.\n\n_Equipo Legalistas_",
   },
   "10": {
     withMeeting:

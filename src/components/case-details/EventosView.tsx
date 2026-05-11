@@ -19,6 +19,7 @@ import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DateTimeQuarterInput } from "@/components/ui/datetime-quarter-input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { useConfirm } from "@/hooks/useConfirm";
@@ -864,15 +865,13 @@ export const EventosView = ({
 										<Calendar className="h-3.5 w-3.5 text-muted-foreground" />
 										Fecha y hora <span className="text-red-500">*</span>
 									</label>
-									<input
-										type="datetime-local"
+									<DateTimeQuarterInput
 										value={
 											newEvent.date && newEvent.time
 												? `${newEvent.date}T${newEvent.time}`
 												: ""
 										}
-										onChange={(e) => {
-											const val = e.target.value;
+										onChange={(val) => {
 											if (val) {
 												const [datePart, timePart] = val.split("T");
 												setNewEvent({
@@ -885,7 +884,6 @@ export const EventosView = ({
 											}
 										}}
 										required
-										className="w-full text-sm bg-muted border border-border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#09A4B5]/20 focus:border-primary transition-colors"
 									/>
 								</div>
 								<div>

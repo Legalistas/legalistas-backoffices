@@ -13,6 +13,7 @@ import {
 	LAWYERS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { getServiceName, getStatusName } from "@/lib/functions";
+import { moveCaseFolderOnStageChange } from "@/lib/storage-move";
 import { Role } from "@/constant/user";
 import type { Cases } from "@/types/cases";
 import { DataNotFound } from "../common/DataNotFound";
@@ -1080,6 +1081,8 @@ export default function CasesContent() {
 	const handleStageChange = useCallback(
 		async (caseId: number, newStageId: number) => {
 			try {
+				const currentCase = cases.find((c) => c.id === caseId);
+
 				const response = await fetch(`${CASES_ENDPOINT}/${caseId}`, {
 					method: "PATCH",
 					headers: {
@@ -1092,6 +1095,13 @@ export default function CasesContent() {
 				if (!response.ok) {
 					throw new Error("Failed to update stage");
 				}
+
+				// Mover la carpeta del caso en MinIO al prefix de la nueva etapa.
+				moveCaseFolderOnStageChange({
+					folderName: currentCase?.folderName,
+					fromStageId: currentCase?.stageId,
+					toStageId: newStageId,
+				});
 
 				toast.success("Etapa actualizada correctamente");
 				fetchCases(
@@ -1127,6 +1137,7 @@ export default function CasesContent() {
 			showAll,
 			fetchCases,
 			viewMode,
+			cases,
 		],
 	);
 

@@ -13,6 +13,7 @@ import {
 	SELLERS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { ART_COMPANIES, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
+import { getCrmStoragePrefix } from "@/constant/storage-structure";
 import { Role } from "@/constant/user";
 import { sendStageEmail } from "@/lib/send-stage-email";
 import type { Lead } from "@/types/crm";
@@ -401,9 +402,10 @@ export default function LeadFormDialog({
 
 			if (isCreating) {
 				const responseData = await response.json().catch(() => null);
-				const newLeadId = Number(
-					responseData?.data?.id ?? responseData?.id ?? 0,
-				);
+				const createdLead =
+					responseData?.lead ?? responseData?.data ?? responseData;
+				const newLeadId = Number(createdLead?.id ?? 0);
+				const folderName = createdLead?.folderName as string | undefined;
 				const selectedCustomer = customers.find(
 					(c) => c.id === formData.userId,
 				);
@@ -416,6 +418,26 @@ export default function LeadFormDialog({
 						phoneNumber: selectedCustomer.userProfile?.phone,
 						accessToken: session?.user?.accessToken,
 					});
+				}
+
+				// Crear la carpeta del lead en MinIO, en el prefix de su columna actual.
+				// No bloquea el flujo: si falla, solo se loguea.
+				if (folderName) {
+					const stagePrefix = getCrmStoragePrefix(dataToSend.columnId);
+					if (stagePrefix) {
+						try {
+							await fetch("/api/storage/folder", {
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({
+									prefix: stagePrefix,
+									name: folderName,
+								}),
+							});
+						} catch (err) {
+							console.error("[Storage] Error creando carpeta del lead:", err);
+						}
+					}
 				}
 			}
 

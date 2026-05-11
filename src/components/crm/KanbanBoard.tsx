@@ -22,7 +22,6 @@ import {
 	Plus,
 	SquareKanban,
 	Trophy,
-	Users,
 	XCircle,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -41,6 +40,7 @@ import { CRM_COLUMNS } from "@/constant/crm";
 import { Role } from "@/constant/user";
 import { servicesType } from "@/lib/constant";
 import { sendStageEmail } from "@/lib/send-stage-email";
+import { moveLeadFolderOnColumnChange } from "@/lib/storage-move";
 import type { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -58,7 +58,6 @@ const columnConfig: Record<string, { bg: string; color: string; borderColor: str
 	"12": { bg: "bg-rose-50", color: "text-rose-700", borderColor: "border-rose-200", icon: Mail },
 	"5":  { bg: "bg-purple-50", color: "text-purple-700", borderColor: "border-purple-200", icon: Clock },
 	"6":  { bg: "bg-indigo-50", color: "text-indigo-700", borderColor: "border-indigo-200", icon: Handshake },
-	"7":  { bg: "bg-teal-50", color: "text-teal-700", borderColor: "border-teal-200", icon: Users },
 	"8":  { bg: "bg-cyan-50", color: "text-cyan-700", borderColor: "border-cyan-200", icon: FileText },
 	"9":  { bg: "bg-green-50", color: "text-green-700", borderColor: "border-green-200", icon: Trophy },
 	"10": { bg: "bg-red-50", color: "text-red-700", borderColor: "border-red-200", icon: XCircle },
@@ -246,6 +245,7 @@ export default function KanbanBoard() {
 					sourceChannelId: item.sourceChannelId,
 					status: item.status,
 					columnId: columnId,
+					folderName: item.folderName ?? null,
 					notes: item.notes,
 					documentationComplete: item.documentationComplete,
 					createdAt: item.createdAt,
@@ -474,7 +474,7 @@ export default function KanbanBoard() {
 		} else if (destination.droppableId === "10") {
 			newStatus = "LOST";
 		} else if (
-			["1", "2", "3", "4", "5", "6", "7", "8"].includes(destination.droppableId)
+			["1", "2", "3", "4", "5", "6", "8", "12"].includes(destination.droppableId)
 		) {
 			newStatus = "IN_PROGRESS";
 		}
@@ -509,6 +509,14 @@ export default function KanbanBoard() {
 				columnId: newColumnId,
 				phoneNumber: leadBeingDragged.phone || leadBeingDragged.user?.userProfile?.phone,
 				accessToken: session?.user?.accessToken,
+			});
+
+			// Mover la carpeta del lead en MinIO al nuevo prefix de etapa
+			// (o a casos/documentacion/ si se marcó como Ganado).
+			moveLeadFolderOnColumnChange({
+				folderName: leadBeingDragged.folderName,
+				fromColumnId: leadBeingDragged.columnId,
+				toColumnId: newColumnId,
 			});
 
 			toast.success("Etapa actualizada correctamente");
@@ -691,7 +699,7 @@ export default function KanbanBoard() {
 										(columnIdNum === 9 || columnIdNum === 10 || columnIdNum === 11)
 									) return false;
 
-									if (columnIdNum >= 1 && columnIdNum <= 8) {
+									if ((columnIdNum >= 1 && columnIdNum <= 8) || columnIdNum === 12) {
 										return lead.status === "IN_PROGRESS" && lead.columnId === columnIdNum;
 									} else if (columnIdNum === 9) {
 										return lead.status === "WON";

@@ -115,7 +115,7 @@ export default function LayoutSidebar() {
 
 			<SidebarContent className="px-2 group-data-[collapsible=icon]:items-center">
 				{filteredSections.map((section) => (
-					<SidebarGroup key={section.type}>
+					<SidebarGroup key={section.label}>
 						<SidebarGroupLabel className="uppercase text-[11px] font-semibold tracking-widest text-sidebar-foreground/40 px-3">
 							{section.label}
 						</SidebarGroupLabel>

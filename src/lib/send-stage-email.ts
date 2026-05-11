@@ -1,4 +1,4 @@
-const CRM_COLUMNS_WITH_EMAIL = [1, 4, 9];
+const CRM_COLUMNS_WITH_EMAIL = [1, 4, 8, 9];
 
 interface SendStageEmailParams {
   email?: string;

@@ -41,8 +41,9 @@ export function CrmGanadoPoderTemplate({ leadName = "Cliente" }: Props) {
         </Text>
 
         <Text className="text-[#1f2937] text-[14px] leading-6 m-0 mt-2">
-          Podés seguir el avance de tu trámite, ver documentos y mensajes
-          desde tu cuenta.
+          Te enviamos por separado un correo con tu <strong>usuario y
+          contraseña</strong> para acceder a la plataforma. Desde ahí podés
+          seguir el avance de tu trámite, ver documentos y mensajes.
         </Text>
 
         <Section className="mt-4">
@@ -52,6 +53,41 @@ export function CrmGanadoPoderTemplate({ leadName = "Cliente" }: Props) {
             style={{ padding: "12px 24px" }}
           >
             Ingresar a mi cuenta
+          </Button>
+        </Section>
+      </Section>
+
+      {/* Bloque destacado: apps móviles */}
+      <Section
+        style={{
+          marginTop: "16px",
+          padding: "20px 24px",
+          backgroundColor: "#f9fafb",
+          border: "1px solid #e5e7eb",
+          borderRadius: "8px",
+        }}
+      >
+        <Text className="text-[#111827] text-[14px] font-bold m-0">
+          Descargá la app de Legalistas
+        </Text>
+        <Text className="text-[#6b7280] text-[13px] leading-6 m-0 mt-1">
+          Tené tu caso en tu bolsillo. Disponible para Android y iPhone.
+        </Text>
+
+        <Section className="mt-4">
+          <Button
+            href="https://play.google.com/store/apps/details?id=com.lexiatechs.legalistas&hl=es_AR"
+            className="bg-[#111827] text-white text-[13px] font-bold no-underline rounded-md mr-2"
+            style={{ padding: "10px 20px" }}
+          >
+            Google Play
+          </Button>
+          <Button
+            href="https://apps.apple.com/ar/app/legalistas/id6762129942"
+            className="bg-[#111827] text-white text-[13px] font-bold no-underline rounded-md"
+            style={{ padding: "10px 20px" }}
+          >
+            App Store
           </Button>
         </Section>
       </Section>
