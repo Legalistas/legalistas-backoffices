@@ -9,6 +9,7 @@ import {
 	Hash,
 	Info,
 	MessageSquare,
+	Stethoscope,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getServiceName } from "@/lib/functions";
@@ -55,6 +56,15 @@ export const CaseStatsSidebar = ({ caseData }: CaseStatsSidebarProps) => {
 					</h3>
 				</div>
 				<div className="px-5 py-4 space-y-3">
+					<div className="flex flex-col gap-1">
+						<div className="flex items-center gap-2 text-sm text-muted-foreground">
+							<Stethoscope className="h-4 w-4 text-muted-foreground" />
+							<span>Lesión</span>
+						</div>
+						<span className="text-sm font-semibold text-foreground break-words pl-6">
+							{caseData.injury?.trim() ? caseData.injury : "—"}
+						</span>
+					</div>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2 text-sm text-muted-foreground">
 							<Clock className="h-4 w-4 text-muted-foreground" />
