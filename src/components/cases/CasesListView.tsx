@@ -26,7 +26,7 @@ interface CasesListViewProps {
 	handleDelete: (id: number) => void;
 	onStageChange: (caseId: number, newStageId: number) => void;
 	onResultChange: (caseId: number, newResult: string) => void;
-	onNoteCreate: (caseId: number, note: string) => void;
+	onNoteCreate: (caseId: number, note: string) => void | Promise<void>;
 }
 
 // Helper para limpiar HTML de las notas
@@ -55,19 +55,33 @@ export const CasesListView = ({
 		return stripHtml(sorted[0].note);
 	};
 
-	const handleNoteBlur = (caseId: number) => {
+	const handleNoteBlur = async (caseId: number) => {
 		const newNote = editingNotes[caseId];
 		if (newNote === undefined) return;
 		const caso = cases.find((c) => c.id === caseId);
 		const lastNote = caso ? getLastNote(caso) : "";
-		if (newNote.trim() !== "" && newNote !== lastNote) {
-			onNoteCreate(caseId, newNote);
+
+		// Sin cambios reales → solo limpiar estado de edición
+		if (newNote.trim() === "" || newNote === lastNote) {
+			setEditingNotes((prev) => {
+				const next = { ...prev };
+				delete next[caseId];
+				return next;
+			});
+			return;
 		}
-		setEditingNotes((prev) => {
-			const next = { ...prev };
-			delete next[caseId];
-			return next;
-		});
+
+		// Esperar el guardado + refetch antes de limpiar, así el input no
+		// parpadea a la nota vieja mientras la nueva data llega del backend.
+		try {
+			await onNoteCreate(caseId, newNote);
+		} finally {
+			setEditingNotes((prev) => {
+				const next = { ...prev };
+				delete next[caseId];
+				return next;
+			});
+		}
 	};
 
 	const handleNoteKeyDown = (e: React.KeyboardEvent, caseId: number) => {

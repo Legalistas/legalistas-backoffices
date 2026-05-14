@@ -389,6 +389,8 @@ export default function CasesContent() {
 					const userId = session.user.id.toString();
 					// Roles que NO son abogados → no filtrar por lawyerId
 					const nonLawyerRoles: string[] = [
+						Role.ADMINISTRATOR,
+						Role.DIRECTOR_AREA_IT,
 						Role.DIRECTORA_AREA_VENTAS,
 						Role.REPRESENTANTE_VENTAS,
 						Role.DIRECTORA_AREA_CONTABLE,
@@ -1203,7 +1205,11 @@ export default function CasesContent() {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${session?.user?.accessToken}`,
 					},
-					body: JSON.stringify({ title: "Observación", note }),
+					body: JSON.stringify({
+						note,
+						userId: session?.user?.id,
+						mentionedUserIds: [],
+					}),
 				});
 
 				if (!response.ok) {
@@ -1211,7 +1217,7 @@ export default function CasesContent() {
 				}
 
 				toast.success("Observación guardada correctamente");
-				fetchCases(
+				await fetchCases(
 					currentPage,
 					searchTerm,
 					selectedService,
@@ -1231,6 +1237,7 @@ export default function CasesContent() {
 		},
 		[
 			session?.user?.accessToken,
+			session?.user?.id,
 			currentPage,
 			searchTerm,
 			selectedService,
