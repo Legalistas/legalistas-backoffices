@@ -252,11 +252,18 @@ export default function AddNewCase() {
 			}
 
 			const data = await response.json();
-			// Filtrar solo usuarios con role ID 34 y eliminar duplicados
-			const customersWithRole34 = Array.isArray(data.data)
+			// Filtrar usuarios con cualquier rol de cliente (34-39) y dedupe.
+			// Antes filtraba solo `role.id === 34`, lo que dejaba afuera a
+			// clientes con otros roles de cliente (causa típica: clientes
+			// que aparecen en la pestaña "Archivados" no se podían seleccionar
+			// acá porque no tenían exactamente rol 34).
+			const CUSTOMER_ROLE_IDS = [34, 35, 36, 37, 38, 39];
+			const customerList = Array.isArray(data.data)
 				? data.data
 					.filter((customer: Customer) =>
-						customer.roleUser?.some((ru) => ru.role.id === 34),
+						customer.roleUser?.some((ru) =>
+							CUSTOMER_ROLE_IDS.includes(ru.role.id),
+						),
 					)
 					.filter(
 						(customer: Customer, index: number, self: Customer[]) =>
@@ -264,13 +271,13 @@ export default function AddNewCase() {
 					)
 				: [];
 
-			setCustomers(customersWithRole34);
+			setCustomers(customerList);
 			console.log(
-				`Cargados ${customersWithRole34.length} clientes con role ID 34`,
+				`Cargados ${customerList.length} clientes (roles ${CUSTOMER_ROLE_IDS.join(", ")})`,
 			);
 			console.log(
 				"Clientes cargados:",
-				customersWithRole34.map((c: Customer) => ({
+				customerList.map((c: Customer) => ({
 					id: c.id,
 					name: c.name,
 					email: c.email,
