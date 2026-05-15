@@ -924,16 +924,14 @@ export function NegotiationsTable({
 													</button>
 												)}
 
-											{/* Eliminar - solo INICIAR */}
-											{neg.status === "INICIAR" && (
-												<button
-													onClick={() => handleDelete(neg.id)}
-													title="Eliminar"
-													className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400 transition-colors"
-												>
-													<Trash2 className="h-4 w-4" />
-												</button>
-											)}
+											{/* Eliminar */}
+											<button
+												onClick={() => handleDelete(neg.id)}
+												title="Eliminar"
+												className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950 dark:hover:text-red-400 transition-colors"
+											>
+												<Trash2 className="h-4 w-4" />
+											</button>
 										</div>
 									</TableCell>
 								</TableRow>
