@@ -275,7 +275,7 @@ export default function CustomerRegistrationModal({
 
 	const handleSaveClient = async () => {
 		if (!newCustomer.name?.trim()) { toast.error("El nombre es obligatorio"); return; }
-		if (!newCustomer.email?.trim()) { toast.error("El email es obligatorio"); return; }
+		// Email es opcional (columna en DB es nullable).
 
 		try {
 			setIsCreating(true);
@@ -283,7 +283,7 @@ export default function CustomerRegistrationModal({
 			const dataToSend = {
 				...(mode === "create" && { selectedId: newCustomer.selectedId || null }),
 				name: newCustomer.name,
-				email: newCustomer.email,
+				email: newCustomer.email?.trim() || null,
 				image: newCustomer.image || "",
 				role: newCustomer.role,
 				userProfile: {
@@ -355,10 +355,15 @@ export default function CustomerRegistrationModal({
 								<Input id="clientName" name="name" value={newCustomer.name} onChange={handleInputChange} placeholder="Nombre completo" />
 							</div>
 							<div className="space-y-2">
-								<Label htmlFor="clientEmail">
-									Correo electrónico <span className="text-destructive">*</span>
-								</Label>
-								<Input id="clientEmail" name="email" type="email" value={newCustomer.email} onChange={handleInputChange} placeholder="cliente@ejemplo.com" />
+								<Label htmlFor="clientEmail">Correo electrónico</Label>
+								<Input
+									id="clientEmail"
+									name="email"
+									type="email"
+									value={newCustomer.email ?? ""}
+									onChange={handleInputChange}
+									placeholder="cliente@ejemplo.com (opcional)"
+								/>
 							</div>
 							<div className="space-y-2">
 								<Label htmlFor="clientPhone">Teléfono</Label>

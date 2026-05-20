@@ -37,6 +37,19 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+
+/**
+ * Si el email del cliente es interno (@legalistas) o un "falso" de prueba,
+ * nunca disparamos el email de bienvenida.
+ */
+function shouldBlockWelcomeEmail(email?: string | null): boolean {
+	if (!email) return true;
+	const lower = email.toLowerCase();
+	if (lower.includes("@legalistas")) return true;
+	if (lower.includes("falso")) return true;
+	return false;
+}
 
 interface LeadFormDialogProps {
 	open: boolean;
@@ -102,6 +115,7 @@ export default function LeadFormDialog({
 	const [internalLawyers, setInternalLawyers] = useState<any[]>([]);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [hasSelectedCustomer, setHasSelectedCustomer] = useState(false);
+	const [skipWelcomeEmail, setSkipWelcomeEmail] = useState(false);
 	const [isRefreshingCustomers, setIsRefreshingCustomers] = useState(false);
 	const [selectedCustomerName, setSelectedCustomerName] = useState("");
 	const [customerModalOpen, setCustomerModalOpen] = useState(false);
@@ -409,7 +423,12 @@ export default function LeadFormDialog({
 				const selectedCustomer = customers.find(
 					(c) => c.id === formData.userId,
 				);
-				if (selectedCustomer?.email) {
+				const blockedAuto = shouldBlockWelcomeEmail(selectedCustomer?.email);
+				if (
+					selectedCustomer?.email &&
+					!skipWelcomeEmail &&
+					!blockedAuto
+				) {
 					await sendStageEmail({
 						email: selectedCustomer.email,
 						leadName: selectedCustomer.name,
@@ -418,6 +437,10 @@ export default function LeadFormDialog({
 						phoneNumber: selectedCustomer.userProfile?.phone,
 						accessToken: session?.user?.accessToken,
 					});
+				} else if (blockedAuto && selectedCustomer?.email) {
+					console.log(
+						`[Lead] Email de bienvenida bloqueado automáticamente para ${selectedCustomer.email} (interno o de prueba).`,
+					);
 				}
 
 				// Crear la carpeta del lead en MinIO, en el prefix de su columna actual.
@@ -757,23 +780,45 @@ export default function LeadFormDialog({
 					</section>
 				</div>
 
-				<DialogFooter>
-					<Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
-						Cancelar
-					</Button>
-					<Button onClick={handleSubmit} disabled={isSubmitting}>
-						{isSubmitting ? (
-							<>
-								<Loader2 className="h-4 w-4 animate-spin mr-2" />
-								Guardando...
-							</>
-						) : (
-							<>
-								<Plus className="h-4 w-4 mr-2" />
-								{lead ? "Actualizar Lead" : "Guardar Lead"}
-							</>
-						)}
-					</Button>
+				<DialogFooter className="sm:justify-between sm:items-center gap-3">
+					{!lead && (
+						<div className="flex items-center gap-2">
+							<Switch
+								id="skip-welcome-email"
+								checked={skipWelcomeEmail}
+								onCheckedChange={setSkipWelcomeEmail}
+								disabled={isSubmitting}
+							/>
+							<Label
+								htmlFor="skip-welcome-email"
+								className="text-xs text-muted-foreground cursor-pointer"
+							>
+								No enviar mail de bienvenida
+							</Label>
+						</div>
+					)}
+					<div className="flex items-center gap-2">
+						<Button
+							variant="outline"
+							onClick={() => onOpenChange(false)}
+							disabled={isSubmitting}
+						>
+							Cancelar
+						</Button>
+						<Button onClick={handleSubmit} disabled={isSubmitting}>
+							{isSubmitting ? (
+								<>
+									<Loader2 className="h-4 w-4 animate-spin mr-2" />
+									Guardando...
+								</>
+							) : (
+								<>
+									<Plus className="h-4 w-4 mr-2" />
+									{lead ? "Actualizar Lead" : "Guardar Lead"}
+								</>
+							)}
+						</Button>
+					</div>
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
