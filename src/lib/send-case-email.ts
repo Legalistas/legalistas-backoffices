@@ -1,3 +1,5 @@
+import { shouldBlockAutomaticEmail } from "./send-stage-email";
+
 interface SendCaseEmailParams {
   email: string;
   customerName: string;
@@ -23,7 +25,12 @@ export async function sendCaseEmail({
   accidentDate,
   responsibleLawyerName,
 }: SendCaseEmailParams): Promise<void> {
-  if (!email) return;
+  if (shouldBlockAutomaticEmail(email)) {
+    console.log(
+      `[Case Email] Bloqueado para "${email || "(vacío)"}" (interno o de prueba).`,
+    );
+    return;
+  }
 
   try {
     await fetch("/api/notifications/email", {
