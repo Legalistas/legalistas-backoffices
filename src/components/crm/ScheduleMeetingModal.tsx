@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { LEADS_ENDPOINT } from "@/constant/api-endpoints";
 import { MEETING_TYPES } from "@/constant/crm";
+import { shouldBlockAutomaticEmail } from "@/lib/send-stage-email";
 import moment from "moment";
 import "moment/locale/es";
 import type { Lead } from "@/types/crm";
@@ -100,7 +101,7 @@ export default function ScheduleMeetingModal({
 
 			// Enviar email con datos de la reunión al cliente
 			const email = lead.email || lead.user?.email;
-			if (email) {
+			if (email && !shouldBlockAutomaticEmail(email)) {
 				const meetingDate = moment.utc(data.meeting.date);
 				const meetingLabel = MEETING_TYPES.find((t) => t.id === meetingType)?.name || meetingType;
 				fetch("/api/notifications/email", {

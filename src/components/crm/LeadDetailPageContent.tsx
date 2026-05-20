@@ -55,7 +55,10 @@ import LeadFormDialog from "./LeadFormDialog";
 import LeadLogDetails from "./LeadLogDetails";
 import LeadNotes from "./LeadNotes";
 import ScheduleMeetingButton from "./ScheduleMeetingButton";
-import { sendStageEmail } from "@/lib/send-stage-email";
+import {
+	sendStageEmail,
+	shouldBlockAutomaticEmail,
+} from "@/lib/send-stage-email";
 
 // --- Helpers (fuera del componente, no se recrean cada render) ---
 
@@ -347,6 +350,13 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 		const email = lead.email || lead.user?.email;
 		if (!email) {
 			toast.error("Este lead no tiene email registrado");
+			return;
+		}
+
+		if (shouldBlockAutomaticEmail(email)) {
+			toast.error(
+				"Este lead tiene un email interno o de prueba — no se envían correos automáticos.",
+			);
 			return;
 		}
 

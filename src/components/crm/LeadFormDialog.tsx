@@ -15,7 +15,10 @@ import {
 import { ART_COMPANIES, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
 import { getCrmStoragePrefix } from "@/constant/storage-structure";
 import { Role } from "@/constant/user";
-import { sendStageEmail } from "@/lib/send-stage-email";
+import {
+	sendStageEmail,
+	shouldBlockAutomaticEmail,
+} from "@/lib/send-stage-email";
 import type { Lead } from "@/types/crm";
 import type { User } from "@/types/users";
 import CustomerRegistrationModal from "../customers/CustomerRegistrationModal";
@@ -39,17 +42,6 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 
-/**
- * Si el email del cliente es interno (@legalistas) o un "falso" de prueba,
- * nunca disparamos el email de bienvenida.
- */
-function shouldBlockWelcomeEmail(email?: string | null): boolean {
-	if (!email) return true;
-	const lower = email.toLowerCase();
-	if (lower.includes("@legalistas")) return true;
-	if (lower.includes("falso")) return true;
-	return false;
-}
 
 interface LeadFormDialogProps {
 	open: boolean;
@@ -423,7 +415,7 @@ export default function LeadFormDialog({
 				const selectedCustomer = customers.find(
 					(c) => c.id === formData.userId,
 				);
-				const blockedAuto = shouldBlockWelcomeEmail(selectedCustomer?.email);
+				const blockedAuto = shouldBlockAutomaticEmail(selectedCustomer?.email);
 				if (
 					selectedCustomer?.email &&
 					!skipWelcomeEmail &&

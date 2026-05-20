@@ -1,3 +1,5 @@
+import { shouldBlockAutomaticEmail } from "./send-stage-email";
+
 const CASE_STAGES_WITH_EMAIL = [1, 2, 3, 4, 5, 6, 7];
 
 interface SendCaseStageEmailParams {
@@ -33,7 +35,13 @@ export async function sendCaseStageEmail({
   accessToken,
   isResend = false,
 }: SendCaseStageEmailParams): Promise<void> {
-  if (!email || !CASE_STAGES_WITH_EMAIL.includes(stageId)) return;
+  if (!CASE_STAGES_WITH_EMAIL.includes(stageId)) return;
+  if (shouldBlockAutomaticEmail(email)) {
+    console.log(
+      `[Case Stage Email] Bloqueado para "${email ?? "(vacío)"}" en stage ${stageId} (interno o de prueba).`,
+    );
+    return;
+  }
 
   try {
     await fetch("/api/notifications/email", {
