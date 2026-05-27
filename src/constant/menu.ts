@@ -179,12 +179,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: "/admin/reports/legal",
         roles: LEGAL_INTERNO,
       },
-      // {
-      //   icon: MessageCircle,
-      //   name: "Consultas",
-      //   path: "/admin/consultations",
-      //   roles: LEGAL,
-      // },
+      {
+        icon: MessageCircle,
+        name: "Consultas",
+        path: "/admin/consultations",
+        roles: LEGAL,
+      },
     ],
   },
   {
