@@ -147,7 +147,11 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Calculadoras",
         roles: LEGAL,
         subItems: [
-          { name: "RIPTE", path: "/admin/calculator/ripte", roles: LEGAL_INTERNO },
+          {
+            name: "RIPTE",
+            path: "/admin/calculator/ripte",
+            roles: LEGAL_INTERNO,
+          },
           { name: "LRT", path: "/admin/calculator/accidents-work" },
           {
             name: "Acc. de Tránsito",
@@ -179,12 +183,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: "/admin/reports/legal",
         roles: LEGAL_INTERNO,
       },
-      // {
-      //   icon: MessageCircle,
-      //   name: "Consultas",
-      //   path: "/admin/consultations",
-      //   roles: LEGAL,
-      // },
+      {
+        icon: MessageCircle,
+        name: "Consultas",
+        path: "/admin/consultations",
+        roles: [...LEGAL, ...LEGAL_INTERNO],
+      },
     ],
   },
   {

@@ -2,6 +2,7 @@
 
 import { Editor } from "@tinymce/tinymce-react";
 import {
+	AlertTriangle,
 	CheckCircle2,
 	ChevronDown,
 	Clock,
@@ -12,6 +13,7 @@ import {
 	Printer,
 	Search,
 	Send,
+	Sparkles,
 	Trash2,
 	User,
 	XCircle,
@@ -21,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	CASE_CEDULA_BY_ID_ENDPOINT,
+	CASE_CEDULAS_DRAFT_ENDPOINT,
 	CASE_CEDULAS_ENDPOINT,
 	CASE_PARTS_ENDPOINT,
 	CASES_FILES_BY_CASE_ID_ENDPOINT,
@@ -145,6 +148,25 @@ export const CedulasView = ({
 		secretaria: "",
 		content: "",
 	});
+
+	// AI draft state
+	type AiSuggestion = {
+		field: "juez" | "secretaria" | "cedulaType" | "partId" | "rawDecree";
+		suggestedValue: string | number;
+		rationale?: string;
+		partName?: string;
+	};
+	type AiWarning = {
+		severity: "error" | "warning" | "info";
+		message: string;
+		suggestion?: AiSuggestion;
+	};
+	const [aiOpen, setAiOpen] = useState(false);
+	const [rawDecree, setRawDecree] = useState("");
+	const [brief, setBrief] = useState("");
+	const [isDrafting, setIsDrafting] = useState(false);
+	const [aiWarnings, setAiWarnings] = useState<AiWarning[]>([]);
+	const [acknowledgedErrors, setAcknowledgedErrors] = useState(false);
 
 	// Dropdowns
 	const [isFileOpen, setIsFileOpen] = useState(false);
@@ -480,7 +502,101 @@ export const CedulasView = ({
 			secretaria: "",
 			content: "",
 		});
+		setRawDecree("");
+		setBrief("");
+		setAiWarnings([]);
+		setAcknowledgedErrors(false);
+		setAiOpen(false);
 		setIsCreating(true);
+	};
+
+	const applySuggestion = (s: AiSuggestion, warningIdx: number) => {
+		const val = s.suggestedValue;
+		switch (s.field) {
+			case "juez":
+				handleJuezChange(String(val));
+				break;
+			case "secretaria":
+				handleSecretariaChange(String(val));
+				break;
+			case "cedulaType":
+				handleCedulaTypeChange(String(val));
+				break;
+			case "partId":
+				handlePartChange(String(val));
+				break;
+			case "rawDecree":
+				setRawDecree(String(val));
+				toast.info("Decreto reemplazado. Volvé a generar el borrador.");
+				break;
+		}
+		// Marcar el warning como aplicado removiendo la sugerencia
+		setAiWarnings((prev) =>
+			prev.map((w, i) =>
+				i === warningIdx ? { ...w, suggestion: undefined } : w,
+			),
+		);
+		toast.success("Sugerencia aplicada");
+	};
+
+	const handleGenerateAIDraft = async () => {
+		if (!selectedFileId) {
+			toast.error("Seleccioná un expediente");
+			return;
+		}
+		if (!newCedula.partId) {
+			toast.error("Seleccioná al menos una parte");
+			return;
+		}
+		setIsDrafting(true);
+		setAiWarnings([]);
+		setAcknowledgedErrors(false);
+		try {
+			const res = await fetch(CASE_CEDULAS_DRAFT_ENDPOINT(Number(caseId)), {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
+				body: JSON.stringify({
+					fileId: selectedFileId,
+					partIds: [Number(newCedula.partId)],
+					cedulaType: newCedula.cedulaType,
+					rawDecree: rawDecree.trim() || undefined,
+					brief: brief.trim() || undefined,
+					juez: newCedula.juez || undefined,
+					secretaria: newCedula.secretaria || undefined,
+				}),
+			});
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(err.message || err.error || "Error al generar borrador");
+			}
+			const data = await res.json();
+			setNewCedula((prev) => ({ ...prev, content: data.content || "" }));
+			const warnings: AiWarning[] = Array.isArray(data.warnings)
+				? data.warnings
+						.map((w: AiWarning | string): AiWarning =>
+							typeof w === "string"
+								? { severity: "warning", message: w }
+								: {
+										severity: w.severity ?? "warning",
+										message: w.message ?? "",
+										suggestion: w.suggestion,
+									},
+						)
+						.filter((w: AiWarning) => w.message)
+				: [];
+			setAiWarnings(warnings);
+			toast.success("Borrador generado. Revisalo antes de guardar.");
+		} catch (error) {
+			console.error("Error generando borrador IA:", error);
+			toast.error(
+				error instanceof Error ? error.message : "Error al generar borrador",
+			);
+		} finally {
+			setIsDrafting(false);
+		}
 	};
 
 	const handleSave = async () => {
@@ -932,6 +1048,178 @@ export const CedulasView = ({
 
 								<div className="border-t border-border" />
 
+								{/* Asistente IA */}
+								<div className="rounded-lg border border-violet-200 dark:border-violet-900/40 bg-violet-50/40 dark:bg-violet-900/10">
+									<button
+										type="button"
+										onClick={() => setAiOpen(!aiOpen)}
+										className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-foreground"
+									>
+										<span className="flex items-center gap-2">
+											<Sparkles className="h-4 w-4 text-violet-500" />
+											Asistente IA — Generar borrador
+										</span>
+										<ChevronDown
+											className={`h-4 w-4 text-muted-foreground transition-transform ${aiOpen ? "rotate-180" : ""}`}
+										/>
+									</button>
+									{aiOpen && (
+										<div className="px-4 pb-4 space-y-3 border-t border-violet-200 dark:border-violet-900/40 pt-3">
+											<p className="text-xs text-muted-foreground">
+												Pegá el decreto del SISFE / portal del juzgado. La IA lo
+												limpia, conserva los puntos numerados y arma la cédula
+												con los datos de la parte seleccionada.
+											</p>
+											<div>
+												<label
+													htmlFor="ai-decree"
+													className="block text-xs font-medium text-foreground mb-1"
+												>
+													Decreto judicial (opcional)
+												</label>
+												<textarea
+													id="ai-decree"
+													value={rawDecree}
+													onChange={(e) => setRawDecree(e.target.value)}
+													rows={6}
+													placeholder='RAFAELA, 9 de octubre de 2025 Proveyendo escrito cargo Nº 9664/25: 1) Por presentado...'
+													className={`${inputClass} font-mono text-xs leading-relaxed`}
+												/>
+											</div>
+											<div>
+												<label
+													htmlFor="ai-brief"
+													className="block text-xs font-medium text-foreground mb-1"
+												>
+													Notas adicionales (opcional)
+												</label>
+												<textarea
+													id="ai-brief"
+													value={brief}
+													onChange={(e) => setBrief(e.target.value)}
+													rows={2}
+													placeholder="Ej: Acompañar copia de demanda en 8 fs. y documental en 17 fs."
+													className={inputClass}
+												/>
+											</div>
+											<button
+												type="button"
+												onClick={handleGenerateAIDraft}
+												disabled={
+													isDrafting || !selectedFileId || !newCedula.partId
+												}
+												className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-md transition-colors disabled:opacity-50"
+											>
+												{isDrafting ? (
+													<Loader2 className="h-3.5 w-3.5 animate-spin" />
+												) : (
+													<Sparkles className="h-3.5 w-3.5" />
+												)}
+												{isDrafting ? "Generando..." : "Generar borrador con IA"}
+											</button>
+											{aiWarnings.length > 0 && (
+												<div className="space-y-1.5">
+													{aiWarnings.map((w, idx) => {
+														const style =
+															w.severity === "error"
+																? "border-red-300 bg-red-50 text-red-800 dark:bg-red-900/20 dark:border-red-900/40 dark:text-red-200"
+																: w.severity === "info"
+																	? "border-sky-300 bg-sky-50 text-sky-800 dark:bg-sky-900/20 dark:border-sky-900/40 dark:text-sky-200"
+																	: "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:border-amber-900/40 dark:text-amber-200";
+														const label =
+															w.severity === "error"
+																? "Bloqueante"
+																: w.severity === "info"
+																	? "Info"
+																	: "Atención";
+														const s = w.suggestion;
+														const fieldLabels: Record<
+															AiSuggestion["field"],
+															string
+														> = {
+															juez: "Juez",
+															secretaria: "Secretaría",
+															cedulaType: "Tipo de cédula",
+															partId: "Destinatario",
+															rawDecree: "Decreto",
+														};
+														const displayValue =
+															s?.field === "partId"
+																? s.partName || `#${s.suggestedValue}`
+																: s?.field === "cedulaType"
+																	? String(s.suggestedValue) ===
+																		"carta_certificada"
+																		? "Carta certificada al demandado"
+																		: "Común a cualquiera"
+																	: s?.field === "rawDecree"
+																		? `${String(s?.suggestedValue ?? "").slice(0, 80)}…`
+																		: String(s?.suggestedValue ?? "");
+														return (
+															<div
+																key={`${w.severity}-${idx}`}
+																className={`rounded-md border p-2.5 text-xs ${style}`}
+															>
+																<div className="flex items-start gap-2">
+																	<AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+																	<div className="flex-1 space-y-1.5">
+																		<div>
+																			<span className="font-semibold">
+																				{label}:
+																			</span>{" "}
+																			{w.message}
+																		</div>
+																		{s && (
+																			<div className="flex items-center gap-2 flex-wrap pt-1 border-t border-current/15">
+																				<span className="opacity-80">
+																					Sugerido — {fieldLabels[s.field]}:{" "}
+																					<span className="font-medium">
+																						{displayValue}
+																					</span>
+																					{s.rationale ? (
+																						<span className="opacity-70">
+																							{" "}
+																							· {s.rationale}
+																						</span>
+																					) : null}
+																				</span>
+																				<button
+																					type="button"
+																					onClick={() => applySuggestion(s, idx)}
+																					className="ml-auto inline-flex items-center px-2 py-0.5 rounded border border-current/30 bg-white/60 dark:bg-black/20 hover:bg-white font-medium"
+																				>
+																					Aplicar
+																				</button>
+																			</div>
+																		)}
+																	</div>
+																</div>
+															</div>
+														);
+													})}
+													{aiWarnings.some((w) => w.severity === "error") && (
+														<label className="flex items-start gap-2 text-xs text-foreground pt-1 cursor-pointer">
+															<input
+																type="checkbox"
+																checked={acknowledgedErrors}
+																onChange={(e) =>
+																	setAcknowledgedErrors(e.target.checked)
+																}
+																className="mt-0.5"
+															/>
+															<span>
+																Revisé los avisos bloqueantes y confirmo que la
+																cédula es correcta bajo mi responsabilidad.
+															</span>
+														</label>
+													)}
+												</div>
+											)}
+										</div>
+									)}
+								</div>
+
+								<div className="border-t border-border" />
+
 								{/* Editor */}
 								<div className="space-y-2">
 									<span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
@@ -999,15 +1287,36 @@ export const CedulasView = ({
 							>
 								Cancelar
 							</button>
-							<button
-								type="button"
-								onClick={handleSave}
-								disabled={isSubmitting || !selectedFileId || !newCedula.partId}
-								className="px-4 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
-							>
-								{isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-								Crear Cédula
-							</button>
+							{(() => {
+								const hasBlockingWarnings = aiWarnings.some(
+									(w) => w.severity === "error",
+								);
+								const blocked =
+									hasBlockingWarnings && !acknowledgedErrors;
+								return (
+									<button
+										type="button"
+										onClick={handleSave}
+										disabled={
+											isSubmitting ||
+											!selectedFileId ||
+											!newCedula.partId ||
+											blocked
+										}
+										title={
+											blocked
+												? "Revisá los avisos bloqueantes antes de guardar"
+												: undefined
+										}
+										className="px-4 py-2.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+									>
+										{isSubmitting && (
+											<Loader2 className="h-4 w-4 animate-spin" />
+										)}
+										Crear Cédula
+									</button>
+								);
+							})()}
 						</div>
 					</div>
 				</div>

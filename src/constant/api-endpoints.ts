@@ -172,6 +172,9 @@ export const CASES_FILES_EXPENSES_DELETE_ENDPOINT = (
 export const CASE_CEDULAS_ENDPOINT = (caseId: number) =>
 	`${API_BASE_URL}/cases/${caseId}/cedulas`;
 
+export const CASE_CEDULAS_DRAFT_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/cedulas/draft`;
+
 export const CASE_CEDULA_BY_ID_ENDPOINT = (caseId: number, cedulaId: number) =>
 	`${API_BASE_URL}/cases/${caseId}/cedulas/${cedulaId}`;
 

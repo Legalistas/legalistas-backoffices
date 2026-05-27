@@ -1,5 +1,5 @@
 "use client";
-import { Plus, Search, Sheet, Loader2, Users2, Archive } from "lucide-react";
+import { Plus, Search, Sheet, Loader2, Users2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -26,24 +26,12 @@ interface ApiResponse {
 	};
 }
 
-type TabType = "active" | "archived";
-
-/** Cliente con causas activas = al menos una causa que no esté archivada */
-function hasActiveCases(customer: any): boolean {
-	const cases = customer.customerCases;
-	if (!Array.isArray(cases) || cases.length === 0) return false;
-	return cases.some(
-		(c: any) => c.stageId !== 7 && !c.isArchived,
-	);
-}
-
 export default function CustomersContent() {
 	const { data: session } = useSession();
 	const [allCustomers, setAllCustomers] = useState<any[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [searchTerm, setSearchTerm] = useState("");
-	const [activeTab, setActiveTab] = useState<TabType>("active");
 	const [hasSearched, setHasSearched] = useState(false);
 	const [customerModalOpen, setCustomerModalOpen] = useState(false);
 	const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
@@ -53,34 +41,12 @@ export default function CustomersContent() {
 	const isInitialRender = useRef(true);
 	const searchInputRef = useRef<HTMLInputElement>(null);
 
-	// Split customers into active and archived
-	const { activeCustomers, archivedCustomers } = useMemo(() => {
-		const active: any[] = [];
-		const archived: any[] = [];
-
-		for (const customer of allCustomers) {
-			if (hasActiveCases(customer)) {
-				active.push(customer);
-			} else {
-				archived.push(customer);
-			}
-		}
-
-		return { activeCustomers: active, archivedCustomers: archived };
-	}, [allCustomers]);
-
-	// Current tab's customers
-	const tabCustomers = useMemo(
-		() => (activeTab === "active" ? activeCustomers : archivedCustomers),
-		[activeTab, activeCustomers, archivedCustomers],
-	);
-
-	// Search filter
+	// Search filter (sobre el total — sin pestañas activos/archivados)
 	const filteredCustomers = useMemo(() => {
-		if (!searchTerm.trim()) return tabCustomers;
+		if (!searchTerm.trim()) return allCustomers;
 
 		const searchLower = searchTerm.toLowerCase().trim();
-		return tabCustomers.filter((customer) => {
+		return allCustomers.filter((customer) => {
 			return (
 				customer.name?.toLowerCase().includes(searchLower) ||
 				customer.email?.toLowerCase().includes(searchLower) ||
@@ -89,7 +55,7 @@ export default function CustomersContent() {
 					.includes(searchLower)
 			);
 		});
-	}, [tabCustomers, searchTerm]);
+	}, [allCustomers, searchTerm]);
 
 	// Local pagination
 	const paginatedCustomers = useMemo(() => {
@@ -152,10 +118,10 @@ export default function CustomersContent() {
 		}
 	}, [fetchCustomers, session?.user?.accessToken]);
 
-	// Reset page when tab or search changes
+	// Reset page when search changes
 	useEffect(() => {
 		setCurrentPage(1);
-	}, [searchTerm, activeTab]);
+	}, [searchTerm]);
 
 	const handleDelete = useCallback(
 		async (id: number) => {
@@ -334,50 +300,13 @@ export default function CustomersContent() {
 					</div>
 				</div>
 
-				{/* Tabs */}
-				<div className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-1 w-fit">
-					<button
-						type="button"
-						onClick={() => setActiveTab("active")}
-						className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-							activeTab === "active"
-								? "bg-background text-foreground shadow-sm"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-					>
-						<Users2 className="h-4 w-4" />
-						Activos
-						<span
-							className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-								activeTab === "active"
-									? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-									: "bg-muted text-muted-foreground"
-							}`}
-						>
-							{activeCustomers.length}
-						</span>
-					</button>
-					<button
-						type="button"
-						onClick={() => setActiveTab("archived")}
-						className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-							activeTab === "archived"
-								? "bg-background text-foreground shadow-sm"
-								: "text-muted-foreground hover:text-foreground"
-						}`}
-					>
-						<Archive className="h-4 w-4" />
-						Archivados
-						<span
-							className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-								activeTab === "archived"
-									? "bg-amber-500/10 text-amber-600 dark:text-amber-400"
-									: "bg-muted text-muted-foreground"
-							}`}
-						>
-							{archivedCustomers.length}
-						</span>
-					</button>
+				{/* Contador */}
+				<div className="flex items-center gap-2 text-sm text-muted-foreground">
+					<Users2 className="h-4 w-4" />
+					<span>
+						<strong className="text-foreground">{allCustomers.length}</strong>{" "}
+						cliente{allCustomers.length === 1 ? "" : "s"}
+					</span>
 				</div>
 
 				{/* Search */}
