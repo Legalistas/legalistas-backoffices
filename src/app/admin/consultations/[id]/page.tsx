@@ -3,15 +3,22 @@
 import {
 	AlertCircle,
 	ArrowLeft,
+	Briefcase,
+	CalendarDays,
 	CheckCircle,
 	Clock,
+	ExternalLink,
+	Hash,
+	Mail,
 	MessageCircle,
 	Mic,
 	Paperclip,
-	Plus,
+	Phone,
+	Scale,
 	Send,
-	Square,
+	User as UserIcon,
 } from "lucide-react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type React from "react";
@@ -26,7 +33,8 @@ import {
 	CASES_CONSULTATIONS_REOPEN_ENDPOINT,
 	CASES_CONSULTATIONS_SEND_MESSAGE_ENDPOINT,
 } from "@/constant/api-endpoints";
-import type { CaseConsultations } from "@/types/cases";
+import { CRM_COLUMNS } from "@/constant/crm";
+import type { CaseConsultations, Cases } from "@/types/cases";
 
 interface ConsultationMessage {
 	id: number;
@@ -128,7 +136,18 @@ export default function ConsultationDetailPage() {
 			);
 
 			if (!response.ok) {
-				throw new Error("Error sending message");
+				let detail = "";
+				try {
+					const err = await response.json();
+					detail = err?.message || err?.error || "";
+				} catch {
+					// ignore parse error
+				}
+				throw new Error(
+					detail
+						? `Error sending message: ${detail}`
+						: `Error sending message (HTTP ${response.status})`,
+				);
 			}
 
 			const newMessageData = await response.json();
@@ -141,9 +160,11 @@ export default function ConsultationDetailPage() {
 			if (consultation?.status === "PENDING") {
 				setConsultation((prev) => (prev ? { ...prev, status: "OPEN" } : null));
 			}
-		} catch (error) {
-			console.error("Failed to send message:", error);
-			setError("No se pudo enviar el mensaje.");
+		} catch (err) {
+			console.error("Failed to send message:", err);
+			setError(
+				err instanceof Error ? err.message : "No se pudo enviar el mensaje.",
+			);
 		} finally {
 			setSending(false);
 		}
@@ -274,7 +295,7 @@ export default function ConsultationDetailPage() {
 		);
 	}
 
-	if (error || !consultation) {
+	if (!consultation) {
 		return (
 			<div className="max-w-4xl mx-auto p-6">
 				<Alert variant="destructive">
@@ -298,7 +319,7 @@ export default function ConsultationDetailPage() {
 	}
 
 	return (
-		<div className="max-w-4xl mx-auto p-6">
+		<div className="max-w-7xl mx-auto p-6">
 			{/* Header */}
 			<div className="flex items-center gap-3 mb-6">
 				<Button
@@ -353,8 +374,10 @@ export default function ConsultationDetailPage() {
 				</Alert>
 			)}
 
+			<div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-6 items-start">
+			<div className="space-y-6 min-w-0">
 			{/* Messages */}
-			<div className="bg-white rounded-lg border border-gray-200 mb-6">
+			<div className="bg-white rounded-lg border border-gray-200">
 				<div className="p-4 border-b border-gray-200">
 					<h2 className="text-lg font-semibold text-gray-900">Conversación</h2>
 				</div>
@@ -474,6 +497,199 @@ export default function ConsultationDetailPage() {
 					</div>
 				)}
 			</div>
+			</div>
+
+			<CaseInfoSidebar caseData={consultation.cases} />
+			</div>
+		</div>
+	);
+}
+
+function CaseInfoSidebar({ caseData }: { caseData?: Cases | null }) {
+	if (!caseData) {
+		return (
+			<aside className="bg-white rounded-lg border border-gray-200 p-4 lg:sticky lg:top-6">
+				<h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
+					<Briefcase className="w-4 h-4 text-primary" />
+					Información del caso
+				</h3>
+				<p className="text-sm text-muted-foreground">
+					No hay datos del caso asociados.
+				</p>
+			</aside>
+		);
+	}
+
+	const stageLabel = caseData.stageId
+		? CRM_COLUMNS.find((c) => c.id === String(caseData.stageId))?.title
+		: undefined;
+	const customer = caseData.customer;
+	const responsible = caseData.responsibleLawyer;
+	const internal = caseData.internalLawyer;
+
+	const fmtDate = (d?: string | Date | null) => {
+		if (!d) return null;
+		try {
+			return new Date(d).toLocaleDateString("es-ES", {
+				day: "2-digit",
+				month: "short",
+				year: "numeric",
+			});
+		} catch {
+			return null;
+		}
+	};
+
+	return (
+		<aside className="bg-white rounded-lg border border-gray-200 lg:sticky lg:top-6">
+			<div className="flex items-center justify-between p-4 border-b border-gray-200">
+				<h3 className="font-semibold text-gray-900 flex items-center gap-2">
+					<Briefcase className="w-4 h-4 text-primary" />
+					Información del caso
+				</h3>
+				<Link
+					href={`/admin/legal-cases/${caseData.id}`}
+					className="text-xs text-primary hover:underline inline-flex items-center gap-1"
+				>
+					Ir al caso
+					<ExternalLink className="w-3 h-3" />
+				</Link>
+			</div>
+
+			<div className="p-4 space-y-4 text-sm">
+				<div>
+					<p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-1">
+						Caso
+					</p>
+					<p className="font-medium text-gray-900 break-words">
+						{caseData.title || "Sin título"}
+					</p>
+					{caseData.number && (
+						<p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+							<Hash className="w-3 h-3" />
+							{caseData.number}
+						</p>
+					)}
+				</div>
+
+				{stageLabel && (
+					<InfoRow icon={Scale} label="Etapa" value={stageLabel} />
+				)}
+
+				{caseData.status && (
+					<InfoRow
+						icon={CheckCircle}
+						label="Estado"
+						value={caseData.status}
+					/>
+				)}
+
+				{customer && (
+					<div className="pt-3 border-t border-gray-100">
+						<p className="text-xs uppercase tracking-wider text-muted-foreground font-medium mb-2">
+							Cliente
+						</p>
+						<div className="space-y-1.5">
+							<div className="flex items-center gap-2 text-gray-900">
+								<UserIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+								<span className="break-words">{customer.name}</span>
+							</div>
+							{customer.email && (
+								<div className="flex items-center gap-2 text-muted-foreground text-xs">
+									<Mail className="w-3.5 h-3.5 shrink-0" />
+									<a
+										href={`mailto:${customer.email}`}
+										className="hover:text-primary break-all"
+									>
+										{customer.email}
+									</a>
+								</div>
+							)}
+							{customer.userProfile?.phone && (
+								<div className="flex items-center gap-2 text-muted-foreground text-xs">
+									<Phone className="w-3.5 h-3.5 shrink-0" />
+									<a
+										href={`tel:${customer.userProfile.phone}`}
+										className="hover:text-primary"
+									>
+										{customer.userProfile.phone}
+									</a>
+								</div>
+							)}
+						</div>
+					</div>
+				)}
+
+				{(responsible || internal) && (
+					<div className="pt-3 border-t border-gray-100 space-y-2">
+						{responsible && (
+							<InfoRow
+								icon={UserIcon}
+								label="Abogado responsable"
+								value={responsible.name}
+							/>
+						)}
+						{internal && (
+							<InfoRow
+								icon={UserIcon}
+								label="Abogado interno"
+								value={internal.name}
+							/>
+						)}
+					</div>
+				)}
+
+				{(caseData.accidentDate || caseData.disabilityPercentage != null) && (
+					<div className="pt-3 border-t border-gray-100 space-y-2">
+						{caseData.accidentDate && (
+							<InfoRow
+								icon={CalendarDays}
+								label="Fecha de accidente"
+								value={fmtDate(caseData.accidentDate) ?? "—"}
+							/>
+						)}
+						{caseData.disabilityPercentage != null && (
+							<InfoRow
+								icon={Scale}
+								label="% Incapacidad"
+								value={`${caseData.disabilityPercentage}%`}
+							/>
+						)}
+					</div>
+				)}
+
+				<div className="pt-3 border-t border-gray-100 space-y-2">
+					{fmtDate(caseData.createdAt) && (
+						<InfoRow
+							icon={CalendarDays}
+							label="Creado"
+							value={fmtDate(caseData.createdAt) as string}
+						/>
+					)}
+				</div>
+			</div>
+		</aside>
+	);
+}
+
+function InfoRow({
+	icon: Icon,
+	label,
+	value,
+}: {
+	icon: typeof Briefcase;
+	label: string;
+	value: string;
+}) {
+	return (
+		<div>
+			<p className="text-xs uppercase tracking-wider text-muted-foreground font-medium">
+				{label}
+			</p>
+			<p className="text-sm text-gray-900 flex items-center gap-2 mt-0.5">
+				<Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+				<span className="break-words">{value}</span>
+			</p>
 		</div>
 	);
 }

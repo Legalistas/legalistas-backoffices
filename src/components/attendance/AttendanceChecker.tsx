@@ -28,7 +28,7 @@ import {
 
 export default function AttendanceChecker() {
 	const { state, record, submitting, doAction } = useAttendance();
-	const [collapsed, setCollapsed] = useState(false);
+	const [collapsed, setCollapsed] = useState(true);
 
 	if (state === null) return null;
 	if (state === "NO_EMPLOYMENT" || state === "COMPLETED") return null;

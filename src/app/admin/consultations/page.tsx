@@ -111,6 +111,9 @@ export default function ConsultationsPage({
 		limit: 10,
 		totalPages: 1,
 	});
+	const [statusCounts, setStatusCounts] = useState<
+		Record<"PENDING" | "OPEN" | "CLOSED", number>
+	>({ PENDING: 0, OPEN: 0, CLOSED: 0 });
 
 	const resolvedSearchParams = React.use(searchParams);
 	const currentStatus = (resolvedSearchParams.status ?? "all") as StatusKey;
@@ -120,33 +123,57 @@ export default function ConsultationsPage({
 			setLoading(true);
 			setError(null);
 
-			const url = new URL(
-				CASES_CONSULTATIONS_GET_ALL_ENDPOINT,
-				window.location.origin,
-			);
+			const token = session?.user?.accessToken;
+			const headers = {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			};
 
-			Object.entries(resolvedSearchParams ?? {}).forEach(([key, value]) => {
-				if (value !== undefined && value !== "") {
-					url.searchParams.append(key, value);
-				}
-			});
+			const buildUrl = (overrides: Record<string, string> = {}) => {
+				const url = new URL(
+					CASES_CONSULTATIONS_GET_ALL_ENDPOINT,
+					window.location.origin,
+				);
+				Object.entries(resolvedSearchParams ?? {}).forEach(([key, value]) => {
+					if (value !== undefined && value !== "") {
+						url.searchParams.append(key, value);
+					}
+				});
+				Object.entries(overrides).forEach(([key, value]) => {
+					url.searchParams.set(key, value);
+				});
+				if (!url.searchParams.has("page")) url.searchParams.set("page", "1");
+				if (!url.searchParams.has("limit")) url.searchParams.set("limit", "10");
+				return url.toString();
+			};
 
-			if (!url.searchParams.has("page")) url.searchParams.append("page", "1");
-			if (!url.searchParams.has("limit")) url.searchParams.append("limit", "10");
+			const fetchCount = async (status: "PENDING" | "OPEN" | "CLOSED") => {
+				const url = new URL(
+					CASES_CONSULTATIONS_GET_ALL_ENDPOINT,
+					window.location.origin,
+				);
+				url.searchParams.set("status", status);
+				url.searchParams.set("page", "1");
+				url.searchParams.set("limit", "1");
+				const res = await fetch(url.toString(), { headers, method: "GET" });
+				if (!res.ok) return 0;
+				const json: ApiResponse = await res.json();
+				return json.meta?.total ?? 0;
+			};
 
-			const response = await fetch(url.toString(), {
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${session?.user?.accessToken}`,
-				},
-				method: "GET",
-			});
+			const [listRes, pending, open, closed] = await Promise.all([
+				fetch(buildUrl(), { headers, method: "GET" }),
+				fetchCount("PENDING"),
+				fetchCount("OPEN"),
+				fetchCount("CLOSED"),
+			]);
 
-			if (!response.ok) throw new Error("Error fetching consultations");
+			if (!listRes.ok) throw new Error("Error fetching consultations");
 
-			const apiResponse: ApiResponse = await response.json();
+			const apiResponse: ApiResponse = await listRes.json();
 			setConsultations(apiResponse.data);
 			setPagination(apiResponse.meta);
+			setStatusCounts({ PENDING: pending, OPEN: open, CLOSED: closed });
 		} catch (err) {
 			console.error("Failed to fetch consultations:", err);
 			setError("No se pudieron cargar las consultas. Probá refrescar.");
@@ -202,24 +229,14 @@ export default function ConsultationsPage({
 		[consultations],
 	);
 
-	const counts = useMemo(() => {
-		// Conteo de la página actual (no del total — el backend devuelve el total
-		// general en `pagination.total`).
-		const byStatus = consultations.reduce(
-			(acc, c) => {
-				acc[c.status] = (acc[c.status] ?? 0) + 1;
-				return acc;
-			},
-			{} as Record<CaseConsultations["status"], number>,
-		);
-		return byStatus;
-	}, [consultations]);
+	const grandTotal =
+		statusCounts.PENDING + statusCounts.OPEN + statusCounts.CLOSED;
 
 	const tabs: Array<{ key: StatusKey; label: string; count?: number }> = [
-		{ key: "all", label: "Todas", count: pagination.total },
-		{ key: "PENDING", label: "Pendientes", count: counts.PENDING },
-		{ key: "OPEN", label: "Abiertas", count: counts.OPEN },
-		{ key: "CLOSED", label: "Cerradas", count: counts.CLOSED },
+		{ key: "all", label: "Todas", count: grandTotal },
+		{ key: "PENDING", label: "Pendientes", count: statusCounts.PENDING },
+		{ key: "OPEN", label: "Abiertas", count: statusCounts.OPEN },
+		{ key: "CLOSED", label: "Cerradas", count: statusCounts.CLOSED },
 	];
 
 	return (
@@ -264,7 +281,7 @@ export default function ConsultationsPage({
 				<StatCard
 					icon={Inbox}
 					label="Total"
-					value={pagination.total}
+					value={grandTotal}
 					accent="text-primary"
 				/>
 				<StatCard
@@ -277,13 +294,13 @@ export default function ConsultationsPage({
 				<StatCard
 					icon={TimerReset}
 					label="Pendientes"
-					value={counts.PENDING ?? 0}
+					value={statusCounts.PENDING}
 					accent="text-amber-600 dark:text-amber-400"
 				/>
 				<StatCard
 					icon={CircleDot}
 					label="Abiertas"
-					value={counts.OPEN ?? 0}
+					value={statusCounts.OPEN}
 					accent="text-emerald-600 dark:text-emerald-400"
 				/>
 			</div>

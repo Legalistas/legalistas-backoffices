@@ -41,35 +41,20 @@ export default function FloatingChatBubble({
 		}
 	};
 
-	// Actualizar el contador de mensajes no leídos - MEJORADO para tiempo real
+	// Actualizar el contador de mensajes no leídos.
+	// La burbuja siempre arranca colapsada y no se auto-abre con mensajes nuevos:
+	// solo se anima brevemente para llamar la atención. El usuario decide cuándo abrirla.
 	useEffect(() => {
 		const totalUnread = recentChats.reduce(
 			(total, chat) => total + chat.unreadCount,
 			0,
 		);
 
-		// Si NO estamos en la página de chat Y hay mensajes nuevos, mostrar notificación
 		if (!isInChatPage && totalUnread > unreadCount) {
-			console.log("🚨 BUBBLE: New message detected, showing notification!");
 			setHasNewMessage(true);
-
-			// ABRIR AUTOMÁTICAMENTE la burbuja cuando hay mensaje nuevo
-			setIsOpen(true);
-
-			// Resetear la animación después de 3 segundos
-			const timer = setTimeout(() => {
-				setHasNewMessage(false);
-			}, 3000);
-
-			// Cerrar automáticamente después de 5 segundos
-			const closeTimer = setTimeout(() => {
-				setIsOpen(false);
-			}, 5000);
-
-			return () => {
-				clearTimeout(timer);
-				clearTimeout(closeTimer);
-			};
+			const timer = setTimeout(() => setHasNewMessage(false), 3000);
+			setUnreadCount(totalUnread);
+			return () => clearTimeout(timer);
 		}
 
 		setUnreadCount(totalUnread);
