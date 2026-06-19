@@ -20,7 +20,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { type DateRange } from "react-day-picker";
-import { Can } from "@/components/auth/Can";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
@@ -29,8 +28,6 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { Switch } from "@/components/ui/switch";
-import { Role } from "@/constant/user";
 import { servicesType, stageCases } from "@/lib/constant";
 import { getServiceName, getStatusName } from "@/lib/functions";
 
@@ -61,10 +58,6 @@ interface CasesFiltersProps {
 	handleClearSearch: () => void;
 	viewMode: "list" | "kanban";
 	handleViewModeChange: (mode: "list" | "kanban") => void;
-	showArchivedOnly: boolean; // Updated prop name
-	setShowArchivedOnly: (checked: boolean) => void; // Updated setter prop name
-	showAll: boolean;
-	setShowAll: (checked: boolean) => void;
 	onExportExcel: () => void;
 	responsibleLawyerTypes?: LawyerOption[];
 	lawyerInternalTypes?: LawyerOption[];
@@ -89,10 +82,6 @@ export const CasesFilters = ({
 	handleClearSearch,
 	viewMode,
 	handleViewModeChange,
-	showArchivedOnly, // Updated prop name
-	setShowArchivedOnly, // Updated setter prop name
-	showAll,
-	setShowAll,
 	onExportExcel,
 	responsibleLawyerTypes,
 	lawyerInternalTypes,
@@ -113,6 +102,9 @@ export const CasesFilters = ({
 	const statusDropdownRef = useRef<HTMLDivElement>(null);
 	const representativeLawyerDropdownRef = useRef<HTMLDivElement>(null);
 	const internalLawyerDropdownRef = useRef<HTMLDivElement>(null);
+
+	// Etapas activas: hasta Experiencia (6) inclusive. Archivado (7) vive en un módulo aparte.
+	const activeStages = stageCases.filter((s) => s.value !== 7);
 
 	const handleSearchChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -180,7 +172,6 @@ export const CasesFilters = ({
 		[setSelectedInternalLawyer],
 	);
 
-
 	const getRepresentativeLawyerName = useCallback(
 		(lawyerIds: string[]) => {
 			if (!lawyerIds || lawyerIds.length === 0) return "Abogado Representante";
@@ -209,33 +200,26 @@ export const CasesFilters = ({
 		[lawyerInternalTypes],
 	);
 
-	// Count active filters
 	const getActiveFiltersCount = useCallback(() => {
 		let count = 0;
-		if (selectedService !== undefined) count++;
-		if (selectedStage !== undefined) count++;
 		if (selectedRepresentativeLawyer && selectedRepresentativeLawyer.length > 0)
 			count++;
 		if (selectedInternalLawyer && selectedInternalLawyer.length > 0) count++;
+		if (selectedService !== undefined) count++;
+		if (selectedStage.length > 0) count++;
 		if (dateFrom || dateTo) count++;
-		if (showArchivedOnly) count++;
-		if (showAll) count++;
 		return count;
 	}, [
-		selectedService,
-		selectedStage,
 		selectedRepresentativeLawyer,
 		selectedInternalLawyer,
+		selectedService,
+		selectedStage,
 		dateFrom,
 		dateTo,
-		showArchivedOnly,
-		showAll,
 	]);
 
-	// Handle clicks outside of dropdowns
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
-			// Filters container
 			if (
 				filtersContainerRef.current &&
 				!filtersContainerRef.current.contains(event.target as Node) &&
@@ -244,7 +228,6 @@ export const CasesFilters = ({
 				setIsFiltersOpen(false);
 			}
 
-			// Service dropdown
 			if (
 				serviceDropdownRef.current &&
 				!serviceDropdownRef.current.contains(event.target as Node) &&
@@ -253,7 +236,6 @@ export const CasesFilters = ({
 				setIsServiceDropdownOpen(false);
 			}
 
-			// Status dropdown
 			if (
 				statusDropdownRef.current &&
 				!statusDropdownRef.current.contains(event.target as Node) &&
@@ -262,7 +244,6 @@ export const CasesFilters = ({
 				setIsStageDropdownOpen(false);
 			}
 
-			// Representative lawyer dropdown
 			if (
 				representativeLawyerDropdownRef.current &&
 				!representativeLawyerDropdownRef.current.contains(
@@ -273,7 +254,6 @@ export const CasesFilters = ({
 				setIsRepresentativeLawyerDropdownOpen(false);
 			}
 
-			// Internal lawyer dropdown
 			if (
 				internalLawyerDropdownRef.current &&
 				!internalLawyerDropdownRef.current.contains(event.target as Node) &&
@@ -281,7 +261,6 @@ export const CasesFilters = ({
 			) {
 				setIsInternalLawyerDropdownOpen(false);
 			}
-
 		};
 
 		document.addEventListener("mousedown", handleClickOutside);
@@ -296,14 +275,11 @@ export const CasesFilters = ({
 		isInternalLawyerDropdownOpen,
 	]);
 
-
 	const activeFiltersCount = getActiveFiltersCount();
 
 	return (
 		<div className="space-y-4">
-			{/* Search and main controls */}
 			<div className="flex flex-wrap items-center gap-4">
-				{/* Search Input */}
 				<div className="relative flex-1 min-w-[200px]">
 					<form onSubmit={handleSearch} className="w-full">
 						<div className="relative">
@@ -332,7 +308,6 @@ export const CasesFilters = ({
 					</form>
 				</div>
 
-				{/* Filters Toggle Button */}
 				<div className="relative" ref={filtersContainerRef}>
 					<button
 						onClick={() => setIsFiltersOpen(!isFiltersOpen)}
@@ -353,7 +328,6 @@ export const CasesFilters = ({
 						/>
 					</button>
 
-					{/* Filters Dropdown */}
 					{isFiltersOpen && (
 						<div className="absolute right-0 z-20 mt-2 w-200 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 shadow-lg">
 							<div className="mb-4 flex items-center justify-between">
@@ -369,108 +343,7 @@ export const CasesFilters = ({
 							</div>
 
 							<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-								{/* Service Type Filter */}
-								<div className="relative" ref={serviceDropdownRef}>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-										Tipo de servicio
-									</label>
-									<button
-										onClick={() =>
-											setIsServiceDropdownOpen(!isServiceDropdownOpen)
-										}
-										className="flex h-10 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
-									>
-										<span className="flex items-center gap-2 text-gray-700 dark:text-gray-300 truncate">
-											<ListFilterPlus className="h-4 w-4 text-gray-500" />
-											{selectedService !== undefined
-												? getServiceName(selectedService)
-												: "Seleccionar servicio"}
-										</span>
-										<ChevronUp
-											className={
-												isServiceDropdownOpen
-													? "rotate-180 h-4 w-4 text-gray-500"
-													: "h-4 w-4 text-gray-500"
-											}
-										/>
-									</button>
-
-									{isServiceDropdownOpen && (
-										<div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-1 shadow-lg max-h-60 overflow-y-auto">
-											<div
-												className="cursor-pointer px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
-												onClick={() => handleServiceSelect(undefined)}
-											>
-												Todos los servicios
-											</div>
-											{servicesType.map((service) => (
-												<div
-													key={service.id}
-													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 ${selectedService === service.value
-														? "bg-gray-100 dark:bg-white/5 font-medium"
-														: ""
-														}`}
-													onClick={() => handleServiceSelect(service.value)}
-												>
-													{service.label}
-												</div>
-											))}
-										</div>
-									)}
-								</div>
-
-								{/* Status Filter - Multi Select */}
-								<div className="relative" ref={statusDropdownRef}>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-										Etapa del caso
-									</label>
-									<button
-										onClick={() => setIsStageDropdownOpen(!isStageDropdownOpen)}
-										className="flex h-10 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
-									>
-										<span className="flex items-center gap-2 text-gray-700 dark:text-gray-300 truncate">
-											<ListFilterPlus className="h-4 w-4 text-gray-500" />
-											{selectedStage.length === 0
-												? "Seleccionar etapas"
-												: selectedStage.length === 1
-													? getStatusName(selectedStage[0])
-													: `${selectedStage.length} etapas seleccionadas`}
-										</span>
-										<ChevronUp
-											className={
-												isStageDropdownOpen
-													? "rotate-180 h-4 w-4 text-gray-500"
-													: "h-4 w-4 text-gray-500"
-											}
-										/>
-									</button>
-
-									{isStageDropdownOpen && (
-										<div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-1 shadow-lg max-h-60 overflow-y-auto">
-											<div
-												className="cursor-pointer px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
-												onClick={handleStageClear}
-											>
-												Todas las etapas
-											</div>
-											{stageCases.map((stage) => (
-												<div
-													key={stage.id}
-													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2 ${selectedStage.includes(stage.value)
-														? "bg-gray-100 dark:bg-white/5 font-medium"
-														: ""
-														}`}
-													onClick={() => handleStageToggle(stage.value)}
-												>
-													<Check className={`h-3.5 w-3.5 ${selectedStage.includes(stage.value) ? "opacity-100" : "opacity-0"}`} />
-													{stage.label}
-												</div>
-											))}
-										</div>
-									)}
-								</div>
-
-								{/* Representative Lawyer Filter */}
+								{/* 1. Abogado Representante */}
 								<div className="relative" ref={representativeLawyerDropdownRef}>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 										Abogado Representante
@@ -538,7 +411,7 @@ export const CasesFilters = ({
 									)}
 								</div>
 
-								{/* Internal Lawyer Filter */}
+								{/* 2. Abogado Interno */}
 								<div className="relative" ref={internalLawyerDropdownRef}>
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 										Abogado Interno
@@ -605,7 +478,110 @@ export const CasesFilters = ({
 									)}
 								</div>
 
-								{/* Date Filter */}
+								{/* 3. Tipo de servicio */}
+								<div className="relative" ref={serviceDropdownRef}>
+									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+										Tipo de servicio
+									</label>
+									<button
+										onClick={() =>
+											setIsServiceDropdownOpen(!isServiceDropdownOpen)
+										}
+										className="flex h-10 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
+									>
+										<span className="flex items-center gap-2 text-gray-700 dark:text-gray-300 truncate">
+											<ListFilterPlus className="h-4 w-4 text-gray-500" />
+											{selectedService !== undefined
+												? getServiceName(selectedService)
+												: "Seleccionar servicio"}
+										</span>
+										<ChevronUp
+											className={
+												isServiceDropdownOpen
+													? "rotate-180 h-4 w-4 text-gray-500"
+													: "h-4 w-4 text-gray-500"
+											}
+										/>
+									</button>
+
+									{isServiceDropdownOpen && (
+										<div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-1 shadow-lg max-h-60 overflow-y-auto">
+											<div
+												className="cursor-pointer px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
+												onClick={() => handleServiceSelect(undefined)}
+											>
+												Todos los servicios
+											</div>
+											{servicesType.map((service) => (
+												<div
+													key={service.id}
+													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 ${selectedService === service.value
+														? "bg-gray-100 dark:bg-white/5 font-medium"
+														: ""
+														}`}
+													onClick={() => handleServiceSelect(service.value)}
+												>
+													{service.label}
+												</div>
+											))}
+										</div>
+									)}
+								</div>
+
+								{/* 4. Etapa del caso (sin Archivado) */}
+								<div className="relative" ref={statusDropdownRef}>
+									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+										Etapa del caso
+									</label>
+									<button
+										onClick={() => setIsStageDropdownOpen(!isStageDropdownOpen)}
+										className="flex h-10 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
+									>
+										<span className="flex items-center gap-2 text-gray-700 dark:text-gray-300 truncate">
+											<ListFilterPlus className="h-4 w-4 text-gray-500" />
+											{selectedStage.length === 0
+												? "Seleccionar etapas"
+												: selectedStage.length === 1
+													? getStatusName(selectedStage[0])
+													: `${selectedStage.length} etapas seleccionadas`}
+										</span>
+										<ChevronUp
+											className={
+												isStageDropdownOpen
+													? "rotate-180 h-4 w-4 text-gray-500"
+													: "h-4 w-4 text-gray-500"
+											}
+										/>
+									</button>
+
+									{isStageDropdownOpen && (
+										<div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-1 shadow-lg max-h-60 overflow-y-auto">
+											<div
+												className="cursor-pointer px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
+												onClick={handleStageClear}
+											>
+												Todas las etapas
+											</div>
+											{activeStages.map((stage) => (
+												<div
+													key={stage.id}
+													className={`cursor-pointer px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-white/5 flex items-center gap-2 ${selectedStage.includes(stage.value)
+														? "bg-gray-100 dark:bg-white/5 font-medium"
+														: ""
+														}`}
+													onClick={() => handleStageToggle(stage.value)}
+												>
+													<Check
+														className={`h-3.5 w-3.5 ${selectedStage.includes(stage.value) ? "opacity-100" : "opacity-0"}`}
+													/>
+													{stage.label}
+												</div>
+											))}
+										</div>
+									)}
+								</div>
+
+								{/* 5. Fecha de creación */}
 								<div className="md:col-span-2">
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
 										Fecha de creación
@@ -633,13 +609,19 @@ export const CasesFilters = ({
 											<Calendar
 												mode="range"
 												defaultMonth={dateFrom ? new Date(dateFrom) : undefined}
-												selected={{
-													from: dateFrom ? new Date(dateFrom) : undefined,
-													to: dateTo ? new Date(dateTo) : undefined,
-												} as DateRange}
+												selected={
+													{
+														from: dateFrom ? new Date(dateFrom) : undefined,
+														to: dateTo ? new Date(dateTo) : undefined,
+													} as DateRange
+												}
 												onSelect={(range: DateRange | undefined) => {
-													setDateFrom(range?.from ? format(range.from, "yyyy-MM-dd") : "");
-													setDateTo(range?.to ? format(range.to, "yyyy-MM-dd") : "");
+													setDateFrom(
+														range?.from ? format(range.from, "yyyy-MM-dd") : "",
+													);
+													setDateTo(
+														range?.to ? format(range.to, "yyyy-MM-dd") : "",
+													);
 												}}
 												numberOfMonths={2}
 												locale={es}
@@ -664,7 +646,6 @@ export const CasesFilters = ({
 								</div>
 							</div>
 
-							{/* Filter Actions */}
 							<div className="mt-6 flex items-center justify-between">
 								<Button
 									variant="ghost"
@@ -675,9 +656,7 @@ export const CasesFilters = ({
 									<X className="h-4 w-4" />
 									Limpiar todos
 								</Button>
-								<Button
-									onClick={() => setIsFiltersOpen(false)}
-								>
+								<Button onClick={() => setIsFiltersOpen(false)}>
 									Aplicar filtros
 								</Button>
 							</div>
@@ -685,10 +664,8 @@ export const CasesFilters = ({
 					)}
 				</div>
 
-				{/* Separator */}
 				<div className="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700" />
 
-				{/* View Mode Toggle Group */}
 				<div className="flex items-center rounded-lg border border-input bg-background p-1 gap-1">
 					<Button
 						type="button"
@@ -712,49 +689,8 @@ export const CasesFilters = ({
 					</Button>
 				</div>
 
-				{/* Separator */}
 				<div className="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700" />
 
-				{/* Mis Casos / Todos toggle */}
-				<Can
-					role={[
-						Role.ADMINISTRATOR,
-						Role.DIRECTOR_GENERAL_CEO,
-						Role.GERENTE_GENERAL_COO,
-						Role.DIRECTORA_AREA_LEGAL,
-						Role.COORDINADOR_LEGAL,
-						Role.ASISTENTE_LEGAL,
-					]}
-				>
-					<div className="flex items-center rounded-lg border border-input bg-background p-1 gap-1">
-						<Button
-							type="button"
-							variant={!showAll ? "default" : "ghost"}
-							size="sm"
-							onClick={() => setShowAll(false)}
-							className="h-8 px-3"
-						>
-							Mis Casos
-						</Button>
-						<Button
-							type="button"
-							variant={showAll ? "default" : "ghost"}
-							size="sm"
-							onClick={() => {
-								setShowAll(true);
-								setShowArchivedOnly(false);
-							}}
-							className="h-8 px-3"
-						>
-							Todos
-						</Button>
-					</div>
-				</Can>
-
-				{/* Separator */}
-				<div className="hidden sm:block h-8 w-px bg-gray-200 dark:bg-gray-700" />
-
-				{/* Export Excel Button */}
 				<Button
 					variant="outline"
 					className="flex h-11 items-center gap-2 px-3 border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-400 hover:text-green-700"
@@ -765,34 +701,11 @@ export const CasesFilters = ({
 				</Button>
 			</div>
 
-			{/* Active Filters Display */}
 			{hasActiveFilters && (
 				<div className="flex flex-wrap items-center gap-2">
-					<span className="text-sm text-gray-600 dark:text-gray-400">Filtros activos:</span>
-					{selectedService !== undefined && (
-						<span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800">
-							{getServiceName(selectedService)}
-							<button
-								onClick={() => setSelectedService(undefined)}
-								className="text-blue-600 hover:text-blue-800"
-							>
-								<X className="h-3 w-3" />
-							</button>
-						</span>
-					)}
-					{selectedStage.length > 0 && (
-						<span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">
-							{selectedStage.length === 1
-								? getStatusName(selectedStage[0])
-								: `${selectedStage.length} etapas`}
-							<button
-								onClick={() => setSelectedStage([])}
-								className="text-green-600 hover:text-green-800"
-							>
-								<X className="h-3 w-3" />
-							</button>
-						</span>
-					)}
+					<span className="text-sm text-gray-600 dark:text-gray-400">
+						Filtros activos:
+					</span>
 					{selectedRepresentativeLawyer &&
 						selectedRepresentativeLawyer.length > 0 && (
 							<span className="inline-flex items-center gap-1 rounded-full bg-purple-100 px-2 py-1 text-xs text-purple-800">
@@ -820,6 +733,30 @@ export const CasesFilters = ({
 							</button>
 						</span>
 					)}
+					{selectedService !== undefined && (
+						<span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs text-blue-800">
+							{getServiceName(selectedService)}
+							<button
+								onClick={() => setSelectedService(undefined)}
+								className="text-blue-600 hover:text-blue-800"
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</span>
+					)}
+					{selectedStage.length > 0 && (
+						<span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs text-green-800">
+							{selectedStage.length === 1
+								? getStatusName(selectedStage[0])
+								: `${selectedStage.length} etapas`}
+							<button
+								onClick={() => setSelectedStage([])}
+								className="text-green-600 hover:text-green-800"
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</span>
+					)}
 					{(dateFrom || dateTo) && (
 						<span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-1 text-xs text-yellow-800">
 							{dateFrom && dateTo
@@ -833,28 +770,6 @@ export const CasesFilters = ({
 									setDateTo("");
 								}}
 								className="text-yellow-600 hover:text-yellow-800"
-							>
-								<X className="h-3 w-3" />
-							</button>
-						</span>
-					)}
-					{showArchivedOnly && (
-						<span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs text-gray-800">
-							Solo Archivados
-							<button
-								onClick={() => setShowArchivedOnly(false)}
-								className="text-gray-600 hover:text-gray-800"
-							>
-								<X className="h-3 w-3" />
-							</button>
-						</span>
-					)}
-					{showAll && (
-						<span className="inline-flex items-center gap-1 rounded-full bg-teal-100 px-2 py-1 text-xs text-teal-800">
-							Mostrando todos
-							<button
-								onClick={() => setShowAll(false)}
-								className="text-teal-600 hover:text-teal-800"
 							>
 								<X className="h-3 w-3" />
 							</button>

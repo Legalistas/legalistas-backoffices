@@ -49,6 +49,8 @@ export interface ClosingManagerEntry {
 	// Aportes
 	contributionsAmount: number;
 	applyContributions: boolean;
+	// % que se asigna al representante sobre los aportes (default 25 si no viene del backend)
+	aportesRepresentantePercent?: number | null;
 
 	// Detalle
 	detail: string | null;

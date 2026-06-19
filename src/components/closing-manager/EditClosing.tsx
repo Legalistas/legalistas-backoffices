@@ -58,6 +58,8 @@ export default function EditClosing({
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
 	const [contributionsAmount, setContributionsAmount] = useState("0");
 	const [applyContributions, setApplyContributions] = useState(true);
+	const [aportesRepresentantePercent, setAportesRepresentantePercent] =
+		useState("25");
 	const [detail, setDetail] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -77,6 +79,9 @@ export default function EditClosing({
 			setPclStatus(closing.pclStatus || "EARRINGS");
 			setContributionsAmount(String(closing.contributionsAmount ?? 0));
 			setApplyContributions(closing.applyContributions ?? true);
+			setAportesRepresentantePercent(
+				String(closing.aportesRepresentantePercent ?? 25),
+			);
 			setDetail(closing.detail || "");
 		}
 	}, [closing]);
@@ -86,18 +91,26 @@ export default function EditClosing({
 		const hp = Number(hpTotal) || 0;
 		const pcl = Number(pclTotal) || 0;
 		const aportes = applyContributions ? Number(contributionsAmount) || 0 : 0;
+		const aportesRepPctClamped = Math.max(
+			0,
+			Math.min(100, Number(aportesRepresentantePercent) || 0),
+		);
+		const aportesRepRatio = withRepresentante ? aportesRepPctClamped / 100 : 0;
 
 		const hpRep = withRepresentante ? hp * 0.25 : 0;
 		const hpLeg = hp - hpRep;
 		const pclRep = withRepresentante ? pcl * 0.25 : 0;
 		const pclLeg = pcl - pclRep;
-		const aportesRep = withRepresentante ? aportes * 0.25 : 0;
-		const aportesLeg = withRepresentante ? aportes * 0.75 : aportes;
-		const montoTransferir = hpLeg + pclLeg - aportesLeg;
+		const aportesRep = aportes * aportesRepRatio;
+		const aportesLeg = aportes - aportesRep;
+		// Los aportes Legalistas se descuentan de HP Legalistas (NO de PCL Legalistas).
+		const hpLegNeto = hpLeg - aportesLeg;
+		const montoTransferir = hpLegNeto + pclLeg;
 
 		return {
 			hpRep,
 			hpLeg,
+			hpLegNeto,
 			pclRep,
 			pclLeg,
 			aportesRep,
@@ -110,6 +123,7 @@ export default function EditClosing({
 		pclTotal,
 		contributionsAmount,
 		applyContributions,
+		aportesRepresentantePercent,
 	]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -137,6 +151,8 @@ export default function EditClosing({
 					pclStatus,
 					contributionsAmount: parseFloat(contributionsAmount) || 0,
 					applyContributions,
+					aportesRepresentantePercent:
+						parseFloat(aportesRepresentantePercent) || 25,
 					detail: detail || null,
 				}),
 			});
@@ -363,10 +379,17 @@ export default function EditClosing({
 							</div>
 							<div className="space-y-1">
 								<label className="text-xs text-gray-500">
-									HP Legalistas ($)
+									HP Legalistas{calc.aportesLeg > 0 ? " (neto)" : ""} ($)
 								</label>
-								<div className="h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm font-medium">
-									{formatARS(calc.hpLeg)}
+								<div
+									className="h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm font-medium"
+									title={
+										calc.aportesLeg > 0
+											? `${formatARS(calc.hpLeg)} − aportes ${formatARS(calc.aportesLeg)}`
+											: undefined
+									}
+								>
+									{formatARS(calc.hpLegNeto)}
 								</div>
 							</div>
 						</div>
@@ -433,7 +456,7 @@ export default function EditClosing({
 								<Switch checked={applyContributions} onCheckedChange={setApplyContributions} />
 							</div>
 						</div>
-						<div className="grid grid-cols-3 gap-4">
+						<div className="grid grid-cols-4 gap-4">
 							<div className="space-y-1">
 								<label className="text-xs text-gray-500">
 									Aportes Totales ($)
@@ -446,6 +469,23 @@ export default function EditClosing({
 									onChange={(e) => setContributionsAmount(e.target.value)}
 									className={inputClass}
 									disabled={!applyContributions}
+								/>
+							</div>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">
+									% Representante
+								</label>
+								<input
+									type="number"
+									step="0.01"
+									min="0"
+									max="100"
+									value={aportesRepresentantePercent}
+									onChange={(e) =>
+										setAportesRepresentantePercent(e.target.value)
+									}
+									className={inputClass}
+									disabled={!applyContributions || !withRepresentante}
 								/>
 							</div>
 							<div className="space-y-1">
@@ -470,8 +510,11 @@ export default function EditClosing({
 							</div>
 						</div>
 						<p className="text-xs text-gray-400">
-							Monto manual ingresado por la contadora.{" "}
-							{withRepresentante ? "Distribución: 75% Legalistas / 25% Representante." : "Distribución: 100% Legalistas."}
+							Los aportes Legalistas se descuentan de los Honorarios (HP), no
+							del PCL.{" "}
+							{withRepresentante
+								? `Distribución: ${100 - (parseFloat(aportesRepresentantePercent) || 0)}% Legalistas / ${parseFloat(aportesRepresentantePercent) || 0}% Representante.`
+								: "Distribución: 100% Legalistas."}
 						</p>
 					</div>
 
@@ -486,7 +529,7 @@ export default function EditClosing({
 										Monto a Transferir a Legalistas
 									</h4>
 									<p className="text-xs text-gray-500 mt-0.5">
-										HP Legalistas + PCL Legalistas - Aportes Legalistas
+										HP Legalistas (neto de aportes) + PCL Legalistas
 									</p>
 								</div>
 								<span

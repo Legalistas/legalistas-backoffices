@@ -73,7 +73,8 @@ export default function ClosingManagerPage() {
 	const now = new Date();
 	const [month, setMonth] = useState(now.getMonth() + 1);
 	const [year, setYear] = useState(now.getFullYear());
-	const [viewAll, setViewAll] = useState(false);
+	const [viewAll, setViewAll] = useState(true);
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
 	// Filtros avanzados
 	const [filters, setFilters] = useState<ClosingFiltersState>({
@@ -111,6 +112,7 @@ export default function ClosingManagerPage() {
 					limit: pagination.limit.toString(),
 					month: month.toString(),
 					year: year.toString(),
+					sortOrder,
 				};
 				if (viewAll) params.viewAll = "true";
 				if (filters.search) params.search = filters.search;
@@ -149,6 +151,7 @@ export default function ClosingManagerPage() {
 			month,
 			year,
 			viewAll,
+			sortOrder,
 			filters,
 			session?.user?.accessToken,
 			permissions,
@@ -430,6 +433,10 @@ export default function ClosingManagerPage() {
 				onMonthChange={setMonth}
 				onYearChange={setYear}
 				onToggleViewAll={() => setViewAll(!viewAll)}
+				sortOrder={sortOrder}
+				onToggleSortOrder={() =>
+					setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))
+				}
 			/>
 
 			{/* Content */}

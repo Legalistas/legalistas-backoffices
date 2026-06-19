@@ -1,6 +1,8 @@
 "use client";
 
 import {
+	ArrowDownNarrowWide,
+	ArrowUpNarrowWide,
 	CalendarDays,
 	ChevronDown,
 	Columns,
@@ -65,6 +67,8 @@ interface ClosingFiltersProps {
 	onMonthChange: (month: number) => void;
 	onYearChange: (year: number) => void;
 	onToggleViewAll: () => void;
+	sortOrder: "asc" | "desc";
+	onToggleSortOrder: () => void;
 }
 
 const columnLabels: Record<string, string> = {
@@ -108,6 +112,8 @@ export default function ClosingFilters({
 	onMonthChange,
 	onYearChange,
 	onToggleViewAll,
+	sortOrder,
+	onToggleSortOrder,
 }: ClosingFiltersProps) {
 	const { data: session } = useSession();
 	const [localSearch, setLocalSearch] = useState(filters.search);
@@ -290,6 +296,25 @@ export default function ClosingFilters({
               `}
 						>
 							{viewAll ? "Anual" : "Año completo"}
+						</button>
+
+						<div className="h-5 w-px bg-gray-300" />
+
+						<button
+							onClick={onToggleSortOrder}
+							title={
+								sortOrder === "desc"
+									? "Más nuevos primero (click para invertir)"
+									: "Más viejos primero (click para invertir)"
+							}
+							className="flex items-center gap-1 h-8 px-2.5 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 transition-all whitespace-nowrap"
+						>
+							{sortOrder === "desc" ? (
+								<ArrowDownNarrowWide className="h-3.5 w-3.5" />
+							) : (
+								<ArrowUpNarrowWide className="h-3.5 w-3.5" />
+							)}
+							<span>{sortOrder === "desc" ? "Nuevos" : "Viejos"}</span>
 						</button>
 					</div>
 

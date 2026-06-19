@@ -146,6 +146,14 @@ export default function ClosingManagerTable({
 		return ALWAYS_VISIBLE.includes(columnId) || visibleColumns.includes(columnId);
 	};
 
+	// Una causa se considera "cobrada por completo" cuando los honorarios están
+	// cobrados (CHARGED) y el PCL no está pendiente (no existe o también está CHARGED).
+	const isFullyCharged = (closing: ClosingManagerEntry) => {
+		const feeOk = closing.feeStatus === "CHARGED";
+		const pclOk = !closing.pclStatus || closing.pclStatus === "CHARGED";
+		return feeOk && pclOk;
+	};
+
 
 	// =========================================================================
 	// Formatters
@@ -331,12 +339,24 @@ export default function ClosingManagerTable({
 					</span>
 				);
 
-			case "hpLegalistas":
+			case "hpLegalistas": {
+				// hpLegalistas viene del backend ya NETO de aportes Legalistas.
+				const aportes = closing.applyContributions
+					? Number(closing.aportesLegalistas || 0)
+					: 0;
 				return (
-					<span className="text-right block">
-						{formatCurrency(closing.hpLegalistas)}
+					<span
+						className="text-right block"
+						title={
+							aportes > 0
+								? `HP Legalistas neto. Aportes restados: ${formatCurrency(aportes)}`
+								: undefined
+						}
+					>
+						{formatCurrency(Number(closing.hpLegalistas || 0))}
 					</span>
 				);
+			}
 
 			case "feeStatus": {
 				const label = statusData[closing.feeStatus] || "-";
@@ -539,7 +559,20 @@ export default function ClosingManagerTable({
 					<TableBody>
 						{closings.length > 0 ? (
 							closings.map((closing) => (
-								<TableRow key={closing.id} className="group hover:bg-gray-50 dark:hover:bg-white/5">
+								<TableRow
+									key={closing.id}
+									className={cn(
+										"group transition-colors",
+										isFullyCharged(closing)
+											? "bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15"
+											: "hover:bg-gray-50 dark:hover:bg-white/5",
+									)}
+									title={
+										isFullyCharged(closing)
+											? "Causa cobrada por completo"
+											: undefined
+									}
+								>
 									{COLUMNS.map((col) =>
 										isColumnVisible(col.id) ? (
 											<TableCell

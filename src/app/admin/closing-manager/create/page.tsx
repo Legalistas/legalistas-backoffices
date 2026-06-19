@@ -130,6 +130,8 @@ export default function CreateClosingPage() {
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
 	const [contributionsAmount, setContributionsAmount] = useState("0");
 	const [applyContributions, setApplyContributions] = useState(true);
+	const [aportesRepresentantePercent, setAportesRepresentantePercent] =
+		useState("25");
 	const [detail, setDetail] = useState("");
 
 	// ── Tab 1: From Negotiation ──
@@ -403,6 +405,8 @@ export default function CreateClosingPage() {
 							pclStatus,
 							contributionsAmount: parseFloat(contributionsAmount) || 0,
 							applyContributions,
+							aportesRepresentantePercent:
+								parseFloat(aportesRepresentantePercent) || 25,
 							detail: detail || null,
 						}),
 					},
@@ -438,6 +442,8 @@ export default function CreateClosingPage() {
 						pclStatus,
 						contributionsAmount: parseFloat(contributionsAmount) || 0,
 						applyContributions,
+						aportesRepresentantePercent:
+							parseFloat(aportesRepresentantePercent) || 25,
 						detail: detail || null,
 					}),
 				});
@@ -1084,10 +1090,20 @@ export default function CreateClosingPage() {
 											const hp = Number(hpTotal) || 0;
 											const pcl = Number(pclTotal) || 0;
 											const aportes = applyContributions ? Number(contributionsAmount) || 0 : 0;
+											const aportesRepPct = Math.max(
+												0,
+												Math.min(
+													100,
+													Number(aportesRepresentantePercent) || 0,
+												),
+											);
+											const aportesRepRatio = withRepresentante
+												? aportesRepPct / 100
+												: 0;
 											const hpLeg = hp - (withRepresentante ? hp * 0.25 : 0);
 											const pclLeg = pcl - (withRepresentante ? pcl * 0.25 : 0);
-											const aportesLeg = aportes * (withRepresentante ? 0.75 : 1);
-											const monto = hpLeg + pclLeg - aportesLeg;
+											const aportesLeg = aportes * (1 - aportesRepRatio);
+											const monto = hpLeg - aportesLeg + pclLeg;
 											return (
 												<div className={`rounded-lg p-3 border ${monto < 0 ? "border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : "border-primary/30 bg-primary/5"}`}>
 													<span className="text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">A Transferir</span>
@@ -1275,20 +1291,47 @@ export default function CreateClosingPage() {
 											</div>
 										</div>
 										<div className="space-y-1">
-											<label className="text-xs text-muted-foreground">
-												HP Legalistas ($)
-											</label>
-											<div className="h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground font-semibold text-gray-900 dark:text-white">
-												{new Intl.NumberFormat("es-AR", {
-													style: "currency",
-													currency: "ARS",
-												}).format(
-													(Number(hpTotal) || 0) -
-														(withRepresentante
-															? (Number(hpTotal) || 0) * 0.25
-															: 0),
-												)}
-											</div>
+											{(() => {
+												const hp = Number(hpTotal) || 0;
+												const aportes = applyContributions
+													? Number(contributionsAmount) || 0
+													: 0;
+												const aportesRepPct = Math.max(
+													0,
+													Math.min(
+														100,
+														Number(aportesRepresentantePercent) || 0,
+													),
+												);
+												const aportesRepRatio = withRepresentante
+													? aportesRepPct / 100
+													: 0;
+												const hpLeg =
+													hp - (withRepresentante ? hp * 0.25 : 0);
+												const aportesLeg = aportes * (1 - aportesRepRatio);
+												const hpLegNeto = hpLeg - aportesLeg;
+												return (
+													<>
+														<label className="text-xs text-muted-foreground">
+															HP Legalistas
+															{aportesLeg > 0 ? " (neto)" : ""} ($)
+														</label>
+														<div
+															className="h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground font-semibold text-gray-900 dark:text-white"
+															title={
+																aportesLeg > 0
+																	? `${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(hpLeg)} − aportes ${new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(aportesLeg)}`
+																	: undefined
+															}
+														>
+															{new Intl.NumberFormat("es-AR", {
+																style: "currency",
+																currency: "ARS",
+															}).format(hpLegNeto)}
+														</div>
+													</>
+												);
+											})()}
 										</div>
 									</div>
 								</div>
@@ -1379,67 +1422,109 @@ export default function CreateClosingPage() {
 											<Switch checked={applyContributions} onCheckedChange={setApplyContributions} />
 										</div>
 									</div>
-									<div className="grid grid-cols-3 gap-4">
-										<div className="space-y-1">
-											<label className="text-xs text-muted-foreground">
-												Aportes Totales ($)
-											</label>
-											<div className="relative">
-												<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-													$
-												</span>
-												<input
-													type="number"
-													step="0.01"
-													min="0"
-													value={contributionsAmount}
-													onChange={(e) =>
-														setContributionsAmount(e.target.value)
-													}
-													disabled={!applyContributions}
-													className="w-full h-11 pl-7 pr-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:text-gray-400"
-													placeholder="0.00"
-												/>
+									{(() => {
+										const aportesRepPct = Math.max(
+											0,
+											Math.min(
+												100,
+												Number(aportesRepresentantePercent) || 0,
+											),
+										);
+										const aportesRepRatio = withRepresentante
+											? aportesRepPct / 100
+											: 0;
+										const total = Number(contributionsAmount) || 0;
+										const repAmount = applyContributions
+											? total * aportesRepRatio
+											: 0;
+										const legAmount = applyContributions
+											? total * (1 - aportesRepRatio)
+											: 0;
+										return (
+											<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+												<div className="space-y-1">
+													<label className="text-xs text-muted-foreground">
+														Aportes Totales ($)
+													</label>
+													<div className="relative">
+														<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+															$
+														</span>
+														<input
+															type="number"
+															step="0.01"
+															min="0"
+															value={contributionsAmount}
+															onChange={(e) =>
+																setContributionsAmount(e.target.value)
+															}
+															disabled={!applyContributions}
+															className="w-full h-11 pl-7 pr-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:text-gray-400"
+															placeholder="0.00"
+														/>
+													</div>
+												</div>
+												<div className="space-y-1">
+													<label className="text-xs text-muted-foreground">
+														% Representante
+													</label>
+													<div className="relative">
+														<input
+															type="number"
+															step="0.01"
+															min="0"
+															max="100"
+															value={aportesRepresentantePercent}
+															onChange={(e) =>
+																setAportesRepresentantePercent(
+																	e.target.value,
+																)
+															}
+															disabled={
+																!applyContributions || !withRepresentante
+															}
+															className="w-full h-11 px-3 pr-8 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:text-gray-400"
+														/>
+														<span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+															%
+														</span>
+													</div>
+												</div>
+												<div className="space-y-1">
+													<label className="text-xs text-muted-foreground">
+														Aportes Representante ($)
+													</label>
+													<div
+														className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm ${!applyContributions || !withRepresentante ? "text-gray-400" : "text-foreground"}`}
+													>
+														{new Intl.NumberFormat("es-AR", {
+															style: "currency",
+															currency: "ARS",
+														}).format(repAmount)}
+													</div>
+												</div>
+												<div className="space-y-1">
+													<label className="text-xs text-muted-foreground">
+														Aportes Legalistas ($)
+													</label>
+													<div
+														className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm ${!applyContributions ? "text-gray-400" : "text-foreground"}`}
+													>
+														{new Intl.NumberFormat("es-AR", {
+															style: "currency",
+															currency: "ARS",
+														}).format(legAmount)}
+													</div>
+												</div>
 											</div>
-										</div>
-										<div className="space-y-1">
-											<label className="text-xs text-muted-foreground">
-												Aportes Representante ($)
-											</label>
-											<div
-												className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground ${!applyContributions || !withRepresentante ? "text-gray-400" : ""}`}
-											>
-												{new Intl.NumberFormat("es-AR", {
-													style: "currency",
-													currency: "ARS",
-												}).format(
-													applyContributions && withRepresentante
-														? (Number(contributionsAmount) || 0) * 0.25
-														: 0,
-												)}
-											</div>
-										</div>
-										<div className="space-y-1">
-											<label className="text-xs text-muted-foreground">
-												Aportes Legalistas ($)
-											</label>
-											<div
-												className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm text-foreground ${!applyContributions ? "text-gray-400" : ""}`}
-											>
-												{new Intl.NumberFormat("es-AR", {
-													style: "currency",
-													currency: "ARS",
-												}).format(
-													applyContributions
-														? (Number(contributionsAmount) || 0) * (withRepresentante ? 0.75 : 1)
-														: 0,
-												)}
-											</div>
-										</div>
-									</div>
+										);
+									})()}
 									<p className="text-xs text-gray-400">
-										Monto manual ingresado por la contadora.
-										{withRepresentante ? "Distribución: 75% Legalistas / 25% Representante." : "Distribución: 100% Legalistas."}
+										Los aportes Legalistas se descuentan de Honorarios (HP),
+										no de PCL.{" "}
+										{withRepresentante
+											? `Distribución: ${100 - (Number(aportesRepresentantePercent) || 0)}% Legalistas / ${Number(aportesRepresentantePercent) || 0}% Representante.`
+											: "Distribución: 100% Legalistas."}
 									</p>
 								</div>
 

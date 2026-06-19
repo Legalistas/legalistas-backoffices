@@ -63,6 +63,13 @@ export default function ViewClosingModal({
 
 	const montoPositivo = closing.montoTransferir >= 0;
 
+	// hpLegalistas viene del backend ya neto de aportes Legalistas.
+	const aportesAplicados = closing.applyContributions
+		? Number(closing.aportesLegalistas || 0)
+		: 0;
+	const hpLegalistasNeto = Number(closing.hpLegalistas || 0);
+	const hpLegalistasBruto = hpLegalistasNeto + aportesAplicados;
+
 	return (
 		<Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
 			<SheetContent className="w-full sm:max-w-lg overflow-y-auto p-0" showCloseButton={false}>
@@ -208,9 +215,20 @@ export default function ViewClosingModal({
 							{ label: "Convenido", value: formatPercent(closing.hpAgreed) },
 							{ label: "Total", value: formatCurrency(closing.hpTotal), highlight: true },
 							{ label: "Representante", value: formatCurrency(closing.hpRepresentante) },
-							{ label: "Legalistas", value: formatCurrency(closing.hpLegalistas), bold: true },
+							{
+								label:
+									aportesAplicados > 0 ? "Legalistas (neto)" : "Legalistas",
+								value: formatCurrency(hpLegalistasNeto),
+								bold: true,
+							},
 						]}
 					/>
+					{aportesAplicados > 0 && (
+						<p className="text-[11px] text-muted-foreground -mt-3 px-1">
+							HP Legalistas neto = {formatCurrency(hpLegalistasBruto)} −
+							aportes {formatCurrency(aportesAplicados)}
+						</p>
+					)}
 
 					{/* PCL Section */}
 					<SectionCard
@@ -230,7 +248,13 @@ export default function ViewClosingModal({
 						title="Aportes"
 						color="amber"
 						distribution={closing.applyContributions}
-						distributionLabel={closing.applyContributions ? "Aplicados" : "No aplicados"}
+						distributionLabel={
+							!closing.applyContributions
+								? "No aplicados"
+								: closing.hpDistribution
+									? `${closing.aportesRepresentantePercent ?? 25}% Rep.`
+									: "100% Leg."
+						}
 						items={[
 							{ label: "Totales", value: formatCurrency(closing.contributionsAmount), highlight: true },
 							{ label: "Representante", value: formatCurrency(closing.aportesRepresentante) },
