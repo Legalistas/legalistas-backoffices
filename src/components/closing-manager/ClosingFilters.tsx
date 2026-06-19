@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	AlertTriangle,
 	ArrowDownNarrowWide,
 	ArrowUpNarrowWide,
 	CalendarDays,
@@ -54,6 +55,8 @@ export interface ClosingFiltersState {
 	pclStatus: string;
 	responsibleLawyerId: string;
 	internalLawyerId: string;
+	/** "true" para ver solo cierres con HP o PCL pendientes de cobro */
+	paymentPending: string;
 }
 
 interface ClosingFiltersProps {
@@ -196,6 +199,7 @@ export default function ClosingFilters({
 			pclStatus: "",
 			responsibleLawyerId: "",
 			internalLawyerId: "",
+			paymentPending: "",
 		});
 	};
 
@@ -206,7 +210,8 @@ export default function ClosingFilters({
 		filters.feeStatus ||
 		filters.pclStatus ||
 		filters.responsibleLawyerId ||
-		filters.internalLawyerId;
+		filters.internalLawyerId ||
+		filters.paymentPending;
 	const activeFilterCount = [
 		filters.type,
 		filters.capitalState,
@@ -214,6 +219,7 @@ export default function ClosingFilters({
 		filters.pclStatus,
 		filters.responsibleLawyerId,
 		filters.internalLawyerId,
+		filters.paymentPending,
 	].filter(Boolean).length;
 
 	const toggleColumn = (columnId: string) => {
@@ -317,6 +323,26 @@ export default function ClosingFilters({
 							<span>{sortOrder === "desc" ? "Nuevos" : "Viejos"}</span>
 						</button>
 					</div>
+
+					{/* Toggle rápido: Solo pendientes de cobro */}
+					<button
+						type="button"
+						onClick={() =>
+							onFiltersChange({
+								...filters,
+								paymentPending: filters.paymentPending === "true" ? "" : "true",
+							})
+						}
+						title="Mostrar solo cierres con HP o PCL pendientes de cobro"
+						className={`flex items-center gap-1.5 h-9 px-3 rounded-lg border text-xs font-medium transition-all whitespace-nowrap ${
+							filters.paymentPending === "true"
+								? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300"
+								: "border-gray-200 bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10"
+						}`}
+					>
+						<AlertTriangle className="h-3.5 w-3.5" />
+						<span>Pendientes de cobro</span>
+					</button>
 
 					{/* Búsqueda */}
 					<div className="flex-1 relative">

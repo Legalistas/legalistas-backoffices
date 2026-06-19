@@ -23,6 +23,12 @@ export interface Case {
 	internalLawyer?: Lawyer;
 }
 
+export interface ChargeCollector {
+	id: number;
+	name: string;
+	image: string | null;
+}
+
 export interface ClosingManagerEntry {
 	id: number;
 	caseId: number;
@@ -39,12 +45,18 @@ export interface ClosingManagerEntry {
 	hpTotal: number;
 	hpDistribution: boolean;
 	feeStatus: string;
+	hpChargedAt?: string | null;
+	hpChargedById?: number | null;
+	hpChargedBy?: ChargeCollector | null;
 
 	// PCL (Pacto de Cuota Litis)
 	pclAgreed: number | null;
 	pclTotal: number | null;
 	pclDistribution: boolean;
 	pclStatus: string | null;
+	pclChargedAt?: string | null;
+	pclChargedById?: number | null;
+	pclChargedBy?: ChargeCollector | null;
 
 	// Aportes
 	contributionsAmount: number;

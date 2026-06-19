@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Eye, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Eye, Loader2, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -39,6 +39,8 @@ import ViewClosingModal from "./ViewClosingModal";
 // Definición de columnas v2 — 21 columnas (sin intimation ni sepblac)
 // =============================================================================
 const COLUMNS = [
+	// Columna indicador fija de cobro — siempre visible al inicio.
+	{ id: "paymentIndicator", label: "Cobro", align: "center", width: "w-[4%]" },
 	{ id: "date", label: "Fecha", align: "left", width: "w-[8%]" },
 	{ id: "case", label: "Causa", align: "left", width: "w-[14%]" },
 	{ id: "lawyer", label: "Representante", align: "left", width: "w-[11%]" },
@@ -75,7 +77,7 @@ const COLUMNS = [
 ] as const;
 
 // Columna montoTransferir siempre visible (no se puede ocultar)
-const ALWAYS_VISIBLE = ["montoTransferir"];
+const ALWAYS_VISIBLE = ["paymentIndicator", "montoTransferir"];
 
 interface ClosingManagerTableProps {
 	closings: ClosingManagerEntry[];
@@ -252,6 +254,30 @@ export default function ClosingManagerTable({
 		columnId: string,
 	) => {
 		switch (columnId) {
+			case "paymentIndicator": {
+				const fullyCharged = isFullyCharged(closing);
+				const feePending = closing.feeStatus !== "CHARGED";
+				const pclPending =
+					!!closing.pclStatus && closing.pclStatus !== "CHARGED";
+				const tooltip = fullyCharged
+					? "Cobrado por completo"
+					: [
+							feePending ? "HP pendiente" : null,
+							pclPending ? "PCL pendiente" : null,
+						]
+							.filter(Boolean)
+							.join(" · ");
+				return (
+					<div className="flex items-center justify-center" title={tooltip}>
+						{fullyCharged ? (
+							<CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+						) : (
+							<AlertTriangle className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+						)}
+					</div>
+				);
+			}
+
 			case "date":
 				return <span>{formatDate(closing.date)}</span>;
 

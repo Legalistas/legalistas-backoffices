@@ -206,6 +206,60 @@ export default function ViewClosingModal({
 						</div>
 					</div>
 
+					{/* Gestión de cobros — solo si hay algún registro */}
+					{(closing.hpChargedAt ||
+						closing.hpChargedBy ||
+						closing.pclChargedAt ||
+						closing.pclChargedBy) && (
+						<div className="rounded-xl border border-green-200 dark:border-green-900/40 bg-green-50/40 dark:bg-green-900/10 p-4 space-y-3">
+							<p className="text-[11px] font-semibold uppercase tracking-wider text-green-800 dark:text-green-300">
+								Gestión de cobros
+							</p>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								{(closing.hpChargedAt || closing.hpChargedBy) && (
+									<div className="space-y-1">
+										<p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+											HP cobrado
+										</p>
+										<p className="text-sm text-foreground">
+											{closing.hpChargedAt
+												? new Date(closing.hpChargedAt).toLocaleDateString(
+														"es-AR",
+														{ day: "2-digit", month: "long", year: "numeric" },
+													)
+												: "Sin fecha"}
+										</p>
+										<p className="text-xs text-muted-foreground">
+											{closing.hpChargedBy
+												? `Por ${closing.hpChargedBy.name}`
+												: "Sin responsable registrado"}
+										</p>
+									</div>
+								)}
+								{(closing.pclChargedAt || closing.pclChargedBy) && (
+									<div className="space-y-1">
+										<p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+											PCL cobrado
+										</p>
+										<p className="text-sm text-foreground">
+											{closing.pclChargedAt
+												? new Date(closing.pclChargedAt).toLocaleDateString(
+														"es-AR",
+														{ day: "2-digit", month: "long", year: "numeric" },
+													)
+												: "Sin fecha"}
+										</p>
+										<p className="text-xs text-muted-foreground">
+											{closing.pclChargedBy
+												? `Por ${closing.pclChargedBy.name}`
+												: "Sin responsable registrado"}
+										</p>
+									</div>
+								)}
+							</div>
+						</div>
+					)}
+
 					{/* HP Section */}
 					<SectionCard
 						title="Honorarios Pactados (HP)"

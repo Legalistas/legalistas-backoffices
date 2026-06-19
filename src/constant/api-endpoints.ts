@@ -385,6 +385,9 @@ export const CLOSINGS_KPIS_ENDPOINT = `${API_BASE_URL}/closings/kpis`;
 // Exportar cierres a Excel/CSV
 export const CLOSINGS_EXPORT_ENDPOINT = `${API_BASE_URL}/closings/export`;
 
+// Lista de usuarios habilitados a registrar cobros (HP/PCL)
+export const CLOSINGS_CHARGE_COLLECTORS_ENDPOINT = `${API_BASE_URL}/closings/charge-collectors`;
+
 // Individual closing endpoints
 export const CLOSING_BY_ID_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/closings/${id}`;

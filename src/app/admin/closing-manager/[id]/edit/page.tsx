@@ -13,13 +13,19 @@ import {
 	SelectItem,
 	SelectTrigger,
 } from "@/components/ui/select";
-import { CLOSING_BY_ID_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	CLOSING_BY_ID_ENDPOINT,
+	CLOSINGS_CHARGE_COLLECTORS_ENDPOINT,
+} from "@/constant/api-endpoints";
 import {
 	closingType,
 	statusCapital,
 	statusData,
 } from "@/constant/closing-manager";
-import type { ClosingManagerEntry } from "@/types/closing-manager";
+import type {
+	ChargeCollector,
+	ClosingManagerEntry,
+} from "@/types/closing-manager";
 
 const inputClass =
 	"w-full h-11 px-3 rounded-lg border border-input bg-background text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all";
@@ -52,12 +58,19 @@ export default function EditClosingPage() {
 	const [capitalAmount, setCapitalAmount] = useState("");
 	const [capitalState, setCapitalState] = useState("AGREEMENT_IN_MANAGEMENT");
 	const [feeStatus, setFeeStatus] = useState("EARRINGS");
+	const [hpChargedAt, setHpChargedAt] = useState(""); // YYYY-MM-DD
+	const [hpChargedById, setHpChargedById] = useState<string>(""); // "" o number string
 	const [hpAgreed, setHpAgreed] = useState("20");
 	const [hpTotal, setHpTotal] = useState("0");
 	const [withRepresentante, setWithRepresentante] = useState(true);
 	const [pclAgreed, setPclAgreed] = useState("20");
 	const [pclTotal, setPclTotal] = useState("0");
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
+	const [pclChargedAt, setPclChargedAt] = useState("");
+	const [pclChargedById, setPclChargedById] = useState<string>("");
+	const [chargeCollectors, setChargeCollectors] = useState<ChargeCollector[]>(
+		[],
+	);
 	const [contributionsAmount, setContributionsAmount] = useState("0");
 	const [applyContributions, setApplyContributions] = useState(true);
 	const [aportesRepresentantePercent, setAportesRepresentantePercent] =
@@ -76,6 +89,50 @@ export default function EditClosingPage() {
 		const pclPercent = parseFloat(pclAgreed) || 0;
 		setPclTotal(((capital * pclPercent) / 100).toFixed(2));
 	}, [capitalAmount, pclAgreed]);
+
+	// Auto-set/clear de fecha de cobro al cambiar el estado.
+	// Cuando un estado pasa a CHARGED y no hay fecha → setear hoy.
+	// Cuando deja de ser CHARGED → limpiar fecha y "cobrado por".
+	useEffect(() => {
+		if (feeStatus === "CHARGED" && !hpChargedAt) {
+			setHpChargedAt(new Date().toISOString().slice(0, 10));
+		} else if (feeStatus !== "CHARGED" && (hpChargedAt || hpChargedById)) {
+			setHpChargedAt("");
+			setHpChargedById("");
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [feeStatus]);
+
+	useEffect(() => {
+		if (pclStatus === "CHARGED" && !pclChargedAt) {
+			setPclChargedAt(new Date().toISOString().slice(0, 10));
+		} else if (pclStatus !== "CHARGED" && (pclChargedAt || pclChargedById)) {
+			setPclChargedAt("");
+			setPclChargedById("");
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pclStatus]);
+
+	// Fetch de cobradores eligibles al mount.
+	useEffect(() => {
+		if (!session?.user?.accessToken) return;
+		let cancelled = false;
+		(async () => {
+			try {
+				const res = await fetch(CLOSINGS_CHARGE_COLLECTORS_ENDPOINT, {
+					headers: { Authorization: `Bearer ${session.user.accessToken}` },
+				});
+				if (!res.ok) return;
+				const data: ChargeCollector[] = await res.json();
+				if (!cancelled) setChargeCollectors(data);
+			} catch (err) {
+				console.error("[edit closing] charge collectors:", err);
+			}
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, [session?.user?.accessToken]);
 
 	// Calculated fields
 	const calc = useMemo(() => {
@@ -140,12 +197,24 @@ export default function EditClosingPage() {
 				setCapitalAmount(String(data.capitalAmount ?? 0));
 				setCapitalState(data.capitalState || "AGREEMENT_IN_MANAGEMENT");
 				setFeeStatus(data.feeStatus || "EARRINGS");
+				setHpChargedAt(
+					data.hpChargedAt ? String(data.hpChargedAt).slice(0, 10) : "",
+				);
+				setHpChargedById(
+					data.hpChargedById != null ? String(data.hpChargedById) : "",
+				);
 				setHpAgreed(String(data.hpAgreed ?? 20));
 				setHpTotal(String(data.hpTotal ?? 0));
 				setWithRepresentante(data.hpDistribution ?? true);
 				setPclAgreed(String(data.pclAgreed ?? 20));
 				setPclTotal(String(data.pclTotal ?? 0));
 				setPclStatus(data.pclStatus || "EARRINGS");
+				setPclChargedAt(
+					data.pclChargedAt ? String(data.pclChargedAt).slice(0, 10) : "",
+				);
+				setPclChargedById(
+					data.pclChargedById != null ? String(data.pclChargedById) : "",
+				);
 				setContributionsAmount(String(data.contributionsAmount ?? 0));
 				setApplyContributions(data.applyContributions ?? true);
 				setAportesRepresentantePercent(
@@ -178,6 +247,12 @@ export default function EditClosingPage() {
 					capitalAmount: parseFloat(capitalAmount) || 0,
 					capitalState,
 					feeStatus,
+					hpChargedAt:
+						feeStatus === "CHARGED" && hpChargedAt ? hpChargedAt : null,
+					hpChargedById:
+						feeStatus === "CHARGED" && hpChargedById
+							? Number(hpChargedById)
+							: null,
 					hpAgreed: parseFloat(hpAgreed) || 20,
 					hpTotal: parseFloat(hpTotal) || 0,
 					hpDistribution: withRepresentante,
@@ -185,6 +260,12 @@ export default function EditClosingPage() {
 					pclTotal: parseFloat(pclTotal) || 0,
 					pclDistribution: withRepresentante,
 					pclStatus,
+					pclChargedAt:
+						pclStatus === "CHARGED" && pclChargedAt ? pclChargedAt : null,
+					pclChargedById:
+						pclStatus === "CHARGED" && pclChargedById
+							? Number(pclChargedById)
+							: null,
 					contributionsAmount: parseFloat(contributionsAmount) || 0,
 					applyContributions,
 					aportesRepresentantePercent:
@@ -389,6 +470,57 @@ export default function EditClosingPage() {
 							</Select>
 						</div>
 					</div>
+
+					{/* Datos de cobro HP — solo cuando el estado está CHARGED */}
+					{feeStatus === "CHARGED" && (
+						<div className="rounded-xl border border-green-200 dark:border-green-900/40 bg-green-50/40 dark:bg-green-900/10 p-4 space-y-3">
+							<p className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300">
+								Cobro de Honorarios
+							</p>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								<div className="space-y-1">
+									<label className="text-xs text-muted-foreground">
+										Fecha de cobro
+									</label>
+									<input
+										type="date"
+										value={hpChargedAt}
+										onChange={(e) => setHpChargedAt(e.target.value)}
+										className={inputClass}
+									/>
+								</div>
+								<div className="space-y-1">
+									<label className="text-xs text-muted-foreground">
+										Cobrado por
+									</label>
+									<Select
+										value={hpChargedById || "_"}
+										onValueChange={(v) =>
+											setHpChargedById(v === "_" ? "" : v)
+										}
+									>
+										<SelectTrigger className="h-11">
+											<span className="truncate">
+												{hpChargedById
+													? chargeCollectors.find(
+															(c) => String(c.id) === hpChargedById,
+														)?.name ?? "Sin especificar"
+													: "Sin especificar"}
+											</span>
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="_">Sin especificar</SelectItem>
+											{chargeCollectors.map((c) => (
+												<SelectItem key={c.id} value={String(c.id)}>
+													{c.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</div>
+					)}
 
 					{/* Distribución con representante */}
 					<div className="flex items-center justify-between rounded-xl border border-border px-5 py-3.5">
@@ -674,6 +806,57 @@ export default function EditClosingPage() {
 							</Select>
 						</div>
 					</div>
+
+					{/* Datos de cobro PCL — solo cuando el estado está CHARGED */}
+					{pclStatus === "CHARGED" && (
+						<div className="rounded-xl border border-green-200 dark:border-green-900/40 bg-green-50/40 dark:bg-green-900/10 p-4 space-y-3">
+							<p className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300">
+								Cobro de PCL
+							</p>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								<div className="space-y-1">
+									<label className="text-xs text-muted-foreground">
+										Fecha de cobro
+									</label>
+									<input
+										type="date"
+										value={pclChargedAt}
+										onChange={(e) => setPclChargedAt(e.target.value)}
+										className={inputClass}
+									/>
+								</div>
+								<div className="space-y-1">
+									<label className="text-xs text-muted-foreground">
+										Cobrado por
+									</label>
+									<Select
+										value={pclChargedById || "_"}
+										onValueChange={(v) =>
+											setPclChargedById(v === "_" ? "" : v)
+										}
+									>
+										<SelectTrigger className="h-11">
+											<span className="truncate">
+												{pclChargedById
+													? chargeCollectors.find(
+															(c) => String(c.id) === pclChargedById,
+														)?.name ?? "Sin especificar"
+													: "Sin especificar"}
+											</span>
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="_">Sin especificar</SelectItem>
+											{chargeCollectors.map((c) => (
+												<SelectItem key={c.id} value={String(c.id)}>
+													{c.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</div>
+					)}
 
 					{/* Detalle */}
 					<div className="space-y-1.5">
