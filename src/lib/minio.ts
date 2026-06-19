@@ -17,10 +17,24 @@ export const s3 = new S3Client({
 
 export const BUCKET = process.env.S3_BUCKET ?? "";
 
-export const PUBLIC_BASE_URL = process.env.S3_ENDPOINT ?? "";
+/**
+ * Base URL pública para servir los objetos del bucket.
+ * - Si está seteado `S3_PUBLIC_BASE_URL` (ej: CDN `https://static.legalistas.com.ar`)
+ *   se usa esa URL sin prefijo de bucket — la CDN absorbe el bucket internamente.
+ * - Sino se cae al endpoint del MinIO directo, con `/${BUCKET}/` como prefijo
+ *   (formato path-style estándar de S3).
+ */
+const PUBLIC_BASE_URL_CDN = (process.env.S3_PUBLIC_BASE_URL ?? "").replace(/\/$/, "");
+const PUBLIC_BASE_URL_FALLBACK = (process.env.S3_ENDPOINT ?? "").replace(/\/$/, "");
+
+export const PUBLIC_BASE_URL = PUBLIC_BASE_URL_CDN || PUBLIC_BASE_URL_FALLBACK;
 
 export function publicUrlFor(key: string): string {
-	return `${PUBLIC_BASE_URL}/${BUCKET}/${key}`;
+	const cleanKey = key.replace(/^\/+/, "");
+	if (PUBLIC_BASE_URL_CDN) {
+		return `${PUBLIC_BASE_URL_CDN}/${cleanKey}`;
+	}
+	return `${PUBLIC_BASE_URL_FALLBACK}/${BUCKET}/${cleanKey}`;
 }
 
 /** Normaliza un prefix removiendo `/` al inicio y garantizando uno al final (si no es vacío). */

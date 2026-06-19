@@ -454,3 +454,22 @@ export const REPRESENTATIVE_LEVEL_ENDPOINT = (userId: number) =>
 // Historial completo de medallas de un representante (todas las entradas)
 export const REPRESENTATIVE_LEVELS_HISTORY_ENDPOINT = (userId: number) =>
 	`${API_BASE_URL}/representatives/${userId}/levels`;
+
+// Verificar disponibilidad de slug (admin)
+export const POSTS_SLUG_CHECK_ENDPOINT = `${API_BASE_URL}/posts/slug-check`;
+
+// Autores elegibles para firmar posts (E-E-A-T)
+export const POSTS_AUTHORS_ENDPOINT = `${API_BASE_URL}/posts/authors`;
+export const POST_AUTHOR_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/posts/authors/${id}`;
+
+// Subida de imágenes del blog (admin frontend — no toca el backend)
+export const BLOG_UPLOAD_ENDPOINT = "/api/blog/upload";
+
+// AI endpoints (admin only)
+export const POSTS_AI_ANALYZE_ENDPOINT = `${API_BASE_URL}/posts/ai/analyze`;
+export const POSTS_AI_GENERATE_META_ENDPOINT = `${API_BASE_URL}/posts/ai/generate-meta`;
+export const POSTS_AI_GENERATE_TITLES_ENDPOINT = `${API_BASE_URL}/posts/ai/generate-titles`;
+export const POSTS_AI_SUGGEST_KEYWORD_ENDPOINT = `${API_BASE_URL}/posts/ai/suggest-keyword`;
+export const POSTS_AI_GENERATE_FAQ_ENDPOINT = `${API_BASE_URL}/posts/ai/generate-faq`;
+export const POSTS_AI_INTERNAL_LINKS_ENDPOINT = `${API_BASE_URL}/posts/ai/suggest-internal-links`;

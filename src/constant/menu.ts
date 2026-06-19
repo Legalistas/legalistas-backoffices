@@ -255,12 +255,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: "/admin/file-manager",
         roles: SUPERADMIN,
       },
-      // {
-      //   icon: Pencil,
-      //   name: "Blog",
-      //   path: "/admin/posts",
-      //   roles: MARKETING,
-      // },
+      {
+        icon: Pencil,
+        name: "Blog",
+        path: "/admin/blog",
+        roles: MARKETING,
+      },
     ],
   },
 ];
