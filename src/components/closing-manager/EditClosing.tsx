@@ -4,6 +4,7 @@ import { AlertCircle, Loader2, Save, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import {
 	Select,
@@ -12,13 +13,36 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { CLOSING_BY_ID_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	CLOSING_BY_ID_ENDPOINT,
+	LAWYERS_ENDPOINT,
+} from "@/constant/api-endpoints";
 import {
 	closingType,
 	statusCapital,
 	statusData,
 } from "@/constant/closing-manager";
+import { Role } from "@/constant/user";
 import type { ClosingManagerEntry } from "@/types/closing-manager";
+
+const CHARGE_COLLECTOR_ROLES: string[] = [
+	Role.ADMINISTRATOR,
+	Role.DIRECTOR_GENERAL_CEO,
+	Role.GERENTE_GENERAL_COO,
+	Role.DIRECTORA_AREA_CONTABLE,
+];
+
+const toDateInputValue = (raw?: string | null): string => {
+	if (!raw) return "";
+	const d = new Date(raw);
+	if (Number.isNaN(d.getTime())) return "";
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${y}-${m}-${day}`;
+};
+
+const todayInputValue = () => toDateInputValue(new Date().toISOString());
 
 interface EditClosingProps {
 	closing: ClosingManagerEntry;
@@ -64,6 +88,18 @@ export default function EditClosing({
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
+	// Cobro HP/PCL
+	const [hpChargedAt, setHpChargedAt] = useState("");
+	const [hpChargedById, setHpChargedById] = useState("");
+	const [pclChargedAt, setPclChargedAt] = useState("");
+	const [pclChargedById, setPclChargedById] = useState("");
+	const [collectors, setCollectors] = useState<
+		{ id: number; name: string }[]
+	>([]);
+
+	const hpCharged = feeStatus === "CHARGED";
+	const pclCharged = pclStatus === "CHARGED";
+
 	// Initialize from closing data
 	useEffect(() => {
 		if (closing) {
@@ -83,8 +119,45 @@ export default function EditClosing({
 				String(closing.aportesRepresentantePercent ?? 25),
 			);
 			setDetail(closing.detail || "");
+			setHpChargedAt(toDateInputValue(closing.hpChargedAt));
+			setHpChargedById(
+				closing.hpChargedById ? String(closing.hpChargedById) : "",
+			);
+			setPclChargedAt(toDateInputValue(closing.pclChargedAt));
+			setPclChargedById(
+				closing.pclChargedById ? String(closing.pclChargedById) : "",
+			);
 		}
 	}, [closing]);
+
+	// Cargar usuarios habilitados para registrar cobros (admin + contable).
+	useEffect(() => {
+		const token = session?.user?.accessToken;
+		if (!token) return;
+		(async () => {
+			try {
+				const res = await fetch(`${LAWYERS_ENDPOINT}?limit=10000`, {
+					headers: { Authorization: `Bearer ${token}` },
+				});
+				if (!res.ok) return;
+				const data = await res.json();
+				const list = Array.isArray(data) ? data : data.data || [];
+				const filtered = list
+					.filter((u: any) =>
+						u?.roleUser?.some((ru: any) =>
+							CHARGE_COLLECTOR_ROLES.includes(ru?.role?.name),
+						),
+					)
+					.map((u: any) => ({ id: u.id as number, name: (u.name as string) ?? "" }))
+					.sort((a: { name: string }, b: { name: string }) =>
+						a.name.localeCompare(b.name),
+					);
+				setCollectors(filtered);
+			} catch {
+				// silent
+			}
+		})();
+	}, [session?.user?.accessToken]);
 
 	// Calculated fields in real-time
 	const calc = useMemo(() => {
@@ -126,6 +199,28 @@ export default function EditClosing({
 		aportesRepresentantePercent,
 	]);
 
+	const handleHpChargedToggle = (checked: boolean) => {
+		if (checked) {
+			setFeeStatus("CHARGED");
+			if (!hpChargedAt) setHpChargedAt(todayInputValue());
+		} else {
+			setFeeStatus("EARRINGS");
+			setHpChargedAt("");
+			setHpChargedById("");
+		}
+	};
+
+	const handlePclChargedToggle = (checked: boolean) => {
+		if (checked) {
+			setPclStatus("CHARGED");
+			if (!pclChargedAt) setPclChargedAt(todayInputValue());
+		} else {
+			setPclStatus("EARRINGS");
+			setPclChargedAt("");
+			setPclChargedById("");
+		}
+	};
+
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		setIsSubmitting(true);
@@ -145,10 +240,14 @@ export default function EditClosing({
 					hpAgreed: parseFloat(hpAgreed) || 20,
 					hpTotal: parseFloat(hpTotal) || 0,
 					hpDistribution: withRepresentante,
+					hpChargedAt: hpCharged ? hpChargedAt || null : null,
+					hpChargedById: hpCharged && hpChargedById ? Number(hpChargedById) : null,
 					pclAgreed: parseFloat(pclAgreed) || 0,
 					pclTotal: parseFloat(pclTotal) || 0,
 					pclDistribution: withRepresentante,
 					pclStatus,
+					pclChargedAt: pclCharged ? pclChargedAt || null : null,
+					pclChargedById: pclCharged && pclChargedById ? Number(pclChargedById) : null,
 					contributionsAmount: parseFloat(contributionsAmount) || 0,
 					applyContributions,
 					aportesRepresentantePercent:
@@ -393,6 +492,49 @@ export default function EditClosing({
 								</div>
 							</div>
 						</div>
+
+						{/* Cobro HP */}
+						<div className="border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+							<label className="flex items-center gap-2 cursor-pointer select-none h-10">
+								<Checkbox
+									checked={hpCharged}
+									onCheckedChange={(v) => handleHpChargedToggle(v === true)}
+								/>
+								<span className="text-sm font-medium">HP Cobrado</span>
+							</label>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">Fecha de cobro</label>
+								<input
+									type="date"
+									value={hpChargedAt}
+									onChange={(e) => setHpChargedAt(e.target.value)}
+									disabled={!hpCharged}
+									className={inputClass}
+								/>
+							</div>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">Cobró</label>
+								<Select
+									value={hpChargedById || "none"}
+									onValueChange={(v) =>
+										setHpChargedById(v === "none" ? "" : v)
+									}
+									disabled={!hpCharged}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Seleccionar" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="none">Sin asignar</SelectItem>
+										{collectors.map((u) => (
+											<SelectItem key={u.id} value={String(u.id)}>
+												{u.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
 					</div>
 
 					{/* PCL */}
@@ -443,6 +585,49 @@ export default function EditClosing({
 								<div className="h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm font-medium">
 									{formatARS(calc.pclLeg)}
 								</div>
+							</div>
+						</div>
+
+						{/* Cobro PCL */}
+						<div className="border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+							<label className="flex items-center gap-2 cursor-pointer select-none h-10">
+								<Checkbox
+									checked={pclCharged}
+									onCheckedChange={(v) => handlePclChargedToggle(v === true)}
+								/>
+								<span className="text-sm font-medium">PCL Cobrado</span>
+							</label>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">Fecha de cobro</label>
+								<input
+									type="date"
+									value={pclChargedAt}
+									onChange={(e) => setPclChargedAt(e.target.value)}
+									disabled={!pclCharged}
+									className={inputClass}
+								/>
+							</div>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">Cobró</label>
+								<Select
+									value={pclChargedById || "none"}
+									onValueChange={(v) =>
+										setPclChargedById(v === "none" ? "" : v)
+									}
+									disabled={!pclCharged}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Seleccionar" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="none">Sin asignar</SelectItem>
+										{collectors.map((u) => (
+											<SelectItem key={u.id} value={String(u.id)}>
+												{u.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
 							</div>
 						</div>
 					</div>

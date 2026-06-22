@@ -16,6 +16,7 @@ import { CaseStageIncapacidadTemplate } from "./email/case-stage-incapacidad";
 import { CaseStageCierreTemplate } from "./email/case-stage-cierre";
 import { CaseStageExperienciaTemplate } from "./email/case-stage-experiencia";
 import { CaseStageArchivadoTemplate } from "./email/case-stage-archivado";
+import { CaseInformeTrimestralTemplate } from "./email/case-informe-trimestral";
 
 // ─────────────────────────────────────────────────
 // SMTP Configuration
@@ -65,7 +66,8 @@ type EmailTemplate =
   | "case-stage-incapacidad"
   | "case-stage-cierre"
   | "case-stage-experiencia"
-  | "case-stage-archivado";
+  | "case-stage-archivado"
+  | "case-informe-trimestral";
 
 interface TemplateVars {
   leadName?: string;
@@ -87,6 +89,10 @@ interface TemplateVars {
   responsibleLawyerName?: string;
   // Etapa de causa (Experiencia)
   reviewUrl?: string;
+  // Informe trimestral
+  stageLabel?: string;
+  stageMessage?: string;
+  informeLink?: string;
 }
 
 /** Mapea columnId del CRM → template de email (cambio de etapa) */
@@ -310,6 +316,24 @@ async function renderTemplate(
             caseNumber: vars.caseNumber,
             caseTitle: vars.caseTitle,
             serviceName: vars.serviceName,
+            responsibleLawyerName: vars.responsibleLawyerName,
+          })
+        ),
+      };
+
+    case "case-informe-trimestral":
+      return {
+        subject: vars.caseNumber
+          ? `Informe trimestral — Caso #${vars.caseNumber}`
+          : "Tu informe trimestral está disponible — Legalistas",
+        html: await render(
+          CaseInformeTrimestralTemplate({
+            customerName: vars.customerName,
+            caseNumber: vars.caseNumber,
+            caseTitle: vars.caseTitle,
+            stageLabel: vars.stageLabel,
+            stageMessage: vars.stageMessage,
+            informeLink: vars.informeLink,
             responsibleLawyerName: vars.responsibleLawyerName,
           })
         ),

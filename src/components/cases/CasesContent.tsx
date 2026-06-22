@@ -65,6 +65,7 @@ export default function CasesContent() {
 	>([]);
 	const [dateFrom, setDateFrom] = useState<string>("");
 	const [dateTo, setDateTo] = useState<string>("");
+	const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
 
 	const [responsibleLawyerTypes, setResponsibleLawyerTypes] = useState<
 		LawyerOption[]
@@ -281,6 +282,7 @@ export default function CasesContent() {
 			representativeLawyerIds?: string[],
 			internalLawyerIds?: string[],
 			isKanbanMode?: boolean,
+			tab: "active" | "archived" = "active",
 		) => {
 			try {
 				setIsLoading(true);
@@ -299,7 +301,11 @@ export default function CasesContent() {
 					url.searchParams.append("servicesId", serviceId.toString());
 				}
 
-				if (stageIds && stageIds.length > 0) {
+				if (tab === "archived") {
+					// Pestaña Archivados → fija stage 7. Se ignoran los stages del filtro
+					// avanzado (los archivados no se subdividen por etapa).
+					url.searchParams.append("stageId", ARCHIVED_STAGE_ID.toString());
+				} else if (stageIds && stageIds.length > 0) {
 					stageIds.forEach((id) =>
 						url.searchParams.append("stageId", id.toString()),
 					);
@@ -650,10 +656,31 @@ export default function CasesContent() {
 				selectedRepresentativeLawyer,
 				selectedInternalLawyer,
 				viewMode === "kanban",
+				activeTab,
 			);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [viewMode]);
+
+	// Refetch inmediato cuando cambia la pestaña (sin debounce).
+	useEffect(() => {
+		if (!isInitialRender.current && hasLoadedFromStorage.current) {
+			setCurrentPage(1);
+			fetchCases(
+				1,
+				searchTerm,
+				selectedService,
+				selectedStage,
+				formatDateForApi(dateFrom),
+				formatDateForApi(dateTo),
+				selectedRepresentativeLawyer,
+				selectedInternalLawyer,
+				viewMode === "kanban",
+				activeTab,
+			);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [activeTab]);
 
 	const updateURL = useCallback(
 		(filters: {
@@ -763,6 +790,7 @@ export default function CasesContent() {
 				selectedRepresentativeLawyer,
 				selectedInternalLawyer,
 				viewMode === "kanban",
+				activeTab,
 			);
 			isInitialRender.current = false;
 		}
@@ -811,6 +839,7 @@ export default function CasesContent() {
 				selectedRepresentativeLawyer,
 				selectedInternalLawyer,
 				viewMode === "kanban",
+				activeTab,
 			);
 			setCurrentPage(1);
 		}, 500);
@@ -880,6 +909,7 @@ export default function CasesContent() {
 					selectedRepresentativeLawyer,
 					selectedInternalLawyer,
 					viewMode === "kanban",
+					activeTab,
 				);
 			} catch (error) {
 				console.error("Error al eliminar el caso:", error);
@@ -899,6 +929,7 @@ export default function CasesContent() {
 			dateTo,
 			fetchCases,
 			viewMode,
+			activeTab,
 		],
 	);
 
@@ -937,6 +968,7 @@ export default function CasesContent() {
 					selectedRepresentativeLawyer,
 					selectedInternalLawyer,
 					viewMode === "kanban",
+					activeTab,
 				);
 			} catch (error) {
 				console.error("Error al actualizar la etapa:", error);
@@ -957,6 +989,7 @@ export default function CasesContent() {
 			fetchCases,
 			viewMode,
 			cases,
+			activeTab,
 		],
 	);
 
@@ -987,6 +1020,7 @@ export default function CasesContent() {
 					selectedRepresentativeLawyer,
 					selectedInternalLawyer,
 					viewMode === "kanban",
+					activeTab,
 				);
 			} catch (error) {
 				console.error("Error al actualizar el estado:", error);
@@ -1006,7 +1040,34 @@ export default function CasesContent() {
 			dateTo,
 			fetchCases,
 			viewMode,
+			activeTab,
 		],
+	);
+
+	const handleGoogleReviewToggle = useCallback(
+		async (caseId: number, value: boolean) => {
+			try {
+				const response = await fetch(`${CASES_ENDPOINT}/${caseId}`, {
+					method: "PATCH",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+					body: JSON.stringify({ googleReviewLeft: value }),
+				});
+				if (!response.ok) throw new Error("Failed to update review flag");
+				// Optimistic update local — no refetch para evitar reset de paginación.
+				setCases((prev) =>
+					prev.map((c) =>
+						c.id === caseId ? { ...c, googleReviewLeft: value } : c,
+					),
+				);
+			} catch (error) {
+				console.error("Error al actualizar reseña:", error);
+				toast.error("No se pudo actualizar el estado de la reseña");
+			}
+		},
+		[session?.user?.accessToken],
 	);
 
 	const handleNoteCreate = useCallback(
@@ -1040,6 +1101,7 @@ export default function CasesContent() {
 					selectedRepresentativeLawyer,
 					selectedInternalLawyer,
 					viewMode === "kanban",
+					activeTab,
 				);
 			} catch (error) {
 				console.error("Error al guardar la observación:", error);
@@ -1060,6 +1122,7 @@ export default function CasesContent() {
 			dateTo,
 			fetchCases,
 			viewMode,
+			activeTab,
 		],
 	);
 
@@ -1086,6 +1149,7 @@ export default function CasesContent() {
 				selectedRepresentativeLawyer,
 				selectedInternalLawyer,
 				viewMode === "kanban",
+				activeTab,
 			);
 		},
 		[
@@ -1195,6 +1259,32 @@ export default function CasesContent() {
 			<div className="flex flex-col gap-6 mb-2">
 				<CasesHeader title="Gestor de casos" />
 
+				{/* Tabs: Activos / Archivados */}
+				<div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">
+					<button
+						type="button"
+						onClick={() => setActiveTab("active")}
+						className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+							activeTab === "active"
+								? "border-primary text-primary"
+								: "border-transparent text-muted-foreground hover:text-foreground"
+						}`}
+					>
+						Activos
+					</button>
+					<button
+						type="button"
+						onClick={() => setActiveTab("archived")}
+						className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+							activeTab === "archived"
+								? "border-primary text-primary"
+								: "border-transparent text-muted-foreground hover:text-foreground"
+						}`}
+					>
+						Archivados
+					</button>
+				</div>
+
 				<CasesFilters
 					searchTerm={searchTerm}
 					setSearchTerm={setSearchTerm}
@@ -1239,6 +1329,8 @@ export default function CasesContent() {
 					onStageChange={handleStageChange}
 					onResultChange={handleResultChange}
 					onNoteCreate={handleNoteCreate}
+					isArchivedView={activeTab === "archived"}
+					onGoogleReviewToggle={handleGoogleReviewToggle}
 				/>
 			)}
 

@@ -325,6 +325,12 @@ export const NOTIFICATIONS_ENDPOINT = (userId: number) =>
 export const NOTIFICATIONS_READ_ENDPOINT = (notificationId: number) =>
 	`${API_BASE_URL}/notifications/${notificationId}/read`;
 
+// Push del informe trimestral al cliente. El backend (legalistas_backend) ya
+// resuelve OneSignal — el frontend solo le pasa el caseId, el título, el mensaje
+// y el link.
+export const CASE_INFORME_PUSH_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/informe/push`;
+
 export const CASH_ENDPOINT = `${API_BASE_URL}/cash`;
 
 // ============================================================================
@@ -457,6 +463,17 @@ export const REPRESENTATIVE_LEVEL_ENDPOINT = (userId: number) =>
 // Historial completo de medallas de un representante (todas las entradas)
 export const REPRESENTATIVE_LEVELS_HISTORY_ENDPOINT = (userId: number) =>
 	`${API_BASE_URL}/representatives/${userId}/levels`;
+
+// ============================================================================
+// MINIO MODULE — bootstrap, health, backfill y resync de carpetas de casos
+// ============================================================================
+export const MINIO_HEALTH_ENDPOINT = `${API_BASE_URL}/minio/health`;
+export const MINIO_BOOTSTRAP_ENDPOINT = `${API_BASE_URL}/minio/bootstrap`;
+export const MINIO_BACKFILL_ENDPOINT = `${API_BASE_URL}/minio/backfill`;
+export const MINIO_RESYNC_CASE_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/minio/cases/${caseId}/resync`;
+export const MINIO_RESYNC_LEAD_ENDPOINT = (leadId: number) =>
+	`${API_BASE_URL}/minio/leads/${leadId}/resync`;
 
 // Verificar disponibilidad de slug (admin)
 export const POSTS_SLUG_CHECK_ENDPOINT = `${API_BASE_URL}/posts/slug-check`;

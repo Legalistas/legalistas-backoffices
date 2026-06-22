@@ -2,6 +2,7 @@
 
 import {
 	Archive,
+	Bell,
 	Check,
 	Copy,
 	FileDown,
@@ -10,6 +11,7 @@ import {
 	Landmark,
 	Link,
 	Loader2,
+	Mail,
 	Percent,
 	Save,
 	Scale,
@@ -22,10 +24,27 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import TiptapEditor from "@/components/tiptap-editor";
 import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import {
 	CASES_ENDPOINT,
 	CASE_INFORME_ENDPOINT,
+	CASE_INFORME_PUSH_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { BASE_URL } from "@/constant/api-endpoints";
 import { stageCases } from "@/lib/constant";
@@ -56,6 +75,71 @@ interface InformeTrimestralViewProps {
 	onCaseUpdated?: () => void;
 }
 
+// Dominios de proveedores de email aceptados para envío de informes.
+// Se cubren los más comunes en Argentina/LATAM. Para corporativos hay un override
+// (warning en vez de bloqueo) — el envío se permite pero queda avisado.
+const KNOWN_EMAIL_DOMAINS = new Set([
+	"gmail.com",
+	"googlemail.com",
+	"hotmail.com",
+	"hotmail.com.ar",
+	"hotmail.es",
+	"outlook.com",
+	"outlook.com.ar",
+	"outlook.es",
+	"live.com",
+	"live.com.ar",
+	"msn.com",
+	"yahoo.com",
+	"yahoo.com.ar",
+	"yahoo.es",
+	"ymail.com",
+	"icloud.com",
+	"me.com",
+	"mac.com",
+	"aol.com",
+	"protonmail.com",
+	"proton.me",
+	"zoho.com",
+	"yandex.com",
+	"fibertel.com.ar",
+	"speedy.com.ar",
+	"arnet.com.ar",
+]);
+
+// Palabras prohibidas en la parte local (antes del @) — para evitar envíos a
+// emails de prueba o falsos ingresados por error.
+const FORBIDDEN_LOCAL_PARTS = ["legalistas", "falso", "test", "prueba"];
+
+type EmailValidation =
+	| { kind: "ok" }
+	| { kind: "warn"; message: string }
+	| { kind: "error"; message: string };
+
+function validateRecipientEmail(value: string): EmailValidation {
+	const v = value.trim();
+	if (!v) return { kind: "error", message: "Ingresá un email" };
+	if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+		return { kind: "error", message: "El email no tiene un formato válido" };
+	}
+	const [local, domain] = v.toLowerCase().split("@");
+	for (const forbidden of FORBIDDEN_LOCAL_PARTS) {
+		if (local.includes(forbidden)) {
+			return {
+				kind: "error",
+				message: `El email contiene "${forbidden}" — parece de prueba o no válido`,
+			};
+		}
+	}
+	if (!KNOWN_EMAIL_DOMAINS.has(domain)) {
+		return {
+			kind: "warn",
+			message: `El dominio "${domain}" no es de un proveedor conocido. Verificá que sea correcto.`,
+		};
+	}
+	return { kind: "ok" };
+}
+
 export function InformeTrimestralView({
 	caseData,
 	onCaseUpdated,
@@ -70,13 +154,36 @@ export function InformeTrimestralView({
 			? String(caseData.disabilityPercentage)
 			: "",
 	);
+	const expedientes = caseData.files || [];
+	const [selectedFileId, setSelectedFileId] = useState<string>(
+		expedientes[0]?.id ? String(expedientes[0].id) : "",
+	);
+	const selectedFile = expedientes.find(
+		(f) => String(f.id) === selectedFileId,
+	);
+	const displayCaseNumber =
+		selectedFile?.cuij?.trim() ||
+		caseData.number ||
+		String(caseData.id);
 	const [isGenerating, setIsGenerating] = useState(false);
 	const [isSending, setIsSending] = useState(false);
+	const [isSendingEmail, setIsSendingEmail] = useState(false);
+	const [isSendingPush, setIsSendingPush] = useState(false);
+	const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+	const [emailDraft, setEmailDraft] = useState("");
 	const [isSaving, setIsSaving] = useState(false);
+	const [autoSavingIncapacity, setAutoSavingIncapacity] = useState<
+		"idle" | "saving" | "saved"
+	>("idle");
 	const [downloadLink, setDownloadLink] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
 	const previewRef = useRef<HTMLDivElement>(null);
 	const prevStageIdRef = useRef(currentStageId);
+	const lastSavedIncapacityRef = useRef<string>(
+		caseData.disabilityPercentage != null
+			? String(caseData.disabilityPercentage)
+			: "",
+	);
 	const stageLabel =
 		stageCases.find((s) => s.value === currentStageId)?.label ||
 		"Documentación";
@@ -120,7 +227,9 @@ export function InformeTrimestralView({
 			estadoActual?: string;
 			disabilityPercentage?: number | null;
 			informeSavedAt?: string;
-			informeSentWhatsappAt?: string;
+			informeSentWhatsappAt?: string | null;
+			informeSentEmailAt?: string | null;
+			informeSentPushAt?: string | null;
 		}) => {
 			setIsSaving(true);
 			try {
@@ -146,6 +255,55 @@ export function InformeTrimestralView({
 		},
 		[caseData.id, session?.user?.accessToken, onCaseUpdated],
 	);
+
+	// Auto-save del porcentaje de incapacidad con debounce (~600ms).
+	// PUT silencioso (sin tocar isSaving para no deshabilitar el botón Guardar)
+	// y feedback "Guardado" breve al lado del input.
+	useEffect(() => {
+		const value = incapacityPercentage.trim();
+		if (value === lastSavedIncapacityRef.current.trim()) return;
+
+		// Validar: vacío OK, o número entre 0 y 100
+		if (value !== "") {
+			const n = Number(value);
+			if (!Number.isFinite(n) || n < 0 || n > 100) return;
+		}
+
+		const token = session?.user?.accessToken;
+		if (!token) return;
+
+		const handle = setTimeout(async () => {
+			try {
+				setAutoSavingIncapacity("saving");
+				const res = await fetch(`${CASES_ENDPOINT}/${caseData.id}`, {
+					method: "PUT",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${token}`,
+					},
+					body: JSON.stringify({
+						disabilityPercentage: value ? Number.parseFloat(value) : null,
+					}),
+				});
+				if (!res.ok) throw new Error("Error al guardar incapacidad");
+				lastSavedIncapacityRef.current = value;
+				setAutoSavingIncapacity("saved");
+				onCaseUpdated?.();
+				setTimeout(() => setAutoSavingIncapacity("idle"), 1500);
+			} catch (err) {
+				console.error("Auto-save incapacity failed:", err);
+				setAutoSavingIncapacity("idle");
+				toast.error("No se pudo guardar el % de incapacidad");
+			}
+		}, 600);
+
+		return () => clearTimeout(handle);
+	}, [
+		incapacityPercentage,
+		caseData.id,
+		session?.user?.accessToken,
+		onCaseUpdated,
+	]);
 
 	const uploadPdfBlob = async (blob: Blob): Promise<string | null> => {
 		const fileName = `Informe_Trimestral_${caseData.number || caseData.id}_${caseData.customer?.name?.replace(/\s+/g, "_") || "cliente"}.pdf`;
@@ -177,17 +335,26 @@ export function InformeTrimestralView({
 			const blob = await generatePdfBlob();
 			if (!blob) throw new Error("No se pudo generar el PDF");
 
-			// 2. Guardar datos en la DB
+			// 2. Guardar datos en la DB.
+			// Al subir un informe nuevo se resetea el indicador de envío por WhatsApp:
+			// el cliente nunca recibió esta versión, así que el "tilde" anterior
+			// dejaría de tener sentido.
 			const fields: {
 				estadoActual: string;
 				disabilityPercentage: number | null;
 				informeSavedAt: string;
+				informeSentWhatsappAt: null;
+				informeSentEmailAt: null;
+				informeSentPushAt: null;
 			} = {
 				estadoActual,
 				disabilityPercentage: incapacityPercentage
 					? Number.parseFloat(incapacityPercentage)
 					: null,
 				informeSavedAt: new Date().toISOString(),
+				informeSentWhatsappAt: null,
+				informeSentEmailAt: null,
+				informeSentPushAt: null,
 			};
 			await saveToDb(fields);
 
@@ -285,6 +452,134 @@ export function InformeTrimestralView({
 		return pdf.output("blob");
 	};
 
+	const handleSendPush = async () => {
+		setIsSendingPush(true);
+		toast.info("Preparando notificación push...");
+		try {
+			// Si no hay link, generamos y subimos primero el PDF.
+			let link = downloadLink;
+			if (!link) {
+				const blob = await generatePdfBlob();
+				if (!blob) throw new Error("No se pudo generar el PDF");
+				const token = await uploadPdfBlob(blob);
+				if (token) {
+					link = `https://legalistas.ar/informes/${token}`;
+					setDownloadLink(link);
+				}
+			}
+			if (!link) throw new Error("No se pudo generar el link del informe");
+
+			// El backend resuelve OneSignal (player_id / external_user_id del cliente).
+			const res = await fetch(CASE_INFORME_PUSH_ENDPOINT(caseData.id), {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
+				body: JSON.stringify({
+					title: `Informe trimestral — ${stageLabel}`,
+					message: `Hola ${caseData.customer?.name?.split(" ")[0] || ""}, está disponible tu informe trimestral. Tocá para verlo.`,
+					url: link,
+					isResend: !!caseData.informeSentPushAt,
+				}),
+			});
+
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(
+					err?.message || err?.error || `Error ${res.status} al enviar push`,
+				);
+			}
+
+			await saveToDb({ informeSentPushAt: new Date().toISOString() });
+			onCaseUpdated?.();
+			toast.success("Notificación push enviada al cliente");
+		} catch (error) {
+			console.error("Error sending push:", error);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "No se pudo enviar la notificación push",
+			);
+		} finally {
+			setIsSendingPush(false);
+		}
+	};
+
+	const openEmailDialog = () => {
+		const customerEmail = (caseData.customer as any)?.email ?? "";
+		setEmailDraft(customerEmail);
+		setEmailDialogOpen(true);
+	};
+
+	const handleSendEmail = async () => {
+		const trimmed = emailDraft.trim();
+		const validation = validateRecipientEmail(trimmed);
+		if (validation.kind === "error") {
+			toast.error(validation.message);
+			return;
+		}
+
+		setIsSendingEmail(true);
+		toast.info("Preparando informe para email...");
+		try {
+			// Si no hay link, generamos y subimos primero el PDF
+			let link = downloadLink;
+			if (!link) {
+				const blob = await generatePdfBlob();
+				if (!blob) throw new Error("No se pudo generar el PDF");
+				const token = await uploadPdfBlob(blob);
+				if (token) {
+					link = `https://legalistas.ar/informes/${token}`;
+					setDownloadLink(link);
+				}
+			}
+
+			const stageMessage = STAGE_WA_MESSAGES[currentStageId] || "";
+
+			// Envía email + registra en el timeline del caso (email-log).
+			const res = await fetch("/api/notifications/email", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					to: trimmed,
+					template: "case-informe-trimestral",
+					caseId: caseData.id,
+					accessToken: session?.user?.accessToken,
+					isResend: !!caseData.informeSentEmailAt,
+					variables: {
+						customerName: caseData.customer?.name,
+						caseNumber: caseData.number
+							? String(caseData.number)
+							: String(caseData.id),
+						caseTitle: caseData.title,
+						stageLabel,
+						stageMessage,
+						informeLink: link || undefined,
+						responsibleLawyerName: caseData.responsibleLawyer?.name,
+					},
+				}),
+			});
+
+			if (!res.ok) {
+				const err = await res.json().catch(() => ({}));
+				throw new Error(err?.error || "Error al enviar el email");
+			}
+
+			await saveToDb({ informeSentEmailAt: new Date().toISOString() });
+			onCaseUpdated?.();
+			toast.success(`Informe enviado a ${trimmed}`);
+			setEmailDialogOpen(false);
+		} catch (error) {
+			console.error("Error sending via Email:", error);
+			toast.error(
+				error instanceof Error ? error.message : "No se pudo enviar el email",
+			);
+		} finally {
+			setIsSendingEmail(false);
+		}
+	};
+
 	const handleSendWhatsApp = async () => {
 		setIsSending(true);
 		toast.info("Preparando informe para WhatsApp...");
@@ -352,10 +647,57 @@ export function InformeTrimestralView({
 
 				{/* Controls */}
 				<div className="space-y-4">
+					{expedientes.length > 0 && (
+						<div className="space-y-2">
+							<p className="text-sm font-semibold text-foreground">
+								Seleccionar Expediente
+							</p>
+							<Select
+								value={selectedFileId}
+								onValueChange={setSelectedFileId}
+							>
+								<SelectTrigger className="w-full">
+									<SelectValue placeholder="Elegí un expediente" />
+								</SelectTrigger>
+								<SelectContent>
+									{expedientes.map((f) => {
+										const label =
+											f.cuij?.trim() ||
+											f.title?.trim() ||
+											`Expediente #${f.id}`;
+										return (
+											<SelectItem key={f.id} value={String(f.id)}>
+												{label}
+											</SelectItem>
+										);
+									})}
+								</SelectContent>
+							</Select>
+							<p className="text-xs text-muted-foreground">
+								El N° del informe (cabecera del PDF) se toma del CUIJ del
+								expediente seleccionado.
+							</p>
+						</div>
+					)}
+
 					<div className="space-y-2">
-						<p className="text-sm font-semibold text-foreground">
-							Porcentaje de Incapacidad
-						</p>
+						<div className="flex items-center justify-between">
+							<p className="text-sm font-semibold text-foreground">
+								Porcentaje de Incapacidad
+							</p>
+							{autoSavingIncapacity === "saving" && (
+								<span className="text-[11px] text-muted-foreground flex items-center gap-1">
+									<Loader2 className="h-3 w-3 animate-spin" />
+									Guardando…
+								</span>
+							)}
+							{autoSavingIncapacity === "saved" && (
+								<span className="text-[11px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+									<Check className="h-3 w-3" />
+									Guardado
+								</span>
+							)}
+						</div>
 						<div className="relative">
 							<Input
 								type="number"
@@ -369,7 +711,7 @@ export function InformeTrimestralView({
 							<Percent className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
 						</div>
 						<p className="text-xs text-muted-foreground">
-							Dejalo vacío si aún no se determinó.
+							Dejalo vacío si aún no se determinó. Se guarda automáticamente.
 						</p>
 					</div>
 
@@ -401,7 +743,7 @@ export function InformeTrimestralView({
 						</Button>
 						<Button
 							onClick={handleSendWhatsApp}
-							disabled={isSending || isGenerating || isSaving}
+							disabled={isSending || isGenerating || isSaving || isSendingEmail}
 							className="w-full bg-[#25D366] hover:bg-[#1ebe57] text-white"
 						>
 							{isSending ? (
@@ -410,6 +752,30 @@ export function InformeTrimestralView({
 								<Send className="mr-2 h-4 w-4" />
 							)}
 							{isSending ? "Enviando..." : "Enviar por WhatsApp"}
+						</Button>
+						<Button
+							onClick={openEmailDialog}
+							disabled={isSending || isGenerating || isSaving || isSendingEmail || isSendingPush}
+							className="w-full bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
+						>
+							{isSendingEmail ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<Mail className="mr-2 h-4 w-4" />
+							)}
+							{isSendingEmail ? "Enviando..." : "Enviar por Email"}
+						</Button>
+						<Button
+							onClick={handleSendPush}
+							disabled={isSending || isGenerating || isSaving || isSendingEmail || isSendingPush}
+							className="w-full bg-[#f97316] hover:bg-[#ea580c] text-white"
+						>
+							{isSendingPush ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<Bell className="mr-2 h-4 w-4" />
+							)}
+							{isSendingPush ? "Enviando..." : "Enviar por Push"}
 						</Button>
 					</div>
 
@@ -459,6 +825,14 @@ export function InformeTrimestralView({
 								<span className="text-muted-foreground">Caso:</span> #
 								{caseData.number || caseData.id}
 							</p>
+							{selectedFile && (
+								<p>
+									<span className="text-muted-foreground">Expediente:</span>{" "}
+									{selectedFile.cuij?.trim() ||
+										selectedFile.title ||
+										`#${selectedFile.id}`}
+								</p>
+							)}
 							<p>
 								<span className="text-muted-foreground">Etapa:</span>{" "}
 								{stageLabel}
@@ -485,6 +859,28 @@ export function InformeTrimestralView({
 									<span className="text-muted-foreground">No</span>
 								)}
 							</p>
+							<p>
+								<span className="text-muted-foreground">Email:</span>{" "}
+								{caseData.informeSentEmailAt ? (
+									<span className="text-green-600 inline-flex items-center gap-1">
+										<Check className="h-3.5 w-3.5 shrink-0" />
+										{new Date(caseData.informeSentEmailAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+									</span>
+								) : (
+									<span className="text-muted-foreground">No</span>
+								)}
+							</p>
+							<p>
+								<span className="text-muted-foreground">Push:</span>{" "}
+								{caseData.informeSentPushAt ? (
+									<span className="text-green-600 inline-flex items-center gap-1">
+										<Check className="h-3.5 w-3.5 shrink-0" />
+										{new Date(caseData.informeSentPushAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
+									</span>
+								) : (
+									<span className="text-muted-foreground">No</span>
+								)}
+							</p>
 						</div>
 					</div>
 				</div>
@@ -503,12 +899,124 @@ export function InformeTrimestralView({
 			<div className="max-w-2xl mx-auto" ref={previewRef}>
 				<ReportPreview
 					customerName={caseData.customer?.name || "Cliente"}
-					caseNumber={caseData.number || String(caseData.id)}
+					caseNumber={displayCaseNumber}
 					stageId={currentStageId}
 					estadoActualHtml={estadoActual}
 					incapacityPercentage={incapacityPercentage}
 				/>
 			</div>
+
+			<Dialog
+				open={emailDialogOpen}
+				onOpenChange={(open) => {
+					if (!isSendingEmail) setEmailDialogOpen(open);
+				}}
+			>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle className="flex items-center gap-2">
+							<Mail className="h-5 w-5 text-[#0ea5e9]" />
+							Enviar informe por email
+						</DialogTitle>
+						<DialogDescription>
+							Confirmá la dirección. Podés editarla si querés enviarlo a otro
+							destinatario; no se modifica el email del cliente en su ficha.
+						</DialogDescription>
+					</DialogHeader>
+
+					{(() => {
+						const validation = validateRecipientEmail(emailDraft);
+						const isError = validation.kind === "error";
+						const isWarn = validation.kind === "warn";
+						const isOk = validation.kind === "ok";
+						const customerEmail = (caseData.customer as any)?.email as
+							| string
+							| undefined;
+						const differsFromCustomer =
+							!!customerEmail &&
+							emailDraft.trim() !== customerEmail.trim();
+						return (
+							<>
+								<div className="space-y-2 py-2">
+									<Label htmlFor="informe-email-to" className="text-sm">
+										Email del destinatario
+									</Label>
+									<Input
+										id="informe-email-to"
+										type="email"
+										value={emailDraft}
+										onChange={(e) => setEmailDraft(e.target.value)}
+										placeholder="cliente@ejemplo.com"
+										disabled={isSendingEmail}
+										className={
+											isError
+												? "border-red-400 focus-visible:ring-red-400"
+												: isWarn
+													? "border-amber-400 focus-visible:ring-amber-400"
+													: ""
+										}
+										onKeyDown={(e) => {
+											if (
+												e.key === "Enter" &&
+												!isSendingEmail &&
+												!isError
+											) {
+												e.preventDefault();
+												handleSendEmail();
+											}
+										}}
+									/>
+									{isError && (
+										<p className="text-[11px] text-red-600 dark:text-red-400">
+											{validation.message}
+										</p>
+									)}
+									{isWarn && (
+										<p className="text-[11px] text-amber-600 dark:text-amber-400">
+											{validation.message}
+										</p>
+									)}
+									{isOk && differsFromCustomer && (
+										<p className="text-[11px] text-amber-600 dark:text-amber-400">
+											Vas a enviar a un email distinto al registrado del
+											cliente.
+										</p>
+									)}
+								</div>
+
+								<DialogFooter className="gap-2">
+									<Button
+										variant="outline"
+										onClick={() => setEmailDialogOpen(false)}
+										disabled={isSendingEmail}
+									>
+										Cancelar
+									</Button>
+									<Button
+										onClick={handleSendEmail}
+										disabled={
+											isSendingEmail || isError || !emailDraft.trim()
+										}
+										className="bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
+									>
+										{isSendingEmail ? (
+											<>
+												<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+												Enviando...
+											</>
+										) : (
+											<>
+												<Mail className="mr-2 h-4 w-4" />
+												Enviar
+											</>
+										)}
+									</Button>
+								</DialogFooter>
+							</>
+						);
+					})()}
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

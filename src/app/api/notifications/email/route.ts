@@ -25,6 +25,7 @@ const TEMPLATE_TITLES: Record<string, { sent: string; resent: string }> = {
   "case-stage-cierre": { sent: "Se envió email de etapa Cierre", resent: "Se reenvió email de etapa Cierre" },
   "case-stage-experiencia": { sent: "Se envió email de Caso resuelto + reseña", resent: "Se reenvió email de Caso resuelto + reseña" },
   "case-stage-archivado": { sent: "Se envió email de Caso archivado", resent: "Se reenvió email de Caso archivado" },
+  "case-informe-trimestral": { sent: "Se envió informe trimestral por email", resent: "Se reenvió informe trimestral por email" },
 };
 
 export async function POST(req: NextRequest) {

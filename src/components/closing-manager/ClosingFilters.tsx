@@ -1,7 +1,6 @@
 "use client";
 
 import {
-	AlertTriangle,
 	ArrowDownNarrowWide,
 	ArrowUpNarrowWide,
 	CalendarDays,
@@ -55,7 +54,12 @@ export interface ClosingFiltersState {
 	pclStatus: string;
 	responsibleLawyerId: string;
 	internalLawyerId: string;
-	/** "true" para ver solo cierres con HP o PCL pendientes de cobro */
+	/**
+	 * Estado de cobro:
+	 *  - "true"    → Pendiente de Honorarios (HP o PCL sin cobrar)
+	 *  - "false"   → Cobrado (HP y PCL completos)
+	 *  - ""        → Todos
+	 */
 	paymentPending: string;
 }
 
@@ -324,25 +328,25 @@ export default function ClosingFilters({
 						</button>
 					</div>
 
-					{/* Toggle rápido: Solo pendientes de cobro */}
-					<button
-						type="button"
-						onClick={() =>
+					{/* Estado de cobro */}
+					<Select
+						value={filters.paymentPending || "all"}
+						onValueChange={(value) =>
 							onFiltersChange({
 								...filters,
-								paymentPending: filters.paymentPending === "true" ? "" : "true",
+								paymentPending: value === "all" ? "" : value,
 							})
 						}
-						title="Mostrar solo cierres con HP o PCL pendientes de cobro"
-						className={`flex items-center gap-1.5 h-9 px-3 rounded-lg border text-xs font-medium transition-all whitespace-nowrap ${
-							filters.paymentPending === "true"
-								? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-300"
-								: "border-gray-200 bg-gray-50 dark:bg-white/5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10"
-						}`}
 					>
-						<AlertTriangle className="h-3.5 w-3.5" />
-						<span>Pendientes de cobro</span>
-					</button>
+						<SelectTrigger className="h-9 w-52 bg-gray-50 dark:bg-white/5 text-sm">
+							<SelectValue placeholder="Estado de cobro" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">Todos los cobros</SelectItem>
+							<SelectItem value="true">Pendiente de Honorarios</SelectItem>
+							<SelectItem value="false">Cobrado</SelectItem>
+						</SelectContent>
+					</Select>
 
 					{/* Búsqueda */}
 					<div className="flex-1 relative">

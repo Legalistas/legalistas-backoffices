@@ -121,8 +121,11 @@ export default function ClosingManagerPage() {
 				if (filters.capitalState) params.capitalState = filters.capitalState;
 				if (filters.feeStatus) params.feeStatus = filters.feeStatus;
 				if (filters.pclStatus) params.pclStatus = filters.pclStatus;
-				if (filters.paymentPending === "true")
-					params.paymentPending = "true";
+				if (
+					filters.paymentPending === "true" ||
+					filters.paymentPending === "false"
+				)
+					params.paymentPending = filters.paymentPending;
 				if (filters.responsibleLawyerId)
 					params.responsibleLawyerId = filters.responsibleLawyerId;
 				if (filters.internalLawyerId)

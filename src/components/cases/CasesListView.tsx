@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
 	Table,
@@ -16,7 +17,6 @@ import {
 } from "@/components/ui/table";
 import { getServiceName } from "@/lib/functions";
 import type { Cases } from "@/types/cases";
-import { ResultSelectDropdown } from "./ResultSelectDropdown";
 import { StageSelectDropdown } from "./StageSelectDropdown";
 
 interface CasesListViewProps {
@@ -27,6 +27,8 @@ interface CasesListViewProps {
 	onStageChange: (caseId: number, newStageId: number) => void;
 	onResultChange: (caseId: number, newResult: string) => void;
 	onNoteCreate: (caseId: number, note: string) => void | Promise<void>;
+	isArchivedView?: boolean;
+	onGoogleReviewToggle?: (caseId: number, value: boolean) => void;
 }
 
 // Helper para limpiar HTML de las notas
@@ -43,6 +45,8 @@ export const CasesListView = ({
 	onStageChange,
 	onResultChange,
 	onNoteCreate,
+	isArchivedView = false,
+	onGoogleReviewToggle,
 }: CasesListViewProps) => {
 	const [editingNotes, setEditingNotes] = useState<Record<number, string>>({});
 
@@ -118,6 +122,11 @@ export const CasesListView = ({
 							<TableCell className="w-[12%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
 								Abog. Interno
 							</TableCell>
+							{isArchivedView && (
+								<TableCell className="w-[8%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-center">
+									Reseña Google
+								</TableCell>
+							)}
 							<TableCell className="w-[8%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-right">
 								Acción
 							</TableCell>
@@ -241,6 +250,26 @@ export const CasesListView = ({
 											</span>
 										)}
 									</TableCell>
+									{isArchivedView && (
+										<TableCell className="px-3 py-2 text-center">
+											<div
+												className="flex items-center justify-center"
+												title={
+													caso.googleReviewLeft
+														? "Reseña dejada"
+														: "Marcar cuando el cliente deje la reseña"
+												}
+											>
+												<Checkbox
+													checked={!!caso.googleReviewLeft}
+													onCheckedChange={(v) =>
+														onGoogleReviewToggle?.(caso.id, v === true)
+													}
+													onClick={(e) => e.stopPropagation()}
+												/>
+											</div>
+										</TableCell>
+									)}
 									{/* Acción */}
 									<TableCell className="px-3 py-2 text-right">
 										<div className="flex items-center justify-end gap-1">
@@ -269,7 +298,10 @@ export const CasesListView = ({
 							))
 						) : (
 							<TableRow>
-								<TableCell colSpan={9} className="px-3 py-6 text-center">
+								<TableCell
+									colSpan={isArchivedView ? 10 : 9}
+									className="px-3 py-6 text-center"
+								>
 									<div className="flex flex-col items-center justify-center">
 										<AlertCircle className="h-6 w-6 text-amber-500 mb-2" />
 										<p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
