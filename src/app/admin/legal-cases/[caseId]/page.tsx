@@ -293,7 +293,6 @@ export default function CasesDetailsPage() {
 							notes={cases.notes || []}
 							consultation={cases.consultation || []}
 							logs={cases.logs || []}
-							documents={cases.documents || []}
 							caseId={params.caseId as string}
 							caseData={cases}
 							filteredFiles={filteredFiles()}

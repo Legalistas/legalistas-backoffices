@@ -677,9 +677,12 @@ export const CedulasView = ({
 		const printWindow = window.open("", "_blank");
 		if (!printWindow) return;
 
+		const logoUrl = `${window.location.origin}/images/logo/logo-print.png`;
+		const logoHeader = `<div class="cedula-logo"><img src="${logoUrl}" alt="Legalistas" /></div>`;
+
 		printWindow.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cédula</title>
-            <style>@page{size:A4;margin:10mm 20mm 20mm 20mm}body{font-family:Calibri,Arial,sans-serif;width:210mm;margin:0 auto;padding:10mm 20mm 20mm 20mm;color:#000;background:white}@media print{body{margin:0;padding:0}}</style>
-            </head><body>${cedula.content}</body></html>`);
+            <style>@page{size:A4;margin:10mm 20mm 20mm 20mm}body{font-family:Calibri,Arial,sans-serif;width:210mm;margin:0 auto;padding:10mm 20mm 20mm 20mm;color:#000;background:white}.cedula-logo{text-align:right;margin-bottom:8px}.cedula-logo img{width:140px;height:auto}@media print{body{margin:0;padding:0}}</style>
+            </head><body>${logoHeader}${cedula.content}</body></html>`);
 		printWindow.document.close();
 		printWindow.onload = () => setTimeout(() => printWindow.print(), 250);
 	};

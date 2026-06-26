@@ -12,11 +12,10 @@ import type {
 	Cases,
 	CaseConsultations,
 	CaseLogs,
-	CasesDocuments,
 	CasesFiles,
 	CasesNotes,
 } from "@/types/cases";
-import CaseDocuments from "./CaseDocuments";
+import CaseFilesMinio from "./CaseFilesMinio";
 import CaseLogsComponent from "./CaseLogsComponent";
 import { CedulasView } from "./CedulasView";
 import ConsultationsView from "./ConsultationsView";
@@ -34,7 +33,6 @@ interface CaseTabsProps {
 	onTabChange: (tab: string) => void;
 	notes: CasesNotes[];
 	logs: CaseLogs[];
-	documents?: CasesDocuments[];
 	consultation: CaseConsultations[];
 	caseId: string;
 	caseData: Cases;
@@ -59,7 +57,6 @@ export const CaseTabs = ({
 	notes = [],
 	logs = [],
 	consultation = [],
-	documents = [],
 	caseId,
 	caseData,
 	filteredFiles,
@@ -94,10 +91,6 @@ export const CaseTabs = ({
 	const handleNoteCreated = () => {
 		onNotesUpdated();
 		router.push(`/admin/legal-cases/${caseId}`);
-	};
-
-	const handleDocumentLoad = () => {
-		router.refresh();
 	};
 
 	const tabContentClass = "bg-card text-card-foreground";
@@ -150,13 +143,9 @@ export const CaseTabs = ({
 				/>
 			</TabsContent>
 
-			{/* 4. Documentos */}
+			{/* 4. Documentos (árbol MinIO scopeado al caso) */}
 			<TabsContent value="documents" className={tabContentClass}>
-				<CaseDocuments
-					documents={documents}
-					caseId={caseId}
-					onDocumentLoad={handleDocumentLoad}
-				/>
+				<CaseFilesMinio caseId={caseId} />
 			</TabsContent>
 
 			{/* 5. Notas */}

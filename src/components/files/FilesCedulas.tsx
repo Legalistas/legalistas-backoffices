@@ -502,9 +502,13 @@ export default function FilesCedulas({
                             margin: 20px auto;
                         }
                     }
+
+                    .cedula-logo { text-align: right; margin-bottom: 8px; }
+                    .cedula-logo img { width: 140px; height: auto; }
                 </style>
             </head>
             <body>
+                <div class="cedula-logo"><img src="${window.location.origin}/images/logo/logo-print.png" alt="Legalistas" /></div>
                 ${processedContent}
             </body>
             </html>
