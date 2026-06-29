@@ -17,6 +17,7 @@ import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/users";
 import { Autocomplete } from "@/components/shared/Autocomplete";
+import { ClosingsCombobox, type ClosingOption } from "@/components/shared/ClosingsCombobox";
 import { Pagination } from "@/components/shared/Pagination";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,13 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Select from "@/components/shared/SelectSimple";
-import {
-	Select as ShadcnSelect,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import {
 	Table,
 	TableBody,
@@ -78,9 +72,7 @@ export default function MyCashboxContent() {
 	);
 	const [newDescription, setNewDescription] = useState<string>("");
 	const [newClosingId, setNewClosingId] = useState<string>("");
-	const [closingsOptions, setClosingsOptions] = useState<
-		Array<{ id: number; number?: number | null; title?: string | null; date: string }>
-	>([]);
+	const [closingsOptions, setClosingsOptions] = useState<ClosingOption[]>([]);
 
 	const formatCurrency = (amount: number) => {
 		if (typeof amount !== "number" || isNaN(amount)) {
@@ -169,9 +161,17 @@ export default function MyCashboxContent() {
 		}
 	}, [session?.user?.accessToken]); // Re-fetch if session token changes
 
-	// Cargar cierres del año actual al abrir el modal de movimiento.
+	// Cargar cierres con PCL pendiente (no cobrado) cuando se abre el modal
+	// y el subtipo elegido es PCL. Excluye cierres sin PCL o ya cobrados.
 	useEffect(() => {
-		if (!isRegisterMovementModalOpen || !session?.user?.accessToken) return;
+		const isPclIngreso = newType === "income" && newSubtype === "pcl";
+		if (
+			!isRegisterMovementModalOpen ||
+			!isPclIngreso ||
+			!session?.user?.accessToken
+		) {
+			return;
+		}
 		const controller = new AbortController();
 		(async () => {
 			try {
@@ -186,12 +186,17 @@ export default function MyCashboxContent() {
 				});
 				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 				const json = await res.json();
-				const items = (json?.data ?? []).map((c: any) => ({
-					id: c.id,
-					number: c.case?.number,
-					title: c.case?.title,
-					date: c.date,
-				}));
+				const items: ClosingOption[] = (json?.data ?? [])
+					.filter(
+						(c: any) =>
+							c.pclStatus != null && c.pclStatus !== "CHARGED",
+					)
+					.map((c: any) => ({
+						id: c.id,
+						number: c.case?.number,
+						title: c.case?.title,
+						date: c.date,
+					}));
 				setClosingsOptions(items);
 			} catch (err) {
 				if ((err as Error).name !== "AbortError") {
@@ -200,7 +205,20 @@ export default function MyCashboxContent() {
 			}
 		})();
 		return () => controller.abort();
-	}, [isRegisterMovementModalOpen, session?.user?.accessToken]);
+	}, [
+		isRegisterMovementModalOpen,
+		newType,
+		newSubtype,
+		session?.user?.accessToken,
+	]);
+
+	// Si el usuario cambia tipo/subtipo y deja de aplicar PCL, limpiar selección.
+	useEffect(() => {
+		const isPclIngreso = newType === "income" && newSubtype === "pcl";
+		if (!isPclIngreso && newClosingId) {
+			setNewClosingId("");
+		}
+	}, [newType, newSubtype, newClosingId]);
 
 	const years = useMemo(() => {
 		const currentYearNum = new Date().getFullYear();
@@ -689,40 +707,24 @@ export default function MyCashboxContent() {
 									/>
 								</div>
 
-								{/* Cierre asociado (opcional) */}
-								<div className="space-y-2">
-									<Label htmlFor="movement-closing">
-										Cierre asociado{" "}
-										<span className="text-xs text-muted-foreground font-normal">
-											(opcional)
-										</span>
-									</Label>
-									<ShadcnSelect
-										value={newClosingId || "none"}
-										onValueChange={(v) =>
-											setNewClosingId(v === "none" ? "" : v)
-										}
-									>
-										<SelectTrigger id="movement-closing">
-											<SelectValue placeholder="Sin cierre asociado" />
-										</SelectTrigger>
-										<SelectContent>
-											<SelectItem value="none">Sin cierre asociado</SelectItem>
-											{closingsOptions.map((c) => {
-												const fecha = new Date(c.date).toLocaleDateString(
-													"es-AR",
-													{ day: "2-digit", month: "2-digit", year: "numeric" },
-												);
-												const label = `#${c.number ?? c.id} – ${c.title ?? "Sin título"} (${fecha})`;
-												return (
-													<SelectItem key={c.id} value={String(c.id)}>
-														{label}
-													</SelectItem>
-												);
-											})}
-										</SelectContent>
-									</ShadcnSelect>
-								</div>
+								{/* Cierre asociado (opcional) — solo en Ingreso + PCL */}
+								{newType === "income" && newSubtype === "pcl" && (
+									<div className="space-y-2">
+										<Label htmlFor="movement-closing">
+											Cierre asociado{" "}
+											<span className="text-xs text-muted-foreground font-normal">
+												(opcional)
+											</span>
+										</Label>
+										<ClosingsCombobox
+											id="movement-closing"
+											value={newClosingId}
+											onChange={setNewClosingId}
+											options={closingsOptions}
+											placeholder="Buscar cierre por #, título o fecha..."
+										/>
+									</div>
+								)}
 
 								{/* Descripción */}
 								<div className="space-y-2">
