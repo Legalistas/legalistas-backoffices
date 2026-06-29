@@ -744,76 +744,78 @@ export default function CasesContent() {
 		[router, saveFiltersToStorage],
 	);
 
+	// Rehidratar filtros desde storage + disparar el fetch inicial en una sola
+	// pasada. Se requiere AMBOS arrays de abogados cargados para que la
+	// validación de IDs en `applyFiltersFromSource` sea correcta.
+	// NOTA: el fetch se hace con los valores RETORNADOS por
+	// applyFiltersFromSource — no con el state de React, que aún no comiteó
+	// los setters disparados desde acá. Esto es lo que preservaba erróneamente
+	// la página 1 al volver del detalle.
 	useEffect(() => {
 		if (
-			(responsibleLawyerTypes.length > 0 || lawyerInternalTypes.length > 0) &&
+			responsibleLawyerTypes.length > 0 &&
+			lawyerInternalTypes.length > 0 &&
 			!hasLoadedFromStorage.current
 		) {
 			const appliedFilters = applyFiltersFromSource("storage");
 			hasLoadedFromStorage.current = true;
-			// Los setters de filtros disparan el debounce useEffect; queremos
-			// preservar la página rehidratada en lugar de saltar a 1.
+			// Los setters disparan el debounce useEffect; lo saltamos para no
+			// resetear paginación recién rehidratada.
 			skipNextDebounce.current = true;
 
 			if (appliedFilters) {
+				const stages = Array.isArray(appliedFilters.selectedStage)
+					? appliedFilters.selectedStage
+					: appliedFilters.selectedStage
+						? [appliedFilters.selectedStage]
+						: [];
+				const validRepLawyers =
+					(appliedFilters.selectedRepresentativeLawyer ?? []).filter(
+						(id: string) =>
+							responsibleLawyerTypes.some((lawyer) => lawyer.value === id),
+					);
+				const validIntLawyers =
+					(appliedFilters.selectedInternalLawyer ?? []).filter((id: string) =>
+						lawyerInternalTypes.some((lawyer) => lawyer.value === id),
+					);
+				const initialPage = appliedFilters.currentPage || 1;
+
 				updateURL({
 					search: appliedFilters.searchTerm,
 					service: appliedFilters.selectedService,
-					stages: Array.isArray(appliedFilters.selectedStage)
-						? appliedFilters.selectedStage
-						: appliedFilters.selectedStage
-							? [appliedFilters.selectedStage]
-							: [],
-					page: appliedFilters.currentPage,
-					repLawyers: appliedFilters.selectedRepresentativeLawyer,
-					intLawyers: appliedFilters.selectedInternalLawyer,
+					stages,
+					page: initialPage,
+					repLawyers: validRepLawyers,
+					intLawyers: validIntLawyers,
 					dateFrom: appliedFilters.dateFrom,
 					dateTo: appliedFilters.dateTo,
 				});
+
+				fetchCases(
+					initialPage,
+					appliedFilters.searchTerm || "",
+					appliedFilters.selectedService,
+					stages,
+					formatDateForApi(appliedFilters.dateFrom || ""),
+					formatDateForApi(appliedFilters.dateTo || ""),
+					validRepLawyers,
+					validIntLawyers,
+					viewMode === "kanban",
+					activeTab,
+				);
 			}
+
+			isInitialRender.current = false;
 		}
 	}, [
 		responsibleLawyerTypes,
 		lawyerInternalTypes,
 		applyFiltersFromSource,
 		updateURL,
-	]);
-
-	useEffect(() => {
-		if (
-			isInitialRender.current &&
-			responsibleLawyerTypes.length > 0 &&
-			lawyerInternalTypes.length > 0 &&
-			hasLoadedFromStorage.current
-		) {
-			fetchCases(
-				currentPage,
-				searchTerm,
-				selectedService,
-				selectedStage,
-				formatDateForApi(dateFrom),
-				formatDateForApi(dateTo),
-				selectedRepresentativeLawyer,
-				selectedInternalLawyer,
-				viewMode === "kanban",
-				activeTab,
-			);
-			isInitialRender.current = false;
-		}
-	}, [
-		responsibleLawyerTypes,
-		lawyerInternalTypes,
-		currentPage,
-		searchTerm,
-		selectedService,
-		selectedStage,
-		dateFrom,
-		dateTo,
-		selectedRepresentativeLawyer,
-		selectedInternalLawyer,
 		fetchCases,
 		formatDateForApi,
 		viewMode,
+		activeTab,
 	]);
 
 	useEffect(() => {
