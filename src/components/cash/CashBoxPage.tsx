@@ -58,7 +58,7 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { CASH_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
+import { CASH_ENDPOINT, CLOSINGS_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
 import { MOVEMENTS } from "@/constant/cash"; // Importar MOVEMENTS y su tipo
 import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
@@ -103,6 +103,10 @@ export default function CashBoxPage() {
 		new Date().toISOString().substring(0, 10),
 	);
 	const [newDescription, setNewDescription] = useState<string>("");
+	const [newClosingId, setNewClosingId] = useState<string>("");
+	const [closingsOptions, setClosingsOptions] = useState<
+		Array<{ id: number; number?: number | null; title?: string | null; date: string }>
+	>([]);
 
 	// State para el input del modal "Abrir Caja"
 	const [newBoxInitialAmount, setNewBoxInitialAmount] = useState<string>("");
@@ -305,6 +309,39 @@ export default function CashBoxPage() {
 		}
 	}, [isNewBoxModalOpen, closedMonths]);
 
+	// Cargar cierres del año actual al abrir el modal de movimiento.
+	useEffect(() => {
+		if (!isRegisterMovementModalOpen || !session?.user?.accessToken) return;
+		const controller = new AbortController();
+		(async () => {
+			try {
+				const year = new Date().getFullYear();
+				const url = `${CLOSINGS_ENDPOINT}?viewAll=true&year=${year}&limit=1000`;
+				const res = await fetch(url, {
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.user.accessToken}`,
+					},
+					signal: controller.signal,
+				});
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				const json = await res.json();
+				const items = (json?.data ?? []).map((c: any) => ({
+					id: c.id,
+					number: c.case?.number,
+					title: c.case?.title,
+					date: c.date,
+				}));
+				setClosingsOptions(items);
+			} catch (err) {
+				if ((err as Error).name !== "AbortError") {
+					console.error("Error cargando cierres:", err);
+				}
+			}
+		})();
+		return () => controller.abort();
+	}, [isRegisterMovementModalOpen, session?.user?.accessToken]);
+
 	const formatCurrency = (amount: number) => {
 		// Asegurarse de que el monto sea un número antes de formatear
 		if (typeof amount !== "number" || isNaN(amount)) {
@@ -397,6 +434,9 @@ export default function CashBoxPage() {
 		if (newType === "transfer") {
 			payload.userTransferId = newUserTo;
 		}
+		if (newClosingId) {
+			payload.closingId = Number(newClosingId);
+		}
 
 		const response = await fetch(`${CASH_ENDPOINT}/movements`, {
 			method: "POST",
@@ -417,6 +457,7 @@ export default function CashBoxPage() {
 			setNewAmount("");
 			setNewDescription("");
 			setNewDate(new Date().toISOString().substring(0, 10));
+			setNewClosingId("");
 			setIsRegisterMovementModalOpen(false);
 			toast.success(result.message);
 			await loadData();
@@ -1220,6 +1261,39 @@ export default function CashBoxPage() {
 										value={newDate}
 										onChange={(e) => setNewDate(e.target.value)}
 									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="movement-closing">
+										Cierre asociado{" "}
+										<span className="text-xs text-muted-foreground font-normal">
+											(opcional)
+										</span>
+									</Label>
+									<ShadcnSelect
+										value={newClosingId || "none"}
+										onValueChange={(v) =>
+											setNewClosingId(v === "none" ? "" : v)
+										}
+									>
+										<SelectTrigger id="movement-closing">
+											<SelectValue placeholder="Sin cierre asociado" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="none">Sin cierre asociado</SelectItem>
+											{closingsOptions.map((c) => {
+												const fecha = new Date(c.date).toLocaleDateString(
+													"es-AR",
+													{ day: "2-digit", month: "2-digit", year: "numeric" },
+												);
+												const label = `#${c.number ?? c.id} – ${c.title ?? "Sin título"} (${fecha})`;
+												return (
+													<SelectItem key={c.id} value={String(c.id)}>
+														{label}
+													</SelectItem>
+												);
+											})}
+										</SelectContent>
+									</ShadcnSelect>
 								</div>
 								<div className="space-y-2">
 									<Label htmlFor="movement-description">

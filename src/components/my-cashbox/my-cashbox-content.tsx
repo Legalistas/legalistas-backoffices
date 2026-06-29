@@ -11,7 +11,7 @@ import {
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CASH_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
+import { CASH_ENDPOINT, CLOSINGS_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
 import { MOVEMENTS } from "@/constant/cash";
 import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
@@ -24,6 +24,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import Select from "@/components/shared/SelectSimple";
+import {
+	Select as ShadcnSelect,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import {
 	Table,
 	TableBody,
@@ -70,6 +77,10 @@ export default function MyCashboxContent() {
 		new Date().toISOString().substring(0, 10),
 	);
 	const [newDescription, setNewDescription] = useState<string>("");
+	const [newClosingId, setNewClosingId] = useState<string>("");
+	const [closingsOptions, setClosingsOptions] = useState<
+		Array<{ id: number; number?: number | null; title?: string | null; date: string }>
+	>([]);
 
 	const formatCurrency = (amount: number) => {
 		if (typeof amount !== "number" || isNaN(amount)) {
@@ -157,6 +168,39 @@ export default function MyCashboxContent() {
 			fetchUsers();
 		}
 	}, [session?.user?.accessToken]); // Re-fetch if session token changes
+
+	// Cargar cierres del año actual al abrir el modal de movimiento.
+	useEffect(() => {
+		if (!isRegisterMovementModalOpen || !session?.user?.accessToken) return;
+		const controller = new AbortController();
+		(async () => {
+			try {
+				const year = new Date().getFullYear();
+				const url = `${CLOSINGS_ENDPOINT}?viewAll=true&year=${year}&limit=1000`;
+				const res = await fetch(url, {
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.user.accessToken}`,
+					},
+					signal: controller.signal,
+				});
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				const json = await res.json();
+				const items = (json?.data ?? []).map((c: any) => ({
+					id: c.id,
+					number: c.case?.number,
+					title: c.case?.title,
+					date: c.date,
+				}));
+				setClosingsOptions(items);
+			} catch (err) {
+				if ((err as Error).name !== "AbortError") {
+					console.error("Error cargando cierres:", err);
+				}
+			}
+		})();
+		return () => controller.abort();
+	}, [isRegisterMovementModalOpen, session?.user?.accessToken]);
 
 	const years = useMemo(() => {
 		const currentYearNum = new Date().getFullYear();
@@ -363,6 +407,7 @@ export default function MyCashboxContent() {
 			date: Date;
 			description: string;
 			userTransferId?: number;
+			closingId?: number;
 		} = {
 			type: newType, // Send the actual type, including "transfer"
 			subtype: newSubtype,
@@ -374,6 +419,10 @@ export default function MyCashboxContent() {
 
 		if (newType === "transfer" && newUser !== null) {
 			bodyPayload.userTransferId = newUser;
+		}
+
+		if (newClosingId) {
+			bodyPayload.closingId = Number(newClosingId);
 		}
 
 		const response = await fetch(`${CASH_ENDPOINT}/movements`, {
@@ -394,6 +443,7 @@ export default function MyCashboxContent() {
 			setNewAmount("");
 			setNewDescription("");
 			setNewDate(new Date().toISOString().substring(0, 10));
+			setNewClosingId("");
 			setIsRegisterMovementModalOpen(false); // Close modal
 			toast.success(result.message);
 			await fetchData(); // Recargar datos para obtener los movimientos actualizados
@@ -637,6 +687,41 @@ export default function MyCashboxContent() {
 										value={newDate}
 										onChange={(e) => setNewDate(e.target.value)}
 									/>
+								</div>
+
+								{/* Cierre asociado (opcional) */}
+								<div className="space-y-2">
+									<Label htmlFor="movement-closing">
+										Cierre asociado{" "}
+										<span className="text-xs text-muted-foreground font-normal">
+											(opcional)
+										</span>
+									</Label>
+									<ShadcnSelect
+										value={newClosingId || "none"}
+										onValueChange={(v) =>
+											setNewClosingId(v === "none" ? "" : v)
+										}
+									>
+										<SelectTrigger id="movement-closing">
+											<SelectValue placeholder="Sin cierre asociado" />
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="none">Sin cierre asociado</SelectItem>
+											{closingsOptions.map((c) => {
+												const fecha = new Date(c.date).toLocaleDateString(
+													"es-AR",
+													{ day: "2-digit", month: "2-digit", year: "numeric" },
+												);
+												const label = `#${c.number ?? c.id} – ${c.title ?? "Sin título"} (${fecha})`;
+												return (
+													<SelectItem key={c.id} value={String(c.id)}>
+														{label}
+													</SelectItem>
+												);
+											})}
+										</SelectContent>
+									</ShadcnSelect>
 								</div>
 
 								{/* Descripción */}

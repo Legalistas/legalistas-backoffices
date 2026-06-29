@@ -77,6 +77,9 @@ export default function CasesContent() {
 	const isInitialRender = useRef(true);
 	const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const hasLoadedFromStorage = useRef(false);
+	// Evita que el debounce dispare un reset a página 1 cuando los filtros
+	// cambian por rehidratación desde storage/URL (al volver del detalle).
+	const skipNextDebounce = useRef(false);
 
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -748,6 +751,9 @@ export default function CasesContent() {
 		) {
 			const appliedFilters = applyFiltersFromSource("storage");
 			hasLoadedFromStorage.current = true;
+			// Los setters de filtros disparan el debounce useEffect; queremos
+			// preservar la página rehidratada en lugar de saltar a 1.
+			skipNextDebounce.current = true;
 
 			if (appliedFilters) {
 				updateURL({
@@ -812,6 +818,13 @@ export default function CasesContent() {
 
 	useEffect(() => {
 		if (isInitialRender.current || !hasLoadedFromStorage.current) return;
+
+		// Si los filtros cambiaron por rehidratación (volver de detalle),
+		// no resetear paginación ni refetchar: el effect inicial ya lo hace.
+		if (skipNextDebounce.current) {
+			skipNextDebounce.current = false;
+			return;
+		}
 
 		if (searchTimeoutRef.current) {
 			clearTimeout(searchTimeoutRef.current);
@@ -1128,6 +1141,12 @@ export default function CasesContent() {
 
 	const handlePageChange = useCallback(
 		(page: number) => {
+			// Cancela cualquier debounce pendiente de cambios de filtro previos
+			// para evitar que dispare setCurrentPage(1) tras este cambio.
+			if (searchTimeoutRef.current) {
+				clearTimeout(searchTimeoutRef.current);
+				searchTimeoutRef.current = null;
+			}
 			setCurrentPage(page);
 			updateURL({
 				search: searchTerm,
@@ -1164,6 +1183,7 @@ export default function CasesContent() {
 			fetchCases,
 			formatDateForApi,
 			viewMode,
+			activeTab,
 		],
 	);
 
