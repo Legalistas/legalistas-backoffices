@@ -590,7 +590,7 @@ export default function ClosingManagerTable({
 									className={cn(
 										"group transition-colors",
 										isFullyCharged(closing)
-											? "bg-gray-100 dark:bg-white/10 hover:bg-gray-200 dark:hover:bg-white/15"
+											? "bg-gray-300 dark:bg-white/20 hover:bg-gray-400/70 dark:hover:bg-white/25"
 											: "hover:bg-gray-50 dark:hover:bg-white/5",
 									)}
 									title={
