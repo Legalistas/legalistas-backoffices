@@ -1,9 +1,25 @@
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getServerSession } from "next-auth/next";
 import { type NextRequest, NextResponse } from "next/server";
-import sharp from "sharp";
 import { authOptions } from "@/auth";
 import { BUCKET, joinPath, publicUrlFor, s3 } from "@/lib/minio";
+
+// sharp se importa dinámicamente dentro del handler para que un fallo al cargar
+// el binario nativo (Vercel serverless / linuxmusl / arch mismatch) no crashee
+// toda la función. Si sharp no está disponible, se sube el original sin optimizar.
+type SharpFn = (typeof import("sharp"))["default"];
+let sharpPromise: Promise<SharpFn | null> | null = null;
+function loadSharp(): Promise<SharpFn | null> {
+	if (!sharpPromise) {
+		sharpPromise = import("sharp")
+			.then((m) => m.default)
+			.catch((err) => {
+				console.warn("[/api/blog/upload] sharp no disponible:", err);
+				return null;
+			});
+	}
+	return sharpPromise;
+}
 
 export const dynamic = "force-dynamic";
 // Imágenes de blog pueden ser pesadas (banners, hero) — extender timeout.
@@ -58,10 +74,19 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 	}
 
+	let step = "init";
+	let fileInfo: { name?: string; type?: string; size?: number } = {};
+
 	try {
+		step = "parse-formdata";
 		const formData = await req.formData();
 		const file = formData.get("file");
 		const slugHint = (formData.get("slug") as string | null)?.trim() || "";
+
+		if (file instanceof File) {
+			fileInfo = { name: file.name, type: file.type, size: file.size };
+			console.log("[/api/blog/upload] recibido:", fileInfo, "slug:", slugHint);
+		}
 
 		if (!(file instanceof File)) {
 			return NextResponse.json(
@@ -81,6 +106,7 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+		step = "validate-ext";
 		const ext = (file.name.split(".").pop() || "").toLowerCase();
 		if (!SAFE_EXTENSIONS.has(ext)) {
 			return NextResponse.json(
@@ -100,17 +126,21 @@ export async function POST(req: NextRequest) {
 			slugifyForFilename(slugHint) ||
 			slugifyForFilename(file.name.replace(/\.[^.]+$/, ""));
 
+		step = "read-buffer";
 		const inputBuffer = Buffer.from(await file.arrayBuffer());
 
 		// SVG/GIF pasan tal cual (sharp puede romperlos). El resto va al pipeline.
 		const passthrough = PASSTHROUGH_EXTENSIONS.has(ext);
+		step = passthrough ? "passthrough" : "sharp-process";
 
 		let outputBuffer: Buffer;
 		let outputExt: string;
 		let outputContentType: string;
 		let originalDimensions: { width?: number; height?: number } = {};
 
-		if (passthrough) {
+		const sharp = await loadSharp();
+
+		if (passthrough || !sharp) {
 			outputBuffer = inputBuffer;
 			outputExt = ext;
 			outputContentType = file.type || "application/octet-stream";
@@ -141,6 +171,7 @@ export async function POST(req: NextRequest) {
 			}
 		}
 
+		step = "s3-upload";
 		const fileName = `${baseName || "img"}-${randomSuffix()}.${outputExt}`;
 		const key = joinPath("blog", String(year), month, fileName);
 
@@ -153,6 +184,7 @@ export async function POST(req: NextRequest) {
 				CacheControl: "public, max-age=31536000, immutable",
 			}),
 		);
+		step = "done";
 
 		return NextResponse.json({
 			key,
@@ -165,10 +197,20 @@ export async function POST(req: NextRequest) {
 			optimized: !passthrough,
 		});
 	} catch (err) {
-		console.error("[/api/blog/upload] error:", err);
+		console.error(
+			`[/api/blog/upload] error step=${step} file=`,
+			fileInfo,
+			err,
+		);
 		const message = err instanceof Error ? err.message : String(err);
+		const errName = err instanceof Error ? err.name : "Error";
 		return NextResponse.json(
-			{ error: `No se pudo subir la imagen: ${message}` },
+			{
+				error: `No se pudo subir la imagen: ${message}`,
+				step,
+				errName,
+				fileInfo,
+			},
 			{ status: 500 },
 		);
 	}
