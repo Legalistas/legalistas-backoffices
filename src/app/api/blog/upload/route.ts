@@ -166,8 +166,9 @@ export async function POST(req: NextRequest) {
 		});
 	} catch (err) {
 		console.error("[/api/blog/upload] error:", err);
+		const message = err instanceof Error ? err.message : String(err);
 		return NextResponse.json(
-			{ error: "No se pudo subir la imagen" },
+			{ error: `No se pudo subir la imagen: ${message}` },
 			{ status: 500 },
 		);
 	}
