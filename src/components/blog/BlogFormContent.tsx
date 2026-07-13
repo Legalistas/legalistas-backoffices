@@ -250,12 +250,22 @@ export default function BlogFormContent({ initialPost }: BlogFormContentProps) {
 
 	// Autosave habilitado solo si: hay session + título no vacío + slug válido + contenido no vacío.
 	// Para posts nuevos guarda como draft. Para editados respeta el status actual.
+	// El contenido se considera vacío si al stripear tags/nbsp no queda texto (TinyMCE puede
+	// emitir "", "<p></p>", "<p>&nbsp;</p>", "<p><br></p>", etc.).
+	const hasContent = useMemo(() => {
+		const stripped = contentHtml
+			.replace(/<[^>]*>/g, "")
+			.replace(/&nbsp;/g, "")
+			.replace(/\s+/g, "")
+			.trim();
+		return stripped.length > 0;
+	}, [contentHtml]);
+
 	const autosaveEnabled =
 		!!session?.user?.accessToken &&
 		title.trim().length > 0 &&
 		slug.trim().length > 0 &&
-		contentHtml.trim().length > 0 &&
-		contentHtml !== "<p></p>";
+		hasContent;
 
 	const autosavePayload = useMemo(
 		() => ({

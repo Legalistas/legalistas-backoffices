@@ -90,7 +90,13 @@ export function BlogEditor({
 					automatic_uploads: true,
 					file_picker_types: "image",
 					paste_data_images: true,
-					images_upload_handler: async (blobInfo, progress) => {
+					images_upload_handler: async (
+						blobInfo: {
+							blob: () => Blob;
+							filename: () => string;
+						},
+						progress?: (percent: number) => void,
+					): Promise<string> => {
 						try {
 							const file = new File([blobInfo.blob()], blobInfo.filename(), {
 								type: blobInfo.blob().type,
@@ -106,7 +112,7 @@ export function BlogEditor({
 							throw message;
 						}
 					},
-					file_picker_callback: (cb) => {
+					file_picker_callback: (cb: (url: string, meta?: { alt?: string }) => void) => {
 						const input = document.createElement("input");
 						input.type = "file";
 						input.accept = "image/*";
