@@ -82,6 +82,14 @@ const REPRESENTANTES_ACCESS = [
   GERENTE_GENERAL_COO,
   DIRECTORA_AREA_LEGAL,
   COORDINADOR_LEGAL,
+  ASISTENTE_LEGAL,
+];
+
+const RRHH_REPORTS_ACCESS = [
+  ...SUPERADMIN,
+  DIRECTORA_AREA_LEGAL,
+  COORDINADOR_LEGAL,
+  ASISTENTE_LEGAL,
 ];
 
 // ── Menú agrupado por área funcional ───────────────────────────────
@@ -235,7 +243,7 @@ export const MENU_SECTIONS: MenuSection[] = [
         icon: PieChart,
         name: "Reportes RRHH",
         path: "/admin/rrhh/reports",
-        roles: SUPERADMIN,
+        roles: RRHH_REPORTS_ACCESS,
       },
       {
         icon: Users2,
