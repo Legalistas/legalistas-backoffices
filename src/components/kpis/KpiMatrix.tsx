@@ -32,6 +32,27 @@ interface KpiMatrixProps {
 	departmentLabel?: string;
 	/** Callback tras guardar un valor inline (para refrescar el hook). */
 	onValueChanged?: () => void;
+	/**
+	 * Labels de las columnas de período. Default: MONTH_LABELS (12 meses).
+	 * En modo semana se pasa un array de 4-6 semanas.
+	 */
+	periodLabels?: string[];
+	/**
+	 * Encabezado de la columna acumulado. Default: "ACUMULADO {year}".
+	 * En modo semana suele ser "TOTAL MES".
+	 */
+	accumulatedLabel?: string;
+	/**
+	 * Si true, las celdas editables se muestran como no editables. Útil en
+	 * modo semana donde el bucketing por semana está delegado al panel de
+	 * carga (evita que el user escriba y no sepa a qué semana va).
+	 */
+	readOnly?: boolean;
+	/**
+	 * Índice de la columna a resaltar (0-based). Default: mes actual en modo
+	 * año. En modo semana el consumidor decide si resalta la semana actual.
+	 */
+	highlightIndex?: number;
 }
 
 // ─── Formatters ────────────────────────────────────────────────────────
@@ -257,17 +278,21 @@ function DataRow({
 	row,
 	year,
 	onValueChanged,
+	periodLabels,
+	readOnly,
 }: {
 	row: KpiMatrixRow;
 	year: number;
 	onValueChanged?: () => void;
+	periodLabels: string[];
+	readOnly: boolean;
 }) {
 	const accumulated = row.accumulated ?? computeAccumulated(row.monthlyValues);
 	const vma = computeVMA(row.monthlyValues);
 	const indent = row.indentLevel ?? 0;
 	const isSub = indent > 0;
 	const format = row.format ?? "number";
-	const isEditable = Boolean(row.editable && row.sourceKey);
+	const isEditable = Boolean(row.editable && row.sourceKey) && !readOnly;
 
 	return (
 		<tr className="hover:bg-gray-50 dark:hover:bg-white/5">
@@ -303,7 +328,7 @@ function DataRow({
 				{formatValue(accumulated, format)}
 			</td>
 			{row.monthlyValues.map((v, i) => {
-				const cellKey = `${row.key}-${MONTH_LABELS[i]}`;
+				const cellKey = `${row.key}-${periodLabels[i] ?? i}`;
 				return isEditable && row.sourceKey ? (
 					<EditableCell
 						key={cellKey}
@@ -328,11 +353,11 @@ function DataRow({
 	);
 }
 
-function SectionHeader({ label }: { label: string }) {
+function SectionHeader({ label, colSpan }: { label: string; colSpan: number }) {
 	return (
 		<tr>
 			<td
-				colSpan={16}
+				colSpan={colSpan}
 				className="border border-gray-300 dark:border-gray-700 bg-[#3b6ba5] dark:bg-[#284a72] text-white text-center font-semibold text-sm py-1.5 uppercase tracking-wide"
 			>
 				{label}
@@ -341,11 +366,17 @@ function SectionHeader({ label }: { label: string }) {
 	);
 }
 
-function SubSectionHeader({ label }: { label: string }) {
+function SubSectionHeader({
+	label,
+	colSpan,
+}: {
+	label: string;
+	colSpan: number;
+}) {
 	return (
 		<tr>
 			<td
-				colSpan={16}
+				colSpan={colSpan}
 				className="border border-gray-300 dark:border-gray-700 bg-[#dbe6f2] dark:bg-[#2a3b52] text-gray-800 dark:text-gray-100 text-center text-xs font-medium py-1"
 			>
 				{label}
@@ -354,11 +385,17 @@ function SubSectionHeader({ label }: { label: string }) {
 	);
 }
 
-function DepartmentHeader({ label }: { label: string }) {
+function DepartmentHeader({
+	label,
+	colSpan,
+}: {
+	label: string;
+	colSpan: number;
+}) {
 	return (
 		<tr>
 			<td
-				colSpan={16}
+				colSpan={colSpan}
 				className="border-0 px-3 pt-3 pb-1.5 text-[11px] font-bold text-gray-900 dark:text-gray-100 uppercase tracking-wider bg-transparent"
 			>
 				{label}
@@ -373,7 +410,17 @@ export default function KpiMatrix({
 	loading,
 	departmentLabel,
 	onValueChanged,
+	periodLabels,
+	accumulatedLabel,
+	readOnly,
+	highlightIndex,
 }: KpiMatrixProps) {
+	const labels = periodLabels ?? MONTH_LABELS;
+	// colSpan total = 2 (logo) + 1 (acumulado) + N (períodos) + 1 (VMA).
+	const totalColSpan = 4 + labels.length;
+	const highlight = highlightIndex ?? new Date().getMonth();
+	const isReadOnly = Boolean(readOnly);
+
 	return (
 		<div className="w-full overflow-x-auto rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
 			<table className="w-full border-collapse text-[11px]">
@@ -394,16 +441,22 @@ export default function KpiMatrix({
 							</div>
 						</th>
 						<th className="border border-gray-300 dark:border-gray-700 bg-gray-100 dark:bg-white/5 text-gray-900 dark:text-white text-[10px] font-bold px-2 py-2 w-[110px]">
-							ACUMULADO
-							<br />
-							{year}
+							{accumulatedLabel ? (
+								accumulatedLabel
+							) : (
+								<>
+									ACUMULADO
+									<br />
+									{year}
+								</>
+							)}
 						</th>
-						{MONTH_LABELS.map((m, i) => (
+						{labels.map((m, i) => (
 							<th
 								key={m}
 								className={cn(
 									"border border-gray-300 dark:border-gray-700 text-[10px] font-bold px-1 py-2 w-[85px]",
-									i === new Date().getMonth()
+									i === highlight
 										? "bg-black text-white"
 										: "bg-white dark:bg-gray-900 text-gray-900 dark:text-white",
 								)}
@@ -418,11 +471,13 @@ export default function KpiMatrix({
 				</thead>
 
 				<tbody>
-					{departmentLabel && <DepartmentHeader label={departmentLabel} />}
+					{departmentLabel && (
+						<DepartmentHeader label={departmentLabel} colSpan={totalColSpan} />
+					)}
 					{loading ? (
 						<tr>
 							<td
-								colSpan={16}
+								colSpan={totalColSpan}
 								className="p-8 text-center text-sm text-muted-foreground"
 							>
 								Cargando KPIs…
@@ -431,16 +486,24 @@ export default function KpiMatrix({
 					) : (
 						sections.map((section) => (
 							<Fragment key={section.key}>
-								<SectionHeader label={section.label} />
+								<SectionHeader
+									label={section.label}
+									colSpan={totalColSpan}
+								/>
 								{section.subSections.map((sub) => (
 									<Fragment key={sub.key}>
-										<SubSectionHeader label={sub.label} />
+										<SubSectionHeader
+											label={sub.label}
+											colSpan={totalColSpan}
+										/>
 										{sub.rows.map((row) => (
 											<Fragment key={row.key}>
 												<DataRow
 													row={row}
 													year={year}
 													onValueChanged={onValueChanged}
+													periodLabels={labels}
+													readOnly={isReadOnly}
 												/>
 												{row.subRows?.map((sr) => (
 													<DataRow
@@ -448,6 +511,8 @@ export default function KpiMatrix({
 														row={sr}
 														year={year}
 														onValueChanged={onValueChanged}
+														periodLabels={labels}
+														readOnly={isReadOnly}
 													/>
 												))}
 											</Fragment>

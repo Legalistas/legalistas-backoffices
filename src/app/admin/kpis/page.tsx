@@ -104,6 +104,22 @@ export default function KpisPage() {
 	);
 	const isoWeek = useMemo(() => isoWeekOf(new Date(weekRefDate)), [weekRefDate]);
 
+	// Granularidad de la Planilla: año (12 meses, default) o semanas del mes elegido.
+	const [matrixGranularity, setMatrixGranularity] = useState<"year" | "week">(
+		"year",
+	);
+	// Modo estable memoizado — sin esto los hooks disparan refetch en cada render.
+	const matrixMode = useMemo<
+		import("@/components/kpis/periodMode").PeriodMode
+	>(
+		() =>
+			matrixGranularity === "week"
+				? { type: "month-weeks", month }
+				: { type: "year" },
+		[matrixGranularity, month],
+	);
+	const matrixReadOnly = matrixGranularity === "week";
+
 	// Gate por rol para la tab Contable.
 	const canSeeAccounting = useMemo(() => {
 		const role = session?.user?.role;
@@ -129,10 +145,10 @@ export default function KpisPage() {
 	// Todos los hooks se llaman siempre (React rule) — el que no está activo
 	// no consume porque su output no se renderiza. El backend igual recibe
 	// las requests, pero es aceptable para el MVP.
-	const legalData = useKpiMatrixData(year);
-	const salesData = useSalesKpiMatrix(year);
-	const marketingData = useMarketingKpiMatrix(year);
-	const accountingData = useAccountingKpiMatrix(year);
+	const legalData = useKpiMatrixData(year, matrixMode);
+	const salesData = useSalesKpiMatrix(year, matrixMode);
+	const marketingData = useMarketingKpiMatrix(year, matrixMode);
+	const accountingData = useAccountingKpiMatrix(year, matrixMode);
 
 	const active =
 		department === "legal"
@@ -182,7 +198,7 @@ export default function KpisPage() {
 						/>
 						Actualizar
 					</Button>
-					{view === "matrix" && (
+					{view === "matrix" && matrixGranularity === "year" && (
 						<DropdownMenu>
 							<DropdownMenuTrigger asChild>
 								<Button
@@ -373,12 +389,82 @@ export default function KpisPage() {
 							))}
 					</div>
 
+					{/* Toggle mes/semana + selector de mes (solo relevante en modo semana) */}
+					<div className="flex flex-wrap items-center gap-3 text-sm">
+						<span className="text-muted-foreground">Vista:</span>
+						<div className="inline-flex rounded-md border border-border bg-muted p-0.5">
+							<button
+								type="button"
+								onClick={() => setMatrixGranularity("year")}
+								className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+									matrixGranularity === "year"
+										? "bg-background text-foreground shadow-sm"
+										: "text-muted-foreground hover:text-foreground"
+								}`}
+							>
+								Anual (12 meses)
+							</button>
+							<button
+								type="button"
+								onClick={() => setMatrixGranularity("week")}
+								className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+									matrixGranularity === "week"
+										? "bg-background text-foreground shadow-sm"
+										: "text-muted-foreground hover:text-foreground"
+								}`}
+							>
+								Semanal (mes elegido)
+							</button>
+						</div>
+						{matrixGranularity === "week" && (
+							<>
+								<Label className="text-xs text-muted-foreground">Mes:</Label>
+								<Select
+									value={String(month)}
+									onValueChange={(v) => setMonth(Number(v))}
+								>
+									<SelectTrigger className="h-9 w-40">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{[
+											"Enero",
+											"Febrero",
+											"Marzo",
+											"Abril",
+											"Mayo",
+											"Junio",
+											"Julio",
+											"Agosto",
+											"Septiembre",
+											"Octubre",
+											"Noviembre",
+											"Diciembre",
+										].map((label, i) => (
+											<SelectItem key={label} value={String(i + 1)}>
+												{label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								<span className="text-xs text-muted-foreground">
+									Solo lectura — para cargar valores usá "Cargar valores".
+								</span>
+							</>
+						)}
+					</div>
+
 					<KpiMatrix
 						year={year}
 						sections={active.sections}
 						loading={active.loading}
 						departmentLabel={departmentLabel}
 						onValueChanged={active.refresh}
+						periodLabels={active.periodLabels}
+						readOnly={matrixReadOnly}
+						accumulatedLabel={
+							matrixGranularity === "week" ? "TOTAL MES" : undefined
+						}
 					/>
 				</>
 			)}

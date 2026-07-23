@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	API_BASE_URL,
 	MANUAL_KPIS_ENDPOINT,
@@ -11,6 +11,7 @@ import type {
 	KpiResponse,
 	ManualKpiEntry,
 } from "@/types/kpi";
+import { buildPeriodAxis, type PeriodMode } from "./periodMode";
 
 // ─── Response del backend ─────────────────────────────────────────────
 
@@ -66,9 +67,6 @@ interface AccountingData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-const ZEROS = (): (number | null)[] => new Array(12).fill(0);
-
 async function fetchJson<T>(url: string, token: string): Promise<T | null> {
 	try {
 		const res = await fetch(url, {
@@ -86,15 +84,19 @@ export interface UseAccountingKpiMatrixResult {
 	loading: boolean;
 	error: string | null;
 	refresh: () => void;
+	periodLabels: string[];
 }
 
 export function useAccountingKpiMatrix(
 	year: number,
+	mode: PeriodMode = { type: "year" },
 ): UseAccountingKpiMatrixResult {
 	const { data: session } = useSession();
 	const [sections, setSections] = useState<KpiMatrixSection[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const axis = useMemo(() => buildPeriodAxis(year, mode), [year, mode]);
+	const ZEROS = axis.zeros;
 
 	const load = useCallback(async () => {
 		const token = session?.user?.accessToken;
@@ -104,14 +106,14 @@ export function useAccountingKpiMatrix(
 		setError(null);
 
 		try {
-			const accPromises = MONTHS.map((m) =>
+			const accPromises = axis.queries.map((qs) =>
 				fetchJson<KpiResponse<AccountingData>>(
-					`${API_BASE_URL}/kpis/accounting?month=${m}&year=${year}`,
+					`${API_BASE_URL}/kpis/accounting?${qs}`,
 					token,
 				),
 			);
 			const manualPromise = fetchJson<{ entries: ManualKpiEntry[] }>(
-				`${MANUAL_KPIS_ENDPOINT}?area=cx&from=${year}-01-01&to=${year}-12-31`,
+				`${MANUAL_KPIS_ENDPOINT}?area=cx&from=${axis.from}&to=${axis.to}`,
 				token,
 			);
 
@@ -154,7 +156,7 @@ export function useAccountingKpiMatrix(
 			const aPagar = ZEROS();
 			const vencidos = ZEROS();
 
-			for (let i = 0; i < 12; i++) {
+			for (let i = 0; i < axis.size; i++) {
 				const r = accResults[i];
 				if (!r?.data) continue;
 				const d = r.data;
@@ -480,11 +482,17 @@ export function useAccountingKpiMatrix(
 		} finally {
 			setLoading(false);
 		}
-	}, [session?.user?.accessToken, year]);
+	}, [session?.user?.accessToken, axis, ZEROS]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
-	return { sections, loading, error, refresh: load };
+	return {
+		sections,
+		loading,
+		error,
+		refresh: load,
+		periodLabels: axis.labels,
+	};
 }

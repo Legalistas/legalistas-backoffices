@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	KPI_LEGAL_ENDPOINT,
 	MANUAL_KPIS_ENDPOINT,
@@ -13,11 +13,9 @@ import type {
 	KpiResponse,
 	ManualKpiEntry,
 } from "@/types/kpi";
+import { buildPeriodAxis, type PeriodMode } from "./periodMode";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
-
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-const ZEROS = (): (number | null)[] => new Array(12).fill(0);
 
 async function fetchJson<T>(url: string, token: string): Promise<T | null> {
 	try {
@@ -41,13 +39,22 @@ export interface UseKpiMatrixDataResult {
 	loading: boolean;
 	error: string | null;
 	refresh: () => void;
+	/** Labels de las columnas de período. */
+	periodLabels: string[];
 }
 
-export function useKpiMatrixData(year: number): UseKpiMatrixDataResult {
+export function useKpiMatrixData(
+	year: number,
+	mode: PeriodMode = { type: "year" },
+): UseKpiMatrixDataResult {
 	const { data: session } = useSession();
 	const [sections, setSections] = useState<KpiMatrixSection[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	// Memoizamos para estabilizar identidad — sin esto el useCallback abajo
+	// se regenera en cada render y dispara refetch infinito.
+	const axis = useMemo(() => buildPeriodAxis(year, mode), [year, mode]);
+	const ZEROS = axis.zeros;
 
 	const load = useCallback(async () => {
 		const token = session?.user?.accessToken;
@@ -57,17 +64,17 @@ export function useKpiMatrixData(year: number): UseKpiMatrixDataResult {
 		setError(null);
 
 		try {
-			// 12 llamadas paralelas a /kpis/legal (una por mes) + 1 a /manual-kpis.
-			// Reemplaza las 24 llamadas anteriores (12 closings + 12 reps).
-			const legalPromises = MONTHS.map((m) =>
+			// N llamadas paralelas a /kpis/legal (una por columna de período) +
+			// 1 a /manual-kpis para todo el rango.
+			const legalPromises = axis.queries.map((qs) =>
 				fetchJson<KpiResponse<KpiLegalData>>(
-					`${KPI_LEGAL_ENDPOINT}?month=${m}&year=${year}`,
+					`${KPI_LEGAL_ENDPOINT}?${qs}`,
 					token,
 				),
 			);
 
 			const manualPromise = fetchJson<{ entries: ManualKpiEntry[] }>(
-				`${MANUAL_KPIS_ENDPOINT}?from=${year}-01-01&to=${year}-12-31`,
+				`${MANUAL_KPIS_ENDPOINT}?from=${axis.from}&to=${axis.to}`,
 				token,
 			);
 
@@ -127,7 +134,7 @@ export function useKpiMatrixData(year: number): UseKpiMatrixDataResult {
 				}
 			>();
 
-			for (let i = 0; i < 12; i++) {
+			for (let i = 0; i < axis.size; i++) {
 				const result = legalResults[i];
 				if (!result?.data) continue;
 				const d = result.data;
@@ -208,7 +215,9 @@ export function useKpiMatrixData(year: number): UseKpiMatrixDataResult {
 				// string como UTC medianoche → 21:00 ART del día anterior.
 				// Parseo directo del string YYYY-MM-DD sin conversión de TZ.
 				const iso = String(entry.periodStart).slice(0, 10);
-				const m = Number(iso.split("-")[1]) - 1; // 0-based
+				// En year → índice del mes; en month-weeks → índice de la semana.
+				const m = axis.bucketIndex(iso);
+				if (m < 0) continue; // fuera del rango visible
 				const value = Number(entry.value ?? 0);
 
 				if (!manualByKey.has(entry.metricKey)) {
@@ -709,11 +718,17 @@ export function useKpiMatrixData(year: number): UseKpiMatrixDataResult {
 		} finally {
 			setLoading(false);
 		}
-	}, [session?.user?.accessToken, year]);
+	}, [session?.user?.accessToken, axis, ZEROS]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
-	return { sections, loading, error, refresh: load };
+	return {
+		sections,
+		loading,
+		error,
+		refresh: load,
+		periodLabels: axis.labels,
+	};
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	API_BASE_URL,
 	MANUAL_KPIS_ENDPOINT,
@@ -11,6 +11,7 @@ import type {
 	KpiResponse,
 	ManualKpiEntry,
 } from "@/types/kpi";
+import { buildPeriodAxis, type PeriodMode } from "./periodMode";
 
 // ─── Response del backend ─────────────────────────────────────────────
 
@@ -48,9 +49,6 @@ interface MarketingData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-const ZEROS = (): (number | null)[] => new Array(12).fill(0);
-
 async function fetchJson<T>(url: string, token: string): Promise<T | null> {
 	try {
 		const res = await fetch(url, {
@@ -68,13 +66,19 @@ export interface UseMarketingKpiMatrixResult {
 	loading: boolean;
 	error: string | null;
 	refresh: () => void;
+	periodLabels: string[];
 }
 
-export function useMarketingKpiMatrix(year: number): UseMarketingKpiMatrixResult {
+export function useMarketingKpiMatrix(
+	year: number,
+	mode: PeriodMode = { type: "year" },
+): UseMarketingKpiMatrixResult {
 	const { data: session } = useSession();
 	const [sections, setSections] = useState<KpiMatrixSection[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const axis = useMemo(() => buildPeriodAxis(year, mode), [year, mode]);
+	const ZEROS = axis.zeros;
 
 	const load = useCallback(async () => {
 		const token = session?.user?.accessToken;
@@ -84,14 +88,14 @@ export function useMarketingKpiMatrix(year: number): UseMarketingKpiMatrixResult
 		setError(null);
 
 		try {
-			const mktPromises = MONTHS.map((m) =>
+			const mktPromises = axis.queries.map((qs) =>
 				fetchJson<KpiResponse<MarketingData>>(
-					`${API_BASE_URL}/kpis/marketing?month=${m}&year=${year}`,
+					`${API_BASE_URL}/kpis/marketing?${qs}`,
 					token,
 				),
 			);
 			const manualPromise = fetchJson<{ entries: ManualKpiEntry[] }>(
-				`${MANUAL_KPIS_ENDPOINT}?area=marketing&from=${year}-01-01&to=${year}-12-31`,
+				`${MANUAL_KPIS_ENDPOINT}?area=marketing&from=${axis.from}&to=${axis.to}`,
 				token,
 			);
 
@@ -113,7 +117,7 @@ export function useMarketingKpiMatrix(year: number): UseMarketingKpiMatrixResult
 			const totalVentasMarketing = ZEROS();
 			const conversionGlobal = ZEROS();
 
-			for (let i = 0; i < 12; i++) {
+			for (let i = 0; i < axis.size; i++) {
 				const r = mktResults[i];
 				if (!r?.data) continue;
 				const d = r.data;
@@ -136,7 +140,8 @@ export function useMarketingKpiMatrix(year: number): UseMarketingKpiMatrixResult
 				// FIX timezone: parseo directo del string YYYY-MM-DD para no caer
 				// en el bug de `new Date(str).getMonth()` que en ART shift a mes previo.
 				const iso = String(entry.periodStart).slice(0, 10);
-				const m = Number(iso.split("-")[1]) - 1;
+				const m = axis.bucketIndex(iso);
+				if (m < 0) continue;
 				const value = Number(entry.value ?? 0);
 				if (!manualByKey.has(entry.metricKey)) {
 					manualByKey.set(entry.metricKey, ZEROS());
@@ -557,11 +562,17 @@ export function useMarketingKpiMatrix(year: number): UseMarketingKpiMatrixResult
 		} finally {
 			setLoading(false);
 		}
-	}, [session?.user?.accessToken, year]);
+	}, [session?.user?.accessToken, axis, ZEROS]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
-	return { sections, loading, error, refresh: load };
+	return {
+		sections,
+		loading,
+		error,
+		refresh: load,
+		periodLabels: axis.labels,
+	};
 }

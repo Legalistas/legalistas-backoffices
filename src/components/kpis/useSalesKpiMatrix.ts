@@ -1,7 +1,7 @@
 "use client";
 
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
 	API_BASE_URL,
 	MANUAL_KPIS_ENDPOINT,
@@ -12,6 +12,7 @@ import type {
 	KpiResponse,
 	ManualKpiEntry,
 } from "@/types/kpi";
+import { buildPeriodAxis, type PeriodMode } from "./periodMode";
 
 // ─── Response del backend ─────────────────────────────────────────────
 
@@ -56,9 +57,6 @@ interface SalesData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1);
-const ZEROS = (): (number | null)[] => new Array(12).fill(0);
-
 // IDs de sourceChannel (fuente: legalistas_backend/src/constants/sourceChannel.ts)
 const CHANNEL_TELEMARKETING = 2;
 const CHANNEL_REFERIDO = 8;
@@ -82,13 +80,19 @@ export interface UseSalesKpiMatrixResult {
 	loading: boolean;
 	error: string | null;
 	refresh: () => void;
+	periodLabels: string[];
 }
 
-export function useSalesKpiMatrix(year: number): UseSalesKpiMatrixResult {
+export function useSalesKpiMatrix(
+	year: number,
+	mode: PeriodMode = { type: "year" },
+): UseSalesKpiMatrixResult {
 	const { data: session } = useSession();
 	const [sections, setSections] = useState<KpiMatrixSection[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const axis = useMemo(() => buildPeriodAxis(year, mode), [year, mode]);
+	const ZEROS = axis.zeros;
 
 	const load = useCallback(async () => {
 		const token = session?.user?.accessToken;
@@ -98,14 +102,14 @@ export function useSalesKpiMatrix(year: number): UseSalesKpiMatrixResult {
 		setError(null);
 
 		try {
-			const salesPromises = MONTHS.map((m) =>
+			const salesPromises = axis.queries.map((qs) =>
 				fetchJson<KpiResponse<SalesData>>(
-					`${API_BASE_URL}/kpis/sales?month=${m}&year=${year}`,
+					`${API_BASE_URL}/kpis/sales?${qs}`,
 					token,
 				),
 			);
 			const manualPromise = fetchJson<{ entries: ManualKpiEntry[] }>(
-				`${MANUAL_KPIS_ENDPOINT}?area=sales&from=${year}-01-01&to=${year}-12-31`,
+				`${MANUAL_KPIS_ENDPOINT}?area=sales&from=${axis.from}&to=${axis.to}`,
 				token,
 			);
 
@@ -147,7 +151,7 @@ export function useSalesKpiMatrix(year: number): UseSalesKpiMatrixResult {
 				}
 			>();
 
-			for (let i = 0; i < 12; i++) {
+			for (let i = 0; i < axis.size; i++) {
 				const result = salesResults[i];
 				if (!result?.data) continue;
 				const d = result.data;
@@ -212,7 +216,8 @@ export function useSalesKpiMatrix(year: number): UseSalesKpiMatrixResult {
 				// FIX timezone: parseo directo del string YYYY-MM-DD para no caer
 				// en el bug de `new Date(str).getMonth()` que en ART shift a mes previo.
 				const iso = String(entry.periodStart).slice(0, 10);
-				const m = Number(iso.split("-")[1]) - 1;
+				const m = axis.bucketIndex(iso);
+				if (m < 0) continue;
 				const value = Number(entry.value ?? 0);
 
 				if (!manualByKey.has(entry.metricKey)) {
@@ -569,11 +574,17 @@ export function useSalesKpiMatrix(year: number): UseSalesKpiMatrixResult {
 		} finally {
 			setLoading(false);
 		}
-	}, [session?.user?.accessToken, year]);
+	}, [session?.user?.accessToken, axis, ZEROS]);
 
 	useEffect(() => {
 		load();
 	}, [load]);
 
-	return { sections, loading, error, refresh: load };
+	return {
+		sections,
+		loading,
+		error,
+		refresh: load,
+		periodLabels: axis.labels,
+	};
 }
