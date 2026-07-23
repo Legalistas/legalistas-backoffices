@@ -32,6 +32,8 @@ interface SummaryData {
 interface KpisSummaryProps {
 	year: number;
 	month: number;
+	/** Si viene, se pide por semana ISO; si no, cae al filtro mensual clásico. */
+	week?: number;
 }
 
 // ─── Formato ──────────────────────────────────────────────────────────
@@ -94,7 +96,7 @@ const SEMAPHORE_DOT = {
 	red: "bg-red-500",
 };
 
-export default function KpiSummary({ year, month }: KpisSummaryProps) {
+export default function KpiSummary({ year, month, week }: KpisSummaryProps) {
 	const { data: session } = useSession();
 	const [data, setData] = useState<SummaryData | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -106,10 +108,13 @@ export default function KpiSummary({ year, month }: KpisSummaryProps) {
 		setLoading(true);
 		setError(null);
 		try {
-			const res = await fetch(
-				`${API_BASE_URL}/kpis/summary?month=${month}&year=${year}`,
-				{ headers: { Authorization: `Bearer ${token}` } },
-			);
+			const qs =
+				week != null
+					? `week=${week}&year=${year}`
+					: `month=${month}&year=${year}`;
+			const res = await fetch(`${API_BASE_URL}/kpis/summary?${qs}`, {
+				headers: { Authorization: `Bearer ${token}` },
+			});
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const json = (await res.json()) as KpiResponse<SummaryData>;
 			setData(json.data);
@@ -119,7 +124,7 @@ export default function KpiSummary({ year, month }: KpisSummaryProps) {
 		} finally {
 			setLoading(false);
 		}
-	}, [session?.user?.accessToken, month, year]);
+	}, [session?.user?.accessToken, month, year, week]);
 
 	useEffect(() => {
 		load();

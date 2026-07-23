@@ -29,6 +29,8 @@ import { useKpiMatrixData } from "@/components/kpis/useKpiMatrixData";
 import { useMarketingKpiMatrix } from "@/components/kpis/useMarketingKpiMatrix";
 import { useSalesKpiMatrix } from "@/components/kpis/useSalesKpiMatrix";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -36,6 +38,42 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+
+// ── Helpers de semana ISO ─────────────────────────────────────────────────
+// Devuelve el número de semana ISO 8601 (1..53) para una fecha dada. La
+// semana ISO empieza el lunes y la semana 1 es la que contiene el jueves 1.
+function isoWeekOf(date: Date): { week: number; year: number } {
+	const d = new Date(
+		Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+	);
+	// Ajustar al jueves de esa semana ISO (lunes=1 … domingo=7).
+	const dayNum = d.getUTCDay() || 7;
+	d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+	const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+	const week = Math.ceil(
+		((d.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
+	);
+	return { week, year: d.getUTCFullYear() };
+}
+
+function pad(n: number): string {
+	return String(n).padStart(2, "0");
+}
+
+function toISODateString(d: Date): string {
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Rango lunes-domingo (mismo criterio que ManualKpiPanel). */
+function weekRangeLabel(date: Date): string {
+	const d = new Date(date);
+	const day = (d.getDay() + 6) % 7;
+	const monday = new Date(d);
+	monday.setDate(d.getDate() - day);
+	const sunday = new Date(monday);
+	sunday.setDate(monday.getDate() + 6);
+	return `${pad(monday.getDate())}/${pad(monday.getMonth() + 1)} — ${pad(sunday.getDate())}/${pad(sunday.getMonth() + 1)}/${sunday.getFullYear()}`;
+}
 
 const currentYear = new Date().getFullYear();
 const yearOptions = Array.from({ length: 5 }, (_, i) => currentYear - i);
@@ -57,6 +95,14 @@ export default function KpisPage() {
 	const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
 	const [view, setView] = useState<"summary" | "matrix" | "entry">("matrix");
 	const [department, setDepartment] = useState<Department>("legal");
+	// Granularidad del resumen: mes (default) o semana ISO.
+	const [summaryGranularity, setSummaryGranularity] = useState<
+		"month" | "week"
+	>("month");
+	const [weekRefDate, setWeekRefDate] = useState<string>(
+		toISODateString(new Date()),
+	);
+	const isoWeek = useMemo(() => isoWeekOf(new Date(weekRefDate)), [weekRefDate]);
 
 	// Gate por rol para la tab Contable.
 	const canSeeAccounting = useMemo(() => {
@@ -211,41 +257,90 @@ export default function KpisPage() {
 
 			{view === "summary" && (
 				<>
-					<div className="flex items-center gap-2 text-sm">
+					<div className="flex flex-wrap items-center gap-3 text-sm">
 						<span className="text-muted-foreground">Período:</span>
-						<Select
-							value={String(month)}
-							onValueChange={(v) => setMonth(Number(v))}
-						>
-							<SelectTrigger className="h-9 w-40">
-								<SelectValue />
-							</SelectTrigger>
-							<SelectContent>
-								{[
-									"Enero",
-									"Febrero",
-									"Marzo",
-									"Abril",
-									"Mayo",
-									"Junio",
-									"Julio",
-									"Agosto",
-									"Septiembre",
-									"Octubre",
-									"Noviembre",
-									"Diciembre",
-								].map((label, i) => (
-									<SelectItem key={label} value={String(i + 1)}>
-										{label}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-						<span className="text-xs text-muted-foreground">
-							Comparado vs mes anterior (VMA)
-						</span>
+						{/* Toggle mes / semana */}
+						<div className="inline-flex rounded-md border border-border bg-muted p-0.5">
+							<button
+								type="button"
+								onClick={() => setSummaryGranularity("month")}
+								className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+									summaryGranularity === "month"
+										? "bg-background text-foreground shadow-sm"
+										: "text-muted-foreground hover:text-foreground"
+								}`}
+							>
+								Mes
+							</button>
+							<button
+								type="button"
+								onClick={() => setSummaryGranularity("week")}
+								className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
+									summaryGranularity === "week"
+										? "bg-background text-foreground shadow-sm"
+										: "text-muted-foreground hover:text-foreground"
+								}`}
+							>
+								Semana
+							</button>
+						</div>
+						{summaryGranularity === "month" ? (
+							<>
+								<Select
+									value={String(month)}
+									onValueChange={(v) => setMonth(Number(v))}
+								>
+									<SelectTrigger className="h-9 w-40">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{[
+											"Enero",
+											"Febrero",
+											"Marzo",
+											"Abril",
+											"Mayo",
+											"Junio",
+											"Julio",
+											"Agosto",
+											"Septiembre",
+											"Octubre",
+											"Noviembre",
+											"Diciembre",
+										].map((label, i) => (
+											<SelectItem key={label} value={String(i + 1)}>
+												{label}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								<span className="text-xs text-muted-foreground">
+									Comparado vs mes anterior (VMA)
+								</span>
+							</>
+						) : (
+							<>
+								<Label className="text-xs text-muted-foreground">
+									Fecha de referencia:
+								</Label>
+								<Input
+									type="date"
+									className="h-9 max-w-45"
+									value={weekRefDate}
+									onChange={(e) => setWeekRefDate(e.target.value)}
+								/>
+								<span className="text-xs text-muted-foreground">
+									Semana {isoWeek.week} ({weekRangeLabel(new Date(weekRefDate))})
+									· vs semana anterior
+								</span>
+							</>
+						)}
 					</div>
-					<KpiSummary year={year} month={month} />
+					<KpiSummary
+						year={summaryGranularity === "week" ? isoWeek.year : year}
+						month={month}
+						week={summaryGranularity === "week" ? isoWeek.week : undefined}
+					/>
 				</>
 			)}
 
