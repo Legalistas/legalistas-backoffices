@@ -106,6 +106,44 @@ export const ME_ATTENDANCE_ACTION_ENDPOINT = `${API_BASE_URL}/me/attendance/acti
 export const CASES_ENDPOINT = `${API_BASE_URL}/cases`;
 export const CASES_EXPIRATION_ALERTS_ENDPOINT = `${API_BASE_URL}/cases/expiration-alerts`;
 
+// SRT — Formularios (maestro de abogados SRT + info del caso)
+export const CASE_SRT_INFO_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/srt-info`;
+export const CASE_SRT_FORMS_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/srt-forms`;
+export const CASE_SRT_FORM_DOWNLOAD_ENDPOINT = (
+	caseId: number,
+	formId: number,
+) => `${API_BASE_URL}/cases/${caseId}/srt-forms/${formId}/download`;
+export const SRT_LAWYERS_ENDPOINT = `${API_BASE_URL}/lawyers`;
+export const SRT_LAWYER_BY_ID_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/lawyers/${userId}`;
+export const SRT_LAWYERS_ELIGIBLE_USERS_ENDPOINT = `${API_BASE_URL}/lawyers/eligible-users`;
+
+// KPIs — manuales
+export const MANUAL_KPIS_CATALOG_ENDPOINT = `${API_BASE_URL}/manual-kpis/catalog`;
+export const MANUAL_KPIS_ENDPOINT = `${API_BASE_URL}/manual-kpis`;
+export const MANUAL_KPI_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/manual-kpis/${id}`;
+
+// KPIs — automáticos por área
+export const KPI_LEGAL_ENDPOINT = `${API_BASE_URL}/kpis/legal`;
+// Próximamente: /kpis/sales, /kpis/marketing, /kpis/accounting, /kpis/summary
+
+// CRM Monitor (Proyecto 3) — alertas de estancamiento + reporte semanal
+export const CRM_MONITOR_REPORT_ENDPOINT = `${API_BASE_URL}/crm-monitor/report`;
+export const CRM_MONITOR_RUN_ENDPOINT = `${API_BASE_URL}/crm-monitor/run`;
+export const CRM_MONITOR_RULES_ENDPOINT = `${API_BASE_URL}/crm-monitor/rules`;
+
+// Case Analyzer (Proyecto 4) — análisis de expedientes con IA
+export const CASE_ANALYSIS_LIST_ENDPOINT = (caseId: number | string) =>
+	`${API_BASE_URL}/cases/${caseId}/analysis`;
+export const CASE_ANALYSIS_DETAIL_ENDPOINT = (
+	caseId: number | string,
+	analysisId: number | string,
+) => `${API_BASE_URL}/cases/${caseId}/analysis/${analysisId}`;
+// El endpoint POST para crear/subir usa CASE_ANALYSIS_LIST_ENDPOINT (misma URL, verbo POST).
+
 export const CASES_NOTES_CREATE_ENDPOINT = (caseId: number) =>
 	`${API_BASE_URL}/cases/${caseId}/notes`;
 export const CASES_NOTES_DELETE_ENDPOINT = (caseId: number, noteId: number) =>
@@ -470,6 +508,7 @@ export const REPRESENTATIVE_LEVELS_HISTORY_ENDPOINT = (userId: number) =>
 export const MINIO_HEALTH_ENDPOINT = `${API_BASE_URL}/minio/health`;
 export const MINIO_BOOTSTRAP_ENDPOINT = `${API_BASE_URL}/minio/bootstrap`;
 export const MINIO_BACKFILL_ENDPOINT = `${API_BASE_URL}/minio/backfill`;
+export const MINIO_CLEANUP_OLD_SUBSTAGES_ENDPOINT = `${API_BASE_URL}/minio/cleanup-old-substages`;
 export const MINIO_RESYNC_CASE_ENDPOINT = (caseId: number) =>
 	`${API_BASE_URL}/minio/cases/${caseId}/resync`;
 export const MINIO_RESYNC_LEAD_ENDPOINT = (leadId: number) =>

@@ -308,13 +308,14 @@ export default function CashBoxPage() {
 		}
 	}, [isNewBoxModalOpen, closedMonths]);
 
-	// Cargar cierres con PCL pendiente (no cobrado) cuando se abre el modal
-	// y el subtipo elegido es PCL. Excluye cierres sin PCL o ya cobrados.
+	// Cargar cierres con HP/PCL pendiente (no cobrado) cuando se abre el modal
+	// y el subtipo elegido es Honorarios (fee) o PCL. Filtra según corresponda.
 	useEffect(() => {
+		const isFeeIngreso = newType === "income" && newSubtype === "fee";
 		const isPclIngreso = newType === "income" && newSubtype === "pcl";
 		if (
 			!isRegisterMovementModalOpen ||
-			!isPclIngreso ||
+			(!isFeeIngreso && !isPclIngreso) ||
 			!session?.user?.accessToken
 		) {
 			return;
@@ -334,9 +335,10 @@ export default function CashBoxPage() {
 				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 				const json = await res.json();
 				const items: ClosingOption[] = (json?.data ?? [])
-					.filter(
-						(c: any) =>
-							c.pclStatus != null && c.pclStatus !== "CHARGED",
+					.filter((c: any) =>
+						isFeeIngreso
+							? c.feeStatus !== "CHARGED"
+							: c.pclStatus != null && c.pclStatus !== "CHARGED",
 					)
 					.map((c: any) => ({
 						id: c.id,
@@ -359,10 +361,11 @@ export default function CashBoxPage() {
 		session?.user?.accessToken,
 	]);
 
-	// Si el usuario cambia tipo/subtipo y deja de aplicar PCL, limpiar selección.
+	// Si el usuario cambia tipo/subtipo y deja de aplicar HP/PCL, limpiar selección.
 	useEffect(() => {
+		const isFeeIngreso = newType === "income" && newSubtype === "fee";
 		const isPclIngreso = newType === "income" && newSubtype === "pcl";
-		if (!isPclIngreso && newClosingId) {
+		if (!isFeeIngreso && !isPclIngreso && newClosingId) {
 			setNewClosingId("");
 		}
 	}, [newType, newSubtype, newClosingId]);
@@ -439,6 +442,15 @@ export default function CashBoxPage() {
 			}
 		} else {
 			if (!newSubtype || newUserFrom === null) valid = false;
+			if (
+				newType === "income" &&
+				(newSubtype === "fee" || newSubtype === "pcl") &&
+				!newClosingId
+			) {
+				valid = false;
+				errorMsg =
+					"Los ingresos de Honorarios/PCL requieren seleccionar un cierre asociado.";
+			}
 		}
 
 		if (!valid) {
@@ -1287,23 +1299,24 @@ export default function CashBoxPage() {
 										onChange={(e) => setNewDate(e.target.value)}
 									/>
 								</div>
-								{newType === "income" && newSubtype === "pcl" && (
-									<div className="space-y-2">
-										<Label htmlFor="movement-closing">
-											Cierre asociado{" "}
-											<span className="text-xs text-muted-foreground font-normal">
-												(opcional)
-											</span>
-										</Label>
-										<ClosingsCombobox
-											id="movement-closing"
-											value={newClosingId}
-											onChange={setNewClosingId}
-											options={closingsOptions}
-											placeholder="Buscar cierre por #, título o fecha..."
-										/>
-									</div>
-								)}
+								{newType === "income" &&
+									(newSubtype === "fee" || newSubtype === "pcl") && (
+										<div className="space-y-2">
+											<Label htmlFor="movement-closing">
+												Cierre asociado{" "}
+												<span className="text-xs text-destructive font-normal">
+													(requerido)
+												</span>
+											</Label>
+											<ClosingsCombobox
+												id="movement-closing"
+												value={newClosingId}
+												onChange={setNewClosingId}
+												options={closingsOptions}
+												placeholder="Buscar cierre por #, título o fecha..."
+											/>
+										</div>
+									)}
 								<div className="space-y-2">
 									<Label htmlFor="movement-description">
 										Descripción / Detalle

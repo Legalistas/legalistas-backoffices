@@ -24,6 +24,7 @@ import {
 	Trophy,
 	XCircle,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -74,6 +75,7 @@ type LawyerType = {
 
 export default function KanbanBoard() {
 	const { data: session } = useSession();
+	const router = useRouter();
 	const [leads, setLeads] = useState<Lead[]>([]);
 	const [isFormOpen, setIsFormOpen] = useState(false);
 	const [currentLead, setCurrentLead] = useState<Lead | null>(null);
@@ -488,7 +490,7 @@ export default function KanbanBoard() {
 		setLeads(updatedLeads);
 
 		try {
-			await fetch(`${LEADS_ENDPOINT}/${draggableId}/column`, {
+			const res = await fetch(`${LEADS_ENDPOINT}/${draggableId}/column`, {
 				method: "PATCH",
 				headers: {
 					"Content-Type": "application/json",
@@ -500,6 +502,7 @@ export default function KanbanBoard() {
 					userId: session?.user?.id,
 				}),
 			});
+			const payload = await res.json().catch(() => null);
 
 			// Enviar email de notificación (no bloquea el flujo)
 			sendStageEmail({
@@ -519,7 +522,25 @@ export default function KanbanBoard() {
 				toColumnId: newColumnId,
 			});
 
-			toast.success("Etapa actualizada correctamente");
+			// Caso creado automáticamente al pasar a Ganado (backend hook).
+			const createdCase = payload?.createdCase as
+				| { id: number; title: string | null; wasCreated: boolean }
+				| null
+				| undefined;
+			const skipReason = payload?.caseCreationSkipReason as string | null | undefined;
+
+			if (createdCase?.wasCreated) {
+				toast.success(`Caso #${createdCase.id} creado desde el CRM`, {
+					action: {
+						label: "Ver caso",
+						onClick: () => router.push(`/admin/legal-cases/${createdCase.id}`),
+					},
+				});
+			} else if (skipReason) {
+				toast.warning(`Lead marcado como Ganado, pero el caso no se creó: ${skipReason}`);
+			} else {
+				toast.success("Etapa actualizada correctamente");
+			}
 		} catch (error) {
 			console.error("Error actualizando lead en backend:", error);
 		}

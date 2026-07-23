@@ -23,6 +23,7 @@ import ClosingManagerTable from "@/components/closing-manager/closing-manager-ta
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	CLOSINGS_ENDPOINT,
 	CLOSINGS_EXPORT_ENDPOINT,
@@ -98,6 +99,28 @@ export default function ClosingManagerPage() {
 		"capitalState",
 		"montoTransferir",
 	]);
+
+	// Tab actual: "all" o "pending". "pending" fuerza paymentPending=true en la
+	// query + muestra columnas de estado (feeStatus/pclStatus) + ordena por
+	// fecha ascendente (más viejo primero — spec KPIs #108).
+	const [activeTab, setActiveTab] = useState<"all" | "pending">("all");
+
+	// Cuando el user cambia de tab, ajustar filtro + columnas + orden.
+	useEffect(() => {
+		if (activeTab === "pending") {
+			setFilters((prev) => ({ ...prev, paymentPending: "true" }));
+			setVisibleColumns((prev) => {
+				const cols = new Set(prev);
+				cols.add("feeStatus");
+				cols.add("pclStatus");
+				return Array.from(cols);
+			});
+			setSortOrder("asc");
+		} else {
+			setFilters((prev) => ({ ...prev, paymentPending: "" }));
+			setSortOrder("desc");
+		}
+	}, [activeTab]);
 
 	// =========================================================================
 	// Fetch closings
@@ -400,6 +423,25 @@ export default function ClosingManagerPage() {
 					</Link>
 				</div>
 			</div>
+
+			{/* Tabs: Todos / Pendientes de cobro */}
+			<Tabs
+				value={activeTab}
+				onValueChange={(v) => setActiveTab(v as "all" | "pending")}
+				className="w-full"
+			>
+				<TabsList>
+					<TabsTrigger value="all">Todos los cierres</TabsTrigger>
+					<TabsTrigger value="pending">
+						Pendientes de cobro
+						{activeTab === "pending" && pagination.total > 0 && (
+							<span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+								{pagination.total}
+							</span>
+						)}
+					</TabsTrigger>
+				</TabsList>
+			</Tabs>
 
 			{/* KPI Cards */}
 			<div className="grid grid-cols-2 md:grid-cols-5 gap-4">

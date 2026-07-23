@@ -1,6 +1,7 @@
 import {
   ArrowRightLeft,
   BarChart3,
+  Bell,
   CalendarDays,
   ChartArea,
   HardDrive,
@@ -120,6 +121,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: "/admin/calendar",
         roles: [...LEGAL, ...VENTAS, ...MARKETING],
       },
+      {
+        icon: Bell,
+        name: "Monitor CRM",
+        path: "/admin/crm-monitor",
+        roles: [...SUPERADMIN, DIRECTORA_AREA_LEGAL, DIRECTORA_AREA_VENTAS],
+      },
     ],
   },
   {
@@ -137,6 +144,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Estadísticas Ventas",
         path: "/admin/reports/sales",
         roles: VENTAS,
+      },
+      {
+        icon: LayoutDashboard,
+        name: "KPIs",
+        path: "/admin/kpis",
+        roles: [...LEGAL_INTERNO, ...VENTAS, ...CONTABLE, ...MARKETING],
       },
     ],
   },
@@ -250,6 +263,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Reclutamiento",
         path: "/admin/rrhh/recruitment",
         roles: SUPERADMIN,
+      },
+      {
+        icon: Scale,
+        name: "Abogados SRT",
+        path: "/admin/lawyers",
+        roles: LEGAL_INTERNO,
       },
     ],
   },

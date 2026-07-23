@@ -15,6 +15,7 @@ import type {
 	CasesFiles,
 	CasesNotes,
 } from "@/types/cases";
+import { CaseAnalysisView } from "@/components/case-analyzer/CaseAnalysisView";
 import CaseFilesMinio from "./CaseFilesMinio";
 import CaseLogsComponent from "./CaseLogsComponent";
 import { CedulasView } from "./CedulasView";
@@ -27,6 +28,8 @@ import { LiquidacionView } from "./LiquidacionView";
 import { NotesView } from "./NotesView";
 import { PartesView } from "./PartesView";
 import { PlazosView } from "./PlazosView";
+import SrtFormsHistory from "./SrtFormsHistory";
+import { SrtInfoView } from "./SrtInfoView";
 
 interface CaseTabsProps {
 	activeTab: string;
@@ -98,6 +101,7 @@ export const CaseTabs = ({
 	return (
 		<Tabs defaultValue={tab} onValueChange={handleTabChange} className="w-full">
 			<TabsList className="w-full bg-card text-card-foreground p-2 overflow-x-auto">
+				<TabsTrigger value="info">Info</TabsTrigger>
 				<TabsTrigger value="files">Expedientes</TabsTrigger>
 				<TabsTrigger value="eventos">Eventos</TabsTrigger>
 				<TabsTrigger value="plazos">Plazos</TabsTrigger>
@@ -109,7 +113,13 @@ export const CaseTabs = ({
 				<TabsTrigger value="cedulas">Cédulas</TabsTrigger>
 				<TabsTrigger value="consultations">Consultas</TabsTrigger>
 				<TabsTrigger value="informe">Informe</TabsTrigger>
+				<TabsTrigger value="ia">Análisis IA</TabsTrigger>
 			</TabsList>
+
+			{/* 0. Info — bloques A-E para todos los formularios SRT */}
+			<TabsContent value="info" className={tabContentClass}>
+				<SrtInfoView caseId={caseId} />
+			</TabsContent>
 
 			{/* 1. Expedientes */}
 			<TabsContent value="files" className={tabContentClass}>
@@ -145,7 +155,10 @@ export const CaseTabs = ({
 
 			{/* 4. Documentos (árbol MinIO scopeado al caso) */}
 			<TabsContent value="documents" className={tabContentClass}>
-				<CaseFilesMinio caseId={caseId} />
+				<div className="space-y-4 p-4">
+					<SrtFormsHistory caseId={caseId} />
+					<CaseFilesMinio caseId={caseId} />
+				</div>
 			</TabsContent>
 
 			{/* 5. Notas */}
@@ -203,6 +216,11 @@ export const CaseTabs = ({
 			{/* 11. Informe Trimestral */}
 			<TabsContent value="informe" className={tabContentClass}>
 				<InformeTrimestralView caseData={caseData} onCaseUpdated={onCaseUpdated} />
+			</TabsContent>
+
+			{/* 12. Análisis IA (Proyecto 4) */}
+			<TabsContent value="ia" className={tabContentClass}>
+				<CaseAnalysisView caseId={caseId} />
 			</TabsContent>
 		</Tabs>
 	);

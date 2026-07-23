@@ -161,13 +161,15 @@ export default function MyCashboxContent() {
 		}
 	}, [session?.user?.accessToken]); // Re-fetch if session token changes
 
-	// Cargar cierres con PCL pendiente (no cobrado) cuando se abre el modal
-	// y el subtipo elegido es PCL. Excluye cierres sin PCL o ya cobrados.
+	// Cargar cierres con el cobro correspondiente pendiente cuando se abre el
+	// modal. Aplica a ingresos con subtype `fee` (Honorarios) o `pcl`. Filtra
+	// según el subtype elegido — solo muestra cierres con ESE cobro pendiente.
 	useEffect(() => {
-		const isPclIngreso = newType === "income" && newSubtype === "pcl";
+		const isPayableIngreso =
+			newType === "income" && (newSubtype === "fee" || newSubtype === "pcl");
 		if (
 			!isRegisterMovementModalOpen ||
-			!isPclIngreso ||
+			!isPayableIngreso ||
 			!session?.user?.accessToken
 		) {
 			return;
@@ -187,10 +189,15 @@ export default function MyCashboxContent() {
 				if (!res.ok) throw new Error(`HTTP ${res.status}`);
 				const json = await res.json();
 				const items: ClosingOption[] = (json?.data ?? [])
-					.filter(
-						(c: any) =>
-							c.pclStatus != null && c.pclStatus !== "CHARGED",
-					)
+					.filter((c: any) => {
+						if (newSubtype === "fee") {
+							// Honorarios: cierre existe → siempre tiene HP acordado.
+							// Mostrar solo si feeStatus !== CHARGED.
+							return c.feeStatus !== "CHARGED";
+						}
+						// PCL: puede no existir (pclStatus null) o estar ya cobrado.
+						return c.pclStatus != null && c.pclStatus !== "CHARGED";
+					})
 					.map((c: any) => ({
 						id: c.id,
 						number: c.case?.number,
@@ -212,10 +219,12 @@ export default function MyCashboxContent() {
 		session?.user?.accessToken,
 	]);
 
-	// Si el usuario cambia tipo/subtipo y deja de aplicar PCL, limpiar selección.
+	// Si el usuario cambia tipo/subtipo y deja de aplicar (fee/pcl), limpiar
+	// la selección de cierre.
 	useEffect(() => {
-		const isPclIngreso = newType === "income" && newSubtype === "pcl";
-		if (!isPclIngreso && newClosingId) {
+		const isPayableIngreso =
+			newType === "income" && (newSubtype === "fee" || newSubtype === "pcl");
+		if (!isPayableIngreso && newClosingId) {
 			setNewClosingId("");
 		}
 	}, [newType, newSubtype, newClosingId]);
@@ -411,6 +420,17 @@ export default function MyCashboxContent() {
 		) {
 			toast.error(
 				"Por favor, completa todos los campos y asegúrate de que el monto sea válido y un usuario esté seleccionado.",
+			);
+			return;
+		}
+
+		// Ingresos de honorarios (fee) o PCL requieren cierre asociado (el backend
+		// lo valida también, pero mostramos el error temprano acá).
+		const isPayableIngreso =
+			newType === "income" && (newSubtype === "fee" || newSubtype === "pcl");
+		if (isPayableIngreso && !newClosingId) {
+			toast.error(
+				`Los ingresos de ${newSubtype === "fee" ? "Honorarios" : "PCL"} requieren seleccionar un cierre asociado.`,
 			);
 			return;
 		}
@@ -707,24 +727,37 @@ export default function MyCashboxContent() {
 									/>
 								</div>
 
-								{/* Cierre asociado (opcional) — solo en Ingreso + PCL */}
-								{newType === "income" && newSubtype === "pcl" && (
-									<div className="space-y-2">
-										<Label htmlFor="movement-closing">
-											Cierre asociado{" "}
-											<span className="text-xs text-muted-foreground font-normal">
-												(opcional)
-											</span>
-										</Label>
-										<ClosingsCombobox
-											id="movement-closing"
-											value={newClosingId}
-											onChange={setNewClosingId}
-											options={closingsOptions}
-											placeholder="Buscar cierre por #, título o fecha..."
-										/>
-									</div>
-								)}
+								{/* Cierre asociado — requerido en Ingreso + Honorarios o PCL.
+								    Al guardar, el backend marca ese cobro del cierre como CHARGED. */}
+								{newType === "income" &&
+									(newSubtype === "fee" || newSubtype === "pcl") && (
+										<div className="space-y-2">
+											<Label htmlFor="movement-closing">
+												Cierre asociado{" "}
+												<span className="text-xs text-red-600 font-normal">
+													(requerido)
+												</span>
+											</Label>
+											<ClosingsCombobox
+												id="movement-closing"
+												value={newClosingId}
+												onChange={setNewClosingId}
+												options={closingsOptions}
+												placeholder={
+													newSubtype === "fee"
+														? "Buscar cierre con HP pendiente..."
+														: "Buscar cierre con PCL pendiente..."
+												}
+											/>
+											{closingsOptions.length === 0 && (
+												<p className="text-xs text-muted-foreground">
+													No hay cierres con{" "}
+													{newSubtype === "fee" ? "HP" : "PCL"} pendiente en el
+													año actual.
+												</p>
+											)}
+										</div>
+									)}
 
 								{/* Descripción */}
 								<div className="space-y-2">
