@@ -77,6 +77,7 @@ const AREA_LABELS: Record<ManualKpiArea, string> = {
 	sales: "Ventas",
 	legal: "Legales",
 	cx: "Experiencia de cliente",
+	marketing: "Marketing",
 };
 
 interface LawyerOption {
