@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Trash2 } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
@@ -26,6 +26,7 @@ export default function LeadActivity({ lead }: LeadActivityProps) {
 	const { data: session } = useSession();
 	const router = useRouter();
 	const [isDeleting, setIsDeleting] = useState<number | null>(null);
+	const [isMarking, setIsMarking] = useState<number | null>(null);
 
 	const formatWhatsAppPhone = (phone: string): string => {
 		let clean = phone.replace(/[\s\-()+ ]/g, "");
@@ -64,6 +65,36 @@ export default function LeadActivity({ lead }: LeadActivityProps) {
 		const msg = `Hola *${nombre}*,\n\n*${tipoReunion}*\n${fecha} a las ${hora} hs\nLugar: Alem 80\n${confirmationUrl ? `\nSi confirmás asistencia, tocá el siguiente link:\n${confirmationUrl}\n` : ""}\n_Equipo Legalistas_`;
 
 		window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+	};
+
+	const handleMarkDone = async (meetId: number) => {
+		setIsMarking(meetId);
+		try {
+			const response = await fetch(
+				`${LEADS_ENDPOINT}/${lead.id}/meetings/${meetId}`,
+				{
+					method: "PATCH",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+					body: JSON.stringify({ confirmationStatus: "COMPLETED" }),
+				},
+			);
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(errorData.error || `Error: ${response.status}`);
+			}
+			toast.success("Reunión marcada como realizada");
+			router.refresh();
+		} catch (error) {
+			console.error("Error al marcar realizada:", error);
+			toast.error(
+				error instanceof Error ? error.message : "Error al marcar realizada",
+			);
+		} finally {
+			setIsMarking(null);
+		}
 	};
 
 	const handleDeleted = async (meetId: number) => {
@@ -149,6 +180,30 @@ export default function LeadActivity({ lead }: LeadActivityProps) {
 								</TableCell>
 								<TableCell>{meeting.user?.name || "-"}</TableCell>
 								<TableCell className="text-right flex items-center justify-end gap-1">
+									{meeting.confirmationStatus === "COMPLETED" ? (
+										<span
+											className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-700"
+											title="Reunión ya marcada como realizada — cuenta en el KPI"
+										>
+											<CheckCircle2 className="h-3 w-3" />
+											Realizada
+										</span>
+									) : (
+										<Button
+											variant="ghost"
+											size="icon"
+											className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+											disabled={isMarking === meeting.id}
+											onClick={() => handleMarkDone(meeting.id)}
+											title="Marcar como realizada (cuenta en KPI de videollamadas)"
+										>
+											{isMarking === meeting.id ? (
+												<Loader2 className="h-4 w-4 animate-spin" />
+											) : (
+												<CheckCircle2 className="h-4 w-4" />
+											)}
+										</Button>
+									)}
 									<Button
 										variant="ghost"
 										size="icon"

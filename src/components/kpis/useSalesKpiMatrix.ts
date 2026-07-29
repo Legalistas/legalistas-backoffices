@@ -243,7 +243,11 @@ export function useSalesKpiMatrix(
 					userEntry.monthly[m] = (userEntry.monthly[m] ?? 0) + value;
 				}
 
-				// Inyectar en el sellersMap si es perUser (llamadas, whatsapp).
+				// Inyectar en el sellersMap si es perUser. Hoy 4 KPIs de ventas
+				// son manuales por vendedora: llamadas, whatsapp, videollamadas
+				// realizadas y poderes firmados. Los últimos 2 pisarán los valores
+				// que veníamos calculando desde crm_meetings / crm_leads cuando se
+				// vuelvan a automatizar (spec: "por ahora manual").
 				if (entry.userId && entry.user) {
 					if (!sellersMap.has(entry.userId)) {
 						sellersMap.set(entry.userId, {
@@ -262,6 +266,12 @@ export function useSalesKpiMatrix(
 					if (!e) continue;
 					if (entry.metricKey === "sales_calls") e.llamadas[m] = value;
 					if (entry.metricKey === "sales_whatsapp") e.whatsapp[m] = value;
+					if (entry.metricKey === "sales_videollamadas_realizadas") {
+						e.videosRealizadas[m] = value;
+					}
+					if (entry.metricKey === "sales_poderes_firmados") {
+						e.poderes[m] = value;
+					}
 				}
 			}
 
@@ -396,13 +406,13 @@ export function useSalesKpiMatrix(
 									key: "total-videos-realizadas",
 									label: "Videollamadas realizadas",
 									format: "number",
-									monthlyValues: ZEROS(),
+									monthlyValues: manual("sales_videollamadas_realizadas"),
 								},
 								{
 									key: "total-poderes",
 									label: "Poderes firmados",
 									format: "number",
-									monthlyValues: poderesFirmados,
+									monthlyValues: manual("sales_poderes_firmados"),
 								},
 								{
 									key: "total-tasa-conv",
