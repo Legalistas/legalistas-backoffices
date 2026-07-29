@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/select";
 import {
 	CASE_SRT_INFO_ENDPOINT,
+	SETTINGS_COUNTRIES_ENDPOINT,
 	SRT_LAWYERS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import type {
@@ -137,6 +138,11 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [lawyers, setLawyers] = useState<SrtLawyer[]>([]);
 	const [defaults, setDefaults] = useState<CaseSrtDefaults | null>(null);
+	// Provincias de Argentina — se pueblan al montar desde /settings/countries.
+	// Store el nombre (string) porque el schema de case_srt_info tiene los
+	// campos como texto, no como stateId. Mismo criterio que usa la vista
+	// de "Trabajador" (workerState) y "Empleador" (workplaceState).
+	const [provinces, setProvinces] = useState<string[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 
@@ -146,11 +152,14 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 	const fetchAll = useCallback(async () => {
 		if (!token) return;
 		try {
-			const [infoRes, lawyersRes] = await Promise.all([
+			const [infoRes, lawyersRes, countriesRes] = await Promise.all([
 				fetch(CASE_SRT_INFO_ENDPOINT(Number(caseId)), {
 					headers: { Authorization: `Bearer ${token}` },
 				}),
 				fetch(SRT_LAWYERS_ENDPOINT, {
+					headers: { Authorization: `Bearer ${token}` },
+				}),
+				fetch(SETTINGS_COUNTRIES_ENDPOINT, {
 					headers: { Authorization: `Bearer ${token}` },
 				}),
 			]);
@@ -165,6 +174,25 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 			setDefaults(defaultsPayload);
 			setForm(fromApi(infoData.info, defaultsPayload));
 			setLawyers(lawyersData.lawyers || []);
+
+			// Provincias: buscamos Argentina y usamos sus states. Si el endpoint
+			// no devuelve Argentina explícita, caemos al primer country con states.
+			if (countriesRes.ok) {
+				const countriesData = await countriesRes.json();
+				const list: Array<{
+					id: number;
+					name: string;
+					states?: Array<{ id: number; name: string }>;
+				}> = countriesData.countries ?? countriesData ?? [];
+				const argentina =
+					list.find((c) => c.name?.toLowerCase() === "argentina") ??
+					list.find((c) => (c.states?.length ?? 0) > 0);
+				const stateNames = (argentina?.states ?? [])
+					.map((s) => s.name)
+					.filter(Boolean)
+					.sort((a, b) => a.localeCompare(b));
+				setProvinces(stateNames);
+			}
 		} catch (err) {
 			console.error(err);
 			toast.error((err as Error).message);
@@ -277,9 +305,10 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 						/>
 					</Field>
 					<Field label="Provincia">
-						<Input
+						<ProvinceSelect
 							value={form.workerState}
-							onChange={(e) => setField("workerState", e.target.value)}
+							onChange={(v) => setField("workerState", v)}
+							provinces={provinces}
 						/>
 					</Field>
 					<Field label="Código postal">
@@ -383,9 +412,10 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 						/>
 					</Field>
 					<Field label="Provincia">
-						<Input
+						<ProvinceSelect
 							value={form.workplaceState}
-							onChange={(e) => setField("workplaceState", e.target.value)}
+							onChange={(v) => setField("workplaceState", v)}
+							provinces={provinces}
 						/>
 					</Field>
 				</CardContent>
@@ -466,6 +496,45 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 };
 
 // ── Sub-componentes ──────────────────────────────────────────────────────
+
+/**
+ * Selector de provincia. Si el valor actual no está en la lista de opciones
+ * (ej. dato viejo con typo o mientras se cargan las provincias), lo agrega
+ * como opción extra para no perderlo. Value=string vacío = "sin provincia".
+ */
+function ProvinceSelect({
+	value,
+	onChange,
+	provinces,
+}: {
+	value: string;
+	onChange: (v: string) => void;
+	provinces: string[];
+}) {
+	// Merge del value actual (si es un string libre no incluido en el catálogo)
+	// para no ocultarlo del usuario. Se mantiene ordenado alfabéticamente.
+	const options = value && !provinces.includes(value)
+		? [...provinces, value].sort((a, b) => a.localeCompare(b))
+		: provinces;
+	return (
+		<Select
+			value={value}
+			onValueChange={(v) => onChange(v === "__none__" ? "" : v)}
+		>
+			<SelectTrigger>
+				<SelectValue placeholder="Seleccionar provincia…" />
+			</SelectTrigger>
+			<SelectContent>
+				<SelectItem value="__none__">— Sin especificar —</SelectItem>
+				{options.map((p) => (
+					<SelectItem key={p} value={p}>
+						{p}
+					</SelectItem>
+				))}
+			</SelectContent>
+		</Select>
+	);
+}
 
 function Field({
 	label,
