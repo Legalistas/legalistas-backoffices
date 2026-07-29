@@ -145,6 +145,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: "/admin/reports/sales",
         roles: VENTAS,
       },
+    ],
+  },
+  {
+    label: "Coordinación",
+    type: "menu",
+    items: [
       {
         icon: LayoutDashboard,
         name: "KPIs",

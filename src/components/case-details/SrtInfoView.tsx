@@ -177,13 +177,16 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 
 			// Provincias: buscamos Argentina y usamos sus states. Si el endpoint
 			// no devuelve Argentina explícita, caemos al primer country con states.
+			// El endpoint /settings/countries responde con { data: Country[] }
+			// (ver CreateEditPartModal — mismo consumidor histórico).
 			if (countriesRes.ok) {
 				const countriesData = await countriesRes.json();
+				const raw = countriesData?.data ?? countriesData?.countries ?? countriesData;
 				const list: Array<{
 					id: number;
 					name: string;
 					states?: Array<{ id: number; name: string }>;
-				}> = countriesData.countries ?? countriesData ?? [];
+				}> = Array.isArray(raw) ? raw : [];
 				const argentina =
 					list.find((c) => c.name?.toLowerCase() === "argentina") ??
 					list.find((c) => (c.states?.length ?? 0) > 0);
@@ -354,15 +357,16 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 						if (selectedLawyer) return <LawyerCard lawyer={selectedLawyer} />;
 						if (!rep) return null;
 						return (
-							<div className="space-y-2">
-								<div className="flex items-center justify-between gap-2">
-									<div className="text-xs text-muted-foreground">
+							<div className="space-y-2 rounded-md border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-3">
+								<div className="flex items-center justify-between gap-2 flex-wrap">
+									<div className="text-sm">
 										Sin abogado SRT elegido — mostrando al{" "}
-										<strong>representante del caso</strong> como referencia.
+										<strong>responsable del caso</strong>:{" "}
+										<span className="font-semibold">{rep.name}</span>
 									</div>
 									<Button
 										type="button"
-										variant="outline"
+										variant="default"
 										size="sm"
 										onClick={() =>
 											setField("lawyerUserId", String(rep.userId))
@@ -557,10 +561,12 @@ function Field({
  * Card de datos del abogado — se usa tanto para el abogado seleccionado del
  * maestro como para el fallback del representante del caso. Acepta el subset
  * compartido: SrtLawyer y `defaults.representativeLawyer` comparten estos
- * campos.
+ * campos. Incluye `name` para que el usuario identifique de quién son los
+ * datos (crítico en el modo fallback, cuando no hubo selección en el combo).
  */
 type LawyerCardData = Pick<
 	SrtLawyer,
+	| "name"
 	| "cuit"
 	| "srtMatricula"
 	| "srtBarJurisdiction"
@@ -575,21 +581,27 @@ function LawyerCard({ lawyer }: { lawyer: LawyerCardData }) {
 		? `${addr.street ?? ""} ${addr.streetNumber ?? ""}${lawyer.srtLegalOffice ? `, ${lawyer.srtLegalOffice}` : ""} — ${addr.city ?? ""}${addr.stateName ? `, ${addr.stateName}` : ""}`
 		: "—";
 	return (
-		<div className="text-sm rounded-md border p-3 bg-muted/30 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
-			<div>
-				<strong>CUIT:</strong> {lawyer.cuit ?? "—"}
+		<div className="text-sm rounded-md border p-3 bg-muted/30 space-y-2">
+			<div className="font-semibold text-sm">
+				{lawyer.name || "Sin nombre"}
 			</div>
-			<div>
-				<strong>Matrícula:</strong> {lawyer.srtMatricula ?? "—"}
-			</div>
-			<div>
-				<strong>Jurisdicción:</strong> {lawyer.srtBarJurisdiction ?? "—"}
-			</div>
-			<div>
-				<strong>Domicilio SRT:</strong> {lawyer.srtElectronicDomicile ?? "—"}
-			</div>
-			<div className="md:col-span-2">
-				<strong>Domicilio legal:</strong> {addrText}
+			<div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
+				<div>
+					<strong>CUIT:</strong> {lawyer.cuit ?? "—"}
+				</div>
+				<div>
+					<strong>Matrícula:</strong> {lawyer.srtMatricula ?? "—"}
+				</div>
+				<div>
+					<strong>Jurisdicción:</strong> {lawyer.srtBarJurisdiction ?? "—"}
+				</div>
+				<div>
+					<strong>Domicilio SRT:</strong>{" "}
+					{lawyer.srtElectronicDomicile ?? "—"}
+				</div>
+				<div className="md:col-span-2">
+					<strong>Domicilio legal:</strong> {addrText}
+				</div>
 			</div>
 		</div>
 	);
