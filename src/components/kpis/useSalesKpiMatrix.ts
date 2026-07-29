@@ -293,6 +293,9 @@ export function useSalesKpiMatrix(
 					label: "Llamadas realizadas",
 					indentLevel: 2,
 					format: "number",
+					editable: true,
+					sourceKey: "sales_calls",
+					sourceUserId: s.userId,
 					monthlyValues: s.llamadas,
 				},
 				{
@@ -300,6 +303,9 @@ export function useSalesKpiMatrix(
 					label: "Conversación por mensaje (WhatsApp)",
 					indentLevel: 2,
 					format: "number",
+					editable: true,
+					sourceKey: "sales_whatsapp",
+					sourceUserId: s.userId,
 					monthlyValues: s.whatsapp,
 				},
 				{
@@ -314,6 +320,9 @@ export function useSalesKpiMatrix(
 					label: "Videollamadas realizadas",
 					indentLevel: 2,
 					format: "number",
+					editable: true,
+					sourceKey: "sales_videollamadas_realizadas",
+					sourceUserId: s.userId,
 					monthlyValues: s.videosRealizadas,
 				},
 				{
@@ -321,6 +330,9 @@ export function useSalesKpiMatrix(
 					label: "Poderes firmados",
 					indentLevel: 2,
 					format: "number",
+					editable: true,
+					sourceKey: "sales_poderes_firmados",
+					sourceUserId: s.userId,
 					monthlyValues: s.poderes,
 				},
 				{

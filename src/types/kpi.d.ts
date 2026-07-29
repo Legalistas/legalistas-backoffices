@@ -47,6 +47,12 @@ export interface KpiMatrixRow {
 	editable?: boolean;
 	/** metricKey del catálogo manual, si `editable`. */
 	sourceKey?: string;
+	/**
+	 * userId del vendedor/abogado si la fila representa a un usuario específico
+	 * (KPIs manuales con `perUser=true`). Se envía al PUT /manual-kpis en vez
+	 * de null. Requerido cuando `editable` + el sourceKey es perUser.
+	 */
+	sourceUserId?: number;
 }
 
 export interface KpiMatrixSubSection {

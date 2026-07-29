@@ -130,6 +130,7 @@ function EditableCell({
 	metricKey,
 	year,
 	monthIdx,
+	sourceUserId,
 	onSaved,
 }: {
 	value: number | null;
@@ -137,6 +138,8 @@ function EditableCell({
 	metricKey: string;
 	year: number;
 	monthIdx: number;
+	/** userId cuando la fila representa a un vendedor/abogado (perUser). */
+	sourceUserId?: number;
 	onSaved: () => void;
 }) {
 	const { data: session } = useSession();
@@ -202,7 +205,7 @@ function EditableCell({
 					metricKey,
 					periodStart: iso(periodStart),
 					periodEnd: iso(periodEnd),
-					userId: null,
+					userId: sourceUserId ?? null,
 					value: numValue,
 				}),
 			});
@@ -337,6 +340,7 @@ function DataRow({
 						metricKey={row.sourceKey}
 						year={year}
 						monthIdx={i}
+						sourceUserId={row.sourceUserId}
 						onSaved={() => onValueChanged?.()}
 					/>
 				) : (
