@@ -105,3 +105,32 @@ export interface EligibleUser {
 	name: string;
 	email: string | null;
 }
+
+/**
+ * Defaults derivados del caso — sirven para prefill del formulario SRT
+ * cuando la info todavía no fue cargada. Vienen en el mismo response que
+ * GET /cases/:id/srt-info.
+ */
+export interface CaseSrtDefaults {
+	/** Datos del cliente/trabajador del caso (customer). */
+	worker: {
+		fullName: string | null;
+		dni: string | null;
+		cuil: string | null;
+		phone: string | null;
+		address: string | null;
+		city: string | null;
+		state: string | null;
+		zip: string | null;
+	} | null;
+	/**
+	 * Abogado responsable del caso (responsibleLawyer). Se muestra como
+	 * fallback en Asistencia letrada cuando no hay `lawyerUserId` seteado
+	 * en la info SRT. Subset de SrtLawyer sin los flags de maestro
+	 * (isBlocked/hasLawyerRole/isCompleteLawyer).
+	 */
+	representativeLawyer: Omit<
+		SrtLawyer,
+		"isBlocked" | "hasLawyerRole" | "isCompleteLawyer"
+	> | null;
+}

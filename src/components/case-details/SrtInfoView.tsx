@@ -19,7 +19,12 @@ import {
 	CASE_SRT_INFO_ENDPOINT,
 	SRT_LAWYERS_ENDPOINT,
 } from "@/constant/api-endpoints";
-import type { CaseSrtInfo, CompetenceGround, SrtLawyer } from "@/types/srt";
+import type {
+	CaseSrtDefaults,
+	CaseSrtInfo,
+	CompetenceGround,
+	SrtLawyer,
+} from "@/types/srt";
 
 interface SrtInfoViewProps {
 	caseId: string;
@@ -81,16 +86,27 @@ const EMPTY_FORM: FormState = {
 	competenceAddress: "",
 };
 
-function fromApi(info: CaseSrtInfo): FormState {
+/**
+ * Convierte la info del backend a estado del form. Cuando un campo del
+ * bloque Trabajador viene vacío/null, se prefillea desde `defaults.worker`
+ * (data del cliente del caso) para no forzar la carga manual.
+ */
+function fromApi(
+	info: CaseSrtInfo,
+	defaults: CaseSrtDefaults | null,
+): FormState {
+	const w = defaults?.worker ?? null;
+	const pick = (fromInfo: string | null, fromDefault: string | null | undefined) =>
+		fromInfo && fromInfo.trim() !== "" ? fromInfo : (fromDefault ?? "") || "";
 	return {
-		workerFullName: info.workerFullName ?? "",
-		workerCuil: info.workerCuil ?? "",
-		workerDni: info.workerDni ?? "",
-		workerAddress: info.workerAddress ?? "",
-		workerCity: info.workerCity ?? "",
-		workerState: info.workerState ?? "",
-		workerZip: info.workerZip ?? "",
-		workerPhone: info.workerPhone ?? "",
+		workerFullName: pick(info.workerFullName, w?.fullName),
+		workerCuil: pick(info.workerCuil, w?.cuil),
+		workerDni: pick(info.workerDni, w?.dni),
+		workerAddress: pick(info.workerAddress, w?.address),
+		workerCity: pick(info.workerCity, w?.city),
+		workerState: pick(info.workerState, w?.state),
+		workerZip: pick(info.workerZip, w?.zip),
+		workerPhone: pick(info.workerPhone, w?.phone),
 		lawyerUserId: info.lawyerUserId != null ? String(info.lawyerUserId) : "",
 		employerName: info.employerName ?? "",
 		employerCuit: info.employerCuit ?? "",
@@ -120,6 +136,7 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [lawyers, setLawyers] = useState<SrtLawyer[]>([]);
+	const [defaults, setDefaults] = useState<CaseSrtDefaults | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 
@@ -143,7 +160,10 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 			const infoData = await infoRes.json();
 			const lawyersData = await lawyersRes.json();
 
-			setForm(fromApi(infoData.info));
+			const defaultsPayload: CaseSrtDefaults | null =
+				infoData.defaults ?? null;
+			setDefaults(defaultsPayload);
+			setForm(fromApi(infoData.info, defaultsPayload));
 			setLawyers(lawyersData.lawyers || []);
 		} catch (err) {
 			console.error(err);
@@ -300,30 +320,32 @@ export const SrtInfoView = ({ caseId }: SrtInfoViewProps) => {
 							</SelectContent>
 						</Select>
 					</Field>
-					{selectedLawyer && (
-						<div className="text-sm rounded-md border p-3 bg-muted/30 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
-							<div>
-								<strong>CUIT:</strong> {selectedLawyer.cuit ?? "—"}
+					{(() => {
+						const rep = defaults?.representativeLawyer ?? null;
+						if (selectedLawyer) return <LawyerCard lawyer={selectedLawyer} />;
+						if (!rep) return null;
+						return (
+							<div className="space-y-2">
+								<div className="flex items-center justify-between gap-2">
+									<div className="text-xs text-muted-foreground">
+										Sin abogado SRT elegido — mostrando al{" "}
+										<strong>representante del caso</strong> como referencia.
+									</div>
+									<Button
+										type="button"
+										variant="outline"
+										size="sm"
+										onClick={() =>
+											setField("lawyerUserId", String(rep.userId))
+										}
+									>
+										Usar este abogado
+									</Button>
+								</div>
+								<LawyerCard lawyer={rep} />
 							</div>
-							<div>
-								<strong>Matrícula:</strong> {selectedLawyer.srtMatricula ?? "—"}
-							</div>
-							<div>
-								<strong>Jurisdicción:</strong>{" "}
-								{selectedLawyer.srtBarJurisdiction ?? "—"}
-							</div>
-							<div>
-								<strong>Domicilio SRT:</strong>{" "}
-								{selectedLawyer.srtElectronicDomicile ?? "—"}
-							</div>
-							<div className="md:col-span-2">
-								<strong>Domicilio legal:</strong>{" "}
-								{selectedLawyer.legalAddress
-									? `${selectedLawyer.legalAddress.street ?? ""} ${selectedLawyer.legalAddress.streetNumber ?? ""}${selectedLawyer.srtLegalOffice ? `, ${selectedLawyer.srtLegalOffice}` : ""} — ${selectedLawyer.legalAddress.city ?? ""}${selectedLawyer.legalAddress.stateName ? `, ${selectedLawyer.legalAddress.stateName}` : ""}`
-									: "—"}
-							</div>
-						</div>
-					)}
+						);
+					})()}
 				</CardContent>
 			</Card>
 
@@ -458,6 +480,48 @@ function Field({
 		<div className={`flex flex-col gap-1 ${className ?? ""}`}>
 			<Label className="text-xs text-muted-foreground">{label}</Label>
 			{children}
+		</div>
+	);
+}
+
+/**
+ * Card de datos del abogado — se usa tanto para el abogado seleccionado del
+ * maestro como para el fallback del representante del caso. Acepta el subset
+ * compartido: SrtLawyer y `defaults.representativeLawyer` comparten estos
+ * campos.
+ */
+type LawyerCardData = Pick<
+	SrtLawyer,
+	| "cuit"
+	| "srtMatricula"
+	| "srtBarJurisdiction"
+	| "srtElectronicDomicile"
+	| "srtLegalOffice"
+	| "legalAddress"
+>;
+
+function LawyerCard({ lawyer }: { lawyer: LawyerCardData }) {
+	const addr = lawyer.legalAddress;
+	const addrText = addr
+		? `${addr.street ?? ""} ${addr.streetNumber ?? ""}${lawyer.srtLegalOffice ? `, ${lawyer.srtLegalOffice}` : ""} — ${addr.city ?? ""}${addr.stateName ? `, ${addr.stateName}` : ""}`
+		: "—";
+	return (
+		<div className="text-sm rounded-md border p-3 bg-muted/30 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
+			<div>
+				<strong>CUIT:</strong> {lawyer.cuit ?? "—"}
+			</div>
+			<div>
+				<strong>Matrícula:</strong> {lawyer.srtMatricula ?? "—"}
+			</div>
+			<div>
+				<strong>Jurisdicción:</strong> {lawyer.srtBarJurisdiction ?? "—"}
+			</div>
+			<div>
+				<strong>Domicilio SRT:</strong> {lawyer.srtElectronicDomicile ?? "—"}
+			</div>
+			<div className="md:col-span-2">
+				<strong>Domicilio legal:</strong> {addrText}
+			</div>
 		</div>
 	);
 }
