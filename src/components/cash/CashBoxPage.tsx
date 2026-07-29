@@ -442,15 +442,9 @@ export default function CashBoxPage() {
 			}
 		} else {
 			if (!newSubtype || newUserFrom === null) valid = false;
-			if (
-				newType === "income" &&
-				(newSubtype === "fee" || newSubtype === "pcl") &&
-				!newClosingId
-			) {
-				valid = false;
-				errorMsg =
-					"Los ingresos de Honorarios/PCL requieren seleccionar un cierre asociado.";
-			}
+			// Cierre asociado ya NO es obligatorio para ingresos de Honorarios/PCL —
+			// si se selecciona, el backend lo vincula y marca CHARGED; si no, se
+			// registra como transacción suelta.
 		}
 
 		if (!valid) {

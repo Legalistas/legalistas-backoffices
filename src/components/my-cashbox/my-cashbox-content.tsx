@@ -424,16 +424,9 @@ export default function MyCashboxContent() {
 			return;
 		}
 
-		// Ingresos de honorarios (fee) o PCL requieren cierre asociado (el backend
-		// lo valida también, pero mostramos el error temprano acá).
-		const isPayableIngreso =
-			newType === "income" && (newSubtype === "fee" || newSubtype === "pcl");
-		if (isPayableIngreso && !newClosingId) {
-			toast.error(
-				`Los ingresos de ${newSubtype === "fee" ? "Honorarios" : "PCL"} requieren seleccionar un cierre asociado.`,
-			);
-			return;
-		}
+		// Cierre asociado ya NO es obligatorio para ingresos de Honorarios/PCL —
+		// si se selecciona, el backend lo vincula al Closing y lo marca CHARGED;
+		// si no, se registra como transacción suelta.
 
 		setLoading(true);
 
