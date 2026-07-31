@@ -56,6 +56,7 @@ import {
 	Table,
 	TableBody,
 	TableCell,
+	TableHead,
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
@@ -611,9 +612,14 @@ export default function CashBoxPage() {
 				userMap.set(user.id, {
 					id: user.id,
 					name: user.name,
-					avatar: user?.image?.startsWith("http")
-						? user?.image
-						: `${process.env.NEXT_PUBLIC_BACKEND_URL}${user?.image || ""}`,
+					// Sin `image` no se puede armar una URL válida: el template daría
+					// el host pelado (`https://backend.legalistas.ar`), que next/image
+					// rechaza por no matchear ningún remotePattern.
+					avatar: user?.image
+						? user.image.startsWith("http")
+							? user.image
+							: `${process.env.NEXT_PUBLIC_BACKEND_URL}${user.image}`
+						: "/placeholder.svg",
 					totalBalance: 0,
 					income: 0,
 					expenses: 0,
@@ -680,8 +686,17 @@ export default function CashBoxPage() {
 				(u) => u.totalBalance !== 0 || u.income > 0 || u.expenses > 0,
 			);
 
+			// Usuarios que no vienen en `apiUsers` (esa lista excluye a los
+			// abogados representantes) se ocultan de la tabla, pero sus montos
+			// siguen sumando en los totales de abajo. Por eso los totales se
+			// calculan sobre `filteredUserBalances` y no sobre los visibles.
+			const knownUserIds = new Set(apiUsers.map((u) => Number(u.id)));
+			const visibleUserBalances = filteredUserBalances.filter((u) =>
+				knownUserIds.has(Number(u.id)),
+			);
+
 			setCalculatedUserBalances(
-				filteredUserBalances.sort((a, b) => a.name.localeCompare(b.name)),
+				visibleUserBalances.sort((a, b) => a.name.localeCompare(b.name)),
 			);
 			setTotalCalculatedUsersBalance(
 				filteredUserBalances.reduce((sum, u) => sum + u.totalBalance, 0),
@@ -1462,15 +1477,16 @@ export default function CashBoxPage() {
 						Ver Movimientos Detallados
 					</Button>
 				</div>
-				<Card className="overflow-hidden">
-					<Table className="w-full">
-						<TableHeader>
-							<TableRow className="bg-muted/40 hover:bg-muted/40">
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-left">Miembro</TableCell>
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Saldo Total</TableCell>
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Ingresos</TableCell>
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Gastos</TableCell>
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right w-25" />
+				{/* Sin <Card>: el propio <Table> ya aporta borde, redondeo y sombra;
+				    envolverlo duplicaba el marco y agregaba el py-6 de la Card. */}
+				<Table className="w-full">
+					<TableHeader>
+							<TableRow className="hover:bg-transparent">
+								<TableHead className="px-6 py-3 uppercase tracking-wider">Miembro</TableHead>
+								<TableHead className="px-6 py-3 uppercase tracking-wider text-right">Saldo Total</TableHead>
+								<TableHead className="px-6 py-3 uppercase tracking-wider text-right">Ingresos</TableHead>
+								<TableHead className="px-6 py-3 uppercase tracking-wider text-right">Gastos</TableHead>
+								<TableHead className="px-6 py-3 w-25" />
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -1481,7 +1497,7 @@ export default function CashBoxPage() {
 										className="group transition-colors hover:bg-muted/30 cursor-pointer"
 										onClick={() => router.push(`/admin/cashbox/${user.id}`)}
 									>
-										<TableCell className="px-4 py-2.5">
+										<TableCell className="px-6 py-3">
 											<div className="flex items-center gap-3">
 												<Image
 													src={user.avatar || "/placeholder.svg"}
@@ -1493,16 +1509,16 @@ export default function CashBoxPage() {
 												<span className="text-sm font-medium">{user.name}</span>
 											</div>
 										</TableCell>
-										<TableCell className={cn("px-4 py-2.5 text-sm text-right font-semibold tabular-nums", user.totalBalance >= 0 ? "text-green-600" : "text-red-600")}>
+										<TableCell className={cn("px-6 py-3 text-sm text-right font-semibold tabular-nums", user.totalBalance >= 0 ? "text-green-600" : "text-red-600")}>
 											{formatCurrency(user.totalBalance)}
 										</TableCell>
-										<TableCell className="px-4 py-2.5 text-sm text-right text-green-600 tabular-nums">
+										<TableCell className="px-6 py-3 text-sm text-right text-green-600 tabular-nums">
 											{formatCurrency(user.income)}
 										</TableCell>
-										<TableCell className="px-4 py-2.5 text-sm text-right text-red-600 tabular-nums">
+										<TableCell className="px-6 py-3 text-sm text-right text-red-600 tabular-nums">
 											{formatCurrency(user.expenses)}
 										</TableCell>
-										<TableCell className="px-4 py-2.5 text-right">
+										<TableCell className="px-6 py-3 text-right">
 											<Button
 												variant="ghost"
 												size="sm"
@@ -1526,21 +1542,20 @@ export default function CashBoxPage() {
 								</TableRow>
 							)}
 							<TableRow className="bg-muted/40 hover:bg-muted/40 border-t-2">
-								<TableCell className="px-4 py-2.5 text-sm font-bold">Totales</TableCell>
-								<TableCell className={cn("px-4 py-2.5 text-sm text-right font-bold tabular-nums", totalCalculatedUsersBalance >= 0 ? "text-green-700" : "text-red-700")}>
+								<TableCell className="px-6 py-3 text-sm font-bold">Totales</TableCell>
+								<TableCell className={cn("px-6 py-3 text-sm text-right font-bold tabular-nums", totalCalculatedUsersBalance >= 0 ? "text-green-700" : "text-red-700")}>
 									{formatCurrency(totalCalculatedUsersBalance)}
 								</TableCell>
-								<TableCell className="px-4 py-2.5 text-sm text-right font-bold text-green-700 tabular-nums">
+								<TableCell className="px-6 py-3 text-sm text-right font-bold text-green-700 tabular-nums">
 									{formatCurrency(totalCalculatedUsersIncome)}
 								</TableCell>
-								<TableCell className="px-4 py-2.5 text-sm text-right font-bold text-red-700 tabular-nums">
+								<TableCell className="px-6 py-3 text-sm text-right font-bold text-red-700 tabular-nums">
 									{formatCurrency(totalCalculatedUsersExpenses)}
 								</TableCell>
-								<TableCell />
+								<TableCell className="px-6 py-3" />
 							</TableRow>
 						</TableBody>
 					</Table>
-				</Card>
 			</div>
 
 			{/* Main Content Grid */}
