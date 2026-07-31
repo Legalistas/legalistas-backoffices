@@ -39,7 +39,9 @@ function GoogleCallbackContent() {
 				if (!res.ok) {
 					const errorData = await res.json().catch(() => ({}));
 					console.error("[Google Calendar] Backend error:", res.status, errorData);
-					throw new Error(errorData.error || `Error ${res.status}`);
+					throw new Error(
+						errorData.detail || errorData.error || `Error ${res.status}`,
+					);
 				}
 				return res.json();
 			})
@@ -70,6 +72,7 @@ function GoogleCallbackContent() {
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
+							aria-hidden="true"
 						>
 							<path
 								strokeLinecap="round"
@@ -87,6 +90,7 @@ function GoogleCallbackContent() {
 							fill="none"
 							stroke="currentColor"
 							viewBox="0 0 24 24"
+							aria-hidden="true"
 						>
 							<path
 								strokeLinecap="round"
