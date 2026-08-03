@@ -64,23 +64,28 @@ export default function LeadCard({ lead, onEdit, onDelete }: LeadCardProps) {
 		return channel ? channel.name : `Canal ${sourceChannelId}`;
 	};
 
-	// Get user location from userAddresses
+	/**
+	 * Ubicación de la oportunidad.
+	 *
+	 * Prioridad: provincia/ciudad DEL LEAD (KPIs v1.1, punto 7) → dirección
+	 * del cliente. El dato del lead siempre gana: la dirección del cliente
+	 * es su domicilio particular y el caso puede ser de otra localidad.
+	 */
 	const getUserLocation = () => {
-		if (!lead.user?.userAddresses || lead.user.userAddresses.length === 0) {
-			return "-";
-		}
-
-		// Buscar dirección por defecto o la primera
 		const defaultAddress =
-			lead.user.userAddresses.find((addr) => addr.isDefault) ||
-			lead.user.userAddresses[0];
+			lead.user?.userAddresses?.find((addr) => addr.isDefault) ||
+			lead.user?.userAddresses?.[0];
 
-		if (!defaultAddress) return "-";
+		const province = lead.state?.name || defaultAddress?.state?.name;
+		const city =
+			lead.city?.name ||
+			defaultAddress?.locality?.name ||
+			defaultAddress?.city?.trim();
 
-		const province = defaultAddress.state?.name || "Estado desconocido";
-		const city = defaultAddress.city?.trim();
-
-		return `${province}${city ? ` - ${city}` : " - -"}`;
+		if (!province && !city) return "—";
+		if (!city) return province;
+		if (!province) return city;
+		return `${province} - ${city}`;
 	};
 
 	const formatWhatsAppPhone = (phone: string): string => {

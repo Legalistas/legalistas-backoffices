@@ -33,55 +33,75 @@ export const CRM_COLUMNS: CRMColumn[] = [
   { id: "11", title: "Archivados" },
 ];
 
-export const SOURCE_CHANNEL = [
+type SourceChannel = {
+  id: number;
+  name: string;
+  /** false = no se ofrece al cargar un lead, pero sí resuelve nombre en históricos. */
+  active: boolean;
+};
+
+// Catálogo de canales de ingreso.
+//
+// FUENTE DE VERDAD: "Requerimientos de Sistemas — KPIs de Ventas v1.1"
+// (Legalistas, 01/08/2026), punto 6.2. Orden del doc: Telemarketing primero
+// por volumen, Otros al final.
+//
+// ESPEJO EXACTO de `legalistas_backend/src/constants/sourceChannel.ts`.
+// Si tocás uno, tocá el otro.
+//
+// Los `id` NO se cambian nunca (hay leads históricos apuntando a ellos):
+// el id 1 se renombró Website → Formulario, es el mismo canal.
+export const SOURCE_CHANNEL: SourceChannel[] = [
+  { id: 2, name: "Telemarketing", active: true },
+  { id: 3, name: "Facebook", active: true },
+  { id: 4, name: "Instagram", active: true },
+  { id: 11, name: "TikTok", active: true },
+  { id: 13, name: "Pauta", active: true },
+  // ex "Website". Canal general: puede venir de SEO o SEM (no se divide).
+  { id: 1, name: "Formulario", active: true },
+  // Recomendación de un conocido, fuera del plan de referidos.
+  { id: 8, name: "Referido", active: true },
+  { id: 14, name: "Plan de referidos", active: true },
+  // Canal general: puede venir de SEO o SEM (no se divide).
+  { id: 5, name: "Google", active: true },
+  { id: 6, name: "Whatsapp", active: true },
+  { id: 7, name: "Radio", active: true },
+  { id: 12, name: "Bot Precalificación", active: true },
+  { id: 10, name: "Otros", active: true },
+  // Discontinuado (nunca hubo ventas). Solo lectura de históricos.
+  { id: 9, name: "Correo Electrónico", active: false },
+];
+
+// Motivos de pérdida de una oportunidad.
+//
+// FUENTE DE VERDAD: "KPIs de Ventas v1.1", punto 5. Clasificación FIJA —
+// el módulo reporta el total de perdidos por cada motivo, así que sumar
+// valores sin aprobación de Dirección rompe la comparación mes a mes.
+//
+// ESPEJO de `legalistas_backend/src/constants/lostReasons.ts`.
+export type LostReasonValue =
+  | "PRESCRIPTO"
+  | "YA_TIENE_ABOGADO"
+  | "SIN_COBERTURA"
+  | "DESESTIMO"
+  | "OTROS";
+
+type LostReason = {
+  value: LostReasonValue;
+  label: string;
+  /** Pide detalle libre obligatorio. */
+  requiresNotes?: boolean;
+};
+
+export const LOST_REASONS: LostReason[] = [
+  { value: "PRESCRIPTO", label: "Caso prescrito" },
+  { value: "YA_TIENE_ABOGADO", label: "Ya tiene abogado" },
+  { value: "SIN_COBERTURA", label: "No tiene ART / seguro / cobertura" },
   {
-    id: 1,
-    name: "Website",
+    value: "DESESTIMO",
+    label: "Desestimó el servicio / no quiere avanzar el trámite",
   },
-  {
-    id: 2,
-    name: "Telemarketing",
-  },
-  {
-    id: 3,
-    name: "Facebook",
-  },
-  {
-    id: 4,
-    name: "Instagram",
-  },
-  {
-    id: 5,
-    name: "Google",
-  },
-  {
-    id: 6,
-    name: "Whatsapp",
-  },
-  {
-    id: 7,
-    name: "Radio",
-  },
-  {
-    id: 8,
-    name: "Referido",
-  },
-  {
-    id: 9,
-    name: "Correo Electrónico",
-  },
-  {
-    id: 10,
-    name: "Otros",
-  },
-  {
-    id: 11,
-    name: "TikTok",
-  },
-  {
-    id: 12,
-    name: "Bot Precalificación",
-  },
+  { value: "OTROS", label: "Otros", requiresNotes: true },
 ];
 
 export const SERVICES_TYPE: ServiceType[] = [

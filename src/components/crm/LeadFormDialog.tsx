@@ -12,6 +12,7 @@ import {
 	LEADS_ENDPOINT,
 	SELLERS_ENDPOINT,
 } from "@/constant/api-endpoints";
+import ProvinceCitySelect from "@/components/common/ProvinceCitySelect";
 import { ART_COMPANIES, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
 import { getCrmStoragePrefix } from "@/constant/storage-structure";
 import { Role } from "@/constant/user";
@@ -92,6 +93,11 @@ export default function LeadFormDialog({
 		artId: null as number | null,
 		insuranceId: null as number | null,
 		injury: "",
+		// Provincia / localidad de la oportunidad (KPIs v1.1, punto 7).
+		// Propias del lead: antes se derivaban de la dirección del cliente,
+		// que la mayoría de las oportunidades abiertas no tiene cargada.
+		stateId: null as number | null,
+		cityId: null as number | null,
 	});
 	const router = useRouter();
 	const [searchQuery, setSearchQuery] = useState("");
@@ -246,6 +252,8 @@ export default function LeadFormDialog({
 				artId: lead.artId ?? null,
 				insuranceId: lead.insuranceId ?? null,
 				injury: lead.injury || "",
+				stateId: lead.stateId ?? null,
+				cityId: lead.cityId ?? null,
 			});
 			if (lead.user) {
 				setSearchQuery(lead.user.name);
@@ -269,6 +277,8 @@ export default function LeadFormDialog({
 				artId: null,
 				insuranceId: null,
 				injury: "",
+				stateId: null,
+				cityId: null,
 			});
 			setSearchQuery("");
 			setSelectedCustomerName("");
@@ -387,6 +397,8 @@ export default function LeadFormDialog({
 				artId: formData.artId || null,
 				insuranceId: formData.insuranceId || null,
 				injury: formData.injury || null,
+				stateId: formData.stateId ?? null,
+				cityId: formData.cityId ?? null,
 			};
 
 			const isCreating = !lead?.id;
@@ -690,13 +702,28 @@ export default function LeadFormDialog({
 										<SelectValue placeholder="Seleccionar canal" />
 									</SelectTrigger>
 									<SelectContent>
-										{SOURCE_CHANNEL.map((c) => (
+										{/* Solo canales activos: los discontinuados siguen
+										    resolviendo nombre en leads viejos, pero no se
+										    ofrecen para cargar uno nuevo. */}
+										{SOURCE_CHANNEL.filter((c) => c.active).map((c) => (
 											<SelectItem key={c.id} value={String(c.id)}>
 												{c.name}
 											</SelectItem>
 										))}
 									</SelectContent>
 								</Select>
+							</div>
+
+							{/* Provincia y localidad de la oportunidad. Alimentan las
+							    métricas por provincia del módulo de KPIs. */}
+							<div className="sm:col-span-2">
+								<ProvinceCitySelect
+									stateId={formData.stateId}
+									cityId={formData.cityId}
+									onChange={({ stateId, cityId }) =>
+										setFormData((prev) => ({ ...prev, stateId, cityId }))
+									}
+								/>
 							</div>
 
 							<div className="space-y-2">

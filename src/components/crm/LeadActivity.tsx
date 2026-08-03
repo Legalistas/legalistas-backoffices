@@ -78,7 +78,12 @@ export default function LeadActivity({ lead }: LeadActivityProps) {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${session?.user?.accessToken}`,
 					},
-					body: JSON.stringify({ confirmationStatus: "COMPLETED" }),
+					// `realizada` es el dato que cuenta en el KPI (asistencia
+					// real); COMPLETED se mantiene por el flujo de confirmación.
+					body: JSON.stringify({
+						confirmationStatus: "COMPLETED",
+						realizada: true,
+					}),
 				},
 			);
 			if (!response.ok) {
@@ -180,7 +185,7 @@ export default function LeadActivity({ lead }: LeadActivityProps) {
 								</TableCell>
 								<TableCell>{meeting.user?.name || "-"}</TableCell>
 								<TableCell className="text-right flex items-center justify-end gap-1">
-									{meeting.confirmationStatus === "COMPLETED" ? (
+									{meeting.realizada ? (
 										<span
 											className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-700"
 											title="Reunión ya marcada como realizada — cuenta en el KPI"

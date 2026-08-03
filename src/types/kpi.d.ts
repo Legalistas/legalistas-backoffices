@@ -8,6 +8,11 @@ export interface ManualKpiDef {
 	area: ManualKpiArea;
 	periodType: ManualKpiPeriod;
 	perUser: boolean;
+	/**
+	 * Se carga un valor POR PROVINCIA (KPIs v1.1, punto 7.4) en vez de uno
+	 * global. Estos KPIs no usan el form genérico: van en su propia grilla.
+	 */
+	perProvince?: boolean;
 	description?: string;
 }
 
@@ -19,6 +24,9 @@ export interface ManualKpiEntry {
 	periodStart: string; // ISO date
 	periodEnd: string; // ISO date
 	userId: number | null;
+	/** Provincia del valor. null = valor global (todos los demás KPIs). */
+	stateId?: number | null;
+	state?: { id: number; name: string } | null;
 	value: number | string; // Decimal viene como string desde Prisma
 	notes: string | null;
 	createdById: number;

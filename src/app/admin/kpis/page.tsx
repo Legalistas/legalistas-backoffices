@@ -15,9 +15,11 @@ import {
 	exportMatrixToExcel,
 	exportMatrixToPdf,
 } from "@/components/kpis/exportKpiMatrix";
+import CityBreakdownTable from "@/components/kpis/CityBreakdownTable";
 import KpiMatrix from "@/components/kpis/KpiMatrix";
 import KpiSummary from "@/components/kpis/KpiSummary";
 import ManualKpiPanel from "@/components/kpis/ManualKpiPanel";
+import ProvinceConsultsGrid from "@/components/kpis/ProvinceConsultsGrid";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -466,6 +468,17 @@ export default function KpisPage() {
 							matrixGranularity === "week" ? "TOTAL MES" : undefined
 						}
 					/>
+
+					{/* Detalle por ciudad (punto 7.3 del doc): fuera de la planilla
+					    principal, buscable. Solo aplica a Ventas. */}
+					{department === "sales" && (
+						<>
+							<CityBreakdownTable year={year} mode={matrixMode} />
+							{/* Consultas orgánicas/pagas por provincia (punto 7.4).
+							    Acá en modo lectura; la carga vive en "Cargar valores". */}
+							<ProvinceConsultsGrid year={year} month={month} readOnly />
+						</>
+					)}
 				</>
 			)}
 

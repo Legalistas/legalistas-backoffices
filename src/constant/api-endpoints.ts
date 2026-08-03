@@ -335,6 +335,8 @@ export const SETTINGS_JURISDICTIONS_EXPORT_EXCEL_ENDPOINT = `${API_BASE_URL}/set
 export const UPLOAD_ENDPOINT = `${API_BASE_URL}/upload`;
 export const SETTINGS_HOLIDAY_ENDPOINT = `${API_BASE_URL}/settings/holidays`;
 export const SETTINGS_COUNTRIES_ENDPOINT = `${API_BASE_URL}/settings/countries`;
+// Localidades por provincia: `${SETTINGS_STATES_ENDPOINT}/${stateId}/localities`
+export const SETTINGS_STATES_ENDPOINT = `${API_BASE_URL}/settings/states`;
 export const SETTINGS_ROLES_ENDPOINT = `${API_BASE_URL}/settings/roles`;
 export const SETTINGS_DEADLINE_TYPES_ENDPOINT = `${API_BASE_URL}/settings/deadline-types`;
 

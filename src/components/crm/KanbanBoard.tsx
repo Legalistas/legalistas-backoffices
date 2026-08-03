@@ -37,7 +37,7 @@ import {
 	SELLERS_ENDPOINT,
 	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { CRM_COLUMNS } from "@/constant/crm";
+import { CRM_COLUMNS, type LostReasonValue } from "@/constant/crm";
 import { Role } from "@/constant/user";
 import { servicesType } from "@/lib/constant";
 import { sendStageEmail } from "@/lib/send-stage-email";
@@ -50,6 +50,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Can from "../auth/Can";
 import { exportLeadsExcel } from "./exportLeadsExcel";
 import KanbanList from "./KanbanList";
+import LostReasonDialog from "./LostReasonDialog";
+
+/** Columna "Perdida" — el backend valida el motivo con este mismo id. */
+const LOST_COLUMN_ID = 10;
 
 const columnConfig: Record<string, { bg: string; color: string; borderColor: string; icon: typeof FileText }> = {
 	"1":  { bg: "bg-sky-50", color: "text-sky-700", borderColor: "border-sky-200", icon: MessageSquare },
@@ -79,6 +83,8 @@ export default function KanbanBoard() {
 	const [leads, setLeads] = useState<Lead[]>([]);
 	const [isFormOpen, setIsFormOpen] = useState(false);
 	const [currentLead, setCurrentLead] = useState<Lead | null>(null);
+	// Lead arrastrado a "Perdida" esperando que se elija el motivo.
+	const [pendingLoss, setPendingLoss] = useState<Lead | null>(null);
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -470,24 +476,51 @@ export default function KanbanBoard() {
 			return;
 		}
 
+		// Perdida: el motivo es obligatorio, así que no se mueve nada hasta
+		// que la vendedora lo elija. La tarjeta queda en su columna original
+		// (no hacemos update optimista) y el commit lo dispara el modal.
+		if (destination.droppableId === String(LOST_COLUMN_ID)) {
+			setPendingLoss(leadBeingDragged);
+			return;
+		}
+
 		let newStatus: "WON" | "LOST" | "IN_PROGRESS" = leadBeingDragged.status;
 		if (destination.droppableId === "9") {
 			newStatus = "WON";
-		} else if (destination.droppableId === "10") {
-			newStatus = "LOST";
 		} else if (
 			["1", "2", "3", "4", "5", "6", "8", "12"].includes(destination.droppableId)
 		) {
 			newStatus = "IN_PROGRESS";
 		}
 
-		const newColumnId = Number.parseInt(destination.droppableId);
-		const updatedLeads = leads.map((lead) =>
-			lead.id.toString() === draggableId
-				? { ...lead, status: newStatus, columnId: newColumnId }
-				: lead,
+		await commitColumnChange(
+			leadBeingDragged,
+			Number.parseInt(destination.droppableId),
+			newStatus,
 		);
-		setLeads(updatedLeads);
+	};
+
+	/**
+	 * Mueve el lead de columna: update optimista, PATCH y efectos laterales
+	 * (mail de etapa, carpeta MinIO, caso creado al ganar). Si el backend
+	 * rechaza, revierte.
+	 */
+	const commitColumnChange = async (
+		leadBeingDragged: Lead,
+		newColumnId: number,
+		newStatus: "WON" | "LOST" | "IN_PROGRESS",
+		lostReason?: LostReasonValue,
+		lostReasonNotes?: string,
+	): Promise<boolean> => {
+		const draggableId = leadBeingDragged.id.toString();
+		const previousLeads = leads;
+		setLeads(
+			leads.map((lead) =>
+				lead.id.toString() === draggableId
+					? { ...lead, status: newStatus, columnId: newColumnId }
+					: lead,
+			),
+		);
 
 		try {
 			const res = await fetch(`${LEADS_ENDPOINT}/${draggableId}/column`, {
@@ -500,9 +533,18 @@ export default function KanbanBoard() {
 					columnId: newColumnId,
 					status: newStatus,
 					userId: session?.user?.id,
+					...(lostReason && { lostReason, lostReasonNotes }),
 				}),
 			});
 			const payload = await res.json().catch(() => null);
+
+			if (!res.ok) {
+				setLeads(previousLeads);
+				toast.error(
+					payload?.message || payload?.error || "No se pudo mover la oportunidad",
+				);
+				return false;
+			}
 
 			// Enviar email de notificación (no bloquea el flujo)
 			sendStageEmail({
@@ -541,9 +583,30 @@ export default function KanbanBoard() {
 			} else {
 				toast.success("Etapa actualizada correctamente");
 			}
+			return true;
 		} catch (error) {
 			console.error("Error actualizando lead en backend:", error);
+			setLeads(previousLeads);
+			toast.error("Error de conexión al mover la oportunidad");
+			return false;
 		}
+	};
+
+	const handleConfirmLoss = async (
+		reason: LostReasonValue,
+		notes: string,
+	) => {
+		if (!pendingLoss) return;
+		const ok = await commitColumnChange(
+			pendingLoss,
+			LOST_COLUMN_ID,
+			"LOST",
+			reason,
+			notes,
+		);
+		// Si falló se deja el modal abierto para reintentar sin volver a
+		// arrastrar la tarjeta.
+		if (ok) setPendingLoss(null);
 	};
 
 	const handleAddLead = () => {
@@ -820,6 +883,13 @@ export default function KanbanBoard() {
 				open={isFormOpen}
 				onOpenChange={setIsFormOpen}
 				lead={currentLead}
+			/>
+
+			<LostReasonDialog
+				open={pendingLoss !== null}
+				leadName={pendingLoss?.name || pendingLoss?.user?.name}
+				onCancel={() => setPendingLoss(null)}
+				onConfirm={handleConfirmLoss}
 			/>
 		</div>
 	);

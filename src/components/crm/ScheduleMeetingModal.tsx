@@ -125,9 +125,12 @@ export default function ScheduleMeetingModal({
 				}).catch((err) => console.error("[Meeting Email]", err));
 			}
 
+			// `data` es el sobre de la respuesta ({ message, meeting, ... }).
+			// Hay que apilar la reunión, no el sobre: si no, la fila queda sin
+			// date/type/abogado y se ve "Invalid Date" hasta recargar.
 			onLeadUpdate({
 				...lead,
-				crmMeetings: [...(lead.crmMeetings || []), data],
+				crmMeetings: [...(lead.crmMeetings || []), data.meeting],
 			});
 			router.push(`/admin/crm/leads/${lead.id}`);
 			toast.success("Reunión programada correctamente");

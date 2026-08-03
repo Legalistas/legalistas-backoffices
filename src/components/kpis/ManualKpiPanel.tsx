@@ -11,6 +11,7 @@ import {
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import ProvinceConsultsGrid from "@/components/kpis/ProvinceConsultsGrid";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -161,10 +162,24 @@ export default function ManualKpiPanel() {
 		fetchEntries();
 	}, [fetchEntries]);
 
+	// Los KPIs por provincia (punto 7.4) no entran en el form genérico: son
+	// 24 valores por métrica y van en su propia grilla, más abajo.
 	const kpisOfArea = useMemo(
-		() => catalog.filter((k) => k.area === area),
+		() => catalog.filter((k) => k.area === area && !k.perProvince),
 		[catalog, area],
 	);
+
+	const hasProvinceKpis = useMemo(
+		() => catalog.some((k) => k.area === area && k.perProvince),
+		[catalog, area],
+	);
+
+	// La grilla de consultas es mensual: se ubica por el mes de la fecha de
+	// referencia que ya eligió el usuario arriba.
+	const refMonth = useMemo(() => {
+		const d = new Date(referenceDate);
+		return { year: d.getFullYear(), month: d.getMonth() + 1 };
+	}, [referenceDate]);
 
 	const handleDelete = async (entry: ManualKpiEntry) => {
 		const ok = await confirm({
@@ -229,6 +244,13 @@ export default function ManualKpiPanel() {
 					/>
 				))}
 			</div>
+
+			{/* Consultas orgánicas/pagas por provincia (punto 7.4). Grilla
+			    aparte: son 2 métricas × 24 provincias, no entran en el form
+			    genérico de un valor. */}
+			{hasProvinceKpis && (
+				<ProvinceConsultsGrid year={refMonth.year} month={refMonth.month} />
+			)}
 
 			{/* Historial reciente */}
 			<Card>
