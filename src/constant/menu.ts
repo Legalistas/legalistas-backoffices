@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarDays,
   ChartArea,
+  FolderCog,
   HardDrive,
   Handshake,
   Landmark,
@@ -286,6 +287,15 @@ export const MENU_SECTIONS: MenuSection[] = [
         icon: HardDrive,
         name: "Archivos",
         path: "/admin/file-manager",
+        roles: SUPERADMIN,
+      },
+      {
+        // Panel de mantenimiento del árbol de carpetas: health, bootstrap
+        // de representantes, backfill de casos sin carpeta y resync
+        // individual. La pantalla existía pero no estaba enlazada.
+        icon: FolderCog,
+        name: "Carpetas MinIO",
+        path: "/admin/minio",
         roles: SUPERADMIN,
       },
       {
