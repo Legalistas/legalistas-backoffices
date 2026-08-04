@@ -13,15 +13,13 @@ import {
 	SelectItem,
 	SelectTrigger,
 } from "@/components/ui/select";
-import {
-	CLOSING_BY_ID_ENDPOINT,
-	CLOSINGS_CHARGE_COLLECTORS_ENDPOINT,
-} from "@/constant/api-endpoints";
+import { CLOSING_BY_ID_ENDPOINT } from "@/constant/api-endpoints";
 import {
 	closingType,
 	statusCapital,
 	statusData,
 } from "@/constant/closing-manager";
+import { cn } from "@/lib/utils";
 import type {
 	ChargeCollector,
 	ClosingManagerEntry,
@@ -29,6 +27,11 @@ import type {
 
 const inputClass =
 	"w-full h-11 px-3 rounded-lg border border-input bg-background text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all";
+
+// Estado COBRADOS en verde, para que se vea de un vistazo qué ya entró.
+// Mismo criterio de color que el badge de la tabla (statusColors.CHARGED).
+const chargedTriggerClass =
+	"border-green-500 bg-green-50 text-green-800 font-medium dark:border-green-700 dark:bg-green-900/20 dark:text-green-300";
 
 const readOnlyClass =
 	"w-full h-11 px-3 rounded-lg border border-border bg-muted text-sm outline-none cursor-default";
@@ -68,9 +71,6 @@ export default function EditClosingPage() {
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
 	const [pclChargedAt, setPclChargedAt] = useState("");
 	const [pclChargedById, setPclChargedById] = useState<string>("");
-	const [chargeCollectors, setChargeCollectors] = useState<ChargeCollector[]>(
-		[],
-	);
 	const [contributionsAmount, setContributionsAmount] = useState("0");
 	const [applyContributions, setApplyContributions] = useState(true);
 	const [aportesRepresentantePercent, setAportesRepresentantePercent] =
@@ -113,26 +113,29 @@ export default function EditClosingPage() {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [pclStatus]);
 
-	// Fetch de cobradores eligibles al mount.
-	useEffect(() => {
-		if (!session?.user?.accessToken) return;
-		let cancelled = false;
-		(async () => {
-			try {
-				const res = await fetch(CLOSINGS_CHARGE_COLLECTORS_ENDPOINT, {
-					headers: { Authorization: `Bearer ${session.user.accessToken}` },
-				});
-				if (!res.ok) return;
-				const data: ChargeCollector[] = await res.json();
-				if (!cancelled) setChargeCollectors(data);
-			} catch (err) {
-				console.error("[edit closing] charge collectors:", err);
-			}
-		})();
-		return () => {
-			cancelled = true;
+	// Cobradores eligibles: los dos abogados del caso (responsable e interno),
+	// que ya vienen en la respuesta del cierre — no hace falta pedir nada más.
+	// Se suman los que ya figuran cargados en el cierre para no perder valores
+	// históricos si el cobro lo registró alguien que hoy no es ninguno de los dos.
+	const chargeCollectors = useMemo<ChargeCollector[]>(() => {
+		if (!closing) return [];
+		const byId = new Map<number, ChargeCollector>();
+		const add = (
+			person: ChargeCollector | null | undefined,
+			role?: string,
+		) => {
+			if (!person?.id || byId.has(person.id)) return;
+			byId.set(person.id, {
+				...person,
+				name: role ? `${person.name} (${role})` : person.name,
+			});
 		};
-	}, [session?.user?.accessToken]);
+		add(closing.case?.responsibleLawyer, "Responsable");
+		add(closing.case?.internalLawyer, "Interno");
+		add(closing.hpChargedBy);
+		add(closing.pclChargedBy);
+		return [...byId.values()];
+	}, [closing]);
 
 	// Calculated fields
 	const calc = useMemo(() => {
@@ -452,7 +455,12 @@ export default function EditClosingPage() {
 								Estado Honorarios <span className="text-destructive">*</span>
 							</label>
 							<Select value={feeStatus} onValueChange={setFeeStatus}>
-								<SelectTrigger className="h-11">
+								<SelectTrigger
+									className={cn(
+										"h-11",
+										feeStatus === "CHARGED" && chargedTriggerClass,
+									)}
+								>
 									<span className="truncate">
 										{statusData[feeStatus as keyof typeof statusData] ||
 											"Seleccione"}
@@ -788,7 +796,12 @@ export default function EditClosingPage() {
 								Estado PCL
 							</label>
 							<Select value={pclStatus} onValueChange={setPclStatus}>
-								<SelectTrigger className="h-11">
+								<SelectTrigger
+									className={cn(
+										"h-11",
+										pclStatus === "CHARGED" && chargedTriggerClass,
+									)}
+								>
 									<span className="truncate">
 										{statusData[pclStatus as keyof typeof statusData] ||
 											"Seleccione"}

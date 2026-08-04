@@ -263,7 +263,7 @@ export default function ViewClosingModal({
 					{/* HP Section */}
 					<SectionCard
 						title="Honorarios Pactados (HP)"
-						color="blue"
+						color={closing.feeStatus === "CHARGED" ? "green" : "blue"}
 						distribution={closing.hpDistribution}
 						items={[
 							{ label: "Convenido", value: formatPercent(closing.hpAgreed) },
@@ -287,7 +287,7 @@ export default function ViewClosingModal({
 					{/* PCL Section */}
 					<SectionCard
 						title="Pacto de Cuota Litis (PCL)"
-						color="violet"
+						color={closing.pclStatus === "CHARGED" ? "green" : "violet"}
 						distribution={closing.pclDistribution}
 						items={[
 							{ label: "Convenido", value: formatPercent(closing.pclAgreed) },
@@ -392,6 +392,14 @@ const sectionColors = {
 		badge: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300",
 		highlight: "text-amber-700 dark:text-amber-400",
 	},
+	// Se usa para HP/PCL cuando el concepto ya está cobrado (CHARGED).
+	green: {
+		bg: "bg-green-50 dark:bg-green-900/20",
+		border: "border-green-200 dark:border-green-800",
+		title: "text-green-700 dark:text-green-400",
+		badge: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300",
+		highlight: "text-green-700 dark:text-green-400",
+	},
 };
 
 function SectionCard({
@@ -402,7 +410,7 @@ function SectionCard({
 	items,
 }: {
 	title: string;
-	color: "blue" | "violet" | "amber";
+	color: "blue" | "violet" | "amber" | "green";
 	distribution: boolean;
 	distributionLabel?: string;
 	items: SectionItem[];

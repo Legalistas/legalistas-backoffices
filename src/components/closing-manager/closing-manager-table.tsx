@@ -156,6 +156,15 @@ export default function ClosingManagerTable({
 		return feeOk && pclOk;
 	};
 
+	// Los importes se muestran en verde cuando su concepto ya está cobrado, para
+	// distinguir de un vistazo la plata que entró de la que todavía se espera.
+	// HP y PCL se evalúan por separado: uno puede estar cobrado y el otro no.
+	const amountClass = (charged: boolean) =>
+		cn(
+			"text-right block",
+			charged && "text-green-600 dark:text-green-400 font-semibold",
+		);
+
 
 	// =========================================================================
 	// Formatters
@@ -353,14 +362,14 @@ export default function ClosingManagerTable({
 
 			case "hpTotal":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.feeStatus === "CHARGED")}>
 						{formatCurrency(Number(closing.hpTotal))}
 					</span>
 				);
 
 			case "hpRepresentante":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.feeStatus === "CHARGED")}>
 						{formatCurrency(closing.hpRepresentante)}
 					</span>
 				);
@@ -372,7 +381,7 @@ export default function ClosingManagerTable({
 					: 0;
 				return (
 					<span
-						className="text-right block"
+						className={amountClass(closing.feeStatus === "CHARGED")}
 						title={
 							aportes > 0
 								? `HP Legalistas neto. Aportes restados: ${formatCurrency(aportes)}`
@@ -408,7 +417,7 @@ export default function ClosingManagerTable({
 
 			case "pclTotal":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.pclStatus === "CHARGED")}>
 						{closing.pclTotal != null
 							? formatCurrency(Number(closing.pclTotal))
 							: "-"}
@@ -417,14 +426,14 @@ export default function ClosingManagerTable({
 
 			case "pclRepresentante":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.pclStatus === "CHARGED")}>
 						{formatCurrency(closing.pclRepresentante)}
 					</span>
 				);
 
 			case "pclLegalistas":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.pclStatus === "CHARGED")}>
 						{formatCurrency(closing.pclLegalistas)}
 					</span>
 				);
