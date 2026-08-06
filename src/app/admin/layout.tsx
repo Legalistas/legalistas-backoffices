@@ -6,6 +6,7 @@ import type React from "react";
 import { useEffect } from "react";
 import { Toaster } from "sonner";
 import AttendanceChecker from "@/components/attendance/AttendanceChecker";
+import AnniversaryGreeting from "@/components/celebrations/AnniversaryGreeting";
 import FloatingChatBubble from "@/components/FloatingChatBubble";
 import Header from "@/components/layout/Header";
 import LayoutSidebar from "@/components/layout/Sidebar";
@@ -44,6 +45,7 @@ export default function AdminLayout({
 						<LayoutSidebar />
 						<SidebarInset>
 							<Header />
+							<AnniversaryGreeting />
 							<div className="flex-1 overflow-auto">
 								<div className="p-4 mx-auto max-w-screen-2xl md:p-6">
 									{children}
