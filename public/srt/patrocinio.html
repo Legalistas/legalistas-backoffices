@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Notificación y aceptación de patrocinio letrado</title>
+    <style>
+        :root {
+            --ink: #202020;
+            --gray: #666a6d;
+            --line: #2f3437;
+            --paper: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            background: #ececec;
+            color: var(--ink);
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            padding: 18px 0;
+        }
+
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            height: auto;
+            margin: 0 auto;
+            background: var(--paper);
+            padding: 13.5mm 13mm 12mm;
+            box-shadow: 0 2px 14px rgba(0, 0, 0, .14);
+            overflow: visible;
+        }
+
+        .frame {
+            min-height: calc(297mm - 25.5mm);
+            height: auto;
+            border: 1.3px solid var(--line);
+            padding: 8mm 11mm 8mm;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .title {
+            background: #707477;
+            color: #fff;
+            text-align: center;
+            font-family: "Times New Roman", Times, serif;
+            font-weight: 700;
+            font-size: 12.2pt;
+            line-height: 1;
+            letter-spacing: .15px;
+            padding: 4.2mm 4mm 3.8mm;
+            margin-bottom: 6mm;
+        }
+
+        p {
+            margin: 0 0 4.2mm;
+            font-size: 10.3pt;
+            line-height: 1.55;
+            text-align: justify;
+        }
+
+        .intro-2 {
+            margin-bottom: 3.7mm;
+        }
+
+        .form-body {
+            font-size: 10.3pt;
+            line-height: 1.75;
+        }
+
+        .form-row {
+            display: flex;
+            align-items: baseline;
+            flex-wrap: nowrap;
+            gap: 2.1mm;
+            margin-bottom: 1.1mm;
+            white-space: nowrap;
+        }
+
+        .form-row.wrap {
+            flex-wrap: wrap;
+            row-gap: .7mm;
+        }
+
+        .line-input {
+            border: 0;
+            border-bottom: 1px solid #5b5b5b;
+            outline: none;
+            height: 5.2mm;
+            min-width: 12mm;
+            padding: 0 1mm;
+            font: inherit;
+            color: #111;
+            background: transparent;
+        }
+
+        .line-input:focus {
+            border-bottom: 1.7px solid #222;
+        }
+
+        .grow {
+            flex: 1 1 auto;
+            min-width: 20mm;
+        }
+
+        .w-13 {
+            width: 13mm;
+        }
+
+        .w-18 {
+            width: 18mm;
+        }
+
+        .w-22 {
+            width: 22mm;
+        }
+
+        .w-25 {
+            width: 25mm;
+        }
+
+        .w-28 {
+            width: 28mm;
+        }
+
+        .w-32 {
+            width: 32mm;
+        }
+
+        .w-38 {
+            width: 38mm;
+        }
+
+        .w-45 {
+            width: 45mm;
+        }
+
+        .w-52 {
+            width: 52mm;
+        }
+
+        .w-60 {
+            width: 60mm;
+        }
+
+        .w-72 {
+            width: 72mm;
+        }
+
+        .w-84 {
+            width: 84mm;
+        }
+
+        .cuit-group {
+            display: inline-flex;
+            align-items: center;
+            gap: .65mm;
+            transform: translateY(1.1mm);
+        }
+
+        .cuit-box {
+            width: 6.1mm;
+            height: 6.1mm;
+            border: 1.2px solid #282828;
+            text-align: center;
+            font: 10pt Arial, sans-serif;
+            padding: 0;
+            outline: none;
+            background: #fff;
+        }
+
+        .legal-text {
+            margin-top: 1.7mm;
+            font-size: 10.2pt;
+            line-height: 1.65;
+            text-align: justify;
+        }
+
+        .signature-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25mm;
+            margin: 12mm 6mm 5mm;
+            text-align: center;
+            font-size: 9.6pt;
+        }
+
+        .signature-line {
+            border-top: 1px dotted #333;
+            padding-top: 2.1mm;
+        }
+
+        .verification-box {
+            border: 1px solid #363636;
+            margin: 0 2mm;
+            padding: 3.2mm 9mm 3.5mm;
+            min-height: 49mm;
+            font-size: 9.6pt;
+            position: relative;
+        }
+
+        .verification-title {
+            margin-bottom: 2.3mm;
+        }
+
+        .check-item {
+            display: flex;
+            align-items: center;
+            gap: 4mm;
+            margin: .8mm 0;
+        }
+
+        .check-item input[type="checkbox"] {
+            appearance: none;
+            width: 3.2mm;
+            height: 3.2mm;
+            border: 1px solid #333;
+            margin: 0;
+            background: #fff;
+        }
+
+        .check-item input[type="checkbox"]:checked::after {
+            content: "✓";
+            display: block;
+            font-size: 9pt;
+            line-height: 2.6mm;
+            text-align: center;
+            font-weight: 700;
+        }
+
+        .official-signature {
+            position: absolute;
+            right: 4mm;
+            bottom: 3mm;
+            width: 78mm;
+            text-align: right;
+        }
+
+        .official-signature .dots {
+            display: block;
+            border-top: 1px dotted #333;
+            margin-bottom: 2.2mm;
+        }
+
+        .logo-zone {
+            margin: 10mm 2mm 0;
+            min-height: 25mm;
+            height: auto;
+            background: #555b5f;
+            border-radius: 0 0 4mm 4mm;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: center;
+            gap: 13mm;
+            padding: 4mm 8mm;
+        }
+
+        .logo-srt {
+            height: 16mm;
+            width: auto;
+            max-width: 100%;
+            object-fit: contain;
+            justify-self: start;
+        }
+
+        .logo-placeholder {
+            height: 16mm;
+            border: 1.2px dashed rgba(255, 255, 255, .72);
+            color: rgba(255, 255, 255, .85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 8pt;
+            letter-spacing: .3px;
+        }
+
+        @media print {
+            @page {
+                size: A4;
+                margin: 0;
+            }
+
+            html,
+            body {
+                background: #fff;
+            }
+
+            body {
+                padding: 0;
+            }
+
+            .page {
+                margin: 0;
+                box-shadow: none;
+                width: 210mm;
+                min-height: 297mm;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="page">
+        <section class="frame">
+            <div class="title">NOTIFICACIÓN Y ACEPTACIÓN DE PATROCINIO LETRADO</div>
+
+            <p>
+                En el marco del procedimiento dispuesto por la Resolución S.R.T. N° 298/2017,
+                reglamentaria de la Ley Complementaria N° 27.348, Usted deberá DESIGNAR un ABOGADO
+                particular de su confianza que lo acompañará en el trámite, cuyos honorarios profesionales
+                estarán a cargo de su Aseguradora. Se le recuerda que el asesoramiento por parte de un
+                ABOGADO resulta necesario durante todo el trámite ante la Comisión Médica Jurisdiccional.
+                En ningún caso, el abogado elegido por Usted podrá exigirle pago alguno por sus servicios.
+            </p>
+
+            <p class="intro-2">
+                A continuación, complete sus datos en IMPRENTA MAYÚSCULA y declare la ACEPTACIÓN de su
+                PATROCINIO LETRADO:
+            </p>
+
+            <form class="form-body" autocomplete="off">
+                <div class="form-row">
+                    <span>Quien suscribe,</span>
+                    <input class="line-input grow" type="text" aria-label="Nombre y apellido del trabajador" />
+                    <span>D.N.I. N°</span>
+                    <input class="line-input w-38" type="text" aria-label="DNI del trabajador" />
+                    <span>,</span>
+                </div>
+
+                <div class="form-row">
+                    <span>con domicilio real en la calle</span>
+                    <input class="line-input grow" type="text" aria-label="Domicilio real" />
+                    <span>, de la</span>
+                </div>
+
+                <div class="form-row">
+                    <span>localidad de</span>
+                    <input class="line-input w-45" type="text" aria-label="Localidad" />
+                    <span>C.P.</span>
+                    <input class="line-input w-22" type="text" aria-label="Código postal" />
+                    <span>Tel.:</span>
+                    <input class="line-input w-45" type="text" aria-label="Teléfono" />
+                    <span>, a los</span>
+                    <input class="line-input w-13" type="text" aria-label="Día" />
+                    <span>días del</span>
+                </div>
+
+                <div class="form-row">
+                    <span>mes de</span>
+                    <input class="line-input w-32" type="text" aria-label="Mes" />
+                    <span>de</span>
+                    <input class="line-input w-18" type="text" aria-label="Año" />
+                    <span>, acepta el patrocinio letrado del/ de la Dr. /Dra.</span>
+                </div>
+
+                <div class="form-row">
+                    <input class="line-input grow" type="text" aria-label="Nombre del letrado" />
+                    <span>, C.U.I.T.</span>
+                    <span class="cuit-group" aria-label="CUIT del letrado">
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                        <input class="cuit-box" maxlength="1" inputmode="numeric" />
+                    </span>
+                </div>
+
+                <div class="form-row">
+                    <span>, Matrícula</span>
+                    <input class="line-input w-25" type="text" aria-label="Matrícula" />
+                    <span>, con domicilio legal constituido en la calle</span>
+                    <input class="line-input grow" type="text" aria-label="Domicilio legal" />
+                    <span>N°</span>
+                </div>
+
+                <div class="form-row">
+                    <input class="line-input w-18" type="text" aria-label="Número de domicilio legal" />
+                    <span>, Piso</span>
+                    <input class="line-input w-13" type="text" aria-label="Piso" />
+                    <span>, Of.</span>
+                    <input class="line-input w-18" type="text" aria-label="Oficina" />
+                    <span>, de la localidad de</span>
+                    <input class="line-input w-32" type="text" aria-label="Localidad del domicilio legal" />
+                    <span>, y domicilio electrónico en</span>
+                </div>
+
+                <div class="form-row">
+                    <input class="line-input w-84" type="email" aria-label="Domicilio electrónico" />
+                    <span>, para actuar en los procedimientos</span>
+                </div>
+
+                <div class="legal-text">
+                    administrativos establecidos en la Ley Complementaria de Riesgos del Trabajo N° 27.348,
+                    que sean tramitados en la Comisión Médica N°
+                    <input class="line-input w-13" type="text" aria-label="Número de Comisión Médica" />
+                    de la ciudad de
+                    <input class="line-input w-32" type="text" aria-label="Ciudad de la Comisión Médica" />,
+                    conforme lo reglamentado en la Resolución S.R.T. N° 298/2017.<br />
+                    El Letrado Patrocinante deberá estar inscripto en “e-Servicios S.R.T. - Sistema de Ventanilla
+                    Electrónica” para ser notificado, según Resolución S.R.T. N° 22/2018.
+                </div>
+            </form>
+
+            <div class="signature-row">
+                <div class="signature-line">Firma y aclaración del trabajador</div>
+                <div class="signature-line">Firma y aclaración del Letrado</div>
+            </div>
+
+            <section class="verification-box">
+                <div class="verification-title">
+                    Funcionario S.R.T: por favor, verificar que se acompañe la siguiente documentación:
+                </div>
+                <label class="check-item"><input type="checkbox" /> <span>D.N.I. trabajador</span></label>
+                <label class="check-item"><input type="checkbox" /> <span>Opción de Jurisdicción y documentación
+                        respaldatoria</span></label>
+                <label class="check-item"><input type="checkbox" /> <span>Credencial del Letrado
+                        Patrocinante</span></label>
+                <label class="check-item"><input type="checkbox" /> <span>D.N.I. Letrado Patrocinante</span></label>
+
+                <div class="official-signature">
+                    <span class="dots"></span>
+                    Firma, fecha y sello de funcionario
+                </div>
+            </section>
+
+            <!-- Reemplazá cada recuadro por la imagen del logo correspondiente. -->
+            <footer class="logo-zone">
+                <img
+                    class="logo-srt"
+                    src="logo_srt_horizontal_blanco_mesa_de_trabajo_1_1.png"
+                    alt="Superintendencia de Riesgos del Trabajo"
+                />
+                <div class="logo-placeholder">RECUADRO PARA LOGO MINISTERIO</div>
+            </footer>
+        </section>
+    </main>
+</body>
+
+</html>

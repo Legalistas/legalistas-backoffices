@@ -17,6 +17,7 @@ import {
 	Mail,
 	MessageSquare,
 	Monitor,
+	Scale,
 	Shield,
 	Smartphone,
 	Tablet,
@@ -46,13 +47,20 @@ import {
 	UPLOAD_ENDPOINT,
 	USER_PROFILE_ENDPOINT,
 } from "@/constant/api-endpoints";
+import LegalSection from "@/components/profile/LegalSection";
 import { docsType, genderType } from "@/lib/constant";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type TabId = "general" | "security" | "notifications" | "connections";
+type TabId =
+	| "general"
+	| "legal"
+	| "security"
+	| "notifications"
+	| "connections";
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
 	{ id: "general", label: "Información general", icon: User },
+	{ id: "legal", label: "Legal", icon: Scale },
 	{ id: "security", label: "Seguridad", icon: Lock },
 	{ id: "notifications", label: "Notificaciones", icon: Bell },
 	{ id: "connections", label: "Conexiones", icon: Link2 },
@@ -499,6 +507,22 @@ export default function ProfileContent() {
 									Guardar cambios
 								</Button>
 							</div>
+						</div>
+					)}
+
+					{/* ═══ LEGAL ═══ */}
+					{activeTab === "legal" && (
+						<div className="space-y-6">
+							<div>
+								<h2 className="text-lg font-semibold text-foreground">
+									Datos profesionales
+								</h2>
+								<p className="text-sm text-muted-foreground mt-1">
+									Matrícula y datos de contacto que se usan en los formularios
+									SRT
+								</p>
+							</div>
+							<LegalSection />
 						</div>
 					)}
 

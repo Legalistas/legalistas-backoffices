@@ -17,7 +17,16 @@ const DEFAULT_COUNTRY_ID = 1;
 interface ProvinceCitySelectProps {
 	stateId: number | null;
 	cityId: number | null;
-	onChange: (next: { stateId: number | null; cityId: number | null }) => void;
+	/**
+	 * Los nombres van además de los ids, para quien necesite guardar el texto
+	 * (ej. la jurisdicción del colegio, que es un string suelto).
+	 */
+	onChange: (next: {
+		stateId: number | null;
+		cityId: number | null;
+		stateName?: string | null;
+		cityName?: string | null;
+	}) => void;
 	countryId?: number;
 	disabled?: boolean;
 	/** Etiquetas custom (ej. "Provincia del hecho"). */
@@ -75,13 +84,18 @@ export default function ProvinceCitySelect({
 		(value: string | number | undefined) => {
 			// Cambiar de provincia invalida la ciudad: si no, queda un
 			// Rosario colgado de Córdoba.
+			const nextStateId = value === undefined ? null : Number(value);
 			onChange({
-				stateId: value === undefined ? null : Number(value),
+				stateId: nextStateId,
 				cityId: null,
+				stateName: states.find((s) => s.id === nextStateId)?.name ?? null,
+				cityName: null,
 			});
 		},
-		[onChange],
+		[onChange, states],
 	);
+
+	const currentStateName = states.find((s) => s.id === stateId)?.name ?? null;
 
 	return (
 		<div className={className}>
@@ -103,7 +117,14 @@ export default function ProvinceCitySelect({
 					<LocalitySelect
 						stateId={stateId}
 						cityId={cityId}
-						onSelect={(next) => onChange({ stateId, cityId: next })}
+						onSelect={(next, name) =>
+							onChange({
+								stateId,
+								cityId: next,
+								stateName: currentStateName,
+								cityName: name ?? null,
+							})
+						}
 						disabled={disabled}
 					/>
 				</div>

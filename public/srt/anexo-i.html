@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anexo I - Incapacidad</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --blue: #1f77bd;
+      --ink: #242424;
+      --line: #5d5d5d;
+      --paper: #ffffff;
+      --screen: #e8e8e8;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: var(--screen);
+      color: var(--ink);
+      font-family: "Roboto", Arial, sans-serif;
+      font-size: 10px;
+    }
+
+    body { padding: 18px 0; }
+
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto 18px;
+      padding: 12.5mm 12.5mm 6.5mm;
+      background: var(--paper);
+      box-shadow: 0 2px 14px rgba(0,0,0,.15);
+      display: flex;
+      flex-direction: column;
+      page-break-after: always;
+      break-after: page;
+    }
+
+    .page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .content { flex: 0 0 auto; }
+
+    .doc-title {
+      margin: 0 0 2.8mm;
+      text-align: center;
+      font-weight: 800;
+      font-size: 10px;
+      color: #4a4a4a;
+    }
+
+    .section-title {
+      min-height: 9.2mm;
+      padding: 2.1mm 3mm 1.8mm;
+      background: var(--blue);
+      color: white;
+      text-align: center;
+      font-size: 10px;
+      line-height: 1.15;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .section-title.upper { text-transform: uppercase; font-size: 10px; }
+
+    input[type="text"], textarea {
+      width: 100%;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      font: inherit;
+      color: #111;
+      padding: 1.2mm 1.5mm .8mm;
+      resize: none;
+    }
+
+    textarea { overflow: hidden; }
+
+    .line-field {
+      min-height: 9mm;
+      border-bottom: .35mm solid var(--line);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+    }
+
+    .line-field label,
+    .cell label,
+    .field-label {
+      display: block;
+      padding: 2.1mm 1.7mm .4mm;
+      font-size: 10px;
+      line-height: 1.05;
+    }
+
+    .line-field input { min-height: 4mm; padding-top: 0; }
+
+    .grid {
+      display: grid;
+      border-bottom: .35mm solid var(--line);
+    }
+
+    .grid > .cell {
+      min-width: 0;
+      border-right: .35mm solid var(--line);
+      position: relative;
+    }
+
+    .grid > .cell:last-child { border-right: 0; }
+
+    .two-col-70 { grid-template-columns: 70% 30%; }
+    .two-col-50 { grid-template-columns: 50% 50%; }
+    .two-col-55 { grid-template-columns: 55% 45%; }
+    .three-col { grid-template-columns: 50% 25% 25%; }
+
+    .cell {
+      min-height: 8.4mm;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cell input { flex: 1; min-height: 4mm; padding-top: 0; }
+
+    .employer-place .cell { min-height: 12mm; }
+    .employer-place label { line-height: 1.12; }
+
+    .contingency-grid {
+      display: grid;
+      grid-template-columns: 50% 50%;
+      border-bottom: .35mm solid var(--line);
+    }
+
+    .contingency-grid > div:first-child {
+      border-right: .35mm solid var(--line);
+      min-height: 29mm;
+      display: flex;
+      align-items: center;
+      padding: 2mm 1.7mm;
+      font-size: 10px;
+    }
+
+    .option-list { display: flex; flex-direction: column; }
+
+    .option-row {
+      min-height: 9.4mm;
+      border-bottom: .35mm solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 1.3mm 4mm;
+      gap: 3mm;
+      font-size: 10px;
+    }
+
+    .option-row:last-child { border-bottom: 0; }
+
+    .check {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 5.2mm;
+      height: 5.2mm;
+      margin: 0;
+      border: .45mm solid var(--blue);
+      background: white;
+      flex: 0 0 auto;
+      cursor: pointer;
+      position: relative;
+    }
+
+    /* Sin esto el checkbox se marca pero no se ve: `appearance: none` deja el
+       recuadro vacío y los ::after sobre <input> no son confiables. */
+    .check:checked {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M4 12 L10 18 L20 5' fill='none' stroke='%230a7fbd' stroke-width='4' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+      background-size: 84% 84%;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    .check:checked::after {
+      content: "✓";
+      position: absolute;
+      inset: -1.5mm 0 0;
+      text-align: center;
+      font-weight: 800;
+      font-size: 10px;
+      color: #111;
+    }
+
+    .date-line {
+      min-height: 8.7mm;
+      border-bottom: .35mm solid var(--line);
+      display: flex;
+      align-items: flex-start;
+      font-size: 10px;
+    }
+
+    .date-line label {
+      flex: 0 0 auto;
+      padding: 2.1mm 1.7mm .5mm;
+    }
+
+    .date-line input { padding: 1.6mm 1mm 0; }
+
+    .textarea-block {
+      border-bottom: .35mm solid var(--line);
+      min-height: 31mm;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .textarea-block.small { min-height: 23mm; }
+    .textarea-block.medium { min-height: 29mm; }
+
+    .textarea-block label {
+      padding: 2mm 1.7mm 0;
+      font-size: 10px;
+      line-height: 1.12;
+    }
+
+    .textarea-block textarea { flex: 1; min-height: 18mm; }
+
+    .question-table {
+      border-bottom: .35mm solid var(--line);
+    }
+
+    .question-row {
+      display: grid;
+      grid-template-columns: 50% 50%;
+      min-height: 9mm;
+      border-bottom: .35mm solid var(--line);
+    }
+
+    .question-row:last-child { border-bottom: 0; }
+
+    .question {
+      border-right: .35mm solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 1mm 1.7mm;
+      gap: 2mm;
+      font-size: 10px;
+      line-height: 1.05;
+    }
+
+    .question-number { width: 5mm; flex: 0 0 5mm; }
+
+    .yes-no {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      padding: 1mm 5mm;
+      font-size: 10px;
+    }
+
+    .yes-no label {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2.5mm;
+    }
+
+    .legal-note {
+      margin: 2.2mm .2mm 3.4mm;
+      padding: 0 1.5mm;
+      font-size: 10px;
+      line-height: 1.18;
+      text-align: justify;
+    }
+
+    .preexisting-grid {
+      display: grid;
+      grid-template-columns: 50% 50%;
+      border-bottom: .35mm solid var(--line);
+    }
+
+    .preexisting-left,
+    .preexisting-right { min-height: 8.8mm; }
+
+    .preexisting-left {
+      border-right: .35mm solid var(--line);
+      padding: 1.6mm 1.7mm .8mm;
+      font-size: 10px;
+    }
+
+    .preexisting-right {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preexisting-right.yes-no {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      padding: 1mm 5mm;
+    }
+
+    .pre-type-left {
+      border-right: .35mm solid var(--line);
+      min-height: 30mm;
+      padding: 2mm 1.7mm;
+      font-size: 10px;
+    }
+
+    .evidence-line {
+      min-height: 9.5mm;
+      border-bottom: .35mm solid var(--line);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .evidence-line label {
+      padding: 1.8mm 1.7mm .2mm;
+      font-size: 10px;
+    }
+
+    .page-2-top {
+      min-height: 32mm;
+      border-top: .35mm solid var(--line);
+      border-bottom: .35mm solid var(--line);
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 8mm;
+    }
+
+    .page-2-top label {
+      padding: 1.8mm 1.7mm 0;
+      font-size: 10px;
+    }
+
+    .page-2-top textarea { flex: 1; }
+
+    .competence-table {
+      border-bottom: .35mm solid var(--line);
+    }
+
+    .competence-row-1 {
+      display: grid;
+      grid-template-columns: 50% 25% 25%;
+      min-height: 9.2mm;
+      border-bottom: .35mm solid var(--line);
+    }
+
+    .competence-row-1 > div {
+      border-right: .35mm solid var(--line);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .competence-row-1 > div:last-child { border-right: 0; }
+
+    .competence-row-1 label { padding: 2mm 1.7mm 0; font-size: 10px; }
+    .competence-row-1 input { padding-top: 0; }
+
+    .foundation-row {
+      display: grid;
+      grid-template-columns: 50% 50%;
+      min-height: 27.5mm;
+    }
+
+    .foundation-text {
+      border-right: .35mm solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 2mm 1.7mm;
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .foundation-options { display: flex; flex-direction: column; }
+
+    .declaration {
+      min-height: 9mm;
+      border-bottom: .35mm solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 1.5mm 1.7mm;
+      font-size: 10px;
+    }
+
+    .signature-grid {
+      display: grid;
+      grid-template-columns: 50% 50%;
+      border-bottom: .35mm solid var(--line);
+    }
+
+    .signature-cell {
+      min-height: 17mm;
+      border-right: .35mm solid var(--line);
+      padding: 2.3mm 1.7mm;
+      font-size: 10px;
+      line-height: 1.15;
+    }
+
+    .signature-cell:last-child { border-right: 0; }
+
+    .single-date {
+      min-height: 9.5mm;
+      border-bottom: .35mm solid var(--line);
+      display: flex;
+      align-items: center;
+      padding: 1.4mm 1.7mm;
+      font-size: 10px;
+    }
+
+    .single-date input { padding: 1mm 1.5mm; }
+
+    .clarification {
+      min-height: 10mm;
+      border-bottom: .35mm solid var(--line);
+      padding: 2.4mm 1.7mm 1.6mm;
+      font-size: 10px;
+      line-height: 1.2;
+      font-style: italic;
+    }
+
+    .clarification strong { font-style: italic; }
+
+    .footer {
+      margin-top: auto;
+      padding-top: 4mm;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: end;
+      gap: 8mm;
+      min-height: 18mm;
+    }
+
+    .srt-logo { width: 34mm; height: auto; align-self: end; }
+
+    .logo-placeholder {
+      width: 40mm;
+      height: 9mm;
+      border: 0;
+      color: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: .2px;
+    }
+
+    .footer-text {
+      text-align: right;
+      color: #6c6c6c;
+      font-size: 10px;
+      line-height: 1.2;
+      font-weight: 600;
+      font-style: italic;
+    }
+
+    .footer-text .page-number {
+      margin-top: 1.5mm;
+      color: #111;
+      font-family: "Roboto", Arial, sans-serif;
+      font-size: 10px;
+      font-style: normal;
+      font-weight: 400;
+    }
+
+    @media print {
+      @page { size: A4; margin: 0; }
+      html, body { background: white; }
+      body { padding: 0; }
+      .page {
+        width: 210mm;
+        height: 297mm;
+        min-height: 297mm;
+        margin: 0;
+        box-shadow: none;
+        overflow: hidden;
+      }
+    }
+  </style>
+</head>
+<body>
+  <form autocomplete="off">
+    <!-- PÁGINA 1 -->
+    <section class="page">
+      <div class="content">
+        <h1 class="doc-title">ANEXO I - INCAPACIDAD</h1>
+
+        <div class="section-title">Datos del trabajador</div>
+        <div class="line-field"><label>Nombre y Apellido</label><input type="text" name="trabajador_nombre" /></div>
+        <div class="line-field"><label>CUIL</label><input type="text" name="trabajador_cuil" /></div>
+
+        <div class="section-title">Asistencia Letrada (Procedimientos Res. SRT N° 298/17)</div>
+        <div class="line-field"><label>Nombre y Apellido</label><input type="text" name="letrado_nombre" /></div>
+        <div class="line-field"><label>CUIT/Domicilio electrónico</label><input type="text" name="letrado_cuit_domicilio" /></div>
+        <div class="line-field"><label>Matrícula - Jurisdicción</label><input type="text" name="letrado_matricula" /></div>
+
+        <div class="section-title">Datos del Empleador</div>
+        <div class="grid two-col-70">
+          <div class="cell"><label>Nombre/Razón Social</label><input type="text" name="empleador_nombre" /></div>
+          <div class="cell"><label>CUIT</label><input type="text" name="empleador_cuit" /></div>
+        </div>
+        <div class="grid two-col-50 employer-place">
+          <div class="cell"><label>Establecimiento del lugar de efectiva prestación de<br />servicios o donde habitualmente reporta</label></div>
+          <div class="cell"><textarea name="establecimiento"></textarea></div>
+        </div>
+        <div class="grid two-col-50">
+          <div class="cell"><label>Localidad</label></div>
+          <div class="cell"><input type="text" name="empleador_localidad" /></div>
+        </div>
+        <div class="grid two-col-50">
+          <div class="cell"><label>Provincia</label></div>
+          <div class="cell"><input type="text" name="empleador_provincia" /></div>
+        </div>
+
+        <div class="section-title upper">DATOS DE LA ART, EMPLEADOR AUTOASEGURADO O EMPLEADOR NO ASEGURADO</div>
+        <div class="grid two-col-50">
+          <div class="cell"><label>Denominación/Razón Social</label></div>
+          <div class="cell"><input type="text" name="art_denominacion" /></div>
+        </div>
+        <div class="grid two-col-50">
+          <div class="cell"><label>CUIT (En caso de empleadores)</label></div>
+          <div class="cell"><input type="text" name="art_cuit" /></div>
+        </div>
+
+        <div class="section-title">Datos de la contingencia</div>
+        <div class="contingency-grid">
+          <div>Tipo de contingencia</div>
+          <div class="option-list">
+            <label class="option-row"><input class="check" type="checkbox" name="tipo_accidente_trabajo" />Accidente de trabajo</label>
+            <label class="option-row"><input class="check" type="checkbox" name="tipo_in_itinere" />Accidente in itinere</label>
+            <label class="option-row"><input class="check" type="checkbox" name="tipo_enfermedad" />Enfermedad Profesional</label>
+          </div>
+        </div>
+
+        <div class="date-line"><label>Fecha de la denuncia:</label><input type="text" name="fecha_denuncia" /></div>
+        <div class="date-line"><label>Fecha de baja laboral (en caso de corresponder):</label><input type="text" name="fecha_baja" /></div>
+        <div class="date-line"><label>Fecha de ocurrencia o diagnóstico:</label><input type="text" name="fecha_ocurrencia" /></div>
+
+        <div class="textarea-block">
+          <label>Detallá el accidente de trabajo o la enfermedad profesional:</label>
+          <textarea name="detalle_contingencia"></textarea>
+        </div>
+      </div>
+
+      <footer class="footer">
+        <img class="srt-logo" src="logo-srt-azul.svg" alt="Superintendencia de Riesgos del Trabajo" />
+        <div class="footer-text">
+          ANEXO I - DIVERGENCIA EN LA DETERMINACIÓN DE LA INCAPACIDAD | 1<br />
+          Los formularios deben completarse en su formato editable<br />
+          disponible en la web del Organismo <strong>www.argentina.gob.ar/srt</strong>
+          <div class="page-number">Página 1 de 3</div>
+        </div>
+      </footer>
+    </section>
+
+    <!-- PÁGINA 2 -->
+    <section class="page">
+      <div class="content">
+        <div class="page-2-top">
+          <label>Detallá la o las afecciones o diagnósticos derivados de la contingencia:</label>
+          <textarea name="afecciones_diagnosticos"></textarea>
+        </div>
+
+        <div class="section-title">Atención médica</div>
+        <div class="question-table">
+          <div class="question-row">
+            <div class="question"><span class="question-number">1.</span><span>¿Recibiste atención de la ART?</span></div>
+            <div class="yes-no"><label>Sí <input class="check" type="checkbox" name="atencion_art_si" /></label><label>No <input class="check" type="checkbox" name="atencion_art_no" /></label></div>
+          </div>
+          <div class="question-row">
+            <div class="question"><span class="question-number">2.</span><span>¿Recibiste el alta médica de la aseguradora?</span></div>
+            <div class="yes-no"><label>Sí <input class="check" type="checkbox" name="alta_si" /></label><label>No <input class="check" type="checkbox" name="alta_no" /></label></div>
+          </div>
+          <div class="question-row">
+            <div class="question"><span class="question-number">3.</span><span>¿Recibiste atención médica de la Obra Social, Prepaga<br />o Salud Pública?</span></div>
+            <div class="yes-no"><label>Sí <input class="check" type="checkbox" name="otra_atencion_si" /></label><label>No <input class="check" type="checkbox" name="otra_atencion_no" /></label></div>
+          </div>
+          <div class="question-row">
+            <div class="question"><span class="question-number">4.</span><span>¿Realizaste algún estudio médico en la Obra Social,<br />Prepaga o Salud Pública?</span></div>
+            <div class="yes-no"><label>Sí <input class="check" type="checkbox" name="estudio_si" /></label><label>No <input class="check" type="checkbox" name="estudio_no" /></label></div>
+          </div>
+        </div>
+
+        <div class="textarea-block medium">
+          <label>Detallá la prueba médica ofrecida tendiente a acreditar la incapacidad (Historia Clínica; Estudios Diagnósticos;<br />Interconsultas con especialista; etc.):</label>
+          <textarea name="prueba_medica"></textarea>
+        </div>
+
+        <div class="legal-note">
+          Las partes deberán ofrecer, en su primera presentación, toda la prueba de la que intenten valerse acompañando en esa oportunidad la documental pertinente. Cuando la parte trabajadora invocare haber recibido tratamiento médico a través de su Obra Social o de prestadores públicos o particulares, deberá acompañar la historia clínica correspondiente. (art. 7° Res. SRT N° 298/17; punto 19 del Anexo I de la Resolución SRT 179/15; art. 14, Ley N° 26.529 )*
+        </div>
+
+        <div class="section-title">Preexistencias (opcional)</div>
+        <div class="preexisting-grid">
+          <div class="preexisting-left">1. ¿Te han otorgado incapacidad por otro siniestro por vía<br />administrativa o judicial?</div>
+          <div class="preexisting-right yes-no"><label>Sí <input class="check" type="checkbox" name="preexistencia_si" /></label><label>No <input class="check" type="checkbox" name="preexistencia_no" /></label></div>
+        </div>
+        <div class="preexisting-grid">
+          <div class="preexisting-left">En caso de Sí:</div>
+          <div class="preexisting-right"><input type="text" name="preexistencia_detalle" /></div>
+        </div>
+        <div class="preexisting-grid">
+          <div class="pre-type-left">Tipo de Contingencia</div>
+          <div class="option-list">
+            <label class="option-row"><input class="check" type="checkbox" name="pre_tipo_accidente" />Accidente de trabajo</label>
+            <label class="option-row"><input class="check" type="checkbox" name="pre_tipo_itinere" />Accidente in itinere</label>
+            <label class="option-row"><input class="check" type="checkbox" name="pre_tipo_enfermedad" />Enfermedad Profesional</label>
+          </div>
+        </div>
+        <div class="grid two-col-50">
+          <div class="cell"><label>Porcentaje de incapacidad</label></div>
+          <div class="cell"><input type="text" name="porcentaje_incapacidad" /></div>
+        </div>
+        <div class="grid two-col-50">
+          <div class="cell"><label>Región del cuerpo afectada</label></div>
+          <div class="cell"><input type="text" name="region_afectada" /></div>
+        </div>
+        <div class="textarea-block small">
+          <label>Detallá y acompañá la prueba judicial (PMO, sentencias judiciales u homologatorias, datos de causa -radicación, N° de expediente-).</label>
+          <textarea name="prueba_judicial"></textarea>
+        </div>
+      </div>
+
+      <footer class="footer">
+        <img class="srt-logo" src="logo-srt-azul.svg" alt="Superintendencia de Riesgos del Trabajo" />
+        <div class="footer-text">
+          ANEXO I - DIVERGENCIA EN LA DETERMINACIÓN DE LA INCAPACIDAD | 2<br />
+          Los formularios deben completarse en su formato editable<br />
+          disponible en la web del Organismo <strong>www.argentina.gob.ar/srt</strong>
+          <div class="page-number">Página 2 de 3</div>
+        </div>
+      </footer>
+    </section>
+
+    <!-- PÁGINA 3 -->
+    <section class="page">
+      <div class="content">
+        <div class="section-title">Opción de competencia</div>
+        <div class="competence-table">
+          <div class="competence-row-1">
+            <div><label>Solicito la intervención de la Comisión Médica</label><input type="text" name="comision_medica" /></div>
+            <div><label>N°</label><input type="text" name="comision_numero" /></div>
+            <div><label>Jurisdicción</label><input type="text" name="jurisdiccion" /></div>
+          </div>
+          <div class="foundation-row">
+            <div class="foundation-text">Fundamento (Acompañar DNI, Certificado Res. SRT N° 698/17 o DDJJ Res. SRT N° 11/18, según corresponda)</div>
+            <div class="foundation-options">
+              <label class="option-row"><input class="check" type="checkbox" name="fundamento_domicilio" />Domicilio</label>
+              <label class="option-row"><input class="check" type="checkbox" name="fundamento_prestacion" />Domicilio de efectiva prestación de servicios</label>
+              <label class="option-row"><input class="check" type="checkbox" name="fundamento_reporte" />Domicilio donde habitualmente reporta</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="declaration">La persona firmante declara que la información consignada es verídica y completa.</div>
+
+        <div class="signature-grid">
+          <div class="signature-cell">Firma Trabajador</div>
+          <div class="signature-cell">Aclaración</div>
+        </div>
+        <div class="signature-grid">
+          <div class="signature-cell">Firma Letrado Patrocinante.<br />(En caso de corresponder)</div>
+          <div class="signature-cell">Aclaración</div>
+        </div>
+
+        <div class="single-date"><span>Fecha:</span><input type="text" name="fecha_firma" /></div>
+
+        <div class="clarification"><strong>Aclaración:</strong> En caso de que los espacios no resulten suficientes, incorpore una hoja aparte debidamente firmada con la información adicional.</div>
+      </div>
+
+      <footer class="footer">
+        <img class="srt-logo" src="logo-srt-azul.svg" alt="Superintendencia de Riesgos del Trabajo" />
+        <div class="footer-text">
+          ANEXO I - DIVERGENCIA EN LA DETERMINACIÓN DE LA INCAPACIDAD | 3<br />
+          Los formularios deben completarse en su formato editable<br />
+          disponible en la web del Organismo <strong>www.argentina.gob.ar/srt</strong>
+          <div class="page-number">Página 3 de 3</div>
+        </div>
+      </footer>
+    </section>
+  </form>
+</body>
+</html>

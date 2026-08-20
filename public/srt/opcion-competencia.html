@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opción de Competencia</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+
+        body {
+            background: #eceff3;
+            padding: 40px;
+        }
+
+        .document {
+            max-width: 900px;
+            margin: auto;
+            background: #fff;
+            padding: 60px;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .08);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 50px;
+        }
+
+        .logo {
+            width: 260px;
+            height: 80px;
+            border: 2px dashed #bdbdbd;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .year {
+            text-align: right;
+            font-style: italic;
+            font-size: 18px;
+            color: #444;
+        }
+
+        p {
+            font-size: 18px;
+            line-height: 1.8;
+            color: #333;
+            text-align: justify;
+        }
+
+        .section {
+            margin-top: 45px;
+        }
+
+        .option {
+            display: flex;
+            gap: 18px;
+            margin: 22px 0;
+            align-items: flex-start;
+        }
+
+        .checkbox {
+            width: 34px;
+            height: 34px;
+            border: 2px solid #444;
+            flex-shrink: 0;
+            margin-top: 3px;
+        }
+
+        .option span {
+            font-size: 20px;
+            line-height: 1.6;
+        }
+
+        .option small {
+            color: #666;
+        }
+
+        .title {
+            font-size: 28px;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: #222;
+        }
+
+        .field {
+            margin-top: 25px;
+        }
+
+        .field label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .inline-field {
+            border: 0;
+            border-bottom: 2px dotted #777;
+            font: inherit;
+            color: inherit;
+            background: transparent;
+            outline: none;
+            width: 300px;
+            padding: 0 4px;
+        }
+
+        .inline-field.short { width: 90px; }
+
+        input.checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            margin: 3px 0 0;
+            padding: 0;
+            background: transparent;
+            cursor: pointer;
+        }
+
+        /* La X va como background y no como ::after: los pseudo-elementos
+           sobre <input> no los renderizan todos los navegadores. */
+        input.checkbox:checked {
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path d='M3 3 L21 21 M21 3 L3 21' stroke='%23222' stroke-width='3' stroke-linecap='round'/></svg>");
+            background-size: 72% 72%;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .input {
+            display: block;
+            width: 100%;
+            border: 0;
+            border-bottom: 2px dotted #777;
+            font: inherit;
+            color: inherit;
+            background: transparent;
+            outline: none;
+            height: 32px;
+        }
+
+        .row {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .col {
+            flex: 1;
+        }
+
+        .signatures {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px;
+            margin-top: 90px;
+        }
+
+        .sign {
+            text-align: center;
+        }
+
+        .line {
+            border-top: 2px dashed #555;
+            margin-bottom: 12px;
+        }
+
+        .sign label {
+            font-size: 15px;
+            color: #555;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <div class="document">
+
+        <div class="header">
+
+            <div class="logo">
+                LOGO
+            </div>
+
+            <div class="year">
+                "2018 - Año del Centenario de la<br>
+                Reforma Universitaria"
+            </div>
+
+        </div>
+
+        <p>
+            Por medio de la presente, y en virtud de lo previsto en el art. 1°
+            de la Ley 27.348, en el art. 6° de la Res. 326/17 y resoluciones
+            modificatorias, solicito la intervención de la Comisión Médica
+            N° <input class="inline-field short" name="cm_numero" /> Delegación <input class="inline-field" name="cm_delegacion" />, la cual será competente
+            en virtud de (marque con una X):
+        </p>
+
+        <div class="section">
+
+            <div class="option">
+                <input class="checkbox" type="checkbox" name="ground_domicilio" />
+                <span>
+                    Opción de la C.M. correspondiente a su domicilio
+                    <small>(deberá presentar su D.N.I.)</small>
+                </span>
+            </div>
+
+            <div class="option">
+                <input class="checkbox" type="checkbox" name="ground_prestacion" />
+                <span>
+                    Opción de la C.M. correspondiente al lugar de efectiva
+                    prestación de servicio
+                    <small>
+                        (deberá presentar constancia expedida por su empleador)
+                    </small>
+                </span>
+            </div>
+
+            <div class="option">
+                <input class="checkbox" type="checkbox" name="ground_reporta" />
+                <span>
+                    Opción de la C.M. correspondiente al domicilio laboral donde
+                    habitualmente reporto
+                    <small>
+                        (deberá presentar constancia expedida por su empleador)
+                    </small>
+                </span>
+            </div>
+
+        </div>
+
+        <div class="section">
+
+            <div class="title">
+                Domicilio correspondiente
+            </div>
+
+            <div class="field">
+                <label>Domicilio</label>
+                <input class="input" name="competencia_domicilio" />
+            </div>
+
+            <div class="row">
+
+                <div class="col">
+                    <label>Localidad</label>
+                    <input class="input" name="competencia_localidad" />
+                </div>
+
+                <div class="col">
+                    <label>Provincia</label>
+                    <input class="input" name="competencia_provincia" />
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="section">
+
+            <p>
+                Adjunto a la presente la documentación respaldatoria,
+                a efectos de validar la opción ejercida.
+            </p>
+
+        </div>
+
+        <div class="signatures">
+
+            <div class="sign">
+                <div class="line"></div>
+                <label>Firma</label><br>
+                Damnificado / Apoderado
+            </div>
+
+            <div class="sign">
+                <div class="line"></div>
+                <label>Aclaración</label>
+            </div>
+
+            <div class="sign">
+                <div class="line"></div>
+                <label>DNI</label>
+            </div>
+
+            <div class="sign">
+                <div class="line"></div>
+                <label>Firma Patrocinio Letrado</label>
+            </div>
+
+            <div class="sign">
+                <div class="line"></div>
+                <label>Aclaración</label>
+            </div>
+
+            <div class="sign">
+                <div class="line"></div>
+                <label>Matrícula Nº</label>
+            </div>
+
+        </div>
+
+    </div>
+
+</body>
+
+</html>
