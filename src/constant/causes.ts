@@ -149,6 +149,16 @@ export const CASE_EVENTS_TYPE = [
       { id: 5, value: 5, label: "Otras Pericias" },
     ],
   },
+  {
+    id: 3,
+    value: 3,
+    label: "Reunión",
+    subType: [
+      { id: 1, value: 1, label: "Con el cliente" },
+      { id: 2, value: 2, label: "Con la contraparte" },
+      { id: 3, value: 3, label: "Interna del equipo" },
+    ],
+  },
 ];
 
 export const CASE_EVENTS_STATUS_OPTIONS = [
