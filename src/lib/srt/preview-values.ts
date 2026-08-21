@@ -76,19 +76,16 @@ export function buildPreviewValues(
 	if (docSrc === "/srt/opcion-competencia.html")
 		return competenceValues(info, defaults);
 
-	// Patrocinio todavía no tiene los inputs marcados con `name`.
-	if (docSrc !== "/srt/anexo-i.html") return {};
-
 	const contingency = data.contingencyType;
 	const w = worker(info, defaults);
 	const lawyer = defaults?.representativeLawyer;
 
-	return {
-		// Bloque trabajador / empleador / ART: vienen de la tab Info.
+	// Bloques comunes a los tres anexos: trabajador, letrado, empleador y ART.
+	// Antes solo se armaban para el Anexo I y por eso el II y el III salían en
+	// blanco aunque la causa tuviera todos los datos cargados.
+	const common: PreviewValues = {
 		trabajador_nombre: str(w.fullName),
 		trabajador_cuil: str(w.cuil),
-
-		// Asistencia letrada: el abogado responsable de la causa.
 		letrado_nombre: str(lawyer?.name),
 		letrado_cuit_domicilio: str(lawyer?.cuit),
 		letrado_matricula: str(lawyer?.srtMatricula),
@@ -101,29 +98,79 @@ export function buildPreviewValues(
 		art_cuit: str(info?.artCuit),
 		comision_numero: str(info?.cmNumber),
 		jurisdiccion: str(info?.cmJurisdiction),
+		fecha_denuncia: toDisplayDate(data.denunciaDate),
+		fecha_baja: toDisplayDate(data.bajaLaboralDate),
+		fecha_ocurrencia: toDisplayDate(data.ocurrenciaDate),
+		afecciones_diagnosticos: str(data.diagnosticDetail),
+		atencion_art_si: data.art_attention === true,
+		atencion_art_no: data.art_attention === false,
+		otra_atencion_si: data.os_attention === true,
+		otra_atencion_no: data.os_attention === false,
+		estudio_si: data.os_studies === true,
+		estudio_no: data.os_studies === false,
+	};
+
+	// ── Anexo II — rechazo de accidente (y su variante in itinere) ────────
+	if (docSrc === "/srt/anexo-ii.html") {
+		return {
+			...common,
+			fecha_primera_atencion: toDisplayDate(data.firstAttentionDate),
+			descripcion_accidente: str(data.accidentDescription),
+			prueba_origen: str(data.originProof),
+			horario_trabajo: str(data.workScheduleInOut),
+			domicilio_trabajo: str(data.workAddress),
+			domicilio_residencia: str(data.residenceAddress),
+			lugar_accidente: str(data.accidentPlace),
+			hora_accidente: str(data.accidentTime),
+			denuncia_policial_si: data.policeReport === true,
+			denuncia_policial_no: data.policeReport === false,
+		};
+	}
+
+	// ── Anexo III — rechazo de enfermedad profesional ─────────────────────
+	if (docSrc === "/srt/anexo-iii.html") {
+		return {
+			...common,
+			fecha_diagnostico: toDisplayDate(data.diagnosticoDate),
+			sector_trabajo: str(data.workSector),
+			antiguedad_tarea: str(data.taskSeniority),
+			anio_ingreso: str(data.hireYear),
+			descripcion_tareas: str(data.tasksDescription),
+			tareas_similares_si: data.similarTasksOthers === true,
+			tareas_similares_no: data.similarTasksOthers === false,
+			misma_enfermedad_si: data.sameDiseaseReported === true,
+			misma_enfermedad_no: data.sameDiseaseReported === false,
+			otros_empleadores: str(data.otherEmployers),
+			pruebas_ofrecidas: str(data.proofOffered),
+		};
+	}
+
+	if (docSrc !== "/srt/anexo-i.html") return {};
+
+	// ── Anexo I — divergencia en la determinación de la incapacidad ───────
+	return {
+		...common,
 
 		// Tipo de contingencia: tres checkbox excluyentes.
 		tipo_accidente_trabajo: contingency === "ACCIDENTE_TRABAJO",
 		tipo_in_itinere: contingency === "IN_ITINERE",
 		tipo_enfermedad: contingency === "ENFERMEDAD_PROF",
 
-		// Datos propios del anexo.
-		fecha_denuncia: toDisplayDate(data.denunciaDate),
-		fecha_baja: toDisplayDate(data.bajaLaboralDate),
-		fecha_ocurrencia: toDisplayDate(data.ocurrenciaDate),
 		detalle_contingencia: str(data.accidentDetail),
-		afecciones_diagnosticos: str(data.diagnosticDetail),
 		prueba_medica: str(data.medicalProof),
-
-		// Preguntas médicas: cada una es un par SÍ/NO.
-		atencion_art_si: data.art_attention === true,
-		atencion_art_no: data.art_attention === false,
 		alta_si: data.art_alta === true,
 		alta_no: data.art_alta === false,
-		otra_atencion_si: data.os_attention === true,
-		otra_atencion_no: data.os_attention === false,
-		estudio_si: data.os_studies === true,
-		estudio_no: data.os_studies === false,
+
+		// Preexistencias (opcional).
+		preexistencia_si: data.hasPreexistence === true,
+		preexistencia_no: data.hasPreexistence === false,
+		preexistencia_detalle: str(data.preexistenceDetail),
+		pre_tipo_accidente: data.preexistenceType === "ACCIDENTE_TRABAJO",
+		pre_tipo_itinere: data.preexistenceType === "IN_ITINERE",
+		pre_tipo_enfermedad: data.preexistenceType === "ENFERMEDAD_PROF",
+		porcentaje_incapacidad: str(data.disabilityPercent),
+		region_afectada: str(data.affectedRegion),
+		prueba_judicial: str(data.judicialProof),
 	};
 }
 
@@ -224,6 +271,38 @@ export function mapPreviewEdit(
 			return { target: "anexo", key: "os_studies", value: checked ? true : null };
 		case "estudio_no":
 			return { target: "anexo", key: "os_studies", value: checked ? false : null };
+
+		// ── Preexistencias ──────────────────────────────────────────────────
+		case "preexistencia_si":
+			return { target: "anexo", key: "hasPreexistence", value: checked ? true : null };
+		case "preexistencia_no":
+			return { target: "anexo", key: "hasPreexistence", value: checked ? false : null };
+		case "preexistencia_detalle":
+			return { target: "anexo", key: "preexistenceDetail", value };
+		case "pre_tipo_accidente":
+			return {
+				target: "anexo",
+				key: "preexistenceType",
+				value: checked ? "ACCIDENTE_TRABAJO" : null,
+			};
+		case "pre_tipo_itinere":
+			return {
+				target: "anexo",
+				key: "preexistenceType",
+				value: checked ? "IN_ITINERE" : null,
+			};
+		case "pre_tipo_enfermedad":
+			return {
+				target: "anexo",
+				key: "preexistenceType",
+				value: checked ? "ENFERMEDAD_PROF" : null,
+			};
+		case "porcentaje_incapacidad":
+			return { target: "anexo", key: "disabilityPercent", value };
+		case "region_afectada":
+			return { target: "anexo", key: "affectedRegion", value };
+		case "prueba_judicial":
+			return { target: "anexo", key: "judicialProof", value };
 
 		default:
 			return null;

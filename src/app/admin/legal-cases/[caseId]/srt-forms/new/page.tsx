@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowLeft, Download, FileText, Loader2 } from "lucide-react";
+import { ArrowLeft, FileText, Loader2, Save } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { SrtDocumentPreview } from "@/components/srt/SrtDocumentPreview";
+import { buildSrtDocument } from "@/components/srt/pdf";
+import { SrtPdfPreview } from "@/components/srt/SrtPdfPreview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,12 +21,10 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-	CASE_SRT_FORMS_ENDPOINT,
 	CASE_SRT_INFO_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { buildPreviewValues, mapPreviewEdit } from "@/lib/srt/preview-values";
+import { buildPreviewValues } from "@/lib/srt/preview-values";
 import type {
-	Anexo4Reason,
 	CaseSrtDefaults,
 	CaseSrtInfo,
 	CompetenceGround,
@@ -89,14 +88,6 @@ const DOCUMENTS: SrtDocument[] = [
 		anexoKey: "anexoIIIData",
 	},
 	{
-		key: "anexo-iv",
-		label: "Anexo IV",
-		hint: "Divergencia en el alta / Reingreso / Prestaciones",
-		src: null,
-		procedure: "DIVERGENCIA_PRESTACIONES",
-		anexoKey: "anexoIVData",
-	},
-	{
 		key: "competencia",
 		label: "Opción de Competencia",
 		hint: "Elección de Comisión Médica — acompaña a cualquier trámite",
@@ -113,6 +104,16 @@ const DOCUMENTS: SrtDocument[] = [
 		anexoKey: null,
 	},
 ];
+
+/** Devuelve el valor recién cuando pasó `delay` sin que vuelva a cambiar. */
+function useDebounced<T>(value: T, delay: number): T {
+	const [settled, setSettled] = useState(value);
+	useEffect(() => {
+		const timer = setTimeout(() => setSettled(value), delay);
+		return () => clearTimeout(timer);
+	}, [value, delay]);
+	return settled;
+}
 
 // ── Página ────────────────────────────────────────────────────────────────
 
@@ -131,10 +132,6 @@ export default function GenerateSrtFormPage() {
 	const [anexoData, setAnexoData] = useState<Record<string, unknown>>({});
 	const [loading, setLoading] = useState(true);
 	const [generating, setGenerating] = useState(false);
-	const [generated, setGenerated] = useState<{
-		formId: number;
-		downloadUrl: string | null;
-	} | null>(null);
 
 	const doc = DOCUMENTS.find((d) => d.key === docKey) ?? null;
 
@@ -162,11 +159,17 @@ export default function GenerateSrtFormPage() {
 
 	// Al elegir un documento, precargar lo que ya se haya guardado antes: así
 	// se puede volver a entrar y seguir editando en vez de empezar de cero.
+	//
+	// La precarga corre UNA vez por documento. Antes dependía de `info` a secas
+	// y cualquier cambio ahí (editar competencia, tocar el documento) volvía a
+	// pisar lo que estabas tipeando en el anexo.
 	const anexoKey = doc?.anexoKey ?? null;
+	const preloadedKey = useRef<string | null>(null);
 	useEffect(() => {
 		if (!anexoKey || !info) return;
-		const existing = info[anexoKey] as Record<string, unknown> | null;
-		setAnexoData(existing ?? {});
+		if (preloadedKey.current === anexoKey) return;
+		preloadedKey.current = anexoKey;
+		setAnexoData((info[anexoKey] as Record<string, unknown> | null) ?? {});
 	}, [anexoKey, info]);
 
 	const setField = (key: string, value: unknown) =>
@@ -177,20 +180,24 @@ export default function GenerateSrtFormPage() {
 	const setInfoField = (key: keyof CaseSrtInfo, value: unknown) =>
 		setInfo((i) => (i ? { ...i, [key]: value } : i));
 
-	// Edición directa sobre el documento: se traduce al campo del formulario,
-	// así los dos lados quedan siempre mostrando lo mismo.
-	const handlePreviewEdit = useCallback(
-		(name: string, value: string | boolean) => {
-			const edit = mapPreviewEdit(name, value);
-			if (!edit) return;
-			if (edit.target === "anexo") {
-				setAnexoData((d) => ({ ...d, [edit.key]: edit.value }));
-			} else {
-				setInfo((i) => (i ? { ...i, [edit.key]: edit.value } : i));
-			}
-		},
-		[],
-	);
+	// El PDF se arma con react-pdf: lo que ves en el visor y lo que se
+	// descarga salen del mismo componente, así que no pueden diferir.
+	const pdfBlobRef = useRef<(() => Promise<Blob>) | null>(null);
+
+	const handleSaveAndPrint = async () => {
+		await handleGenerate();
+
+		const makeBlob = pdfBlobRef.current;
+		if (!makeBlob) return;
+
+		const blob = await makeBlob();
+		const url = URL.createObjectURL(blob);
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = `${doc?.key ?? "documento"}-caso-${caseId}.pdf`;
+		a.click();
+		URL.revokeObjectURL(url);
+	};
 
 	const infoIncomplete =
 		!info?.workerFullName || !info?.employerName || !info?.artName;
@@ -202,11 +209,20 @@ export default function GenerateSrtFormPage() {
 		[doc?.src, info, anexoData, defaults],
 	);
 
+	const liveDocument = useMemo(
+		() => (doc ? buildSrtDocument(doc.key, previewValues, info, defaults) : null),
+		[doc, previewValues, info, defaults],
+	);
+
+	// Regenerar el PDF en cada tecla hace parpadear el visor: se rearma entero
+	// cada vez. Con una pausa corta después de dejar de escribir, se actualiza
+	// una sola vez y el parpadeo desaparece.
+	const srtDocument = useDebounced(liveDocument, 450);
+
 	const handleGenerate = async () => {
 		if (!token || !doc) return;
 
 		setGenerating(true);
-		setGenerated(null);
 		try {
 			// 1) Persistir en CaseSrtInfo. Siempre se guarda, tenga o no anexo:
 			//    así se puede volver a entrar y seguir editando.
@@ -229,28 +245,7 @@ export default function GenerateSrtFormPage() {
 				throw new Error(e.error || "Error al guardar los datos");
 			}
 
-			// 2) Solo los anexos se generan en el backend. Competencia y
-			//    patrocinio se imprimen desde la vista previa.
-			if (!doc.procedure) {
-				toast.success("Datos guardados");
-				return;
-			}
-
-			const genRes = await fetch(CASE_SRT_FORMS_ENDPOINT(caseId), {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({ procedureType: doc.procedure }),
-			});
-			if (!genRes.ok) {
-				const e = await genRes.json().catch(() => ({}));
-				throw new Error(e.error || "Error al generar el PDF");
-			}
-			const data = await genRes.json();
-			setGenerated({ formId: data.formId, downloadUrl: data.downloadUrl });
-			toast.success("Formulario generado");
+			toast.success("Datos guardados");
 		} catch (err) {
 			toast.error((err as Error).message);
 		} finally {
@@ -275,7 +270,8 @@ export default function GenerateSrtFormPage() {
 				<h1 className="text-xl font-semibold">Generar formulario SRT</h1>
 			</div>
 
-			<div className="grid gap-4 lg:grid-cols-2">
+			{/* 40% formulario / 60% vista previa */}
+			<div className="grid gap-4 lg:grid-cols-[minmax(0,40fr)_minmax(0,60fr)]">
 				<div className="space-y-4">
 
 					{infoIncomplete && (
@@ -389,59 +385,41 @@ export default function GenerateSrtFormPage() {
 								{doc.procedure === "RECHAZO_ENFERMEDAD_PROF" && (
 									<AnexoIIIForm data={anexoData} setField={setField} />
 								)}
-								{doc.procedure === "DIVERGENCIA_PRESTACIONES" && (
-									<AnexoIVForm data={anexoData} setField={setField} />
-								)}
 							</CardContent>
 						</Card>
 					)}
 
 					{doc && (
 						<div className="flex justify-end gap-2">
-							<Button onClick={handleGenerate} disabled={generating}>
+							<Button
+								variant="outline"
+								onClick={() => handleGenerate()}
+								disabled={generating}
+							>
 								{generating ? (
 									<Loader2 className="animate-spin h-4 w-4 mr-2" />
 								) : (
-									<FileText className="h-4 w-4 mr-2" />
+									<Save className="h-4 w-4 mr-2" />
 								)}
-								{doc.procedure ? "Guardar y generar PDF" : "Guardar datos"}
+								Guardar datos
+							</Button>
+							<Button onClick={handleSaveAndPrint} disabled={generating}>
+								<FileText className="h-4 w-4 mr-2" />
+								Guardar y generar PDF
 							</Button>
 						</div>
 					)}
 
-					{generated && (
-						<Card className="border-green-600">
-							<CardContent className="py-4 flex items-center justify-between">
-								<div>
-									<div className="font-medium">Formulario #{generated.formId}</div>
-									<div className="text-sm text-muted-foreground">
-										Listo para imprimir, hacer firmar y escanear.
-									</div>
-								</div>
-								{generated.downloadUrl ? (
-									<a href={generated.downloadUrl} target="_blank" rel="noreferrer">
-										<Button>
-											<Download className="h-4 w-4 mr-2" /> Descargar PDF
-										</Button>
-									</a>
-								) : (
-									<span className="text-sm text-muted-foreground">
-										Sin URL directa — descargar desde el historial.
-									</span>
-								)}
-							</CardContent>
-						</Card>
-					)}
 				</div>
 
 				{/* Columna derecha — vista previa en vivo */}
 				<div className="lg:sticky lg:top-4 lg:h-[calc(100vh-7rem)]">
-					{doc?.src ? (
-						<SrtDocumentPreview
-							key={doc.src}
-							src={doc.src}
-							values={previewValues}
-							onFieldChange={handlePreviewEdit}
+					{srtDocument ? (
+						<SrtPdfPreview
+							key={doc?.key}
+							doc={srtDocument}
+							fileName={`${doc?.key}-caso-${caseId}.pdf`}
+							blobRef={pdfBlobRef}
 						/>
 					) : (
 						<div className="flex h-full min-h-64 items-center justify-center rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
@@ -653,7 +631,67 @@ function AnexoIForm({ data, setField }: FormProps) {
 					onChange={(e) => setField("medicalProof", e.target.value)}
 				/>
 			</Field>
+			<PreexistenceFields data={data} setField={setField} />
 		</>
+	);
+}
+
+// ── Preexistencias (bloque opcional del Anexo I) ───────────────────────────
+
+function PreexistenceFields({ data, setField }: FormProps) {
+	const hasPreexistence = data.hasPreexistence === true;
+
+	return (
+		<div className="rounded-md border p-3 space-y-3 bg-muted/10">
+			<div className="text-sm font-medium">Preexistencias (opcional)</div>
+
+			<Field label="¿Te han otorgado incapacidad por otro siniestro, por vía administrativa o judicial?">
+				<BoolYesNo
+					value={data.hasPreexistence}
+					onChange={(v) => setField("hasPreexistence", v)}
+				/>
+			</Field>
+
+			{hasPreexistence && (
+				<>
+					<Field label="En caso de sí, detallar">
+						<Textarea
+							rows={2}
+							value={s(data.preexistenceDetail)}
+							onChange={(e) => setField("preexistenceDetail", e.target.value)}
+						/>
+					</Field>
+					<Field label="Tipo de contingencia de la preexistencia">
+						<ContingencySelect
+							value={data.preexistenceType}
+							onChange={(v) => setField("preexistenceType", v)}
+						/>
+					</Field>
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+						<Field label="% de incapacidad otorgado">
+							<Input
+								value={s(data.disabilityPercent)}
+								onChange={(e) => setField("disabilityPercent", e.target.value)}
+								placeholder="Ej: 12%"
+							/>
+						</Field>
+						<Field label="Región o zona afectada">
+							<Input
+								value={s(data.affectedRegion)}
+								onChange={(e) => setField("affectedRegion", e.target.value)}
+							/>
+						</Field>
+					</div>
+					<Field label="Prueba de la vía judicial o administrativa">
+						<Textarea
+							rows={2}
+							value={s(data.judicialProof)}
+							onChange={(e) => setField("judicialProof", e.target.value)}
+						/>
+					</Field>
+				</>
+			)}
+		</div>
 	);
 }
 
@@ -856,88 +894,6 @@ function AnexoIIIForm({ data, setField }: FormProps) {
 					rows={3}
 					value={s(data.proofOffered)}
 					onChange={(e) => setField("proofOffered", e.target.value)}
-				/>
-			</Field>
-		</>
-	);
-}
-
-// ── Anexo IV ───────────────────────────────────────────────────────────────
-
-function AnexoIVForm({ data, setField }: FormProps) {
-	return (
-		<>
-			<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-				<Field label="Tipo de contingencia" className="md:col-span-3">
-					<ContingencySelect
-						value={data.contingencyType}
-						onChange={(v) => setField("contingencyType", v)}
-					/>
-				</Field>
-				<Field label="Fecha de denuncia">
-					<Input
-						type="date"
-						value={s(data.denunciaDate)}
-						onChange={(e) => setField("denunciaDate", e.target.value)}
-					/>
-				</Field>
-				<Field label="Fecha de baja laboral (opcional)">
-					<Input
-						type="date"
-						value={s(data.bajaLaboralDate)}
-						onChange={(e) => setField("bajaLaboralDate", e.target.value)}
-					/>
-				</Field>
-				<Field label="Fecha de ocurrencia">
-					<Input
-						type="date"
-						value={s(data.ocurrenciaDate)}
-						onChange={(e) => setField("ocurrenciaDate", e.target.value)}
-					/>
-				</Field>
-				<Field label="Fecha de alta médica / cese de ILT">
-					<Input
-						type="date"
-						value={s(data.altaMedicaDate)}
-						onChange={(e) => setField("altaMedicaDate", e.target.value)}
-					/>
-				</Field>
-				<Field label="Motivo de la solicitud" className="md:col-span-2">
-					<Select
-						value={(data.reason as string) || ""}
-						onValueChange={(v) => setField("reason", v as Anexo4Reason)}
-					>
-						<SelectTrigger>
-							<SelectValue placeholder="Seleccionar…" />
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value="ALTA">Alta</SelectItem>
-							<SelectItem value="REINGRESO">Reingreso</SelectItem>
-							<SelectItem value="PRESTACIONES">Prestaciones</SelectItem>
-						</SelectContent>
-					</Select>
-				</Field>
-			</div>
-			<Field label="Detalle del accidente o enfermedad profesional">
-				<Textarea
-					rows={4}
-					value={s(data.accidentDetail)}
-					onChange={(e) => setField("accidentDetail", e.target.value)}
-				/>
-			</Field>
-			<Field label="Afecciones o diagnósticos derivados">
-				<Textarea
-					rows={3}
-					value={s(data.diagnosticDetail)}
-					onChange={(e) => setField("diagnosticDetail", e.target.value)}
-				/>
-			</Field>
-			<MedicalQuestions data={data} setField={setField} includeAlta />
-			<Field label="Prueba médica">
-				<Textarea
-					rows={3}
-					value={s(data.medicalProof)}
-					onChange={(e) => setField("medicalProof", e.target.value)}
 				/>
 			</Field>
 		</>

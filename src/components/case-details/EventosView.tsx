@@ -715,15 +715,18 @@ export const EventosView = ({
 							)}
 						</>
 					)}
-					{files.length > 0 && (
-						<button
-							onClick={handleOpenNewEvent}
-							className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-foreground bg-card border border-border rounded-md hover:bg-muted transition-colors"
-						>
-							<Plus className="h-3.5 w-3.5" />
-							Nuevo evento
-						</button>
-					)}
+					{/* El expediente es opcional: el backend acepta `fileId` null y
+					    una audiencia puede existir antes de que se cargue el
+					    expediente. Condicionar el botón a `files.length > 0` dejaba
+					    a esas causas sin forma de registrar el evento. */}
+					<button
+						type="button"
+						onClick={handleOpenNewEvent}
+						className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-foreground bg-card border border-border rounded-md hover:bg-muted transition-colors"
+					>
+						<Plus className="h-3.5 w-3.5" />
+						Nuevo evento
+					</button>
 				</div>
 			</div>
 
@@ -739,15 +742,14 @@ export const EventosView = ({
 					<p className="text-xs text-muted-foreground mb-3">
 						Creá un evento para gestionar pericias y audiencias.
 					</p>
-					{files.length > 0 && (
-						<button
-							onClick={handleOpenNewEvent}
-							className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/85 transition-colors"
-						>
-							<Plus className="h-4 w-4" />
-							Nuevo evento
-						</button>
-					)}
+					<button
+						type="button"
+						onClick={handleOpenNewEvent}
+						className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/85 transition-colors"
+					>
+						<Plus className="h-4 w-4" />
+						Nuevo evento
+					</button>
 				</div>
 			) : filteredEvents.length === 0 ? (
 				<div className="flex flex-col items-center justify-center px-5 py-10">

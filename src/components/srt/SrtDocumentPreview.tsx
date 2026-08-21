@@ -20,11 +20,17 @@ export function SrtDocumentPreview({
 	src,
 	values,
 	onFieldChange,
+	printRef,
 }: {
 	src: string;
 	values: PreviewValues;
 	/** Se dispara al editar directamente sobre el documento. */
 	onFieldChange?: (name: string, value: string | boolean) => void;
+	/**
+	 * La página guarda acá la función de imprimir, para poder dispararla desde
+	 * su propio botón de guardar. El PDF sale siempre de este iframe.
+	 */
+	printRef?: { current: (() => void) | null };
 }) {
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const [ready, setReady] = useState(false);
@@ -63,8 +69,11 @@ export function SrtDocumentPreview({
 				// no lo pisamos: le movería el cursor al final en cada tecla.
 				if (node === doc.activeElement) continue;
 
-				if (node instanceof HTMLInputElement && node.type === "checkbox") {
-					node.checked = value === true;
+				// Nada de `instanceof HTMLInputElement`: los nodos del iframe son
+				// de otro realm y su constructor no es el de esta ventana, así que
+				// siempre daría false. Se mira el `type`, que es del propio nodo.
+				if (node.type === "checkbox") {
+					(node as HTMLInputElement).checked = value === true;
 				} else {
 					node.value = value == null || value === false ? "" : String(value);
 				}
@@ -85,17 +94,15 @@ export function SrtDocumentPreview({
 		if (!ready || !doc || !onFieldChange) return;
 
 		const handler = (event: Event) => {
-			const el = event.target;
-			if (
-				!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) ||
-				!el.name
-			) {
-				return;
-			}
+			// Mismo motivo que en `paint`: `instanceof` no cruza realms, hay que
+			// mirar las propiedades del nodo.
+			const el = event.target as HTMLInputElement | HTMLTextAreaElement | null;
+			if (!el?.name) return;
+
 			onFieldChange(
 				el.name,
-				el instanceof HTMLInputElement && el.type === "checkbox"
-					? el.checked
+				el.type === "checkbox"
+					? (el as HTMLInputElement).checked
 					: el.value,
 			);
 		};
@@ -108,15 +115,23 @@ export function SrtDocumentPreview({
 		};
 	}, [ready, onFieldChange]);
 
-	// Imprime el documento que está a la vista. Como sale del mismo HTML que se
-	// ve en pantalla, lo impreso coincide exactamente con la previa — cosa que
-	// no pasa con el PDF que arma el backend desde sus propios templates.
-	const print = () => {
+	// Imprime el documento que está a la vista. Sale del mismo HTML que se ve
+	// en pantalla, así que lo impreso es exactamente la previa.
+	const print = useCallback(() => {
 		const win = iframeRef.current?.contentWindow;
 		if (!win) return;
 		win.focus();
 		win.print();
-	};
+	}, []);
+
+	// La página necesita poder imprimir desde su propio botón de guardar.
+	useEffect(() => {
+		if (!printRef) return;
+		printRef.current = ready ? print : null;
+		return () => {
+			printRef.current = null;
+		};
+	}, [printRef, print, ready]);
 
 	return (
 		<div className="relative h-full w-full overflow-hidden rounded-lg border bg-white">
