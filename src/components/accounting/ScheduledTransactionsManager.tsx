@@ -5,6 +5,7 @@ import {
 	ArrowDownCircle,
 	ArrowUpCircle,
 	Check,
+	Link2,
 	Loader2,
 	MoreHorizontal,
 	Pencil,
@@ -13,11 +14,21 @@ import {
 	Trash2,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import NextLink from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Autocomplete } from "@/components/shared/Autocomplete";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+} from "@/components/ui/dialog";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -25,6 +36,7 @@ import {
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
 	SCHEDULED_TX_BY_ID_ENDPOINT,
@@ -33,6 +45,7 @@ import {
 	SCHEDULED_TX_MARK_PAID_ENDPOINT,
 	SCHEDULED_TX_MARK_PENDING_ENDPOINT,
 	SCHEDULED_TX_SUMMARY_ENDPOINT,
+	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import type {
 	ScheduledFormPayload,
@@ -41,6 +54,7 @@ import type {
 	ScheduledTransaction,
 	ScheduledType,
 } from "@/types/scheduled-transaction";
+import type { User } from "@/types/users";
 import ScheduledTransactionDialog from "./ScheduledTransactionDialog";
 
 const formatCurrency = (n: number) =>
@@ -103,6 +117,29 @@ export default function ScheduledTransactionsManager() {
 	const [dialogType, setDialogType] = useState<ScheduledType>("income");
 	const [editing, setEditing] = useState<ScheduledTransaction | null>(null);
 	const [actingId, setActingId] = useState<number | null>(null);
+
+	// "A Pagar" → marcar como pagado pide quién paga, y esa Caja se descuenta.
+	const [apiUsers, setApiUsers] = useState<User[]>([]);
+	const [payingItem, setPayingItem] = useState<ScheduledTransaction | null>(
+		null,
+	);
+	const [payUserId, setPayUserId] = useState<number | null>(null);
+
+	useEffect(() => {
+		if (!token) return;
+		(async () => {
+			try {
+				const res = await fetch(`${USERS_ENDPOINT}?limit=1000000`, {
+					headers: { Authorization: `Bearer ${token}` },
+				});
+				if (!res.ok) return;
+				const data = await res.json();
+				setApiUsers(data.data || []);
+			} catch (err) {
+				console.error("Error fetching users:", err);
+			}
+		})();
+	}, [token]);
 
 	const fetchData = useCallback(async () => {
 		if (!token) return;
@@ -206,19 +243,25 @@ export default function ScheduledTransactionsManager() {
 		url: string,
 		method: "PATCH" | "DELETE",
 		successMsg: string,
+		body?: Record<string, unknown>,
 	) => {
 		if (!token) return;
 		setActingId(id);
 		try {
 			const res = await fetch(url, {
 				method,
-				headers: { Authorization: `Bearer ${token}` },
+				headers: {
+					Authorization: `Bearer ${token}`,
+					...(body ? { "Content-Type": "application/json" } : {}),
+				},
+				...(body ? { body: JSON.stringify(body) } : {}),
 			});
-			if (!res.ok) throw new Error();
-			toast.success(successMsg);
+			const result = await res.json().catch(() => null);
+			if (!res.ok) throw new Error(result?.message);
+			toast.success(result?.message || successMsg);
 			fetchData();
-		} catch {
-			toast.error("Error al ejecutar la acción");
+		} catch (err) {
+			toast.error((err as Error).message || "Error al ejecutar la acción");
 		} finally {
 			setActingId(null);
 		}
@@ -232,6 +275,19 @@ export default function ScheduledTransactionsManager() {
 			"DELETE",
 			"Registro eliminado",
 		);
+	};
+
+	const handleConfirmPay = async () => {
+		if (!payingItem || !payUserId) return;
+		await handleAction(
+			payingItem.id,
+			SCHEDULED_TX_MARK_PAID_ENDPOINT(payingItem.id),
+			"PATCH",
+			"Marcado como pagado",
+			{ userId: payUserId },
+		);
+		setPayingItem(null);
+		setPayUserId(null);
 	};
 
 	return (
@@ -428,14 +484,7 @@ export default function ScheduledTransactionsManager() {
 						items={expenses}
 						actingId={actingId}
 						onEdit={openEdit}
-						onMarkPaid={(it) =>
-							handleAction(
-								it.id,
-								SCHEDULED_TX_MARK_PAID_ENDPOINT(it.id),
-								"PATCH",
-								"Marcado como pagado",
-							)
-						}
+						onMarkPaid={(it) => setPayingItem(it)}
 						onMarkPending={(it) =>
 							handleAction(
 								it.id,
@@ -474,6 +523,55 @@ export default function ScheduledTransactionsManager() {
 				editing={editing}
 				onSubmit={handleSubmit}
 			/>
+
+			{/* Marcar como pagado: quién paga, se descuenta de su Caja */}
+			<Dialog
+				open={!!payingItem}
+				onOpenChange={(open) => {
+					if (!open) {
+						setPayingItem(null);
+						setPayUserId(null);
+					}
+				}}
+			>
+				<DialogContent className="sm:max-w-96">
+					<DialogHeader>
+						<DialogTitle>Marcar como pagado</DialogTitle>
+						<DialogDescription>
+							Se va a registrar un egreso de{" "}
+							{formatCurrency(Number(payingItem?.amount || 0))} en la Caja del
+							usuario que elijas, como si fuera un movimiento más.
+						</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-2 py-2">
+						<Label htmlFor="pay-user">Quién paga</Label>
+						<Autocomplete
+							id="pay-user"
+							value={payUserId}
+							onSelect={setPayUserId}
+							options={apiUsers}
+							placeholder="Selecciona usuario"
+						/>
+					</div>
+					<DialogFooter>
+						<Button
+							variant="outline"
+							onClick={() => {
+								setPayingItem(null);
+								setPayUserId(null);
+							}}
+						>
+							Cancelar
+						</Button>
+						<Button
+							onClick={handleConfirmPay}
+							disabled={!payUserId || actingId === payingItem?.id}
+						>
+							Confirmar pago
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }
@@ -569,6 +667,15 @@ function DataTable({
 									<StatusBadge status={item.status} />
 								</td>
 								<td className="px-2 py-3 align-middle">
+									{item.closingId ? (
+										<NextLink
+											href={`/admin/closing-manager/${item.closingId}/edit`}
+											title="Viene de un cierre — gestionalo desde Gestor de Cierres"
+											className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+										>
+											<Link2 className="h-4 w-4" />
+										</NextLink>
+									) : (
 									<DropdownMenu>
 										<DropdownMenuTrigger asChild>
 											<Button
@@ -617,6 +724,7 @@ function DataTable({
 											</DropdownMenuItem>
 										</DropdownMenuContent>
 									</DropdownMenu>
+									)}
 								</td>
 							</tr>
 						);

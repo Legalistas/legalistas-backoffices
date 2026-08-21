@@ -99,7 +99,7 @@ const columnLabels: Record<string, string> = {
 	contributionsAmount: "Aportes Totales ($)",
 	aportesRepresentante: "Aportes Representante ($)",
 	aportesLegalistas: "Aportes Legalistas ($)",
-	montoTransferir: "Monto a Transferir ($)",
+	montoTransferir: "Monto a Cobrar ($)",
 	totalCaseExpenses: "Gastos Causa ($)",
 	detail: "Detalle",
 };

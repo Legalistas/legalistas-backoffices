@@ -121,7 +121,7 @@ export default function ViewClosingModal({
 						)}
 					>
 						<p className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1">
-							Monto a Transferir a Legalistas
+							Monto a Cobrar por Legalistas
 						</p>
 						<div className="flex items-center gap-2">
 							{montoPositivo ? (

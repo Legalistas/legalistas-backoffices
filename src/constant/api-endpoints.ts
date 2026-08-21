@@ -373,6 +373,12 @@ export const CASE_INFORME_PUSH_ENDPOINT = (caseId: number) =>
 
 export const CASH_ENDPOINT = `${API_BASE_URL}/cash`;
 
+export const CREDIT_CARDS_ENDPOINT = `${API_BASE_URL}/credit-cards`;
+export const CREDIT_CARD_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/credit-cards/${id}`;
+export const CREDIT_CARD_SETTLE_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/credit-cards/${id}/settle`;
+
 // ============================================================================
 // CONTABLE - Gestor de Gastos e Ingresos (A Cobrar / A Pagar)
 // ============================================================================

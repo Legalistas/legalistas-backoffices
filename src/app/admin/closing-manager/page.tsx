@@ -198,6 +198,10 @@ export default function ClosingManagerPage() {
 				year: year.toString(),
 				view: viewAll ? "annual" : "monthly",
 			};
+			if (filters.responsibleLawyerId)
+				params.responsibleLawyerId = filters.responsibleLawyerId;
+			if (filters.internalLawyerId)
+				params.internalLawyerId = filters.internalLawyerId;
 			const url = buildFilteredUrl(CLOSINGS_KPIS_ENDPOINT, permissions, params);
 			const response = await fetch(url, {
 				headers: {
@@ -212,7 +216,15 @@ export default function ClosingManagerPage() {
 		} catch {
 			// Silent fail for KPIs
 		}
-	}, [month, year, viewAll, session?.user?.accessToken, permissions]);
+	}, [
+		month,
+		year,
+		viewAll,
+		filters.responsibleLawyerId,
+		filters.internalLawyerId,
+		session?.user?.accessToken,
+		permissions,
+	]);
 
 	// =========================================================================
 	// Export
@@ -228,6 +240,10 @@ export default function ClosingManagerPage() {
 			};
 			if (viewAll) params.viewAll = "true";
 			if (filters.type) params.type = filters.type;
+			if (filters.responsibleLawyerId)
+				params.responsibleLawyerId = filters.responsibleLawyerId;
+			if (filters.internalLawyerId)
+				params.internalLawyerId = filters.internalLawyerId;
 
 			const url = buildFilteredUrl(
 				CLOSINGS_EXPORT_ENDPOINT,
@@ -354,7 +370,7 @@ export default function ClosingManagerPage() {
 					valueColor: "text-purple-600",
 				},
 				{
-					label: "Total a transferir",
+					label: "Total a cobrar",
 					value: kpis?.totalTransferir ?? 0,
 					format: "currency" as const,
 					icon: ArrowRightLeft,

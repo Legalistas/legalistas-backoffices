@@ -165,12 +165,23 @@ export const CasesListView = ({
 									</TableCell>
 									{/* Etapa */}
 									<TableCell className="px-3 py-2">
-										<StageSelectDropdown
-											currentStageId={Number(caso.stageId)}
-											onStageChange={(newStageId) =>
-												onStageChange(caso.id, newStageId)
-											}
-										/>
+										<div className="flex items-center gap-1.5">
+											<StageSelectDropdown
+												currentStageId={Number(caso.stageId)}
+												onStageChange={(newStageId) =>
+													onStageChange(caso.id, newStageId)
+												}
+											/>
+											{caso._count?.caseEvents === 0 && (
+												<span
+													title="Sin audiencias, pericias ni reuniones cargadas"
+													className="inline-flex items-center gap-1 rounded-full bg-red-50 dark:bg-red-950 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+												>
+													<AlertCircle className="h-2.5 w-2.5" />
+													Sin eventos
+												</span>
+											)}
+										</div>
 									</TableCell>
 									{/* Nota */}
 									<TableCell className="px-3 py-2">

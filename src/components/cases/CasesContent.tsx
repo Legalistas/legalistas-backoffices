@@ -65,6 +65,7 @@ export default function CasesContent() {
 	>([]);
 	const [dateFrom, setDateFrom] = useState<string>("");
 	const [dateTo, setDateTo] = useState<string>("");
+	const [noEvents, setNoEvents] = useState(false);
 	const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
 
 	const [responsibleLawyerTypes, setResponsibleLawyerTypes] = useState<
@@ -93,6 +94,7 @@ export default function CasesContent() {
 			selectedInternalLawyer: string[];
 			dateFrom: string;
 			dateTo: string;
+			noEvents?: boolean;
 			currentPage: number;
 		}) => {
 			try {
@@ -160,6 +162,7 @@ export default function CasesContent() {
 						: [],
 					dateFrom: searchParams.get("dateFrom") || "",
 					dateTo: searchParams.get("dateTo") || "",
+					noEvents: searchParams.get("noEvents") === "true",
 				};
 			}
 
@@ -187,6 +190,7 @@ export default function CasesContent() {
 				setSelectedInternalLawyer(validIntLawyers);
 				setDateFrom(filters.dateFrom || "");
 				setDateTo(filters.dateTo || "");
+				setNoEvents(Boolean(filters.noEvents));
 
 				return filters;
 			}
@@ -286,6 +290,7 @@ export default function CasesContent() {
 			internalLawyerIds?: string[],
 			isKanbanMode?: boolean,
 			tab: "active" | "archived" = "active",
+			noEventsOnly?: boolean,
 		) => {
 			try {
 				setIsLoading(true);
@@ -341,6 +346,10 @@ export default function CasesContent() {
 
 				if (toDate) {
 					url.searchParams.append("toDate", toDate);
+				}
+
+				if (noEventsOnly) {
+					url.searchParams.append("noEvents", "true");
 				}
 
 				const response = await fetch(url.toString(), {
@@ -422,6 +431,7 @@ export default function CasesContent() {
 			const toDateApi = formatDateForApi(dateTo);
 			if (fromDateApi) url.searchParams.append("fromDate", fromDateApi);
 			if (toDateApi) url.searchParams.append("toDate", toDateApi);
+			if (noEvents) url.searchParams.append("noEvents", "true");
 
 			const response = await fetch(url.toString(), {
 				headers: {
@@ -632,6 +642,7 @@ export default function CasesContent() {
 		selectedInternalLawyer,
 		dateFrom,
 		dateTo,
+		noEvents,
 		formatDateForApi,
 	]);
 
@@ -660,6 +671,7 @@ export default function CasesContent() {
 				selectedInternalLawyer,
 				viewMode === "kanban",
 				activeTab,
+				noEvents,
 			);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -680,6 +692,7 @@ export default function CasesContent() {
 				selectedInternalLawyer,
 				viewMode === "kanban",
 				activeTab,
+				noEvents,
 			);
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
@@ -695,6 +708,7 @@ export default function CasesContent() {
 			intLawyers?: string[];
 			dateFrom?: string;
 			dateTo?: string;
+			noEvents?: boolean;
 		}) => {
 			const params = new URLSearchParams();
 
@@ -724,6 +738,7 @@ export default function CasesContent() {
 
 			if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
 			if (filters.dateTo) params.set("dateTo", filters.dateTo);
+			if (filters.noEvents) params.set("noEvents", "true");
 
 			const newURL = params.toString()
 				? `?${params.toString()}`
@@ -738,6 +753,7 @@ export default function CasesContent() {
 				selectedInternalLawyer: filters.intLawyers || [],
 				dateFrom: filters.dateFrom || "",
 				dateTo: filters.dateTo || "",
+				noEvents: filters.noEvents || false,
 				currentPage: filters.page || 1,
 			});
 		},
@@ -789,6 +805,7 @@ export default function CasesContent() {
 					intLawyers: validIntLawyers,
 					dateFrom: appliedFilters.dateFrom,
 					dateTo: appliedFilters.dateTo,
+					noEvents: appliedFilters.noEvents,
 				});
 
 				fetchCases(
@@ -802,6 +819,7 @@ export default function CasesContent() {
 					validIntLawyers,
 					viewMode === "kanban",
 					activeTab,
+					Boolean(appliedFilters.noEvents),
 				);
 			}
 
@@ -842,6 +860,7 @@ export default function CasesContent() {
 				intLawyers: selectedInternalLawyer,
 				dateFrom: dateFrom,
 				dateTo: dateTo,
+				noEvents,
 			});
 
 			fetchCases(
@@ -855,6 +874,7 @@ export default function CasesContent() {
 				selectedInternalLawyer,
 				viewMode === "kanban",
 				activeTab,
+				noEvents,
 			);
 			setCurrentPage(1);
 		}, 500);
@@ -872,6 +892,7 @@ export default function CasesContent() {
 		selectedInternalLawyer,
 		dateFrom,
 		dateTo,
+		noEvents,
 		updateURL,
 		fetchCases,
 		formatDateForApi,
@@ -887,6 +908,7 @@ export default function CasesContent() {
 		setHasSearched(false);
 		setDateFrom("");
 		setDateTo("");
+		setNoEvents(false);
 		setCurrentPage(1);
 
 		try {
@@ -925,6 +947,7 @@ export default function CasesContent() {
 					selectedInternalLawyer,
 					viewMode === "kanban",
 					activeTab,
+					noEvents,
 				);
 			} catch (error) {
 				console.error("Error al eliminar el caso:", error);
@@ -945,6 +968,7 @@ export default function CasesContent() {
 			fetchCases,
 			viewMode,
 			activeTab,
+			noEvents,
 		],
 	);
 
@@ -984,6 +1008,7 @@ export default function CasesContent() {
 					selectedInternalLawyer,
 					viewMode === "kanban",
 					activeTab,
+					noEvents,
 				);
 			} catch (error) {
 				console.error("Error al actualizar la etapa:", error);
@@ -1005,6 +1030,7 @@ export default function CasesContent() {
 			viewMode,
 			cases,
 			activeTab,
+			noEvents,
 		],
 	);
 
@@ -1036,6 +1062,7 @@ export default function CasesContent() {
 					selectedInternalLawyer,
 					viewMode === "kanban",
 					activeTab,
+					noEvents,
 				);
 			} catch (error) {
 				console.error("Error al actualizar el estado:", error);
@@ -1056,6 +1083,7 @@ export default function CasesContent() {
 			fetchCases,
 			viewMode,
 			activeTab,
+			noEvents,
 		],
 	);
 
@@ -1117,6 +1145,7 @@ export default function CasesContent() {
 					selectedInternalLawyer,
 					viewMode === "kanban",
 					activeTab,
+					noEvents,
 				);
 			} catch (error) {
 				console.error("Error al guardar la observación:", error);
@@ -1138,6 +1167,7 @@ export default function CasesContent() {
 			fetchCases,
 			viewMode,
 			activeTab,
+			noEvents,
 		],
 	);
 
@@ -1159,6 +1189,7 @@ export default function CasesContent() {
 				intLawyers: selectedInternalLawyer,
 				dateFrom: dateFrom,
 				dateTo: dateTo,
+				noEvents,
 			});
 			fetchCases(
 				page,
@@ -1171,6 +1202,7 @@ export default function CasesContent() {
 				selectedInternalLawyer,
 				viewMode === "kanban",
 				activeTab,
+				noEvents,
 			);
 		},
 		[
@@ -1186,6 +1218,7 @@ export default function CasesContent() {
 			formatDateForApi,
 			viewMode,
 			activeTab,
+			noEvents,
 		],
 	);
 
@@ -1199,6 +1232,7 @@ export default function CasesContent() {
 				selectedInternalLawyer,
 				dateFrom,
 				dateTo,
+				noEvents,
 				currentPage,
 			});
 		}
@@ -1210,6 +1244,7 @@ export default function CasesContent() {
 		selectedInternalLawyer,
 		dateFrom,
 		dateTo,
+		noEvents,
 		currentPage,
 		saveFiltersToStorage,
 	]);
@@ -1222,7 +1257,8 @@ export default function CasesContent() {
 				selectedRepresentativeLawyer.length > 0) ||
 			(selectedInternalLawyer && selectedInternalLawyer.length > 0) ||
 			dateFrom ||
-			dateTo,
+			dateTo ||
+			noEvents,
 	);
 
 	if (isLoading && cases.length === 0 && !hasSearched) {
@@ -1322,6 +1358,8 @@ export default function CasesContent() {
 					setDateFrom={setDateFrom}
 					dateTo={dateTo}
 					setDateTo={setDateTo}
+					noEvents={noEvents}
+					setNoEvents={setNoEvents}
 					hasActiveFilters={hasActiveFilters}
 					handleClearSearch={handleClearSearch}
 					viewMode={viewMode}

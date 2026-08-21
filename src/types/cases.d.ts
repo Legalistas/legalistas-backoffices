@@ -217,6 +217,7 @@ export interface Cases {
 	logs: CaseLogs[];
 	customer: User;
 	consultation: CaseConsultations[];
+	_count?: { caseEvents: number };
 }
 
 interface Jurisdiction {

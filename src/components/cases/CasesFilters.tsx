@@ -54,6 +54,8 @@ interface CasesFiltersProps {
 	setDateFrom: (date: string) => void;
 	dateTo: string;
 	setDateTo: (date: string) => void;
+	noEvents: boolean;
+	setNoEvents: (value: boolean) => void;
 	hasActiveFilters: boolean;
 	handleClearSearch: () => void;
 	viewMode: "list" | "kanban";
@@ -78,6 +80,8 @@ export const CasesFilters = ({
 	setDateFrom,
 	dateTo,
 	setDateTo,
+	noEvents,
+	setNoEvents,
 	hasActiveFilters,
 	handleClearSearch,
 	viewMode,
@@ -208,6 +212,7 @@ export const CasesFilters = ({
 		if (selectedService !== undefined) count++;
 		if (selectedStage.length > 0) count++;
 		if (dateFrom || dateTo) count++;
+		if (noEvents) count++;
 		return count;
 	}, [
 		selectedRepresentativeLawyer,
@@ -216,6 +221,7 @@ export const CasesFilters = ({
 		selectedStage,
 		dateFrom,
 		dateTo,
+		noEvents,
 	]);
 
 	useEffect(() => {
@@ -644,6 +650,19 @@ export const CasesFilters = ({
 										</PopoverContent>
 									</Popover>
 								</div>
+
+								{/* 6. Auditoría: causas sin eventos cargados */}
+								<div className="flex items-end">
+									<label className="flex h-10 items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+										<input
+											type="checkbox"
+											checked={noEvents}
+											onChange={(e) => setNoEvents(e.target.checked)}
+											className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+										/>
+										Sin eventos cargados (audiencias/pericias/reuniones)
+									</label>
+								</div>
 							</div>
 
 							<div className="mt-6 flex items-center justify-between">
@@ -770,6 +789,17 @@ export const CasesFilters = ({
 									setDateTo("");
 								}}
 								className="text-yellow-600 hover:text-yellow-800"
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</span>
+					)}
+					{noEvents && (
+						<span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-1 text-xs text-red-800">
+							Sin eventos cargados
+							<button
+								onClick={() => setNoEvents(false)}
+								className="text-red-600 hover:text-red-800"
 							>
 								<X className="h-3 w-3" />
 							</button>

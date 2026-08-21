@@ -15,22 +15,14 @@ import {
 } from "@/components/ui/select";
 import {
 	CLOSING_BY_ID_ENDPOINT,
-	LAWYERS_ENDPOINT,
+	CLOSINGS_CHARGE_COLLECTORS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import {
 	closingType,
 	statusCapital,
 	statusData,
 } from "@/constant/closing-manager";
-import { Role } from "@/constant/user";
 import type { ClosingManagerEntry } from "@/types/closing-manager";
-
-const CHARGE_COLLECTOR_ROLES: string[] = [
-	Role.ADMINISTRATOR,
-	Role.DIRECTOR_GENERAL_CEO,
-	Role.GERENTE_GENERAL_COO,
-	Role.DIRECTORA_AREA_CONTABLE,
-];
 
 const toDateInputValue = (raw?: string | null): string => {
 	if (!raw) return "";
@@ -130,29 +122,22 @@ export default function EditClosing({
 		}
 	}, [closing]);
 
-	// Cargar usuarios habilitados para registrar cobros (admin + contable).
+	// Cargar usuarios habilitados para registrar cobros. Usa el endpoint
+	// dedicado del backend (`CHARGE_COLLECTOR_ROLES` en closing.controller.ts)
+	// en vez de reimplementar la lista de roles acá — antes esta lista local
+	// solo tenía 4 roles administrativos y dejaba afuera a legales (Julieta,
+	// Agustín) que el backend sí habilita.
 	useEffect(() => {
 		const token = session?.user?.accessToken;
 		if (!token) return;
 		(async () => {
 			try {
-				const res = await fetch(`${LAWYERS_ENDPOINT}?limit=10000`, {
+				const res = await fetch(CLOSINGS_CHARGE_COLLECTORS_ENDPOINT, {
 					headers: { Authorization: `Bearer ${token}` },
 				});
 				if (!res.ok) return;
-				const data = await res.json();
-				const list = Array.isArray(data) ? data : data.data || [];
-				const filtered = list
-					.filter((u: any) =>
-						u?.roleUser?.some((ru: any) =>
-							CHARGE_COLLECTOR_ROLES.includes(ru?.role?.name),
-						),
-					)
-					.map((u: any) => ({ id: u.id as number, name: (u.name as string) ?? "" }))
-					.sort((a: { name: string }, b: { name: string }) =>
-						a.name.localeCompare(b.name),
-					);
-				setCollectors(filtered);
+				const data: { id: number; name: string }[] = await res.json();
+				setCollectors(data);
 			} catch {
 				// silent
 			}
@@ -703,7 +688,7 @@ export default function EditClosing({
 						</p>
 					</div>
 
-					{/* Monto a Transferir + Gastos de la Causa */}
+					{/* Monto a Cobrar + Gastos de la Causa */}
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
 						<div
 							className={`rounded-lg p-4 border-2 lg:col-span-2 ${calc.montoTransferir < 0 ? "border-red-300 bg-red-50" : "border-primary/30 bg-primary/5"}`}
@@ -711,7 +696,7 @@ export default function EditClosing({
 							<div className="flex items-center justify-between">
 								<div>
 									<h4 className="font-semibold text-sm">
-										Monto a Transferir a Legalistas
+										Monto a Cobrar por Legalistas
 									</h4>
 									<p className="text-xs text-gray-500 mt-0.5">
 										HP Legalistas (neto de aportes) + PCL Legalistas

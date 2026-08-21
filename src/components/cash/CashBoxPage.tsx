@@ -60,11 +60,17 @@ import {
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { CASH_ENDPOINT, CLOSINGS_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	CASH_ENDPOINT,
+	CLOSINGS_ENDPOINT,
+	CREDIT_CARDS_ENDPOINT,
+	USERS_ENDPOINT,
+} from "@/constant/api-endpoints";
 import { MOVEMENTS } from "@/constant/cash"; // Importar MOVEMENTS y su tipo
 import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/users";
+import { CreditCardsPanel, type CreditCardWithPending } from "./CreditCardsPanel";
 
 export default function CashBoxPage() {
 	const { data: session } = useSession();
@@ -107,6 +113,10 @@ export default function CashBoxPage() {
 	const [newDescription, setNewDescription] = useState<string>("");
 	const [newClosingId, setNewClosingId] = useState<string>("");
 	const [closingsOptions, setClosingsOptions] = useState<ClosingOption[]>([]);
+	// "cash" (Efectivo/Transferencia, default) o el id de una tarjeta —
+	// pagar con tarjeta no descuenta el saldo hasta liquidar el resumen.
+	const [newPaymentMethod, setNewPaymentMethod] = useState<string>("cash");
+	const [creditCards, setCreditCards] = useState<CreditCardWithPending[]>([]);
 
 	// State para el input del modal "Abrir Caja"
 	const [newBoxInitialAmount, setNewBoxInitialAmount] = useState<string>("");
@@ -469,6 +479,10 @@ export default function CashBoxPage() {
 		if (newClosingId) {
 			payload.closingId = Number(newClosingId);
 		}
+		if (newType === "expense" && newPaymentMethod !== "cash") {
+			payload.paymentMethod = "card";
+			payload.creditCardId = Number(newPaymentMethod);
+		}
 
 		const response = await fetch(`${CASH_ENDPOINT}/movements`, {
 			method: "POST",
@@ -490,9 +504,11 @@ export default function CashBoxPage() {
 			setNewDescription("");
 			setNewDate(new Date().toISOString().substring(0, 10));
 			setNewClosingId("");
+			setNewPaymentMethod("cash");
 			setIsRegisterMovementModalOpen(false);
 			toast.success(result.message);
 			await loadData();
+			if (payload.creditCardId) await fetchCreditCards();
 		} else {
 			toast.error(`Error al registrar movimiento: ${result.message}`);
 		}
@@ -778,6 +794,33 @@ export default function CashBoxPage() {
 		}
 	}, [session?.user?.accessToken]); // Re-fetch if session token changes
 
+	const fetchCreditCards = useCallback(async () => {
+		if (!session?.user?.accessToken) return;
+		try {
+			const response = await fetch(CREDIT_CARDS_ENDPOINT, {
+				headers: { Authorization: `Bearer ${session.user.accessToken}` },
+			});
+			if (!response.ok) return;
+			const { data } = await response.json();
+			setCreditCards(data || []);
+		} catch (err) {
+			console.error("Error fetching credit cards:", err);
+		}
+	}, [session?.user?.accessToken]);
+
+	useEffect(() => {
+		fetchCreditCards();
+	}, [fetchCreditCards]);
+
+	const paymentMethodOptions = useMemo(() => {
+		return [
+			{ value: "cash", label: "Efectivo / Transferencia" },
+			...creditCards
+				.filter((c) => c.isActive)
+				.map((c) => ({ value: String(c.id), label: c.name })),
+		];
+	}, [creditCards]);
+
 	const subMovementOptions = useMemo(() => {
 		const selectedMovement = MOVEMENTS.find((m) => m.value === newType);
 		return (
@@ -793,6 +836,7 @@ export default function CashBoxPage() {
 	const handleMovementTypeChange = (value: string) => {
 		setNewType(value);
 		setNewSubtype(""); // Resetear el subtipo cuando el tipo cambia
+		setNewPaymentMethod("cash"); // El pago con tarjeta solo aplica a egresos
 	};
 
 	const handleCloseMonth = async () => {
@@ -1151,6 +1195,13 @@ export default function CashBoxPage() {
 					</div>
 				</div>
 
+				<CreditCardsPanel
+					cards={creditCards}
+					onRefetch={fetchCreditCards}
+					accessToken={session?.user?.accessToken}
+					userId={session?.user?.id}
+				/>
+
 				{/* Saldo acumulado bar */}
 				<div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border bg-card/50 px-4 py-3">
 					<div className="flex items-center gap-3">
@@ -1299,6 +1350,20 @@ export default function CashBoxPage() {
 										placeholder="0.00"
 									/>
 								</div>
+								{/* Medio de pago: solo para egresos. Con tarjeta, el gasto se
+								    acumula y no descuenta el saldo hasta liquidar el resumen. */}
+								{newType === "expense" && (
+									<div className="space-y-2">
+										<Label htmlFor="movement-payment-method">Medio de pago</Label>
+										<Select
+											id="movement-payment-method"
+											value={newPaymentMethod}
+											onValueChange={setNewPaymentMethod}
+											options={paymentMethodOptions}
+											placeholder="Selecciona medio de pago"
+										/>
+									</div>
+								)}
 								<div className="space-y-2">
 									<Label htmlFor="movement-date">Fecha de Carga</Label>
 									<Input

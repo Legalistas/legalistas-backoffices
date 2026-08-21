@@ -1085,7 +1085,7 @@ export default function CreateClosingPage() {
 											</div>
 										)}
 
-										{/* Monto a Transferir - Preview en sidebar */}
+										{/* Monto a Cobrar - Preview en sidebar */}
 										{(() => {
 											const hp = Number(hpTotal) || 0;
 											const pcl = Number(pclTotal) || 0;
@@ -1106,7 +1106,7 @@ export default function CreateClosingPage() {
 											const monto = hpLeg - aportesLeg + pclLeg;
 											return (
 												<div className={`rounded-lg p-3 border ${monto < 0 ? "border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : "border-primary/30 bg-primary/5"}`}>
-													<span className="text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">A Transferir</span>
+													<span className="text-[10px] uppercase tracking-wider text-muted-foreground block mb-1">A Cobrar</span>
 													<span className={`text-lg font-bold ${monto < 0 ? "text-red-600 dark:text-red-400" : "text-primary"}`}>
 														{new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(monto)}
 													</span>

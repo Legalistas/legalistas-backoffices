@@ -71,7 +71,7 @@ const COLUMNS = [
 		width: "",
 	},
 	{ id: "aportesLegalistas", label: "Aportes Legalistas ($)", align: "right", width: "" },
-	{ id: "montoTransferir", label: "Monto a Transferir ($)", align: "right", width: "w-[10%]" },
+	{ id: "montoTransferir", label: "Monto a Cobrar ($)", align: "right", width: "w-[10%]" },
 	{ id: "totalCaseExpenses", label: "Gastos Causa ($)", align: "right", width: "" },
 	{ id: "detail", label: "Detalle", align: "left", width: "" },
 ] as const;

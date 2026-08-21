@@ -2,6 +2,7 @@
 
 import {
 	Calendar,
+	Check,
 	ChevronDown,
 	Clock,
 	FileText,
@@ -36,6 +37,12 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 		label: "Pendiente",
 		color: "bg-amber-50 text-amber-700 border-amber-200",
 	},
+	// Confirmado = el cliente ya avisó que asiste. Es el paso previo a
+	// completado, que recién se marca cuando la audiencia o pericia ocurrió.
+	confirmado: {
+		label: "Confirmado",
+		color: "bg-teal-50 text-teal-700 border-teal-200",
+	},
 	completado: {
 		label: "Completado",
 		color: "bg-green-50 text-green-700 border-green-200",
@@ -63,6 +70,11 @@ const TYPE_CONFIG: Record<
 		label: "Pericia",
 		icon: FileText,
 		color: "bg-purple-50 text-purple-700 border-purple-200",
+	},
+	3: {
+		label: "Reunión",
+		icon: MessageCircle,
+		color: "bg-teal-50 text-teal-700 border-teal-200",
 	},
 };
 
@@ -197,15 +209,58 @@ export const EventosView = ({
 		if (isFileDropdownOpen) setTimeout(() => fileSearchRef.current?.focus(), 0);
 	}, [isFileDropdownOpen]);
 
-	// Set responsible lawyer by default
-	useEffect(() => {
-		if (responsibleLawyer?.id) {
-			setNewEvent((prev) => ({
-				...prev,
-				responsibleId: String(responsibleLawyer.id),
-			}));
+	// ── Responsables disponibles ──
+	//
+	// Los abogados de la causa, más quien está cargando el evento. Ese último
+	// es la red de seguridad: si la causa todavía no tiene abogados asignados,
+	// igual hay a quién responsabilizar y el evento se puede crear.
+	const responsibleOptions = useMemo(() => {
+		const byId = new Map<
+			number,
+			{ id: number; name: string; role: string; avatarClass: string }
+		>();
+
+		if (responsibleLawyer) {
+			byId.set(responsibleLawyer.id, {
+				id: responsibleLawyer.id,
+				name: responsibleLawyer.name,
+				role: "Abogado responsable",
+				avatarClass: "bg-blue-100 text-blue-700",
+			});
 		}
-	}, [responsibleLawyer]);
+		if (internalLawyer && !byId.has(internalLawyer.id)) {
+			byId.set(internalLawyer.id, {
+				id: internalLawyer.id,
+				name: internalLawyer.name,
+				role: "Abogado interno",
+				avatarClass: "bg-purple-100 text-purple-700",
+			});
+		}
+
+		const meId = Number(session?.user?.id);
+		if (meId && !byId.has(meId)) {
+			byId.set(meId, {
+				id: meId,
+				name: session?.user?.name || "Yo",
+				role: "Vos",
+				avatarClass: "bg-teal-100 text-teal-700",
+			});
+		}
+
+		return [...byId.values()];
+	}, [responsibleLawyer, internalLawyer, session?.user?.id, session?.user?.name]);
+
+	// Responsable por defecto: el primero de la lista (el abogado responsable
+	// de la causa si existe, y si no quien está cargando el evento).
+	useEffect(() => {
+		const first = responsibleOptions[0];
+		if (!first) return;
+		setNewEvent((prev) =>
+			prev.responsibleId
+				? prev
+				: { ...prev, responsibleId: String(first.id) },
+		);
+	}, [responsibleOptions]);
 
 	// Subtipos disponibles para el filtro según tipo seleccionado
 	const filterSubTypes = useMemo(() => {
@@ -242,11 +297,11 @@ export const EventosView = ({
 			observation: "",
 			status: "pendiente",
 			schedule: "si",
-			responsibleId: responsibleLawyer?.id ? String(responsibleLawyer.id) : "",
+			responsibleId: responsibleOptions[0] ? String(responsibleOptions[0].id) : "",
 		});
 		setEditingEventId(null);
 		setIsNewEventModalOpen(true);
-	}, [files, responsibleLawyer]);
+	}, [files, responsibleOptions]);
 
 	const handleSaveEvent = async () => {
 		if (!selectedType) {
@@ -416,8 +471,6 @@ export const EventosView = ({
 		return sub?.label || null;
 	};
 
-	// ── Responsables disponibles (vienen por props) ──
-
 	// ── Render card ──
 	const renderEventCard = (event: CaseEvent): React.JSX.Element => {
 		const typeInfo = TYPE_CONFIG[event.type] || TYPE_CONFIG[1];
@@ -454,8 +507,11 @@ export const EventosView = ({
 								</span>
 							)}
 							<span
-								className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${status.color}`}
+								className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${status.color}`}
 							>
+								{event.status === "confirmado" && (
+									<Check className="h-3.5 w-3.5 text-green-600" />
+								)}
 								{status.label}
 							</span>
 						</div>
@@ -518,6 +574,19 @@ export const EventosView = ({
 
 					{/* Acciones */}
 					<div className="flex items-center gap-1.5 shrink-0">
+						{/* Atajo para la acción más frecuente: el cliente avisa que
+						    asiste y hay que dejarlo registrado en el momento. */}
+						{event.status === "pendiente" && (
+							<button
+								type="button"
+								onClick={() => handleUpdateStatus(event.id, "confirmado")}
+								title="Marcar como confirmado por el cliente"
+								className="flex items-center gap-1 rounded-lg border border-teal-200 bg-teal-50 px-2.5 py-2 text-sm font-medium text-teal-700 transition-colors hover:bg-teal-100"
+							>
+								<Check className="h-4 w-4" />
+								Confirmar
+							</button>
+						)}
 						<select
 							value={event.status}
 							onChange={(e) => handleUpdateStatus(event.id, e.target.value)}
@@ -908,88 +977,52 @@ export const EventosView = ({
 						<div className="border-t border-border" />
 
 						{/* ── Sección: Responsable ── */}
-						{(responsibleLawyer || internalLawyer) && (
-							<div className="space-y-3">
-								<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-									Responsable
-								</h3>
-								<div className="grid grid-cols-2 gap-2">
-									{responsibleLawyer && (
-										<label
-											className={`flex items-center gap-3 px-3 py-3 border rounded-lg cursor-pointer transition-all ${
-												newEvent.responsibleId === String(responsibleLawyer.id)
-													? "border-primary bg-primary/5 ring-1 ring-[#09A4B5]/20"
-													: "border-border hover:border-input hover:bg-muted"
-											}`}
+						{/* Antes esta sección se ocultaba entera si la causa no tenía
+						    abogado responsable ni interno cargado. Como guardar exige un
+						    responsable, el evento no se podía crear y no había forma de
+						    darse cuenta: el campo simplemente no estaba. Ahora siempre hay
+						    al menos una opción, la persona que está cargando el evento. */}
+						<div className="space-y-3">
+							<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+								Responsable
+							</h3>
+							<div className="grid grid-cols-2 gap-2">
+								{responsibleOptions.map((person) => (
+									<label
+										key={person.id}
+										className={`flex items-center gap-3 px-3 py-3 border rounded-lg cursor-pointer transition-all ${
+											newEvent.responsibleId === String(person.id)
+												? "border-primary bg-primary/5 ring-1 ring-[#09A4B5]/20"
+												: "border-border hover:border-input hover:bg-muted"
+										}`}
+									>
+										<input
+											type="radio"
+											name="event-responsible"
+											value={person.id}
+											checked={newEvent.responsibleId === String(person.id)}
+											onChange={(e) =>
+												setNewEvent({ ...newEvent, responsibleId: e.target.value })
+											}
+											className="sr-only"
+										/>
+										<div
+											className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold shrink-0 ${person.avatarClass}`}
 										>
-											<input
-												type="radio"
-												name="event-responsible"
-												value={responsibleLawyer.id}
-												checked={
-													newEvent.responsibleId ===
-													String(responsibleLawyer.id)
-												}
-												onChange={(e) =>
-													setNewEvent({
-														...newEvent,
-														responsibleId: e.target.value,
-													})
-												}
-												className="sr-only"
-											/>
-											<div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">
-												{responsibleLawyer.name.charAt(0).toUpperCase()}
-											</div>
-											<div className="min-w-0">
-												<p className="text-sm font-medium text-foreground truncate">
-													{responsibleLawyer.name}
-												</p>
-												<p className="text-[11px] text-muted-foreground">
-													Abogado responsable
-												</p>
-											</div>
-										</label>
-									)}
-									{internalLawyer && (
-										<label
-											className={`flex items-center gap-3 px-3 py-3 border rounded-lg cursor-pointer transition-all ${
-												newEvent.responsibleId === String(internalLawyer.id)
-													? "border-primary bg-primary/5 ring-1 ring-[#09A4B5]/20"
-													: "border-border hover:border-input hover:bg-muted"
-											}`}
-										>
-											<input
-												type="radio"
-												name="event-responsible"
-												value={internalLawyer.id}
-												checked={
-													newEvent.responsibleId === String(internalLawyer.id)
-												}
-												onChange={(e) =>
-													setNewEvent({
-														...newEvent,
-														responsibleId: e.target.value,
-													})
-												}
-												className="sr-only"
-											/>
-											<div className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-100 text-purple-700 text-xs font-bold shrink-0">
-												{internalLawyer.name.charAt(0).toUpperCase()}
-											</div>
-											<div className="min-w-0">
-												<p className="text-sm font-medium text-foreground truncate">
-													{internalLawyer.name}
-												</p>
-												<p className="text-[11px] text-muted-foreground">
-													Abogado interno
-												</p>
-											</div>
-										</label>
-									)}
-								</div>
+											{person.name.charAt(0).toUpperCase()}
+										</div>
+										<div className="min-w-0">
+											<p className="text-sm font-medium text-foreground truncate">
+												{person.name}
+											</p>
+											<p className="text-[11px] text-muted-foreground">
+												{person.role}
+											</p>
+										</div>
+									</label>
+								))}
 							</div>
-						)}
+						</div>
 
 						{/* Observaciones */}
 						<div>

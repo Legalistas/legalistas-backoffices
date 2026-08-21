@@ -11,7 +11,12 @@ import {
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CASH_ENDPOINT, CLOSINGS_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	CASH_ENDPOINT,
+	CLOSINGS_ENDPOINT,
+	CREDIT_CARDS_ENDPOINT,
+	USERS_ENDPOINT,
+} from "@/constant/api-endpoints";
 import { MOVEMENTS } from "@/constant/cash";
 import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
@@ -33,6 +38,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { CreditCardWithPending } from "@/components/cash/CreditCardsPanel";
 
 export default function MyCashboxContent() {
 	const { data: session } = useSession();
@@ -73,6 +79,10 @@ export default function MyCashboxContent() {
 	const [newDescription, setNewDescription] = useState<string>("");
 	const [newClosingId, setNewClosingId] = useState<string>("");
 	const [closingsOptions, setClosingsOptions] = useState<ClosingOption[]>([]);
+	// "cash" (Efectivo/Transferencia, default) o el id de una tarjeta —
+	// pagar con tarjeta no descuenta el saldo hasta liquidar el resumen.
+	const [newPaymentMethod, setNewPaymentMethod] = useState<string>("cash");
+	const [creditCards, setCreditCards] = useState<CreditCardWithPending[]>([]);
 
 	const formatCurrency = (amount: number) => {
 		if (typeof amount !== "number" || isNaN(amount)) {
@@ -160,6 +170,24 @@ export default function MyCashboxContent() {
 			fetchUsers();
 		}
 	}, [session?.user?.accessToken]); // Re-fetch if session token changes
+
+	const fetchCreditCards = useCallback(async () => {
+		if (!session?.user?.accessToken) return;
+		try {
+			const response = await fetch(CREDIT_CARDS_ENDPOINT, {
+				headers: { Authorization: `Bearer ${session.user.accessToken}` },
+			});
+			if (!response.ok) return;
+			const { data } = await response.json();
+			setCreditCards(data || []);
+		} catch (err) {
+			console.error("Error fetching credit cards:", err);
+		}
+	}, [session?.user?.accessToken]);
+
+	useEffect(() => {
+		fetchCreditCards();
+	}, [fetchCreditCards]);
 
 	// Cargar cierres con el cobro correspondiente pendiente cuando se abre el
 	// modal. Aplica a ingresos con subtype `fee` (Honorarios) o `pcl`. Filtra
@@ -439,6 +467,8 @@ export default function MyCashboxContent() {
 			description: string;
 			userTransferId?: number;
 			closingId?: number;
+			paymentMethod?: string;
+			creditCardId?: number;
 		} = {
 			type: newType, // Send the actual type, including "transfer"
 			subtype: newSubtype,
@@ -454,6 +484,11 @@ export default function MyCashboxContent() {
 
 		if (newClosingId) {
 			bodyPayload.closingId = Number(newClosingId);
+		}
+
+		if (newType === "expense" && newPaymentMethod !== "cash") {
+			bodyPayload.paymentMethod = "card";
+			bodyPayload.creditCardId = Number(newPaymentMethod);
 		}
 
 		const response = await fetch(`${CASH_ENDPOINT}/movements`, {
@@ -475,9 +510,11 @@ export default function MyCashboxContent() {
 			setNewDescription("");
 			setNewDate(new Date().toISOString().substring(0, 10));
 			setNewClosingId("");
+			setNewPaymentMethod("cash");
 			setIsRegisterMovementModalOpen(false); // Close modal
 			toast.success(result.message);
 			await fetchData(); // Recargar datos para obtener los movimientos actualizados
+			if (bodyPayload.creditCardId) await fetchCreditCards();
 		} else {
 			toast.error(`Error al registrar movimiento: ${result.message}`);
 		}
@@ -550,7 +587,17 @@ export default function MyCashboxContent() {
 	const handleMovementTypeChange = (value: string) => {
 		setNewType(value);
 		setNewSubtype(""); // Resetear el subtipo cuando el tipo cambia
+		setNewPaymentMethod("cash"); // El pago con tarjeta solo aplica a egresos
 	};
+
+	const paymentMethodOptions = useMemo(() => {
+		return [
+			{ value: "cash", label: "Efectivo / Transferencia" },
+			...creditCards
+				.filter((c) => c.isActive)
+				.map((c) => ({ value: String(c.id), label: c.name })),
+		];
+	}, [creditCards]);
 
 	if (loading) {
 		return (
@@ -679,6 +726,21 @@ export default function MyCashboxContent() {
 											options={subMovementOptions}
 											placeholder="Selecciona subtipo"
 											disabled={!newType || subMovementOptions.length === 0}
+										/>
+									</div>
+								)}
+
+								{/* Medio de pago: solo para egresos. Con tarjeta, el gasto se
+								    acumula y no descuenta el saldo hasta liquidar el resumen. */}
+								{newType === "expense" && (
+									<div className="space-y-2">
+										<Label htmlFor="movement-payment-method">Medio de pago</Label>
+										<Select
+											id="movement-payment-method"
+											value={newPaymentMethod}
+											onValueChange={setNewPaymentMethod}
+											options={paymentMethodOptions}
+											placeholder="Selecciona medio de pago"
 										/>
 									</div>
 								)}

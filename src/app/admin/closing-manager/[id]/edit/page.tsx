@@ -751,7 +751,7 @@ export default function EditClosingPage() {
 						</p>
 					</div>
 
-					{/* Monto a Transferir + Gastos de la Causa */}
+					{/* Monto a Cobrar + Gastos de la Causa */}
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 						<div
 							className={`rounded-xl p-5 border-2 lg:col-span-2 ${calc.montoTransferir < 0 ? "border-destructive/30 bg-destructive/5" : "border-primary/30 bg-primary/5"}`}
@@ -759,7 +759,7 @@ export default function EditClosingPage() {
 							<div className="flex items-center justify-between">
 								<div>
 									<h4 className="font-semibold text-sm text-foreground">
-										Monto a Transferir a Legalistas
+										Monto a Cobrar por Legalistas
 									</h4>
 									<p className="text-xs text-muted-foreground mt-0.5">
 										HP Legalistas (neto de aportes) + PCL Legalistas

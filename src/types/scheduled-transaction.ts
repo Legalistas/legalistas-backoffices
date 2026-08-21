@@ -10,6 +10,9 @@ export interface ScheduledTransaction {
 	amount: number | string;
 	status: ScheduledStatus;
 	paidAt: string | null;
+	/** Presente cuando la fila viene de un cierre del Gestor de Cierres — no editable acá. */
+	closingId: number | null;
+	closingConcept: "fee" | "pcl" | null;
 	createdById: number;
 	createdAt: string;
 	updatedAt: string;

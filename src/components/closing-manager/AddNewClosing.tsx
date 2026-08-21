@@ -566,13 +566,13 @@ export default function AddNewClosing({
 						</p>
 					</div>
 
-					{/* Monto a Transferir — CAMPO CRÍTICO */}
+					{/* Monto a Cobrar — CAMPO CRÍTICO */}
 					<div
 						className={`rounded-lg p-4 border-2 ${calc.montoTransferir < 0 ? "border-red-300 bg-red-50" : "border-primary/30 bg-primary/5"}`}
 					>
 						<div className="flex items-center justify-between">
 							<h4 className="font-semibold text-sm">
-								Monto a Transferir a Legalistas
+								Monto a Cobrar por Legalistas
 							</h4>
 							<span
 								className={`text-2xl font-bold ${calc.montoTransferir < 0 ? "text-red-700" : "text-primary"}`}
