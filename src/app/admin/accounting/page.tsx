@@ -1,17 +1,8 @@
-import ScheduledTransactionsManager from "@/components/accounting/ScheduledTransactionsManager";
+import CollectionsManager from "@/components/accounting/CollectionsManager";
 
+// El encabezado (título, bajada y los botones de alta) va dentro del propio
+// componente, para que la pantalla sea una sola pieza y no un título suelto
+// con una tabla debajo.
 export default function AccountingPage() {
-	return (
-		<div className="container mx-auto py-6">
-			<div className="mb-6">
-				<h1 className="text-2xl font-bold tracking-tight">
-					Gestor de Gastos e Ingresos
-				</h1>
-				<p className="text-sm text-muted-foreground">
-					Notificaciones de cobros previstos (A Cobrar) y pagos próximos (A Pagar)
-				</p>
-			</div>
-			<ScheduledTransactionsManager />
-		</div>
-	);
+	return <CollectionsManager />;
 }

@@ -16,7 +16,7 @@ import {
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import NewMovementDialog from "@/components/collections/NewMovementDialog";
+import NewMovementDialog from "@/components/accounting/NewMovementDialog";
 import { Button } from "@/components/ui/button";
 import {
 	Select,
