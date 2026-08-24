@@ -3,6 +3,7 @@
 import {
 	ArrowDownCircle,
 	ArrowUpCircle,
+	Ban,
 	CalendarClock,
 	ChevronLeft,
 	ChevronRight,
@@ -11,9 +12,11 @@ import {
 	MoreHorizontal,
 	Pencil,
 	Plus,
+	RotateCcw,
 	Scale,
 	Search,
 	SlidersHorizontal,
+	Trash2,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -34,8 +37,11 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import {
+	SCHEDULED_TX_BY_ID_ENDPOINT,
+	SCHEDULED_TX_CANCEL_ENDPOINT,
 	SCHEDULED_TX_ENDPOINT,
 	SCHEDULED_TX_MARK_PAID_ENDPOINT,
+	SCHEDULED_TX_MARK_PENDING_ENDPOINT,
 	SCHEDULED_TX_SUMMARY_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { cn } from "@/lib/utils";
@@ -191,16 +197,24 @@ export default function CollectionsManager() {
 	const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 	const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-	const markPaid = async (tx: ScheduledTransaction) => {
+	const runAction = async (
+		id: number,
+		url: string,
+		method: "PATCH" | "DELETE",
+		okMsg: string,
+	) => {
 		if (!token) return;
-		setActingId(tx.id);
+		setActingId(id);
 		try {
-			const res = await fetch(SCHEDULED_TX_MARK_PAID_ENDPOINT(tx.id), {
-				method: "PATCH",
+			const res = await fetch(url, {
+				method,
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error("No se pudo registrar el movimiento");
-			toast.success(tx.type === "income" ? "Cobro registrado" : "Pago registrado");
+			if (!res.ok) {
+				const e = await res.json().catch(() => ({}));
+				throw new Error(e.message || "No se pudo completar la acción");
+			}
+			toast.success(okMsg);
 			await fetchData();
 		} catch (err) {
 			toast.error((err as Error).message);
@@ -208,6 +222,14 @@ export default function CollectionsManager() {
 			setActingId(null);
 		}
 	};
+
+	const markPaid = (tx: ScheduledTransaction) =>
+		runAction(
+			tx.id,
+			SCHEDULED_TX_MARK_PAID_ENDPOINT(tx.id),
+			"PATCH",
+			tx.type === "income" ? "Cobro registrado" : "Pago registrado",
+		);
 
 	const porCobrar = summary?.pending.income ?? { count: 0, amount: 0 };
 	const porPagar = summary?.pending.expense ?? { count: 0, amount: 0 };
@@ -449,6 +471,90 @@ export default function CollectionsManager() {
 												) : (
 													<span className="text-xs text-muted-foreground">—</span>
 												)}
+
+												<DropdownMenu>
+													<DropdownMenuTrigger asChild>
+														<Button
+															size="sm"
+															variant="ghost"
+															className="ml-1 h-8 w-8 p-0"
+															disabled={actingId === tx.id}
+														>
+															<MoreHorizontal className="h-4 w-4" />
+														</Button>
+													</DropdownMenuTrigger>
+													<DropdownMenuContent align="end" className="w-48">
+														{/* Los movimientos que vienen de un cierre no se
+														    editan ni se borran acá: sus datos son del
+														    cierre que los generó. */}
+														{!tx.closingId && (
+															<DropdownMenuItem
+																onClick={() => {
+																	setEditing(tx);
+																	setNewType(tx.type);
+																}}
+															>
+																<Pencil className="mr-2 h-4 w-4" />
+																Editar
+															</DropdownMenuItem>
+														)}
+
+														{tx.status !== "pending" && (
+															<DropdownMenuItem
+																onClick={() =>
+																	runAction(
+																		tx.id,
+																		SCHEDULED_TX_MARK_PENDING_ENDPOINT(tx.id),
+																		"PATCH",
+																		"Marcado como pendiente",
+																	)
+																}
+															>
+																<RotateCcw className="mr-2 h-4 w-4" />
+																Marcar pendiente
+															</DropdownMenuItem>
+														)}
+
+														{tx.status === "pending" && (
+															<DropdownMenuItem
+																onClick={() =>
+																	runAction(
+																		tx.id,
+																		SCHEDULED_TX_CANCEL_ENDPOINT(tx.id),
+																		"PATCH",
+																		"Movimiento cancelado",
+																	)
+																}
+															>
+																<Ban className="mr-2 h-4 w-4" />
+																Cancelar
+															</DropdownMenuItem>
+														)}
+
+														{!tx.closingId && (
+															<DropdownMenuItem
+																variant="destructive"
+																onClick={() => {
+																	if (
+																		!window.confirm(
+																			`¿Eliminar "${tx.concept}"? No se puede deshacer.`,
+																		)
+																	)
+																		return;
+																	runAction(
+																		tx.id,
+																		SCHEDULED_TX_BY_ID_ENDPOINT(tx.id),
+																		"DELETE",
+																		"Movimiento eliminado",
+																	);
+																}}
+															>
+																<Trash2 className="mr-2 h-4 w-4" />
+																Eliminar
+															</DropdownMenuItem>
+														)}
+													</DropdownMenuContent>
+												</DropdownMenu>
 											</td>
 										</tr>
 									);
