@@ -22,6 +22,7 @@ import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import NewMovementDialog from "@/components/accounting/NewMovementDialog";
+import PayFromCashDialog from "@/components/accounting/PayFromCashDialog";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -131,6 +132,8 @@ export default function CollectionsManager() {
 	const [actingId, setActingId] = useState<number | null>(null);
 	const [newType, setNewType] = useState<ScheduledType | null>(null);
 	const [editing, setEditing] = useState<ScheduledTransaction | null>(null);
+	// Gasto esperando que se elija de qué caja sale.
+	const [paying, setPaying] = useState<ScheduledTransaction | null>(null);
 
 	const month = months.find((m) => m.key === monthKey) ?? months[0];
 
@@ -223,13 +226,22 @@ export default function CollectionsManager() {
 		}
 	};
 
-	const markPaid = (tx: ScheduledTransaction) =>
+	/**
+	 * Un cobro se marca de un click. Un gasto sale de la Caja de alguien, así
+	 * que primero hay que elegir de quién: eso lo resuelve el diálogo.
+	 */
+	const markPaid = (tx: ScheduledTransaction) => {
+		if (tx.type === "expense") {
+			setPaying(tx);
+			return;
+		}
 		runAction(
 			tx.id,
 			SCHEDULED_TX_MARK_PAID_ENDPOINT(tx.id),
 			"PATCH",
-			tx.type === "income" ? "Cobro registrado" : "Pago registrado",
+			"Cobro registrado",
 		);
+	};
 
 	const porCobrar = summary?.pending.income ?? { count: 0, amount: 0 };
 	const porPagar = summary?.pending.expense ?? { count: 0, amount: 0 };
@@ -623,6 +635,15 @@ export default function CollectionsManager() {
 					</div>
 				)}
 			</div>
+
+			<PayFromCashDialog
+				item={paying}
+				onClose={() => setPaying(null)}
+				onPaid={() => {
+					setPaying(null);
+					fetchData();
+				}}
+			/>
 
 			<NewMovementDialog
 				type={newType}
