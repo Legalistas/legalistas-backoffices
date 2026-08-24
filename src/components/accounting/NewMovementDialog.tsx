@@ -15,23 +15,34 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SCHEDULED_TX_ENDPOINT } from "@/constant/api-endpoints";
-import type { ScheduledType } from "@/types/scheduled-transaction";
+import {
+	SCHEDULED_TX_BY_ID_ENDPOINT,
+	SCHEDULED_TX_ENDPOINT,
+} from "@/constant/api-endpoints";
+import type {
+	ScheduledTransaction,
+	ScheduledType,
+} from "@/types/scheduled-transaction";
 
 // =============================================================================
-// Alta de un movimiento. El tipo lo define el botón que lo abrió — "Nuevo
-// cobro" o "Nuevo gasto" — así que no se elige acá.
+// Alta y edición de un movimiento.
+//
+// En el alta, el tipo lo define el botón que lo abrió —"Nuevo cobro" o "Nuevo
+// gasto"— así que no se elige acá. En la edición viene del propio registro.
 // =============================================================================
 
 const EMPTY = { dueDate: "", concept: "", detail: "", amount: "" };
 
 export default function NewMovementDialog({
 	type,
+	editing,
 	onClose,
 	onCreated,
 }: {
 	/** `null` = cerrado. */
 	type: ScheduledType | null;
+	/** Presente al editar; ausente en el alta. */
+	editing?: ScheduledTransaction | null;
 	onClose: () => void;
 	onCreated: () => void;
 }) {
@@ -40,12 +51,21 @@ export default function NewMovementDialog({
 	const [form, setForm] = useState(EMPTY);
 	const [saving, setSaving] = useState(false);
 
-	// Cada apertura arranca limpia, con la fecha de hoy propuesta.
+	// Al abrir: los datos del registro si se está editando, o un formulario
+	// limpio con la fecha de hoy propuesta si es un alta.
 	useEffect(() => {
-		if (type) {
-			setForm({ ...EMPTY, dueDate: new Date().toLocaleDateString("en-CA") });
-		}
-	}, [type]);
+		if (!type) return;
+		setForm(
+			editing
+				? {
+						dueDate: editing.dueDate.slice(0, 10),
+						concept: editing.concept,
+						detail: editing.detail ?? "",
+						amount: String(editing.amount),
+					}
+				: { ...EMPTY, dueDate: new Date().toLocaleDateString("en-CA") },
+		);
+	}, [type, editing]);
 
 	const isIncome = type === "income";
 
@@ -63,8 +83,10 @@ export default function NewMovementDialog({
 
 		setSaving(true);
 		try {
-			const res = await fetch(SCHEDULED_TX_ENDPOINT, {
-				method: "POST",
+			const res = await fetch(
+				editing ? SCHEDULED_TX_BY_ID_ENDPOINT(editing.id) : SCHEDULED_TX_ENDPOINT,
+				{
+				method: editing ? "PUT" : "POST",
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${token}`,
@@ -76,12 +98,19 @@ export default function NewMovementDialog({
 					detail: form.detail.trim() || null,
 					amount,
 				}),
-			});
+				},
+			);
 			if (!res.ok) {
 				const e = await res.json().catch(() => ({}));
 				throw new Error(e.error || "No se pudo crear el movimiento");
 			}
-			toast.success(isIncome ? "Cobro programado" : "Gasto programado");
+			toast.success(
+				editing
+					? "Movimiento actualizado"
+					: isIncome
+						? "Cobro programado"
+						: "Gasto programado",
+			);
 			onCreated();
 		} catch (err) {
 			toast.error((err as Error).message);
@@ -94,7 +123,13 @@ export default function NewMovementDialog({
 		<Dialog open={type !== null} onOpenChange={(open) => !open && onClose()}>
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
-					<DialogTitle>{isIncome ? "Nuevo cobro" : "Nuevo gasto"}</DialogTitle>
+					<DialogTitle>
+						{editing
+							? "Editar movimiento"
+							: isIncome
+								? "Nuevo cobro"
+								: "Nuevo gasto"}
+					</DialogTitle>
 				</DialogHeader>
 
 				<div className="space-y-3 py-2">

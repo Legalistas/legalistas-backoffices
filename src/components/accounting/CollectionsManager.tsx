@@ -8,6 +8,8 @@ import {
 	ChevronRight,
 	Loader2,
 	Minus,
+	MoreHorizontal,
+	Pencil,
 	Plus,
 	Scale,
 	Search,
@@ -18,6 +20,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import NewMovementDialog from "@/components/accounting/NewMovementDialog";
 import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	Select,
 	SelectContent,
@@ -116,6 +124,7 @@ export default function CollectionsManager() {
 	const [loading, setLoading] = useState(true);
 	const [actingId, setActingId] = useState<number | null>(null);
 	const [newType, setNewType] = useState<ScheduledType | null>(null);
+	const [editing, setEditing] = useState<ScheduledTransaction | null>(null);
 
 	const month = months.find((m) => m.key === monthKey) ?? months[0];
 
@@ -138,7 +147,8 @@ export default function CollectionsManager() {
 
 			const listJson = await listRes.json();
 			const data = (listJson.data ?? []) as ScheduledTransaction[];
-			data.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+			// Descendente: los vencimientos más recientes arriba.
+			data.sort((a, b) => b.dueDate.localeCompare(a.dueDate));
 			setItems(data);
 
 			if (summaryRes.ok) setSummary((await summaryRes.json()).data);
@@ -219,7 +229,10 @@ export default function CollectionsManager() {
 				<div className="flex items-center gap-2">
 					<Button
 						variant="outline"
-						onClick={() => setNewType("income")}
+						onClick={() => {
+							setEditing(null);
+							setNewType("income");
+						}}
 						className="border-teal-200 text-teal-700 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-300"
 					>
 						<Plus className="mr-1.5 h-4 w-4" />
@@ -227,7 +240,10 @@ export default function CollectionsManager() {
 					</Button>
 					<Button
 						variant="outline"
-						onClick={() => setNewType("expense")}
+						onClick={() => {
+							setEditing(null);
+							setNewType("expense");
+						}}
 						className="border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-400"
 					>
 						<Plus className="mr-1.5 h-4 w-4" />
@@ -353,7 +369,7 @@ export default function CollectionsManager() {
 							<thead>
 								<tr className="border-b border-border text-xs text-muted-foreground">
 									<th className="w-10" />
-									<th className="px-3 py-3 text-left font-medium">Fecha</th>
+									<th className="px-3 py-3 text-left font-medium">Fecha ↓</th>
 									<th className="px-3 py-3 text-left font-medium">
 										Cliente / Concepto
 									</th>
@@ -504,9 +520,14 @@ export default function CollectionsManager() {
 
 			<NewMovementDialog
 				type={newType}
-				onClose={() => setNewType(null)}
+				editing={editing}
+				onClose={() => {
+					setNewType(null);
+					setEditing(null);
+				}}
 				onCreated={() => {
 					setNewType(null);
+					setEditing(null);
 					fetchData();
 				}}
 			/>
