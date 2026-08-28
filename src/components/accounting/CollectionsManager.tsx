@@ -91,11 +91,11 @@ const money = (n: number) =>
 		minimumFractionDigits: 2,
 	}).format(n);
 
-/** Últimos 12 meses, del más reciente al más viejo. */
+/** Próximos 3 meses + últimos 12, del más futuro al más viejo. */
 function buildMonths() {
 	const today = new Date();
-	return Array.from({ length: 12 }, (_, i) => {
-		const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+	return Array.from({ length: 15 }, (_, i) => {
+		const d = new Date(today.getFullYear(), today.getMonth() + 3 - i, 1);
 		const from = new Date(d.getFullYear(), d.getMonth(), 1);
 		const to = new Date(d.getFullYear(), d.getMonth() + 1, 0);
 		const iso = (x: Date) =>
@@ -116,7 +116,11 @@ export default function CollectionsManager() {
 	const token = session?.user?.accessToken;
 
 	const months = useMemo(buildMonths, []);
-	const [monthKey, setMonthKey] = useState(months[0]?.key ?? "");
+	const currentMonthKey = useMemo(() => {
+		const now = new Date();
+		return `${now.getFullYear()}-${now.getMonth()}`;
+	}, []);
+	const [monthKey, setMonthKey] = useState(currentMonthKey);
 	const [statusFilter, setStatusFilter] = useState<ScheduledStatus | "all">(
 		"all",
 	);
