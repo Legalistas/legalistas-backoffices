@@ -1,5 +1,7 @@
 export type ScheduledType = "income" | "expense";
 export type ScheduledStatus = "pending" | "paid" | "cancelled";
+export type ScheduledCurrency = "ARS" | "USD";
+export type ScheduledPaymentMethod = "cash" | "transfer" | "debit";
 
 export interface ScheduledTransaction {
 	id: number;
@@ -13,6 +15,14 @@ export interface ScheduledTransaction {
 	/** Presente cuando la fila viene de un cierre del Gestor de Cierres — no editable acá. */
 	closingId: number | null;
 	closingConcept: "fee" | "pcl" | null;
+	category: string;
+	subcategory: string | null;
+	currency: ScheduledCurrency;
+	/** Cotización blue (ARS por USD) al momento de cargar — solo si currency="USD". */
+	exchangeRate: number | string | null;
+	paymentMethod: ScheduledPaymentMethod;
+	/** Monto del total que es "en negro". null = no aplica. */
+	offBooksAmount: number | string | null;
 	createdById: number;
 	createdAt: string;
 	updatedAt: string;
@@ -41,4 +51,10 @@ export interface ScheduledFormPayload {
 	concept: string;
 	detail?: string | null;
 	amount: number;
+	category: string;
+	subcategory?: string | null;
+	currency: ScheduledCurrency;
+	exchangeRate?: number | null;
+	paymentMethod: ScheduledPaymentMethod;
+	offBooksAmount?: number | null;
 }

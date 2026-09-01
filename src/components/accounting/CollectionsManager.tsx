@@ -7,6 +7,7 @@ import {
 	CalendarClock,
 	ChevronLeft,
 	ChevronRight,
+	FileDown,
 	Loader2,
 	Minus,
 	MoreHorizontal,
@@ -21,6 +22,7 @@ import {
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { exportScheduledPdf } from "@/components/accounting/exportScheduledPdf";
 import NewMovementDialog from "@/components/accounting/NewMovementDialog";
 import PayFromCashDialog from "@/components/accounting/PayFromCashDialog";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,7 @@ import {
 	SCHEDULED_TX_MARK_PENDING_ENDPOINT,
 	SCHEDULED_TX_SUMMARY_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { CURRENCY_SYMBOL } from "@/constant/scheduled-categories";
 import { cn } from "@/lib/utils";
 import type {
 	ScheduledStatus,
@@ -82,6 +85,12 @@ const STATUS_STYLE: Record<ScheduledStatus, string> = {
 	cancelled: "bg-gray-100 text-gray-600 ring-gray-200",
 };
 
+const PAYMENT_LABEL: Record<string, string> = {
+	cash: "Efectivo",
+	transfer: "Transferencia",
+	debit: "Débito automático",
+};
+
 const PAGE_SIZES = [10, 25, 50];
 
 const money = (n: number) =>
@@ -90,6 +99,13 @@ const money = (n: number) =>
 		currency: "ARS",
 		minimumFractionDigits: 2,
 	}).format(n);
+
+const amountFmt = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2 });
+
+/** Monto en su propia moneda (ARS o USD) — distinto de `money()`, que siempre
+ * formatea en pesos (usada para los totales del resumen, ya convertidos). */
+const formatByCurrency = (tx: ScheduledTransaction) =>
+	`${CURRENCY_SYMBOL[tx.currency]} ${amountFmt.format(Number(tx.amount))}`;
 
 /** Próximos 3 meses + últimos 12, del más futuro al más viejo. */
 function buildMonths() {
@@ -139,6 +155,7 @@ export default function CollectionsManager() {
 	const [editing, setEditing] = useState<ScheduledTransaction | null>(null);
 	// Gasto esperando que se elija de qué caja sale.
 	const [paying, setPaying] = useState<ScheduledTransaction | null>(null);
+	const [exportingPdf, setExportingPdf] = useState(false);
 
 	const month = months.find((m) => m.key === monthKey) ?? months[0];
 
@@ -251,6 +268,24 @@ export default function CollectionsManager() {
 		);
 	};
 
+	// El informe trae todo el historial, no solo el período filtrado en pantalla.
+	const handleExportPdf = async () => {
+		if (!token) return;
+		setExportingPdf(true);
+		try {
+			const res = await fetch(SCHEDULED_TX_ENDPOINT, {
+				headers: { Authorization: `Bearer ${token}` },
+			});
+			if (!res.ok) throw new Error("No se pudo traer el historial completo");
+			const json = await res.json();
+			await exportScheduledPdf((json.data ?? []) as ScheduledTransaction[]);
+		} catch (err) {
+			toast.error((err as Error).message);
+		} finally {
+			setExportingPdf(false);
+		}
+	};
+
 	const porCobrar = summary?.pending.income ?? { count: 0, amount: 0 };
 	const porPagar = summary?.pending.expense ?? { count: 0, amount: 0 };
 	const vencido = summary?.overdueExpense ?? { count: 0, amount: 0 };
@@ -269,6 +304,14 @@ export default function CollectionsManager() {
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
+					<Button variant="outline" onClick={handleExportPdf} disabled={exportingPdf}>
+						{exportingPdf ? (
+							<Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+						) : (
+							<FileDown className="mr-1.5 h-4 w-4" />
+						)}
+						Exportar PDF
+					</Button>
 					<Button
 						variant="outline"
 						onClick={() => {
@@ -425,9 +468,11 @@ export default function CollectionsManager() {
 									<th className="px-3 py-3 text-left font-medium">
 										Cliente / Concepto
 									</th>
+									<th className="px-3 py-3 text-left font-medium">Categoría</th>
 									<th className="px-3 py-3 text-left font-medium">Detalle</th>
 									<th className="px-3 py-3 text-right font-medium">Monto</th>
 									<th className="px-3 py-3 text-left font-medium">Estado</th>
+									<th className="px-3 py-3 text-left font-medium">Cargado por</th>
 									<th className="px-3 py-3 text-center font-medium">Acción</th>
 								</tr>
 							</thead>
@@ -462,10 +507,32 @@ export default function CollectionsManager() {
 												{tx.concept}
 											</td>
 											<td className="px-3 py-3 text-muted-foreground">
+												{tx.category}
+												{tx.subcategory && (
+													<span className="block text-xs">{tx.subcategory}</span>
+												)}
+											</td>
+											<td className="px-3 py-3 text-muted-foreground">
 												{tx.detail || "–"}
 											</td>
 											<td className="whitespace-nowrap px-3 py-3 text-right font-medium">
-												{money(Number(tx.amount))}
+												{formatByCurrency(tx)}
+												{tx.currency === "USD" && (
+													<span className="block text-xs font-normal text-muted-foreground">
+														≈ {money(Number(tx.amount) * Number(tx.exchangeRate ?? 0))}
+													</span>
+												)}
+												{tx.paymentMethod !== "cash" && (
+													<span className="block text-xs font-normal text-muted-foreground">
+														{PAYMENT_LABEL[tx.paymentMethod]}
+													</span>
+												)}
+												{tx.offBooksAmount != null && (
+													<span className="block text-xs font-normal text-amber-600">
+														En negro: {CURRENCY_SYMBOL[tx.currency]}{" "}
+														{amountFmt.format(Number(tx.offBooksAmount))}
+													</span>
+												)}
 											</td>
 											<td className="px-3 py-3">
 												<span
@@ -478,6 +545,9 @@ export default function CollectionsManager() {
 												>
 													{isOverdue(tx) ? "Vencido" : STATUS_LABEL[tx.status]}
 												</span>
+											</td>
+											<td className="px-3 py-3 text-muted-foreground">
+												{tx.createdBy?.name ?? "–"}
 											</td>
 											<td className="px-3 py-3 text-center">
 												{tx.status === "pending" ? (
