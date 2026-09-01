@@ -129,6 +129,7 @@ export default function CollectionsManager() {
 	const [tab, setTab] = useState<TabId>("todos");
 	const [page, setPage] = useState(1);
 	const [pageSize, setPageSize] = useState(10);
+	const [dateSort, setDateSort] = useState<"asc" | "desc">("desc");
 
 	const [items, setItems] = useState<ScheduledTransaction[]>([]);
 	const [summary, setSummary] = useState<ScheduledSummary | null>(null);
@@ -159,10 +160,7 @@ export default function CollectionsManager() {
 			if (!listRes.ok) throw new Error("No se pudieron cargar los movimientos");
 
 			const listJson = await listRes.json();
-			const data = (listJson.data ?? []) as ScheduledTransaction[];
-			// Descendente: los vencimientos más recientes arriba.
-			data.sort((a, b) => b.dueDate.localeCompare(a.dueDate));
-			setItems(data);
+			setItems((listJson.data ?? []) as ScheduledTransaction[]);
 
 			if (summaryRes.ok) setSummary((await summaryRes.json()).data);
 		} catch (err) {
@@ -188,18 +186,24 @@ export default function CollectionsManager() {
 
 	const filtered = useMemo(() => {
 		const q = search.trim().toLowerCase();
-		return items.filter((tx) => {
-			if (onlyPending && tx.status !== "pending") return false;
-			if (tab === "cobrar" && tx.type !== "income") return false;
-			if (tab === "pagar" && tx.type !== "expense") return false;
-			if (tab === "vencidos" && !isOverdue(tx)) return false;
-			if (!q) return true;
-			return (
-				tx.concept.toLowerCase().includes(q) ||
-				(tx.detail ?? "").toLowerCase().includes(q)
+		return items
+			.filter((tx) => {
+				if (onlyPending && tx.status !== "pending") return false;
+				if (tab === "cobrar" && tx.type !== "income") return false;
+				if (tab === "pagar" && tx.type !== "expense") return false;
+				if (tab === "vencidos" && !isOverdue(tx)) return false;
+				if (!q) return true;
+				return (
+					tx.concept.toLowerCase().includes(q) ||
+					(tx.detail ?? "").toLowerCase().includes(q)
+				);
+			})
+			.sort((a, b) =>
+				dateSort === "asc"
+					? a.dueDate.localeCompare(b.dueDate)
+					: b.dueDate.localeCompare(a.dueDate),
 			);
-		});
-	}, [items, search, onlyPending, tab, isOverdue]);
+	}, [items, search, onlyPending, tab, isOverdue, dateSort]);
 
 	const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 	const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -407,7 +411,17 @@ export default function CollectionsManager() {
 							<thead>
 								<tr className="border-b border-border text-xs text-muted-foreground">
 									<th className="w-10" />
-									<th className="px-3 py-3 text-left font-medium">Fecha ↓</th>
+									<th className="px-3 py-3 text-left font-medium">
+										<button
+											type="button"
+											onClick={() =>
+												setDateSort((s) => (s === "asc" ? "desc" : "asc"))
+											}
+											className="inline-flex items-center gap-1 hover:text-foreground"
+										>
+											Fecha {dateSort === "asc" ? "↑" : "↓"}
+										</button>
+									</th>
 									<th className="px-3 py-3 text-left font-medium">
 										Cliente / Concepto
 									</th>
