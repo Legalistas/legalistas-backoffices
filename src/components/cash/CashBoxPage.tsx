@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type ApexCharts from "react-apexcharts";
 import type {
 	CalculatedUserBalance,
@@ -14,14 +15,24 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
 });
 
 import {
+	AlertCircle,
 	ArrowRightLeft,
 	Ban,
+	Briefcase,
 	Calculator,
 	CalendarIcon,
+	CheckCircle2,
+	CreditCard,
 	DollarSign,
+	FileText,
 	HandCoins,
+	type LucideIcon,
 	Plus,
+	Send,
+	Tag,
 	Trash2,
+	User as UserIcon,
+	Wallet,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -71,6 +82,23 @@ import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/users";
 import { CreditCardsPanel, type CreditCardWithPending } from "./CreditCardsPanel";
+
+function FieldLabel({
+	icon: Icon,
+	htmlFor,
+	children,
+}: {
+	icon: LucideIcon;
+	htmlFor: string;
+	children: ReactNode;
+}) {
+	return (
+		<Label htmlFor={htmlFor} className="flex items-center gap-1.5">
+			<Icon className="size-3.5 text-cyan-600 dark:text-cyan-400" />
+			{children}
+		</Label>
+	);
+}
 
 export default function CashBoxPage() {
 	const { data: session } = useSession();
@@ -1278,16 +1306,23 @@ export default function CashBoxPage() {
 
 				{/* Modal para Registrar Nuevo Movimiento */}
 				<Dialog open={isRegisterMovementModalOpen} onOpenChange={(open) => !open && setIsRegisterMovementModalOpen(false)}>
-					<DialogContent className="sm:max-w-[425px]">
+					<DialogContent className="sm:max-w-[460px]">
 						<DialogHeader>
-							<DialogTitle>Registrar Nuevo Movimiento</DialogTitle>
-							<DialogDescription>
-								Añade un nuevo ingreso o gasto a la caja.
-							</DialogDescription>
+							<div className="flex items-center gap-3">
+								<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
+									<Wallet className="size-5 text-cyan-600 dark:text-cyan-400" />
+								</div>
+								<div>
+									<DialogTitle>Registrar Nuevo Movimiento</DialogTitle>
+									<DialogDescription>
+										Añade un nuevo ingreso o gasto a la caja.
+									</DialogDescription>
+								</div>
+							</div>
 						</DialogHeader>
-							<div className="grid gap-4 py-4">
-								<div className="space-y-2">
-									<Label htmlFor="movement-type">Tipo de Movimiento</Label>
+							<div className="grid grid-cols-2 gap-4 py-4">
+								<div className={cn("space-y-2", (!newType || newType === "transfer") && "col-span-2")}>
+									<FieldLabel icon={ArrowRightLeft} htmlFor="movement-type">Tipo de Movimiento</FieldLabel>
 									<Select
 										id="movement-type"
 										value={newType}
@@ -1299,7 +1334,7 @@ export default function CashBoxPage() {
 								{newType &&
 									newType !== "transfer" && ( // Mostrar subtipo solo si se selecciona income/expense
 										<div className="space-y-2">
-											<Label htmlFor="movement-subtype">Subtipo</Label>
+											<FieldLabel icon={Tag} htmlFor="movement-subtype">Subtipo</FieldLabel>
 											<Select
 												id="movement-subtype"
 												value={newSubtype}
@@ -1314,7 +1349,7 @@ export default function CashBoxPage() {
 								{newType === "transfer" ? (
 									<>
 										<div className="space-y-2">
-											<Label htmlFor="movement-user-from">Usuario Origen</Label>
+											<FieldLabel icon={UserIcon} htmlFor="movement-user-from">Usuario Origen</FieldLabel>
 											<Autocomplete
 												id="movement-user-from"
 												value={newUserFrom}
@@ -1324,7 +1359,7 @@ export default function CashBoxPage() {
 											/>
 										</div>
 										<div className="space-y-2">
-											<Label htmlFor="movement-user-to">Usuario Destino</Label>
+											<FieldLabel icon={UserIcon} htmlFor="movement-user-to">Usuario Destino</FieldLabel>
 											<Autocomplete
 												id="movement-user-to"
 												value={newUserTo}
@@ -1335,8 +1370,8 @@ export default function CashBoxPage() {
 										</div>
 									</>
 								) : (
-									<div className="space-y-2">
-										<Label htmlFor="movement-user-from">Usuario</Label>
+									<div className="col-span-2 space-y-2">
+										<FieldLabel icon={UserIcon} htmlFor="movement-user-from">Usuario</FieldLabel>
 										<Autocomplete
 											id="movement-user-from"
 											value={newUserFrom}
@@ -1347,20 +1382,33 @@ export default function CashBoxPage() {
 									</div>
 								)}
 								<div className="space-y-2">
-									<Label htmlFor="movement-amount">Monto</Label>
+									<FieldLabel icon={DollarSign} htmlFor="movement-amount">Monto</FieldLabel>
+									<div className="relative">
+										<DollarSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+										<Input
+											id="movement-amount"
+											type="number"
+											value={newAmount}
+											onChange={(e) => setNewAmount(e.target.value)}
+											placeholder="0.00"
+											className="pl-9"
+										/>
+									</div>
+								</div>
+								<div className="space-y-2">
+									<FieldLabel icon={CalendarIcon} htmlFor="movement-date">Fecha de Carga</FieldLabel>
 									<Input
-										id="movement-amount"
-										type="number"
-										value={newAmount}
-										onChange={(e) => setNewAmount(e.target.value)}
-										placeholder="0.00"
+										id="movement-date"
+										type="date"
+										value={newDate}
+										onChange={(e) => setNewDate(e.target.value)}
 									/>
 								</div>
 								{/* Medio de pago: solo para egresos. Con tarjeta, el gasto se
 								    acumula y no descuenta el saldo hasta liquidar el resumen. */}
 								{newType === "expense" && (
-									<div className="space-y-2">
-										<Label htmlFor="movement-payment-method">Medio de pago</Label>
+									<div className="col-span-2 space-y-2">
+										<FieldLabel icon={CreditCard} htmlFor="movement-payment-method">Medio de pago</FieldLabel>
 										<Select
 											id="movement-payment-method"
 											value={newPaymentMethod}
@@ -1370,24 +1418,15 @@ export default function CashBoxPage() {
 										/>
 									</div>
 								)}
-								<div className="space-y-2">
-									<Label htmlFor="movement-date">Fecha de Carga</Label>
-									<Input
-										id="movement-date"
-										type="date"
-										value={newDate}
-										onChange={(e) => setNewDate(e.target.value)}
-									/>
-								</div>
 								{newType === "income" &&
 									(newSubtype === "fee" || newSubtype === "pcl") && (
-										<div className="space-y-2">
-											<Label htmlFor="movement-closing">
+										<div className="col-span-2 space-y-2">
+											<FieldLabel icon={Briefcase} htmlFor="movement-closing">
 												Cierre asociado{" "}
 												<span className="text-xs text-destructive font-normal">
 													(requerido)
 												</span>
-											</Label>
+											</FieldLabel>
 											<ClosingsCombobox
 												id="movement-closing"
 												value={newClosingId}
@@ -1410,36 +1449,55 @@ export default function CashBoxPage() {
 													const entered = Number.parseFloat(newAmount);
 													const hasEntered = !Number.isNaN(entered) && entered > 0;
 													const leftover = Math.round((remaining - entered) * 100) / 100;
+													const willComplete = hasEntered && leftover <= 0.01 && entered <= remaining + 0.01;
+													const overpaying = hasEntered && entered > remaining + 0.01;
 
 													return (
-														<div className="space-y-0.5">
-															<p className="text-xs text-muted-foreground">
-																Falta pagar: <span className="font-semibold text-foreground">{formatCurrency(remaining)}</span>
-															</p>
-															{hasEntered && leftover > 0.01 && (
-																<p className="text-xs text-destructive">
-																	Quedaría pendiente: <span className="font-semibold">{formatCurrency(leftover)}</span>
-																</p>
+														<div
+															className={cn(
+																"mt-1 flex items-start gap-2 rounded-lg border p-3",
+																willComplete
+																	? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
+																	: "border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/30",
 															)}
-															{hasEntered && entered > remaining + 0.01 && (
-																<p className="text-xs text-destructive">
-																	El monto supera lo que falta pagar.
-																</p>
+														>
+															{willComplete ? (
+																<CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+															) : (
+																<AlertCircle className="mt-0.5 size-4 shrink-0 text-red-500" />
 															)}
-															{hasEntered && leftover <= 0.01 && entered <= remaining + 0.01 && (
-																<p className="text-xs text-emerald-600 dark:text-emerald-400">
-																	Completa el pago — quedará cobrado.
+															<div className="space-y-0.5 text-xs">
+																<p className={willComplete ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}>
+																	Falta pagar: <span className="font-semibold">{formatCurrency(remaining)}</span>
 																</p>
-															)}
+																{hasEntered && !willComplete && !overpaying && (
+																	<p className="text-red-700 dark:text-red-400">
+																		Quedaría pendiente: <span className="font-semibold">{formatCurrency(leftover)}</span>
+																	</p>
+																)}
+																{overpaying && (
+																	<p className="font-medium text-red-700 dark:text-red-400">
+																		El monto supera lo que falta pagar.
+																	</p>
+																)}
+																{willComplete && (
+																	<p className="text-emerald-700 dark:text-emerald-400">
+																		Completa el pago — quedará cobrado.
+																	</p>
+																)}
+															</div>
 														</div>
 													);
 												})()}
 										</div>
 									)}
-								<div className="space-y-2">
-									<Label htmlFor="movement-description">
-										Descripción / Detalle
-									</Label>
+								<div className="col-span-2 space-y-2">
+									<FieldLabel icon={FileText} htmlFor="movement-description">
+										Descripción / Detalle{" "}
+										<span className="text-xs text-destructive font-normal">
+											(requerido)
+										</span>
+									</FieldLabel>
 									<textarea
 										id="movement-description"
 										value={newDescription}
@@ -1457,7 +1515,8 @@ export default function CashBoxPage() {
 								>
 									Cancelar
 								</Button>
-								<Button onClick={handleAddMovement}>
+								<Button onClick={handleAddMovement} className="gap-1.5">
+									<Send className="size-4" />
 									Registrar Movimiento
 								</Button>
 							</DialogFooter>
