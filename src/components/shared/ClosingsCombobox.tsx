@@ -10,6 +10,12 @@ export interface ClosingOption {
 	number?: number | null;
 	title?: string | null;
 	date: string;
+	hpTotal?: number;
+	hpPaid?: number;
+	hpRemaining?: number;
+	pclTotal?: number | null;
+	pclPaid?: number;
+	pclRemaining?: number;
 }
 
 interface ClosingsComboboxProps {

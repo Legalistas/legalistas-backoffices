@@ -86,8 +86,28 @@ export interface ClosingManagerEntry {
 	aportesLegalistas: number;
 	montoTransferir: number;
 
+	// Progreso de cobro (pagos parciales HP/PCL vinculados desde Caja)
+	hpPaid: number;
+	hpRemaining: number;
+	pclPaid: number;
+	pclRemaining: number;
+
 	// Gastos de la causa (solo lectura, desde CasesExpenses)
 	totalCaseExpenses: number;
+}
+
+export interface ClosingPayment {
+	id: number;
+	amount: number;
+	date: string;
+	description: string | null;
+	createdAt: string;
+	user: ChargeCollector | null;
+}
+
+export interface ClosingPaymentsApiResponse {
+	data: ClosingPayment[];
+	total: number;
 }
 
 export interface Pagination {

@@ -34,6 +34,7 @@ import type {
 	Pagination as PaginationType,
 } from "@/types/closing-manager";
 import ViewClosingModal from "./ViewClosingModal";
+import ClosingPaymentHistoryModal from "./ClosingPaymentHistoryModal";
 
 // =============================================================================
 // Definición de columnas v2 — 21 columnas (sin intimation ni sepblac)
@@ -119,6 +120,12 @@ export default function ClosingManagerTable({
 	const [viewClosing, setViewClosing] = useState<ClosingManagerEntry | null>(
 		null,
 	);
+
+	// Historial de pagos parciales HP/PCL
+	const [paymentHistory, setPaymentHistory] = useState<{
+		closingId: number;
+		subtype: "fee" | "pcl";
+	} | null>(null);
 
 	// Inline edit state
 	const [editingDetailId, setEditingDetailId] = useState<number | null>(null);
@@ -396,15 +403,34 @@ export default function ClosingManagerTable({
 			case "feeStatus": {
 				const label = statusData[closing.feeStatus] || "-";
 				return (
-					<Badge
-						className={cn(
-							"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
-							statusColors[closing.feeStatus] || "",
+					<div className="flex flex-col items-start gap-0.5">
+						<Badge
+							className={cn(
+								"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
+								statusColors[closing.feeStatus] || "",
+							)}
+							title={label}
+						>
+							{label}
+						</Badge>
+						{closing.feeStatus === "PARTIAL" && (
+							<>
+								<span className="text-[10px] text-muted-foreground whitespace-nowrap">
+									{formatCurrency(Number(closing.hpTotal))} ={" "}
+									{formatCurrency(closing.hpPaid)}
+								</span>
+								<button
+									type="button"
+									onClick={() =>
+										setPaymentHistory({ closingId: closing.id, subtype: "fee" })
+									}
+									className="text-[10px] text-primary underline underline-offset-2 hover:no-underline"
+								>
+									Ver historial
+								</button>
+							</>
 						)}
-						title={label}
-					>
-						{label}
-					</Badge>
+					</div>
 				);
 			}
 
@@ -442,15 +468,34 @@ export default function ClosingManagerTable({
 				if (!closing.pclStatus) return <span>-</span>;
 				const label = statusData[closing.pclStatus] || "-";
 				return (
-					<Badge
-						className={cn(
-							"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
-							statusColors[closing.pclStatus] || "",
+					<div className="flex flex-col items-start gap-0.5">
+						<Badge
+							className={cn(
+								"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
+								statusColors[closing.pclStatus] || "",
+							)}
+							title={label}
+						>
+							{label}
+						</Badge>
+						{closing.pclStatus === "PARTIAL" && (
+							<>
+								<span className="text-[10px] text-muted-foreground whitespace-nowrap">
+									{formatCurrency(Number(closing.pclTotal))} ={" "}
+									{formatCurrency(closing.pclPaid)}
+								</span>
+								<button
+									type="button"
+									onClick={() =>
+										setPaymentHistory({ closingId: closing.id, subtype: "pcl" })
+									}
+									className="text-[10px] text-primary underline underline-offset-2 hover:no-underline"
+								>
+									Ver historial
+								</button>
+							</>
 						)}
-						title={label}
-					>
-						{label}
-					</Badge>
+					</div>
 				);
 			}
 
@@ -684,6 +729,14 @@ export default function ClosingManagerTable({
 				isOpen={!!viewClosing}
 				onClose={() => setViewClosing(null)}
 			/>
+			{paymentHistory && (
+				<ClosingPaymentHistoryModal
+					closingId={paymentHistory.closingId}
+					subtype={paymentHistory.subtype}
+					isOpen={!!paymentHistory}
+					onClose={() => setPaymentHistory(null)}
+				/>
+			)}
 			{ConfirmationDialog}
 		</div>
 	);

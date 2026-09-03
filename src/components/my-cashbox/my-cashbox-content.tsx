@@ -231,6 +231,12 @@ export default function MyCashboxContent() {
 						number: c.case?.number,
 						title: c.case?.title,
 						date: c.date,
+						hpTotal: c.hpTotal,
+						hpPaid: c.hpPaid,
+						hpRemaining: c.hpRemaining,
+						pclTotal: c.pclTotal,
+						pclPaid: c.pclPaid,
+						pclRemaining: c.pclRemaining,
 					}));
 				setClosingsOptions(items);
 			} catch (err) {
@@ -811,6 +817,23 @@ export default function MyCashboxContent() {
 													año actual.
 												</p>
 											)}
+											{newClosingId &&
+												(() => {
+													const selectedClosing = closingsOptions.find(
+														(c) => String(c.id) === newClosingId,
+													);
+													if (!selectedClosing) return null;
+													const remaining =
+														newSubtype === "fee"
+															? selectedClosing.hpRemaining
+															: selectedClosing.pclRemaining;
+													if (remaining == null) return null;
+													return (
+														<p className="text-xs text-muted-foreground">
+															Falta pagar: <span className="font-semibold text-foreground">{formatCurrency(remaining)}</span>
+														</p>
+													);
+												})()}
 										</div>
 									)}
 

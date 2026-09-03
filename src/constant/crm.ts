@@ -68,6 +68,8 @@ export const SOURCE_CHANNEL: SourceChannel[] = [
   { id: 7, name: "Radio", active: true },
   { id: 12, name: "Bot Precalificación", active: true },
   { id: 10, name: "Otros", active: true },
+  // Lead generado por un cliente propio (no plan de referidos ni recomendación externa).
+  { id: 15, name: "Cliente", active: true },
   // Discontinuado (nunca hubo ventas). Solo lectura de históricos.
   { id: 9, name: "Correo Electrónico", active: false },
 ];

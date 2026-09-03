@@ -448,6 +448,10 @@ export const CLOSING_BY_ID_ENDPOINT = (id: number) =>
 export const CLOSING_DETAIL_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/closings/${id}/detail`;
 
+// Historial de pagos parciales HP/PCL de un cierre
+export const CLOSING_PAYMENTS_ENDPOINT = (id: number, subtype: "fee" | "pcl") =>
+	`${API_BASE_URL}/closings/${id}/payments?subtype=${subtype}`;
+
 // ============================================================================
 // POSTS / BLOG MODULE - Sistema de Posts estilo WordPress
 // ============================================================================
