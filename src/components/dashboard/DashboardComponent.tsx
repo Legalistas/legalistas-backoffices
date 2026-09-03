@@ -562,7 +562,7 @@ function LegalDashboard() {
 											<p className="font-medium truncate">{ce.title}</p>
 											<p className="text-xs text-muted-foreground">
 												{!ce.allDay && ce.start
-													? new Date(ce.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+													? new Date(ce.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
 													: ""}
 												{ce.responsiblePerson ? `${!ce.allDay ? " · " : ""}${ce.responsiblePerson.name}` : ""}
 											</p>
@@ -774,7 +774,7 @@ function LegalDashboard() {
 												</p>
 												<p className="text-xs text-muted-foreground">
 													{d.case?.title ?? "Sin causa"} ·{" "}
-													{d.dueDate ? new Date(d.dueDate).toLocaleDateString("es-AR") : "Sin fecha"}
+													{d.dueDate ? new Date(d.dueDate).toLocaleDateString("es-AR", { timeZone: "UTC" }) : "Sin fecha"}
 												</p>
 											</div>
 										</li>
@@ -816,7 +816,7 @@ function LegalDashboard() {
 												</p>
 												<p className="text-xs text-muted-foreground">
 													{e.case?.title ?? "Sin causa"} ·{" "}
-													{e.date ? new Date(e.date).toLocaleDateString("es-AR") : "Sin fecha"}
+													{e.date ? new Date(e.date).toLocaleDateString("es-AR", { timeZone: "UTC" }) : "Sin fecha"}
 													{e.time ? ` · ${e.time}` : ""}
 												</p>
 												{e.location && (
