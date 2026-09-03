@@ -1406,10 +1406,32 @@ export default function CashBoxPage() {
 															? selectedClosing.hpRemaining
 															: selectedClosing.pclRemaining;
 													if (remaining == null) return null;
+
+													const entered = Number.parseFloat(newAmount);
+													const hasEntered = !Number.isNaN(entered) && entered > 0;
+													const leftover = Math.round((remaining - entered) * 100) / 100;
+
 													return (
-														<p className="text-xs text-muted-foreground">
-															Falta pagar: <span className="font-semibold text-foreground">{formatCurrency(remaining)}</span>
-														</p>
+														<div className="space-y-0.5">
+															<p className="text-xs text-muted-foreground">
+																Falta pagar: <span className="font-semibold text-foreground">{formatCurrency(remaining)}</span>
+															</p>
+															{hasEntered && leftover > 0.01 && (
+																<p className="text-xs text-destructive">
+																	Quedaría pendiente: <span className="font-semibold">{formatCurrency(leftover)}</span>
+																</p>
+															)}
+															{hasEntered && entered > remaining + 0.01 && (
+																<p className="text-xs text-destructive">
+																	El monto supera lo que falta pagar.
+																</p>
+															)}
+															{hasEntered && leftover <= 0.01 && entered <= remaining + 0.01 && (
+																<p className="text-xs text-emerald-600 dark:text-emerald-400">
+																	Completa el pago — quedará cobrado.
+																</p>
+															)}
+														</div>
 													);
 												})()}
 										</div>
