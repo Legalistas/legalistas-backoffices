@@ -66,7 +66,10 @@ export default function ProvinceCitySelect({
 				);
 				if (!res.ok) throw new Error(String(res.status));
 				const json = await res.json();
-				if (!cancelled) setStates(json.data ?? []);
+				const sorted = [...(json.data ?? [])].sort((a, b) =>
+					a.name.localeCompare(b.name, "es"),
+				);
+				if (!cancelled) setStates(sorted);
 			} catch {
 				if (!cancelled) setStates([]);
 			} finally {

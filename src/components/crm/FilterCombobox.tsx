@@ -69,7 +69,10 @@ export default function FilterCombobox({
 			<PopoverContent className="w-[220px] p-0" align="start">
 				<Command>
 					<CommandInput placeholder={searchPlaceholder || `Buscar...`} />
-					<CommandList>
+					{/* stopPropagation: si el combobox vive dentro de un Dialog, el
+					    scroll-lock del Dialog intercepta la rueda del mouse sobre este
+					    contenido porteado (fuera del árbol del Dialog) y la bloquea. */}
+					<CommandList onWheel={(e) => e.stopPropagation()}>
 						<CommandEmpty>Sin resultados.</CommandEmpty>
 						<CommandGroup>
 							<CommandItem

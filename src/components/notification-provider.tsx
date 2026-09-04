@@ -43,11 +43,16 @@ type NotificationContextType = {
 	setCurrentUserId: (id: string | number | null) => void;
 	refreshNotifications: () => Promise<void>;
 	markNotificationAsRead: (id: string | number) => Promise<void>;
+	/** true por un instante cuando llega una notificación nueva — dispara la animación de la campanita. */
+	isRinging: boolean;
 };
 
 const NotificationContext = createContext<NotificationContextType | undefined>(
 	undefined,
 );
+
+// Tipos de notificación que deben sonar (@ mención directa a este usuario).
+const SOUND_NOTIFICATION_TYPES = new Set(["nota_crm_mencion"]);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
 	const { data: session } = useSession();
@@ -60,9 +65,15 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 		null,
 	);
 	const [isInitialized, setIsInitialized] = useState(false);
+	const [isRinging, setIsRinging] = useState(false);
 
 	// Usar useRef para mantener una referencia persistente al currentUserId
 	const currentUserIdRef = useRef<string | number | null>(null);
+
+	// IDs ya vistos entre polls — para saber cuáles notificaciones son nuevas
+	// y no hacer sonar el aviso con todo lo que ya existía al cargar la página.
+	const seenNotificationIdsRef = useRef<Set<number> | null>(null);
+	const ringTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	// Actualizar la referencia cuando cambie el estado
 	useEffect(() => {
@@ -188,6 +199,30 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 				setUnreadCount(
 					formattedNotifications.filter((n: Notification) => !n.read).length,
 				);
+
+				// Detectar notificaciones nuevas desde el último poll (no en la
+				// primera carga): cualquiera hace sonar/animar la campanita;
+				// el sonido además requiere que sea del tipo "con mención".
+				const previouslySeen = seenNotificationIdsRef.current;
+				if (previouslySeen) {
+					const newUnread = formattedNotifications.filter(
+						(n: Notification) => !n.read && !previouslySeen.has(n.id),
+					);
+					if (newUnread.length > 0) {
+						setIsRinging(true);
+						if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
+						ringTimeoutRef.current = setTimeout(() => setIsRinging(false), 1600);
+
+						if (
+							newUnread.some((n) => SOUND_NOTIFICATION_TYPES.has(n.type))
+						) {
+							new Audio("/notificacion.mp3").play().catch(() => {});
+						}
+					}
+				}
+				seenNotificationIdsRef.current = new Set(
+					formattedNotifications.map((n: Notification) => n.id),
+				);
 			}
 		} catch (error) {
 			console.error("Error fetching notifications:", error);
@@ -269,6 +304,28 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 		return () => clearInterval(intervalId);
 	}, [session, isInitialized, refreshNotifications]);
 
+	// El setInterval de arriba se frena en pestañas en segundo plano/minimizadas
+	// (los navegadores limitan los timers para ahorrar recursos) — al volver a
+	// la pestaña, revisamos altiro en vez de esperar a que el intervalo se
+	// retome solo.
+	useEffect(() => {
+		if (!isInitialized) return;
+
+		const handleVisibilityChange = () => {
+			if (
+				document.visibilityState === "visible" &&
+				currentUserIdRef.current &&
+				session?.user?.accessToken
+			) {
+				refreshNotifications();
+			}
+		};
+
+		document.addEventListener("visibilitychange", handleVisibilityChange);
+		return () =>
+			document.removeEventListener("visibilitychange", handleVisibilityChange);
+	}, [session, isInitialized, refreshNotifications]);
+
 	// Obtener el ID del usuario de la sesión
 	useEffect(() => {
 		if (session?.user?.id && !currentUserIdRef.current) {
@@ -301,6 +358,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 		}
 	}, [session]);
 
+	// Limpiar el timeout de la animación si el provider se desmonta a mitad de camino.
+	useEffect(() => {
+		return () => {
+			if (ringTimeoutRef.current) clearTimeout(ringTimeoutRef.current);
+		};
+	}, []);
+
 	return (
 		<NotificationContext.Provider
 			value={{
@@ -313,6 +377,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 				setCurrentUserId: handleSetCurrentUserId,
 				refreshNotifications,
 				markNotificationAsRead,
+				isRinging,
 			}}
 		>
 			{children}

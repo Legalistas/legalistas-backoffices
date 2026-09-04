@@ -52,7 +52,10 @@ export default function LocalitySelect({
 				);
 				if (!res.ok) throw new Error(String(res.status));
 				const json = await res.json();
-				if (!cancelled) setCities(json.data ?? []);
+				const sorted = [...(json.data ?? [])].sort((a, b) =>
+					a.name.localeCompare(b.name, "es"),
+				);
+				if (!cancelled) setCities(sorted);
 			} catch {
 				if (!cancelled) setCities([]);
 			} finally {

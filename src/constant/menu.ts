@@ -1,9 +1,7 @@
 import {
   ArrowRightLeft,
-  BarChart3,
   Bell,
   CalendarDays,
-  ChartArea,
   FolderCog,
   HardDrive,
   Handshake,
@@ -15,7 +13,6 @@ import {
   PieChart,
   Receipt,
   Scale,
-  Settings,
   SquareKanban,
   User,
   Users2,
@@ -111,12 +108,6 @@ export const MENU_SECTIONS: MenuSection[] = [
         roles: [...LEGAL, ...VENTAS],
       },
       {
-        icon: SquareKanban,
-        name: "Embudo",
-        path: "/admin/crm",
-        roles: [...LEGAL, ...VENTAS, ...MARKETING],
-      },
-      {
         icon: CalendarDays,
         name: "Calendario",
         path: "/admin/calendar",
@@ -124,9 +115,8 @@ export const MENU_SECTIONS: MenuSection[] = [
       },
       {
         icon: Bell,
-        name: "Monitor CRM",
+        name: "Monitor de Gestión",
         path: "/admin/crm-monitor",
-        roles: [...SUPERADMIN, DIRECTORA_AREA_LEGAL, DIRECTORA_AREA_VENTAS],
       },
     ],
   },
@@ -135,16 +125,16 @@ export const MENU_SECTIONS: MenuSection[] = [
     type: "menu",
     items: [
       {
+        icon: SquareKanban,
+        name: "Embudo",
+        path: "/admin/crm",
+        roles: [...LEGAL, ...VENTAS, ...MARKETING],
+      },
+      {
         icon: Users2,
         name: "Clientes",
         path: "/admin/customers",
         roles: [...LEGAL_INTERNO, ...VENTAS, DIRECTORA_AREA_MARKETING],
-      },
-      {
-        icon: BarChart3,
-        name: "Estadísticas Ventas",
-        path: "/admin/reports/sales",
-        roles: VENTAS,
       },
     ],
   },
@@ -204,12 +194,6 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Gestor de Cierres",
         path: "/admin/closing-manager",
         roles: LEGAL,
-      },
-      {
-        icon: ChartArea,
-        name: "Estadísticas Legal",
-        path: "/admin/reports/legal",
-        roles: LEGAL_INTERNO,
       },
       {
         icon: MessageCircle,

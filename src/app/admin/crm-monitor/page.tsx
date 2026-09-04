@@ -1,6 +1,14 @@
 "use client";
 
-import { Loader2, PlayCircle, RefreshCw } from "lucide-react";
+import {
+	Bell,
+	Handshake,
+	Loader2,
+	PlayCircle,
+	RefreshCw,
+	Scale,
+	Users,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CrmAlertsTable } from "@/components/crm-monitor/CrmAlertsTable";
@@ -32,15 +40,21 @@ function toISODate(d: Date): string {
 }
 
 const RULE_LABELS: Record<string, string> = {
-	"cases-stalled": "Casos legales",
 	"opportunities-stalled": "Oportunidades",
 	"negotiations-stalled": "Negociaciones",
+	"cases-stalled": "Casos legales",
+};
+
+const RULE_ICONS: Record<string, typeof Users> = {
+	"opportunities-stalled": Users,
+	"negotiations-stalled": Handshake,
+	"cases-stalled": Scale,
 };
 
 const RULE_ORDER = [
-	"cases-stalled",
 	"opportunities-stalled",
 	"negotiations-stalled",
+	"cases-stalled",
 ];
 
 export default function CrmMonitorPage() {
@@ -66,15 +80,20 @@ export default function CrmMonitorPage() {
 	return (
 		<div className="mx-auto flex w-full max-w-7xl flex-col gap-4 p-4 md:p-6">
 			<header className="flex flex-col justify-between gap-3 md:flex-row md:items-end">
-				<div>
-					<h1 className="text-2xl font-semibold text-slate-900">
-						Monitor CRM
-					</h1>
-					<p className="text-sm text-slate-500">
-						Casos, leads y negociaciones sin movimiento. Se ejecuta
-						automáticamente cada día — usá <em>Ejecutar ahora</em> para
-						actualizar bajo demanda.
-					</p>
+				<div className="flex items-center gap-3">
+					<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+						<Bell className="size-5 text-primary" />
+					</div>
+					<div>
+						<h1 className="text-2xl font-semibold text-slate-900">
+							Monitor de Gestión
+						</h1>
+						<p className="text-sm text-slate-500">
+							Oportunidades, negociaciones y casos sin movimiento. Se ejecuta
+							automáticamente cada día — usá <em>Ejecutar ahora</em> para
+							actualizar bajo demanda.
+						</p>
+					</div>
 				</div>
 				<div className="flex flex-wrap items-end gap-2">
 					<div className="flex flex-col">
@@ -131,10 +150,12 @@ export default function CrmMonitorPage() {
 						<TabsList>
 							{RULE_ORDER.map((key) => {
 								const count = data?.byRule[key]?.length ?? 0;
+								const Icon = RULE_ICONS[key] ?? Bell;
 								return (
-									<TabsTrigger key={key} value={key}>
+									<TabsTrigger key={key} value={key} className="gap-1.5">
+										<Icon className="size-3.5 text-muted-foreground" />
 										{RULE_LABELS[key] ?? key}
-										<span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
+										<span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
 											{count}
 										</span>
 									</TabsTrigger>

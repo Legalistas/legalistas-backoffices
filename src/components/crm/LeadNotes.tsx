@@ -17,7 +17,6 @@ import { formatDate } from "@/lib/functions";
 import type { Lead } from "@/types/crm";
 import { NoteEditor } from "../case-details/NoteEditor";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface MentionUser {
 	id: number;
@@ -47,6 +46,7 @@ export default function LeadNotes({
 	onMentionsChange,
 }: LeadNotesProps) {
 	const { data: session } = useSession();
+	const [isEditorOpen, setIsEditorOpen] = useState(false);
 	const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
 	const [editContent, setEditContent] = useState<string>("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -100,46 +100,72 @@ export default function LeadNotes({
 		setConfirmingDeleteId(null);
 	};
 
+	const closeEditor = () => {
+		setIsEditorOpen(false);
+		setNoteContent("");
+	};
+
 	return (
-		<Card className="w-full border-0">
-			<CardHeader className="pb-4">
-				<CardTitle className="flex items-center gap-2 text-xl">
+		<div className="space-y-6">
+			<div className="flex items-center justify-between">
+				<h3 className="flex items-center gap-2 text-lg font-semibold">
 					<FileText className="h-5 w-5 text-primary" />
 					Notas
-				</CardTitle>
-			</CardHeader>
-			<CardContent className="p-6">
-				<div className="space-y-6">
-					<div className="bg-gray-50 dark:bg-gray-800 p-5 rounded-lg border border-gray-100 dark:border-gray-700">
-						<h3 className="text-sm font-medium mb-3 text-gray-500 dark:text-gray-400">
-							Nueva nota
-						</h3>
-						<NoteEditor
-							content={noteContent}
-							onChange={setNoteContent}
-							mentionUsers={mentionUsers}
-							onMentionsChange={onMentionsChange}
-							placeholder="Escribe tu nota... Usa @ para mencionar"
-						/>
-						<Button
-							variant="default"
-							className="bg-primary text-white hover:bg-primary/85 dark:text-gray-900 py-2 px-2 mt-2"
-							onClick={handleSaveNote}
-							disabled={!noteContent.trim() || isSubmitting}
-						>
-							{isSubmitting ? (
-								<div className="flex items-center space-x-2">
-									<Loader2 className="h-4 w-4 animate-spin" />
-									<span>Guardando...</span>
-								</div>
-							) : (
-								<div className="flex items-center space-x-2">
-									<Plus className="h-4 w-4" />
-									<span>Guardar nota</span>
-								</div>
-							)}
-						</Button>
-					</div>
+				</h3>
+				<Button
+					variant="outline"
+					size="sm"
+					onClick={() => (isEditorOpen ? closeEditor() : setIsEditorOpen(true))}
+				>
+					{isEditorOpen ? (
+						<>
+							<X className="h-4 w-4 mr-1.5" />
+							Cancelar
+						</>
+					) : (
+						<>
+							<Edit className="h-4 w-4 mr-1.5" />
+							Escribir nota
+						</>
+					)}
+				</Button>
+			</div>
+
+			{isEditorOpen && (
+				<div className="bg-gray-50 dark:bg-gray-800 p-5 rounded-lg border border-gray-100 dark:border-gray-700">
+					<h3 className="text-sm font-medium mb-3 text-gray-500 dark:text-gray-400">
+						Nueva nota
+					</h3>
+					<NoteEditor
+						content={noteContent}
+						onChange={setNoteContent}
+						mentionUsers={mentionUsers}
+						onMentionsChange={onMentionsChange}
+						placeholder="Escribe tu nota... Usa @ para mencionar"
+					/>
+					<Button
+						variant="default"
+						className="bg-primary text-white hover:bg-primary/85 dark:text-gray-900 py-2 px-2 mt-2"
+						onClick={() => {
+							handleSaveNote();
+							closeEditor();
+						}}
+						disabled={!noteContent.trim() || isSubmitting}
+					>
+						{isSubmitting ? (
+							<div className="flex items-center space-x-2">
+								<Loader2 className="h-4 w-4 animate-spin" />
+								<span>Guardando...</span>
+							</div>
+						) : (
+							<div className="flex items-center space-x-2">
+								<Plus className="h-4 w-4" />
+								<span>Guardar nota</span>
+							</div>
+						)}
+					</Button>
+				</div>
+			)}
 
 					<div className="space-y-4">
 						<h3 className="font-medium text-lg flex items-center gap-2">
@@ -277,7 +303,5 @@ export default function LeadNotes({
 						)}
 					</div>
 				</div>
-			</CardContent>
-		</Card>
 	);
 }

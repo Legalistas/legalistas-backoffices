@@ -3,13 +3,26 @@
 import {
 	ArrowLeft,
 	Briefcase,
+	Calendar,
+	CalendarCheck,
+	CalendarClock,
+	CalendarPlus,
 	CheckCircle,
 	Clock,
 	Edit,
+	FileText,
 	Globe,
+	History,
 	Mail,
+	MapPin,
+	Megaphone,
 	Phone,
-	Share2,
+	ShieldCheck,
+	Sparkles,
+	Star,
+	Stethoscope,
+	StickyNote,
+	Tag,
 	User,
 	XCircle,
 } from "lucide-react";
@@ -27,7 +40,7 @@ import {
 	LEADS_NOTES_ENDPOINT,
 	LEADS_NOTES_UPDATE_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { ART_COMPANIES, CRM_COLUMNS, INSURANCE_COMPANIES, MEETING_TYPES, SOURCE_CHANNEL, WHATSAPP_MESSAGES } from "@/constant/crm";
+import { ART_COMPANIES, CRM_COLUMNS, INSURANCE_COMPANIES, MEETING_TYPES, SOURCE_CHANNEL } from "@/constant/crm";
 import { servicesType } from "@/lib/constant";
 import { formatDate } from "@/lib/functions";
 import type { Lead } from "@/types/crm";
@@ -37,24 +50,21 @@ import { Button } from "@/components/ui/button";
 import {
 	Card,
 	CardContent,
-	CardDescription,
-	CardFooter,
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import AddDocumentButton from "./AddDocumentButton";
-import ChangeStageButton from "./ChangeStageButton";
+import { Dropdown } from "@/components/shared/Dropdown";
+import { DropdownItem } from "@/components/shared/DropdownItem";
 import ChangeStageDropdown from "./ChangeStageDropdown";
 import LeadActivity from "./LeadActivity";
+import LeadAiAnalyzer from "./LeadAiAnalyzer";
 import LeadDocuments from "./LeadDocuments";
 import LeadFormDialog from "./LeadFormDialog";
 import LeadLogDetails from "./LeadLogDetails";
 import LeadNotes from "./LeadNotes";
-import ScheduleMeetingButton from "./ScheduleMeetingButton";
+import ScheduleMeetingModal from "./ScheduleMeetingModal";
 import {
 	sendStageEmail,
 	shouldBlockAutomaticEmail,
@@ -98,10 +108,10 @@ function getInsuranceName(insuranceId: number | null | undefined) {
 	return INSURANCE_COMPANIES.find((i) => i.id === insuranceId)?.name ?? null;
 }
 
-const STATUS_CONFIG: Record<string, { className: string; icon: typeof Clock; label: string }> = {
-	IN_PROGRESS: { className: "bg-gray-500 text-white", icon: Clock, label: "En Progreso" },
-	WON: { className: "bg-green-500 text-white", icon: CheckCircle, label: "Ganado" },
-	LOST: { className: "bg-red-500 text-white", icon: XCircle, label: "Perdido" },
+const STATUS_CONFIG: Record<string, { pillClassName: string; icon: typeof Clock; label: string }> = {
+	IN_PROGRESS: { pillClassName: "border-primary/30 bg-primary/5 text-primary", icon: Clock, label: "En Progreso" },
+	WON: { pillClassName: "border-green-200 bg-green-50 text-green-700", icon: CheckCircle, label: "Ganado" },
+	LOST: { pillClassName: "border-red-200 bg-red-50 text-red-700", icon: XCircle, label: "Perdido" },
 };
 
 function getAvatarSrc(image: string | null | undefined) {
@@ -153,25 +163,29 @@ function TeamMember({
 	image: string | null | undefined;
 }) {
 	return (
-		<div className="space-y-1">
-			<div className="flex items-center gap-2 text-sm font-medium text-muted-foreground mb-1">
-				<Icon className="h-4 w-4 text-primary" />
+		<div className="flex items-center justify-between gap-3">
+			<div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+				<Icon className="h-4 w-4 shrink-0 text-primary" />
 				<span>{label}</span>
 			</div>
-			<div className="flex items-center">
+			<div className="flex items-center gap-2">
 				<Image
 					src={getAvatarSrc(image)}
 					alt={name || label}
-					width={36}
-					height={36}
+					width={28}
+					height={28}
 					quality={100}
-					className="rounded-full mr-2 aspect-square object-cover"
+					className="rounded-full aspect-square object-cover"
 				/>
-				<span>{name || `Sin ${label.toLowerCase()}`}</span>
+				<span className="text-sm font-medium">{name || `Sin ${label.toLowerCase()}`}</span>
 			</div>
 		</div>
 	);
 }
+
+// Tabs tipo "carpeta": track gris y la activa como píldora blanca flotando.
+const tabTriggerClassName =
+	"gap-1.5 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground hover:text-foreground data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm";
 
 // --- Componente principal ---
 
@@ -184,6 +198,8 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 	const [noteContent, setNoteContent] = useState("");
 	const [isFormOpen, setIsFormOpen] = useState(false);
 	const [currentLead, setCurrentLead] = useState<Lead | null>(null);
+	const [isScheduleMeetingOpen, setIsScheduleMeetingOpen] = useState(false);
+	const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
 	const [mentionedUserIds, setMentionedUserIds] = useState<number[]>([]);
 	const [allLawyers, setAllLawyers] = useState<
 		{ id: number; name: string; image?: string | null }[]
@@ -424,63 +440,6 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 		!!(lead.email || lead.user?.email) &&
 		getResendStrategy(lead) !== null;
 
-	const formatWhatsAppPhone = (phone: string): string => {
-		let clean = phone.replace(/[\s\-()+ ]/g, "");
-		// Si empieza con 0, sacarlo y agregar 54
-		if (clean.startsWith("0")) clean = "54" + clean.substring(1);
-		// Si no empieza con 54, agregarlo
-		if (!clean.startsWith("54")) clean = "54" + clean;
-		return clean;
-	};
-
-	const handleWhatsApp = () => {
-		if (!lead) return;
-		const phone = lead.phone || lead.user?.userProfile?.phone || "";
-		if (!phone) {
-			toast.error("Este lead no tiene número de teléfono registrado");
-			return;
-		}
-		const cleanPhone = formatWhatsAppPhone(phone);
-		const columnId = String(lead.columnId || "1");
-		const nombre = lead.user?.name?.split(" ")[0] || lead.name?.split(" ")[0] || "cliente";
-
-		const lastMeeting = lead.crmMeetings?.length
-			? [...lead.crmMeetings].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]
-			: null;
-
-		const msgs = WHATSAPP_MESSAGES[columnId] || WHATSAPP_MESSAGES["1"];
-		let msgTemplate = lastMeeting ? msgs.withMeeting : msgs.withoutMeeting;
-
-		msgTemplate = msgTemplate.replace("{nombre}", nombre);
-
-		if (lastMeeting) {
-			const meetingDate = new Date(lastMeeting.date);
-			const tipoReunion = MEETING_TYPES.find((mt) => mt.id === lastMeeting.type)?.name || lastMeeting.type;
-			const fechaReunion = meetingDate.toLocaleDateString("es-AR", {
-				weekday: "long",
-				day: "numeric",
-				month: "long",
-				year: "numeric",
-			});
-			const horaReunion = meetingDate.toLocaleTimeString("es-AR", {
-				hour: "2-digit",
-				minute: "2-digit",
-				hour12: false,
-				timeZone: "UTC",
-			});
-			const confirmationUrl = lastMeeting.token
-				? `https://legalistas.ar/confirmacion-reunion/${lastMeeting.token}`
-				: "https://legalistas.ar";
-			msgTemplate = msgTemplate
-				.replace("{tipoReunion}", tipoReunion)
-				.replace("{fechaReunion}", fechaReunion)
-				.replace("{horaReunion}", horaReunion)
-				.replace("{confirmationUrl}", confirmationUrl);
-		}
-
-		const message = encodeURIComponent(msgTemplate);
-		window.open(`https://wa.me/${cleanPhone}?text=${message}`, "_blank");
-	};
 
 	// --- Loading / Error / Not found ---
 
@@ -510,30 +469,47 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 		<>
 			<div className="w-full">
 				{/* Header */}
-				<div className="flex items-center mb-6">
-					<Button
-						variant="outline"
-						className="mr-4"
-						onClick={() => router.push("/admin/crm")}
-					>
-						<ArrowLeft className="h-4 w-4" />
-						Volver
-					</Button>
-					<div>
-						<h1 className="text-2xl font-bold">
-							{lead.user?.name || "Sin nombre"}
-						</h1>
-						<p className="text-muted-foreground">
-							{getUserLocation(lead.user)}
-						</p>
+				<div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+					<div className="flex min-w-0 flex-1 items-start gap-4">
+						<Button
+							variant="outline"
+							size="icon"
+							className="shrink-0 rounded-md shadow-sm"
+							title="Volver"
+							onClick={() => router.push("/admin/crm")}
+						>
+							<ArrowLeft className="h-4 w-4" />
+						</Button>
+
+						<div className="min-w-0 flex-1">
+							<div className="flex items-center gap-2">
+								<h1 className="truncate text-xl font-bold tracking-tight md:text-2xl">
+									{lead.user?.name || "Sin nombre"}
+								</h1>
+								<button
+									type="button"
+									title="Favorito"
+									className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground/60 transition hover:bg-accent hover:text-foreground"
+								>
+									<Star className="h-4.75 w-4.75" />
+								</button>
+							</div>
+							<p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+								<MapPin className="h-3.75 w-3.75 text-primary" />
+								{getUserLocation(lead.user)}
+							</p>
+						</div>
 					</div>
+
 					<Can role="asistente_legal" inverse>
-						<div className="ml-auto flex items-center gap-2">
+						<div className="flex flex-nowrap shrink-0 items-center gap-2">
 							{statusCfg && (
-								<Badge className={`${statusCfg.className} px-5`}>
-									<statusCfg.icon className="h-4 w-4 mr-2" />
+								<div
+									className={`flex h-9 shrink-0 items-center gap-2 rounded-md border px-3 text-sm font-semibold whitespace-nowrap ${statusCfg.pillClassName}`}
+								>
+									<statusCfg.icon className="h-4 w-4" />
 									{statusCfg.label}
-								</Badge>
+								</div>
 							)}
 							<ChangeStageDropdown
 								lead={lead}
@@ -542,114 +518,143 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 							<Button
 								variant="outline"
 								size="icon"
+								className="shrink-0 rounded-md shadow-sm"
+								title="Programar reunión"
+								onClick={() => setIsScheduleMeetingOpen(true)}
+							>
+								<Calendar className="h-4 w-4" />
+							</Button>
+							<Button
+								variant="outline"
+								size="icon"
+								className="shrink-0 rounded-md shadow-sm"
+								title="Editar"
 								onClick={() => handleEditLead(lead)}
 							>
 								<Edit className="h-4 w-4" />
 							</Button>
+							<div className="relative">
+								<Button
+									variant="outline"
+									size="icon"
+									className="shrink-0 rounded-md shadow-sm"
+									title="Más opciones"
+									onClick={() => setHeaderMenuOpen((v) => !v)}
+								>
+									<Globe className="h-4 w-4" />
+								</Button>
+								<Dropdown
+									isOpen={headerMenuOpen}
+									onClose={() => setHeaderMenuOpen(false)}
+									className="w-48"
+								>
+									{canResendEmail && (
+										<DropdownItem
+											onClick={() => {
+												handleResendEmail();
+												setHeaderMenuOpen(false);
+											}}
+										>
+											Reenviar email
+										</DropdownItem>
+									)}
+									<DropdownItem
+										onClick={() => {
+											window.open(`https://legalistas.ar/tramite/${lead.id}`, "_blank");
+											setHeaderMenuOpen(false);
+										}}
+									>
+										Web de trámite
+									</DropdownItem>
+								</Dropdown>
+							</div>
 						</div>
 					</Can>
 				</div>
 
 				<div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 					{/* Columna principal */}
-					<div className="md:col-span-2 space-y-6">
-						{/* Info del Lead */}
-						<Card>
-							<CardHeader>
-								<CardTitle>Información del Lead</CardTitle>
-								<CardDescription>Detalles completos de la oportunidad</CardDescription>
-							</CardHeader>
-							<CardContent className="space-y-4">
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<InfoField label="Etapa" value={getColumnName(lead.columnId)} />
-									<InfoField label="Fecha de creación" value={formatDate(lead.createdAt)} />
-									<InfoField label="Fecha de accidente" value={formatDate(lead.accidentDate)} />
-									<InfoField label="Canal de origen" value={getChannelName(lead.sourceChannelId)} />
-									<InfoField label="Servicios" value={getServiceName(lead.servicesId)} />
-									{lead.injury && (
-										<InfoField label="Lesión" value={lead.injury} />
-									)}
-									{getArtName(lead.artId) && (
-										<InfoField label="ART" value={getArtName(lead.artId)!} />
-									)}
-									{getInsuranceName(lead.insuranceId) && (
-										<InfoField label="Seguro" value={getInsuranceName(lead.insuranceId)!} />
-									)}
-								</div>
-								<Can role="asistente_legal" inverse>
-									<div className="h-px bg-border" />
-									<div className="flex items-center space-x-2">
-										<Checkbox
-											id="documentationComplete"
-											checked={lead.documentationComplete || false}
-											onCheckedChange={handleDocumentationChange}
-										/>
-										<div>
-											<Label htmlFor="documentationComplete" className="font-medium mb-0">
-												Documentación completa
-											</Label>
-											<p className="text-xs text-muted-foreground">
-												{lead.documentationComplete
-													? "Esta oportunidad puede moverse a estado Ganado"
-													: "No puede moverse a Ganado hasta completar la documentación"}
-											</p>
-										</div>
-										{lead.documentationComplete ? (
-											<CheckCircle className="h-5 w-5 text-green-500 ml-2" />
-										) : (
-											<XCircle className="h-5 w-5 text-red-500 ml-2" />
-										)}
-									</div>
-								</Can>
-							</CardContent>
-						</Card>
-
-						{/* Tabs */}
+					<div className="md:col-span-2">
+						{/* Tabs tipo carpeta */}
 						<Can role="asistente_legal" inverse>
 							<Tabs defaultValue="activities" className="w-full">
-								<TabsList variant="line" className="w-full border-b border-border rounded-none bg-transparent">
-									<TabsTrigger value="timeline">Línea de tiempo</TabsTrigger>
-									<TabsTrigger value="documents">Documentos</TabsTrigger>
-									<TabsTrigger value="activities">Notas</TabsTrigger>
-									<TabsTrigger value="activity">
+								<TabsList className="h-auto w-full justify-start gap-1 rounded-xl bg-muted p-1.5">
+									<TabsTrigger value="activities" className={tabTriggerClassName}>
+										<StickyNote className="h-4 w-4" />
+										Notas
+									</TabsTrigger>
+									<TabsTrigger value="activity" className={tabTriggerClassName}>
+										<CalendarCheck className="h-4 w-4" />
 										Actividades
 										{(lead.crmMeetings?.length ?? 0) > 0 && (
-											<Badge variant="secondary" className="ml-2 text-xs">
+											<Badge variant="secondary" className="ml-1 text-xs">
 												{lead.crmMeetings?.length}
 											</Badge>
 										)}
 									</TabsTrigger>
+									<TabsTrigger value="documents" className={tabTriggerClassName}>
+										<FileText className="h-4 w-4" />
+										Documentos
+									</TabsTrigger>
+									<TabsTrigger value="timeline" className={tabTriggerClassName}>
+										<History className="h-4 w-4" />
+										Línea de tiempo
+									</TabsTrigger>
+									<TabsTrigger value="ai-analyzer" className={tabTriggerClassName}>
+										<Sparkles className="h-4 w-4" />
+										Analizar con IA
+									</TabsTrigger>
 								</TabsList>
 
-								<TabsContent value="timeline" className="mt-4">
-									<LeadLogDetails lead={lead} />
-								</TabsContent>
-
-								<TabsContent value="documents" className="mt-4">
-									<LeadDocuments lead={lead} onLeadUpdate={handleLeadUpdate} />
-								</TabsContent>
-
 								<TabsContent value="activities" className="mt-4">
-									<LeadNotes
-										lead={lead}
-										handleSaveNote={handleSaveNote}
-										noteContent={noteContent}
-										setNoteContent={setNoteContent}
-										handleEditNote={handleEditNote}
-										handleDeleteNote={handleDeleteNote}
-										mentionUsers={allLawyers}
-										onMentionsChange={setMentionedUserIds}
-									/>
+									<Card>
+										<CardContent>
+											<LeadNotes
+												lead={lead}
+												handleSaveNote={handleSaveNote}
+												noteContent={noteContent}
+												setNoteContent={setNoteContent}
+												handleEditNote={handleEditNote}
+												handleDeleteNote={handleDeleteNote}
+												mentionUsers={allLawyers}
+												onMentionsChange={setMentionedUserIds}
+											/>
+										</CardContent>
+									</Card>
 								</TabsContent>
 
 								<TabsContent value="activity" className="mt-4">
 									<Card>
-										<CardHeader>
-											<CardTitle>Actividades</CardTitle>
-											<CardDescription>Actividades pendientes y completadas</CardDescription>
-										</CardHeader>
 										<CardContent>
+											<h3 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+												<CalendarCheck className="h-5 w-5 text-primary" />
+												Actividades
+											</h3>
 											<LeadActivity lead={lead} />
+										</CardContent>
+									</Card>
+								</TabsContent>
+
+								<TabsContent value="documents" className="mt-4">
+									<Card>
+										<CardContent>
+											<LeadDocuments lead={lead} onLeadUpdate={handleLeadUpdate} />
+										</CardContent>
+									</Card>
+								</TabsContent>
+
+								<TabsContent value="timeline" className="mt-4">
+									<Card>
+										<CardContent>
+											<LeadLogDetails lead={lead} />
+										</CardContent>
+									</Card>
+								</TabsContent>
+
+								<TabsContent value="ai-analyzer" className="mt-4">
+									<Card>
+										<CardContent>
+											<LeadAiAnalyzer lead={lead} />
 										</CardContent>
 									</Card>
 								</TabsContent>
@@ -659,12 +664,13 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 
 					{/* Sidebar derecho */}
 					<div className="space-y-6">
-						<Can role="asistente_legal" inverse>
-							<Card>
-								<CardHeader>
-									<CardTitle>Contacto</CardTitle>
-								</CardHeader>
-								<CardContent className="space-y-4">
+						{/* Resumen del lead */}
+						<Card>
+							<CardHeader>
+								<CardTitle className="font-normal text-muted-foreground">Resumen del lead</CardTitle>
+							</CardHeader>
+							<CardContent className="space-y-4">
+								<Can role="asistente_legal" inverse>
 									{lead.user ? (
 										<>
 											<div className="flex items-center">
@@ -694,9 +700,54 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 											<p className="text-muted-foreground">No hay cliente asociado</p>
 										</div>
 									)}
-								</CardContent>
-							</Card>
-						</Can>
+
+									<button
+										type="button"
+										onClick={() => handleDocumentationChange(!lead.documentationComplete)}
+										className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
+											lead.documentationComplete
+												? "border-green-200 bg-green-50 hover:bg-green-100"
+												: "border-amber-200 bg-amber-50 hover:bg-amber-100"
+										}`}
+									>
+										{lead.documentationComplete ? (
+											<CheckCircle className="h-5 w-5 shrink-0 text-green-600" />
+										) : (
+											<XCircle className="h-5 w-5 shrink-0 text-amber-600" />
+										)}
+										<div>
+											<p className={`text-sm font-medium ${lead.documentationComplete ? "text-green-800" : "text-amber-800"}`}>
+												Documentación completa
+											</p>
+											<p className={`text-xs ${lead.documentationComplete ? "text-green-700/80" : "text-amber-700/80"}`}>
+												{lead.documentationComplete
+													? "Listo para avanzar"
+													: "No puede moverse a Ganado hasta completar la documentación"}
+											</p>
+										</div>
+									</button>
+
+									<div className="h-px bg-border" />
+								</Can>
+
+								<div>
+									<InfoField icon={Tag} label="Etapa" value={getColumnName(lead.columnId)} />
+									<InfoField icon={CalendarClock} label="Fecha de accidente" value={formatDate(lead.accidentDate)} />
+									<InfoField icon={Briefcase} label="Servicio" value={getServiceName(lead.servicesId)} />
+									{getArtName(lead.artId) && (
+										<InfoField icon={ShieldCheck} label="ART" value={getArtName(lead.artId)!} />
+									)}
+									{getInsuranceName(lead.insuranceId) && (
+										<InfoField icon={ShieldCheck} label="Seguro" value={getInsuranceName(lead.insuranceId)!} />
+									)}
+									{lead.injury && (
+										<InfoField icon={Stethoscope} label="Lesión" value={lead.injury} />
+									)}
+									<InfoField icon={Megaphone} label="Canal de origen" value={getChannelName(lead.sourceChannelId)} />
+									<InfoField icon={CalendarPlus} label="Fecha de creación" value={formatDate(lead.createdAt)} />
+								</div>
+							</CardContent>
+						</Card>
 
 						{/* Equipo asignado */}
 						<Card>
@@ -726,53 +777,6 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 								</div>
 							</CardContent>
 						</Card>
-
-						{/* Acciones */}
-						<Can role="asistente_legal" inverse>
-							<Card>
-								<CardHeader>
-									<CardTitle>Acciones</CardTitle>
-								</CardHeader>
-								<CardContent className="space-y-2">
-									<Button
-										className="w-full border-green-200 hover:bg-green-50 dark:border-green-800 dark:hover:bg-green-900/30"
-										variant="outline"
-										onClick={handleWhatsApp}
-									>
-										<svg className="h-4 w-4 fill-green-600 mr-2" viewBox="0 0 24 24">
-											<path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-										</svg>
-										Enviar WhatsApp
-									</Button>
-									<Button
-										variant="outline"
-										className="w-full"
-										onClick={handleResendEmail}
-										disabled={!canResendEmail}
-										title={
-											canResendEmail
-												? "Reenvía el último email correspondiente al estado del lead"
-												: "No hay email para reenviar en esta etapa"
-										}
-									>
-										<Mail className="h-4 w-4 mr-2" />
-										Reenviar email
-									</Button>
-									<AddDocumentButton lead={lead} onLeadUpdate={handleLeadUpdate} />
-									<ScheduleMeetingButton lead={lead} onLeadUpdate={handleLeadUpdate} />
-									<ChangeStageButton lead={lead} onLeadUpdate={handleLeadUpdate} />
-
-									<Button
-										variant="outline"
-										className="w-full"
-										onClick={() => window.open(`https://legalistas.ar/tramite/${lead.id}`, "_blank")}
-									>
-										<Globe className="h-4 w-4 mr-2" />
-										Web de trámite
-									</Button>
-								</CardContent>
-							</Card>
-						</Can>
 					</div>
 				</div>
 			</div>
@@ -782,17 +786,35 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 				onOpenChange={setIsFormOpen}
 				lead={currentLead}
 			/>
+
+			<ScheduleMeetingModal
+				open={isScheduleMeetingOpen}
+				onOpenChange={setIsScheduleMeetingOpen}
+				lead={lead}
+				onLeadUpdate={handleLeadUpdate}
+			/>
 		</>
 	);
 }
 
-// --- Componente auxiliar para campos de info ---
+// --- Componente auxiliar para campos de info (fila con ícono, tipo "resumen") ---
 
-function InfoField({ label, value }: { label: string; value: string }) {
+function InfoField({
+	icon: Icon,
+	label,
+	value,
+}: {
+	icon: typeof User;
+	label: string;
+	value: string;
+}) {
 	return (
-		<div className="space-y-1">
-			<p className="text-sm font-medium text-muted-foreground">{label}</p>
-			<p>{value}</p>
+		<div className="flex items-center justify-between gap-3 py-1.5 text-sm">
+			<span className="flex items-center gap-1.5 text-muted-foreground">
+				<Icon className="h-4 w-4 shrink-0 text-primary" />
+				{label}
+			</span>
+			<span className="font-medium text-right">{value}</span>
 		</div>
 	);
 }

@@ -7,6 +7,7 @@ import { CrmEnTratamientoTemplate } from "./email/crm-en-tratamiento";
 import { CrmEnTratamientoRecordatorioTemplate } from "./email/crm-en-tratamiento-recordatorio";
 import { CrmPendientePoderTemplate } from "./email/crm-pendiente-poder";
 import { CrmPendientePoderRecordatorioTemplate } from "./email/crm-pendiente-poder-recordatorio";
+import { CrmPendienteConfirmacionRecordatorioTemplate } from "./email/crm-pendiente-confirmacion-recordatorio";
 import { CrmGanadoPoderTemplate } from "./email/crm-ganado-poder";
 import { CaseInicioTramiteTemplate } from "./email/case-inicio-tramite";
 import { CaseStageDocumentacionTemplate } from "./email/case-stage-documentacion";
@@ -58,6 +59,7 @@ type EmailTemplate =
   | "crm-en-tratamiento-recordatorio"
   | "crm-pendiente-poder"
   | "crm-pendiente-poder-recordatorio"
+  | "crm-pendiente-confirmacion-recordatorio"
   | "crm-ganado-poder"
   | "case-inicio-tramite"
   | "case-stage-documentacion"
@@ -194,6 +196,16 @@ async function renderTemplate(
           CrmPendientePoderRecordatorioTemplate({
             leadName: vars.leadName,
             confirmationUrl: vars.confirmationUrl,
+          })
+        ),
+      };
+
+    case "crm-pendiente-confirmacion-recordatorio":
+      return {
+        subject: "Estamos esperando tu confirmación — Legalistas",
+        html: await render(
+          CrmPendienteConfirmacionRecordatorioTemplate({
+            leadName: vars.leadName,
           })
         ),
       };

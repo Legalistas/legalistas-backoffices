@@ -15,6 +15,7 @@ import {
 	exportMatrixToExcel,
 	exportMatrixToPdf,
 } from "@/components/kpis/exportKpiMatrix";
+import ActiveOpportunitiesPanel from "@/components/kpis/ActiveOpportunitiesPanel";
 import CityBreakdownTable from "@/components/kpis/CityBreakdownTable";
 import KpiMatrix from "@/components/kpis/KpiMatrix";
 import KpiSummary from "@/components/kpis/KpiSummary";
@@ -473,6 +474,9 @@ export default function KpisPage() {
 					    principal, buscable. Solo aplica a Ventas. */}
 					{department === "sales" && (
 						<>
+							{/* Oportunidades activas en vivo + histórico mensual
+							    (doc "KPIs y Reportes de Ventas", puntos 1-3). */}
+							<ActiveOpportunitiesPanel />
 							<CityBreakdownTable year={year} mode={matrixMode} />
 							{/* Consultas orgánicas/pagas por provincia (punto 7.4).
 							    Acá en modo lectura; la carga vive en "Cargar valores". */}

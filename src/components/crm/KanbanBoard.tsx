@@ -12,9 +12,9 @@ import {
 	CalendarCheck,
 	CalendarClock,
 	Clock,
+	Download,
 	FileText,
 	Handshake,
-	Download,
 	KanbanSquare,
 	List,
 	Mail,
@@ -24,13 +24,17 @@ import {
 	Trophy,
 	XCircle,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CrmFilters } from "@/components/crm/CrmFilters";
 import LeadCard from "@/components/crm/LeadCard";
 import LeadFormDialog from "@/components/crm/LeadFormDialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import {
 	LAWYERS_ENDPOINT,
 	LEADS_ENDPOINT,
@@ -43,10 +47,6 @@ import { servicesType } from "@/lib/constant";
 import { sendStageEmail } from "@/lib/send-stage-email";
 import { moveLeadFolderOnColumnChange } from "@/lib/storage-move";
 import type { Lead } from "@/types/crm";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Skeleton } from "@/components/ui/skeleton";
 import Can from "../auth/Can";
 import { exportLeadsExcel } from "./exportLeadsExcel";
 import KanbanList from "./KanbanList";
@@ -56,15 +56,15 @@ import LostReasonDialog from "./LostReasonDialog";
 const LOST_COLUMN_ID = 10;
 
 const columnConfig: Record<string, { bg: string; color: string; borderColor: string; icon: typeof FileText }> = {
-	"1":  { bg: "bg-sky-50", color: "text-sky-700", borderColor: "border-sky-200", icon: MessageSquare },
-	"2":  { bg: "bg-amber-50", color: "text-amber-700", borderColor: "border-amber-200", icon: CalendarClock },
-	"3":  { bg: "bg-orange-50", color: "text-orange-700", borderColor: "border-orange-200", icon: CalendarCheck },
-	"4":  { bg: "bg-blue-50", color: "text-blue-700", borderColor: "border-blue-200", icon: Briefcase },
+	"1": { bg: "bg-sky-50", color: "text-sky-700", borderColor: "border-sky-200", icon: MessageSquare },
+	"2": { bg: "bg-amber-50", color: "text-amber-700", borderColor: "border-amber-200", icon: CalendarClock },
+	"3": { bg: "bg-orange-50", color: "text-orange-700", borderColor: "border-orange-200", icon: CalendarCheck },
+	"4": { bg: "bg-blue-50", color: "text-blue-700", borderColor: "border-blue-200", icon: Briefcase },
 	"12": { bg: "bg-rose-50", color: "text-rose-700", borderColor: "border-rose-200", icon: Mail },
-	"5":  { bg: "bg-purple-50", color: "text-purple-700", borderColor: "border-purple-200", icon: Clock },
-	"6":  { bg: "bg-indigo-50", color: "text-indigo-700", borderColor: "border-indigo-200", icon: Handshake },
-	"8":  { bg: "bg-cyan-50", color: "text-cyan-700", borderColor: "border-cyan-200", icon: FileText },
-	"9":  { bg: "bg-green-50", color: "text-green-700", borderColor: "border-green-200", icon: Trophy },
+	"5": { bg: "bg-purple-50", color: "text-purple-700", borderColor: "border-purple-200", icon: Clock },
+	"6": { bg: "bg-indigo-50", color: "text-indigo-700", borderColor: "border-indigo-200", icon: Handshake },
+	"8": { bg: "bg-cyan-50", color: "text-cyan-700", borderColor: "border-cyan-200", icon: FileText },
+	"9": { bg: "bg-green-50", color: "text-green-700", borderColor: "border-green-200", icon: Trophy },
 	"10": { bg: "bg-red-50", color: "text-red-700", borderColor: "border-red-200", icon: XCircle },
 	"11": { bg: "bg-gray-50", color: "text-gray-600", borderColor: "border-gray-200", icon: Archive },
 };
@@ -77,9 +77,25 @@ type LawyerType = {
 	label: string;
 };
 
+function getColumnIdFromStatus(status: string): number {
+	switch (status) {
+		case "IN_PROGRESS": return 1;
+		case "WON": return 2;
+		case "LOST": return 3;
+		default: return 1;
+	}
+}
+
+function getServiceLabel(serviceId: number) {
+	const service = servicesType.find((s) => s.value === serviceId);
+	return service ? service.label : "Servicio desconocido";
+}
+
 export default function KanbanBoard() {
 	const { data: session } = useSession();
 	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
 	const [leads, setLeads] = useState<Lead[]>([]);
 	const [isFormOpen, setIsFormOpen] = useState(false);
 	const [currentLead, setCurrentLead] = useState<Lead | null>(null);
@@ -88,30 +104,43 @@ export default function KanbanBoard() {
 	const scrollContainerRef = useRef<HTMLDivElement>(null);
 	const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-	// Filter states
-	const [searchQuery, setSearchQuery] = useState("");
-	const [selectedService, setSelectedService] = useState<number | undefined>(undefined);
-	const [selectedResponsibleLawyer, setSelectedResponsibleLawyer] = useState<string[]>([]);
-	const [selectedInternalLawyer, setSelectedInternalLawyer] = useState<string[]>([]);
-	const [dateFrom, setDateFrom] = useState("");
-	const [dateTo, setDateTo] = useState("");
+	// Filter states — inicializados desde la URL para que se mantengan
+	// activos al navegar hacia atrás/adelante (o volver de un detalle de lead).
+	const [searchQuery, setSearchQuery] = useState(searchParams.get("q") ?? "");
+	const [selectedService, setSelectedService] = useState<number | undefined>(
+		searchParams.get("service") ? Number(searchParams.get("service")) : undefined,
+	);
+	const [selectedResponsibleLawyer, setSelectedResponsibleLawyer] = useState<string[]>(
+		searchParams.get("respLawyer")?.split(",").filter(Boolean) ?? [],
+	);
+	const [selectedInternalLawyer, setSelectedInternalLawyer] = useState<string[]>(
+		searchParams.get("intLawyer")?.split(",").filter(Boolean) ?? [],
+	);
+	const [dateFrom, setDateFrom] = useState(searchParams.get("from") ?? "");
+	const [dateTo, setDateTo] = useState(searchParams.get("to") ?? "");
+	// Nuevos filtros: etapa del embudo, canal de ingreso, provincia.
+	const [selectedStage, setSelectedStage] = useState(searchParams.get("stage") ?? "");
+	const [selectedChannel, setSelectedChannel] = useState(searchParams.get("channel") ?? "");
+	const [selectedProvince, setSelectedProvince] = useState(searchParams.get("province") ?? "");
+	// Orden de las tarjetas.
+	const [sortBy, setSortBy] = useState(searchParams.get("sort") ?? "recent");
 
 	// Monthly filter states - default to current month
 	const [monthFilter, setMonthFilter] = useState(
-		String(new Date().getMonth() + 1).padStart(2, "0"),
+		searchParams.get("month") ?? String(new Date().getMonth() + 1).padStart(2, "0"),
 	);
 	const [yearFilter, setYearFilter] = useState(
-		String(new Date().getFullYear()),
+		searchParams.get("year") ?? String(new Date().getFullYear()),
 	);
 
 	const [isLoading, setIsLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
 	// Lawyer options for filters
-	const [sellerTypes, setSellerTypes] = useState<LawyerType[]>([]);
+	const [_sellerTypes, setSellerTypes] = useState<LawyerType[]>([]);
 	const [lawyerInternalTypes, setLawyerInternalTypes] = useState<LawyerType[]>([]);
 	const [responsibleLawyerTypes, setResponsibleLawyerTypes] = useState<LawyerType[]>([]);
-	const [referentTypes, setReferentTypes] = useState<LawyerType[]>([]);
+	const [_referentTypes, setReferentTypes] = useState<LawyerType[]>([]);
 
 	const [view, setView] = useState<"kanban" | "list">("kanban");
 	const [showAllLeads, setShowAllLeads] = useState(false);
@@ -139,15 +168,6 @@ export default function KanbanBoard() {
 		return sellerRoles.some((role) => role === session.user.role);
 	}, [session?.user?.role]);
 
-	const getColumnIdFromStatus = (status: string): number => {
-		switch (status) {
-			case "IN_PROGRESS": return 1;
-			case "WON": return 2;
-			case "LOST": return 3;
-			default: return 1;
-		}
-	};
-
 	const canBypassDocumentationValidation = useMemo(() => {
 		if (!session?.user?.role) return false;
 		const sellerRoles = [
@@ -160,11 +180,6 @@ export default function KanbanBoard() {
 		];
 		return sellerRoles.includes(session.user.role as Role);
 	}, [session?.user?.role]);
-
-	const getServiceLabel = (serviceId: number) => {
-		const service = servicesType.find((s) => s.value === serviceId);
-		return service ? service.label : "Servicio desconocido";
-	};
 
 	// Fetch leads from the backend with all filters as query params
 	const fetchLeads = useCallback(async () => {
@@ -205,6 +220,21 @@ export default function KanbanBoard() {
 			} else if (monthFilter && yearFilter) {
 				url.searchParams.append("month", monthFilter);
 				url.searchParams.append("year", yearFilter);
+			}
+
+			// Etapa del embudo
+			if (selectedStage) {
+				url.searchParams.append("columnId", selectedStage);
+			}
+
+			// Canal de ingreso
+			if (selectedChannel) {
+				url.searchParams.append("sourceChannelId", selectedChannel);
+			}
+
+			// Provincia
+			if (selectedProvince) {
+				url.searchParams.append("stateId", selectedProvince);
 			}
 
 			const response = await fetch(url.toString(), {
@@ -290,6 +320,9 @@ export default function KanbanBoard() {
 		selectedInternalLawyer,
 		dateFrom,
 		dateTo,
+		selectedStage,
+		selectedChannel,
+		selectedProvince,
 		monthFilter,
 		yearFilter,
 		showAllLeads,
@@ -313,7 +346,45 @@ export default function KanbanBoard() {
 				clearTimeout(searchTimeoutRef.current);
 			}
 		};
-	}, [fetchLeads]);
+	}, [fetchLeads, session?.user?.accessToken]);
+
+	// Sincroniza los filtros a la URL — así se mantienen activos al navegar
+	// hacia atrás/adelante o al volver de ver el detalle de un lead.
+	useEffect(() => {
+		const params = new URLSearchParams();
+		if (searchQuery) params.set("q", searchQuery);
+		if (selectedService !== undefined) params.set("service", String(selectedService));
+		if (selectedResponsibleLawyer.length > 0) params.set("respLawyer", selectedResponsibleLawyer.join(","));
+		if (selectedInternalLawyer.length > 0) params.set("intLawyer", selectedInternalLawyer.join(","));
+		if (selectedStage) params.set("stage", selectedStage);
+		if (selectedChannel) params.set("channel", selectedChannel);
+		if (selectedProvince) params.set("province", selectedProvince);
+		if (sortBy && sortBy !== "recent") params.set("sort", sortBy);
+		if (dateFrom || dateTo) {
+			if (dateFrom) params.set("from", dateFrom);
+			if (dateTo) params.set("to", dateTo);
+		} else {
+			if (monthFilter) params.set("month", monthFilter);
+			if (yearFilter) params.set("year", yearFilter);
+		}
+		const query = params.toString();
+		router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+	}, [
+		searchQuery,
+		selectedService,
+		selectedResponsibleLawyer,
+		selectedInternalLawyer,
+		dateFrom,
+		dateTo,
+		selectedStage,
+		selectedChannel,
+		selectedProvince,
+		sortBy,
+		monthFilter,
+		yearFilter,
+		pathname,
+		router,
+	]);
 
 	// Fetch sellers
 	useEffect(() => {
@@ -495,7 +566,7 @@ export default function KanbanBoard() {
 
 		await commitColumnChange(
 			leadBeingDragged,
-			Number.parseInt(destination.droppableId),
+			Number.parseInt(destination.droppableId, 10),
 			newStatus,
 		);
 	};
@@ -644,6 +715,9 @@ export default function KanbanBoard() {
 		setSelectedInternalLawyer([]);
 		setDateFrom("");
 		setDateTo("");
+		setSelectedStage("");
+		setSelectedChannel("");
+		setSelectedProvince("");
 		setMonthFilter(String(new Date().getMonth() + 1).padStart(2, "0"));
 		setYearFilter(String(new Date().getFullYear()));
 	};
@@ -654,12 +728,32 @@ export default function KanbanBoard() {
 
 	const hasActiveFilters = Boolean(
 		searchQuery ||
-			selectedService !== undefined ||
-			(selectedResponsibleLawyer && selectedResponsibleLawyer.length > 0) ||
-			(selectedInternalLawyer && selectedInternalLawyer.length > 0) ||
-			dateFrom ||
-			dateTo,
+		selectedService !== undefined ||
+		(selectedResponsibleLawyer && selectedResponsibleLawyer.length > 0) ||
+		(selectedInternalLawyer && selectedInternalLawyer.length > 0) ||
+		dateFrom ||
+		dateTo ||
+		selectedStage ||
+		selectedChannel ||
+		selectedProvince,
 	);
+
+	// Orden de las tarjetas — aplica a ambas vistas (kanban y lista).
+	const sortedLeads = useMemo(() => {
+		const getName = (lead: Lead) => (lead.user?.name || lead.name || "").toLowerCase();
+		const getTime = (lead: Lead) => new Date(lead.createdAt).getTime();
+		const sorted = [...leads];
+		switch (sortBy) {
+			case "oldest":
+				return sorted.sort((a, b) => getTime(a) - getTime(b));
+			case "name_asc":
+				return sorted.sort((a, b) => getName(a).localeCompare(getName(b), "es"));
+			case "name_desc":
+				return sorted.sort((a, b) => getName(b).localeCompare(getName(a), "es"));
+			default:
+				return sorted.sort((a, b) => getTime(b) - getTime(a));
+		}
+	}, [leads, sortBy]);
 
 	return (
 		<div className="flex flex-col h-full">
@@ -681,7 +775,7 @@ export default function KanbanBoard() {
 							</Label>
 						</div>
 					)}
-					<Can role="asistente_legal" inverse>
+					<Can inverse>
 						<div className="flex items-center gap-2">
 							<Switch
 								id="hide-final-columns"
@@ -746,6 +840,14 @@ export default function KanbanBoard() {
 					setMonthFilter={setMonthFilter}
 					yearFilter={yearFilter}
 					setYearFilter={setYearFilter}
+					selectedStage={selectedStage}
+					setSelectedStage={setSelectedStage}
+					selectedChannel={selectedChannel}
+					setSelectedChannel={setSelectedChannel}
+					selectedProvince={selectedProvince}
+					setSelectedProvince={setSelectedProvince}
+					sortBy={sortBy}
+					setSortBy={setSortBy}
 					hasActiveFilters={hasActiveFilters}
 					handleClearFilters={handleClearFilters}
 					responsibleLawyerTypes={responsibleLawyerTypes}
@@ -775,7 +877,7 @@ export default function KanbanBoard() {
 								}
 								return true;
 							}).map((column) => {
-								const columnLeads = leads.filter((lead) => {
+								const columnLeads = sortedLeads.filter((lead) => {
 									const columnIdNum = Number.parseInt(column.id, 10);
 
 									if (
@@ -801,19 +903,17 @@ export default function KanbanBoard() {
 								return (
 									<div
 										key={column.id}
-										className="bg-white dark:bg-gray-800/30 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 h-full w-75 shrink-0 flex flex-col"
+										className="bg-white dark:bg-gray-800/30 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 h-full w-72 shrink-0 flex flex-col"
 									>
-										<div className={`p-3 border-b ${colConfig.borderColor} dark:border-gray-700`}>
+										<div className={`p-3 border-b rounded-t-lg ${colConfig.bg} ${colConfig.borderColor} dark:bg-gray-800/50 dark:border-gray-700`}>
 											<div className="flex justify-between items-center">
 												<div className="flex items-center gap-2">
-													<div className={`p-1.5 rounded-md ${colConfig.bg}`}>
-														<ColIcon className={`h-4 w-4 ${colConfig.color}`} />
-													</div>
-													<h3 className="font-medium text-gray-900 dark:text-white text-sm">
+													<ColIcon className={`h-4 w-4 ${colConfig.color}`} />
+													<h3 className={`font-semibold text-sm ${colConfig.color}`}>
 														{column.title}
 													</h3>
 												</div>
-												<span className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full px-2.5 py-0.5 text-xs font-medium">
+												<span className={`bg-white/70 dark:bg-black/20 ${colConfig.color} rounded-full px-2.5 py-0.5 text-xs font-semibold`}>
 													{columnLeads.length}
 												</span>
 											</div>
@@ -823,11 +923,10 @@ export default function KanbanBoard() {
 												<div
 													{...provided.droppableProps}
 													ref={provided.innerRef}
-													className={`flex-1 overflow-y-auto p-3 space-y-2 transition-colors ${
-														snapshot.isDraggingOver
-															? "bg-gray-50 dark:bg-gray-700/20"
-															: ""
-													}`}
+													className={`flex-1 overflow-y-auto p-3 space-y-2 transition-colors [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-gray-400 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 ${snapshot.isDraggingOver
+														? "bg-gray-50 dark:bg-gray-700/20"
+														: ""
+														}`}
 												>
 													{columnLeads.map((lead, index) => (
 														<Draggable
@@ -871,7 +970,7 @@ export default function KanbanBoard() {
 				</DragDropContext>
 			) : (
 				<KanbanList
-					leads={leads}
+					leads={sortedLeads}
 					onEditLead={handleEditLead}
 					onDeleteLead={handleDeleteLead}
 					hideFinalColumns={hideFinalColumns}

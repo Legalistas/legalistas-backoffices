@@ -16,6 +16,7 @@ const TEMPLATE_TITLES: Record<string, { sent: string; resent: string }> = {
   "crm-en-tratamiento-recordatorio": { sent: "Se envió recordatorio de tratamiento", resent: "Se reenvió recordatorio de tratamiento" },
   "crm-pendiente-poder": { sent: "Se envió email de Pendiente poder", resent: "Se reenvió email de Pendiente poder" },
   "crm-pendiente-poder-recordatorio": { sent: "Se envió recordatorio de poder", resent: "Se reenvió recordatorio de poder" },
+  "crm-pendiente-confirmacion-recordatorio": { sent: "Se envió recordatorio de confirmación", resent: "Se reenvió recordatorio de confirmación" },
   "crm-ganado-poder": { sent: "Se envió email de Tu trámite está por iniciar", resent: "Se reenvió email de Tu trámite está por iniciar" },
   "case-inicio-tramite": { sent: "Se envió certificado de inicio de trámite", resent: "Se reenvió certificado de inicio de trámite" },
   "case-stage-documentacion": { sent: "Se envió email de Documentación", resent: "Se reenvió email de Documentación" },

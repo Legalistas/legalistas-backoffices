@@ -39,9 +39,9 @@ export default function NotificationDropdown() {
 		notifications,
 		loading,
 		markNotificationAsRead,
+		isRinging,
 	} = useNotifications();
 	const [isOpen, setIsOpen] = useState(false);
-	const [notifying, setNotifying] = useState(true);
 
 	function toggleDropdown() {
 		setIsOpen(!isOpen);
@@ -53,7 +53,6 @@ export default function NotificationDropdown() {
 
 	const handleClick = () => {
 		toggleDropdown();
-		setNotifying(false);
 	};
 
 	const handleNotificationClick = (notification: Notification) => {
@@ -106,7 +105,15 @@ export default function NotificationDropdown() {
 						<span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-75 animate-ping"></span>
 					</span>
 				)}
-				<Bell className="w-5 h-5" />
+				<Bell
+					className={`w-5 h-5 origin-top ${
+						isRinging
+							? "animate-bell-ring"
+							: unreadCount > 0
+								? "animate-bell-idle"
+								: ""
+					}`}
+				/>
 			</button>
 			<Dropdown
 				isOpen={isOpen}

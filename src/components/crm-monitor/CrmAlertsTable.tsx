@@ -29,9 +29,11 @@ function detailHref(a: CrmAlert): string {
 		case "CASE":
 			return `/admin/legal-cases/${a.entityId}`;
 		case "OPPORTUNITY":
-			return `/admin/crm/${a.entityId}`;
+			return `/admin/crm/leads/${a.entityId}`;
 		case "NEGOTIATION":
-			return `/admin/negotiation/${a.entityId}`;
+			// No hay ruta /admin/negotiation/[id] — el detalle se abre con
+			// query param en la misma página (ver admin/negotiation/page.tsx).
+			return `/admin/negotiation?openId=${a.entityId}`;
 		default:
 			return "#";
 	}

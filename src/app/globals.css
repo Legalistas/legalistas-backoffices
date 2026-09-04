@@ -43,6 +43,8 @@
 	--radius-xl: calc(var(--radius) + 4px);
 	--animate-collapsible-down: collapsible-down 0.2s ease-out;
 	--animate-collapsible-up: collapsible-up 0.2s ease-out;
+	--animate-bell-ring: bell-ring 0.8s ease-in-out 2;
+	--animate-bell-idle: bell-ring-idle 3.5s ease-in-out infinite;
 }
 
 @keyframes collapsible-down {
@@ -66,6 +68,53 @@
 	to {
 		height: 0;
 		opacity: 0;
+	}
+}
+
+/* Campanita de notificaciones "ding dong" al llegar un aviso nuevo. */
+@keyframes bell-ring {
+	0% {
+		transform: rotate(0deg);
+	}
+	10% {
+		transform: rotate(14deg);
+	}
+	20% {
+		transform: rotate(-10deg);
+	}
+	30% {
+		transform: rotate(14deg);
+	}
+	40% {
+		transform: rotate(-4deg);
+	}
+	50% {
+		transform: rotate(6deg);
+	}
+	60%, 100% {
+		transform: rotate(0deg);
+	}
+}
+
+/* Recordatorio suave y periódico mientras hay notificaciones sin leer
+   (a diferencia de bell-ring, que es el "ding" fuerte de algo recién
+   llegado). El giro ocupa una porción chica del ciclo, el resto queda
+   quieta. */
+@keyframes bell-ring-idle {
+	0% {
+		transform: rotate(0deg);
+	}
+	4% {
+		transform: rotate(12deg);
+	}
+	8% {
+		transform: rotate(-8deg);
+	}
+	12% {
+		transform: rotate(5deg);
+	}
+	16%, 100% {
+		transform: rotate(0deg);
 	}
 }
 
@@ -336,4 +385,36 @@
 .fc-source-badge--crm {
 	background-color: #0d948820;
 	color: #0d9488;
+}
+
+/* ── Sidebar — scrollbar del menú (CSS directo: evita depender del JIT
+   de Tailwind para pseudo-elementos ::-webkit-scrollbar-*) ──────────── */
+
+[data-slot="sidebar-content"] {
+	scrollbar-width: thin;
+	scrollbar-color: var(--sidebar-primary) transparent;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar {
+	width: 6px;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-button {
+	display: none;
+	height: 0;
+	width: 0;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-track {
+	background-color: transparent;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-thumb {
+	background-color: var(--sidebar-primary);
+	border-radius: 9999px;
+}
+
+[data-slot="sidebar-content"]::-webkit-scrollbar-thumb:hover {
+	background-color: var(--sidebar-primary);
+	opacity: 0.8;
 }

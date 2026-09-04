@@ -499,6 +499,9 @@ export const CASE_INFORME_ENDPOINT = (caseId: number) =>
 // LEXIA - Analista IA
 export const LEXIA_ANALYTICS_ENDPOINT = `${API_BASE_URL}/lexia/analytics`;
 
+// CRM Analyzer - notas crudas → mensaje prolijo para la abogada/o (IA)
+export const CRM_ANALYZER_ENDPOINT = `${API_BASE_URL}/crm-analyzer/analyze`;
+
 // ============================================================================
 // REPRESENTATIVES MODULE - Seguimiento de desempeño de representantes
 // ============================================================================
