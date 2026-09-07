@@ -73,10 +73,31 @@ import type { User } from "@/types/users";
 import CustomerRegistrationModal from "../customers/CustomerRegistrationModal";
 
 
+export interface WebContactPrefill {
+	firstName?: string | null;
+	lastName?: string | null;
+	email?: string | null;
+	phone?: string | null;
+	injury?: string | null;
+	notes?: string | null;
+	sourceChannelId?: number | null;
+	utmSource?: string | null;
+	utmMedium?: string | null;
+	utmCampaign?: string | null;
+	utmContent?: string | null;
+	utmTerm?: string | null;
+	gclid?: string | null;
+	landingPage?: string | null;
+}
+
 interface LeadFormDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	lead: Lead | null;
+	/** Precarga cliente/notas/UTM desde un WebContactSubmission (bandeja de Contacto Web). */
+	prefill?: WebContactPrefill | null;
+	/** Se llama con el id del lead recién creado, antes del reload. */
+	onLeadCreated?: (leadId: number) => void | Promise<void>;
 }
 
 interface Seller {
@@ -143,6 +164,8 @@ export default function LeadFormDialog({
 	open,
 	onOpenChange,
 	lead,
+	prefill,
+	onLeadCreated,
 }: LeadFormDialogProps) {
 	const { data: session } = useSession();
 	const [formData, setFormData] = useState({
@@ -357,6 +380,44 @@ export default function LeadFormDialog({
 		}
 	}, [lead]);
 
+	// Precarga desde la bandeja de Contacto Web: abre el panel de "Nuevo
+	// cliente" con nombre/email/teléfono ya cargados y arranca desde cero el
+	// resto de la asignación (evita arrastrar datos de un intento anterior).
+	useEffect(() => {
+		if (!open || lead || !prefill) return;
+		setFormData({
+			userId: 0,
+			sellerId: 0,
+			internalLawyerId: 0,
+			responsibleLawyerId: 0,
+			servicesId: 0,
+			sourceChannelId: prefill.sourceChannelId || 1,
+			status: "IN_PROGRESS",
+			columnId: 1,
+			notes: prefill.notes || "",
+			documentationComplete: false,
+			referentId: null,
+			accidentDate: "",
+			artId: null,
+			insuranceId: null,
+			injury: prefill.injury || "",
+			stateId: null,
+			cityId: null,
+		});
+		setNewClientForm({
+			fullName: [prefill.firstName, prefill.lastName]
+				.filter(Boolean)
+				.join(" ")
+				.trim(),
+			email: prefill.email || "",
+			phone: prefill.phone || "",
+		});
+		setIsNewClientOpen(true);
+		setSearchQuery("");
+		setSelectedCustomerName("");
+		setHasSelectedCustomer(false);
+	}, [open, lead, prefill]);
+
 	useEffect(() => {
 		if (searchQuery) {
 			// `customers` ya viene deduplicado por id desde fetchCustomers — no hace
@@ -545,6 +606,15 @@ export default function LeadFormDialog({
 				injury: formData.injury || null,
 				stateId: formData.stateId ?? null,
 				cityId: formData.cityId ?? null,
+				// Atribución de origen — solo presente cuando el lead viene
+				// precargado desde la bandeja de Contacto Web.
+				utmSource: prefill?.utmSource || null,
+				utmMedium: prefill?.utmMedium || null,
+				utmCampaign: prefill?.utmCampaign || null,
+				utmContent: prefill?.utmContent || null,
+				utmTerm: prefill?.utmTerm || null,
+				gclid: prefill?.gclid || null,
+				landingPage: prefill?.landingPage || null,
 			};
 
 			const isCreating = !lead?.id;
@@ -569,6 +639,9 @@ export default function LeadFormDialog({
 				const createdLead =
 					responseData?.lead ?? responseData?.data ?? responseData;
 				const newLeadId = Number(createdLead?.id ?? 0);
+				if (newLeadId && onLeadCreated) {
+					await onLeadCreated(newLeadId);
+				}
 				const folderName = createdLead?.folderName as string | undefined;
 				const selectedCustomer = customers.find(
 					(c) => c.id === formData.userId,
@@ -637,7 +710,9 @@ export default function LeadFormDialog({
 							<DialogDescription>
 								{lead
 									? "Modificá los datos del lead y guardá los cambios."
-									: "Completá los datos para registrar un nuevo lead."}
+									: prefill
+										? "Datos precargados desde el formulario de contacto web. Revisá y completá la asignación."
+										: "Completá los datos para registrar un nuevo lead."}
 							</DialogDescription>
 						</div>
 					</div>

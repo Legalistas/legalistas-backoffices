@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Medal,
   MessageCircle,
+  MessageSquare,
   Pencil,
   PieChart,
   Receipt,
@@ -128,6 +129,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         icon: SquareKanban,
         name: "Embudo",
         path: "/admin/crm",
+        roles: [...LEGAL, ...VENTAS, ...MARKETING],
+      },
+      {
+        icon: MessageSquare,
+        name: "Contacto Web",
+        path: "/admin/web-contact",
         roles: [...LEGAL, ...VENTAS, ...MARKETING],
       },
       {

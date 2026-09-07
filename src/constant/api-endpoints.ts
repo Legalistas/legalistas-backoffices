@@ -502,6 +502,13 @@ export const LEXIA_ANALYTICS_ENDPOINT = `${API_BASE_URL}/lexia/analytics`;
 // CRM Analyzer - notas crudas → mensaje prolijo para la abogada/o (IA)
 export const CRM_ANALYZER_ENDPOINT = `${API_BASE_URL}/crm-analyzer/analyze`;
 
+// Web Contact - bandeja de contactos del formulario público (legalistas.ar)
+export const WEB_CONTACT_ENDPOINT = `${API_BASE_URL}/web-contact`;
+export const WEB_CONTACT_REJECT_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/web-contact/${id}/reject`;
+export const WEB_CONTACT_CONVERT_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/web-contact/${id}/convert`;
+
 // ============================================================================
 // REPRESENTATIVES MODULE - Seguimiento de desempeño de representantes
 // ============================================================================
