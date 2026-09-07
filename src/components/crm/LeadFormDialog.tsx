@@ -58,6 +58,7 @@ import {
 	LAWYERS_ENDPOINT,
 	LEADS_ENDPOINT,
 	SELLERS_ENDPOINT,
+	USER_PROFILE_ENDPOINT,
 	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { ART_COMPANIES, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
@@ -213,6 +214,12 @@ export default function LeadFormDialog({
 	const [isNewClientOpen, setIsNewClientOpen] = useState(false);
 	const [newClientForm, setNewClientForm] = useState(emptyNewClientForm);
 	const [isCreatingClient, setIsCreatingClient] = useState(false);
+	// Cliente creado inline en este mismo formulario (no uno ya existente que
+	// se buscó y seleccionó). Se usa para backfillear su dirección con la
+	// provincia/ciudad de la oportunidad — ver handleSubmit.
+	const [inlineCreatedUserId, setInlineCreatedUserId] = useState<
+		number | null
+	>(null);
 
 	const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -551,6 +558,7 @@ export default function LeadFormDialog({
 					userAddresses: created.userAddresses ?? [],
 					roleUser: created.roleUser ?? [],
 				});
+				setInlineCreatedUserId(created.id);
 			}
 			fetchCustomers();
 			toast.success("Cliente creado correctamente");
@@ -641,6 +649,38 @@ export default function LeadFormDialog({
 				const newLeadId = Number(createdLead?.id ?? 0);
 				if (newLeadId && onLeadCreated) {
 					await onLeadCreated(newLeadId);
+				}
+
+				// El cliente recién creado inline no tiene dirección propia
+				// (se crea sin userAddresses). Le pasamos la provincia/ciudad
+				// que se cargó para la oportunidad, para que no quede en blanco.
+				if (
+					inlineCreatedUserId &&
+					inlineCreatedUserId === formData.userId &&
+					formData.stateId
+				) {
+					try {
+						await fetch(`${USER_PROFILE_ENDPOINT}/${formData.userId}`, {
+							method: "PUT",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${session?.user?.accessToken}`,
+							},
+							body: JSON.stringify({
+								address: {
+									countryId: 1, // Argentina — único país soportado hoy.
+									stateId: formData.stateId,
+									cityId: formData.cityId,
+									isDefault: true,
+								},
+							}),
+						});
+					} catch (err) {
+						console.error(
+							"[LeadFormDialog] Error guardando dirección del cliente nuevo:",
+							err,
+						);
+					}
 				}
 				const folderName = createdLead?.folderName as string | undefined;
 				const selectedCustomer = customers.find(
