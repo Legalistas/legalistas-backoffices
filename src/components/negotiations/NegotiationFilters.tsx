@@ -112,7 +112,6 @@ export function NegotiationFilters({
 							<SelectItem value="CURSO">En Curso</SelectItem>
 							<SelectItem value="SUSPENSO">Suspenso</SelectItem>
 							<SelectItem value="FINALIZADAS">Finalizadas</SelectItem>
-							<SelectItem value="PERDIDAS">Perdidas</SelectItem>
 						</SelectContent>
 					</Select>
 				</div>

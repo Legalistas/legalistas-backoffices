@@ -43,6 +43,7 @@ import { servicesType } from "@/lib/constant";
 import type { ColumnConfig } from "./ColumnSelector";
 import EditNegotiation from "./EditNegotiation";
 import type { FilterState } from "./NegotiationFilters";
+import { NegotiationStatusDropdown } from "./NegotiationStatusDropdown";
 
 interface UniqueValues {
 	abogadosRepresentantes: string[];
@@ -50,35 +51,6 @@ interface UniqueValues {
 	abogadosContraparte: string[];
 	lesiones: string[];
 }
-
-const VALID_TRANSITIONS: Record<
-	NegotiationStatus,
-	{ value: NegotiationStatus; label: string }[]
-> = {
-	INICIAR: [
-		{ value: "CURSO", label: "Pasar a En Curso" },
-		{ value: "PERDIDAS", label: "Marcar como Perdida" },
-	],
-	CURSO: [
-		{ value: "SUSPENSO", label: "Suspender" },
-		{ value: "FINALIZADAS", label: "Finalizar" },
-		{ value: "PERDIDAS", label: "Marcar como Perdida" },
-	],
-	SUSPENSO: [
-		{ value: "CURSO", label: "Reanudar (En Curso)" },
-		{ value: "PERDIDAS", label: "Marcar como Perdida" },
-	],
-	FINALIZADAS: [],
-	PERDIDAS: [],
-};
-
-const STATUS_BADGE_STYLES: Record<NegotiationStatus, string> = {
-	INICIAR: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
-	CURSO: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
-	SUSPENSO: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
-	FINALIZADAS: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-	PERDIDAS: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300",
-};
 
 const STATUS_LABELS: Record<NegotiationStatus, string> = {
 	INICIAR: "Iniciar",
@@ -98,6 +70,12 @@ interface NegotiationsTableProps {
 	filters: FilterState;
 	onUniqueValuesChange?: (values: UniqueValues) => void;
 	onResultsChange?: (totals: { total: number; filtered: number }) => void;
+	onStatusCountsChange?: (counts: {
+		iniciar: number;
+		curso: number;
+		suspenso: number;
+		finalizadas: number;
+	}) => void;
 }
 
 export function NegotiationsTable({
@@ -109,6 +87,7 @@ export function NegotiationsTable({
 	filters,
 	onUniqueValuesChange,
 	onResultsChange,
+	onStatusCountsChange,
 }: NegotiationsTableProps) {
 	const { data: session } = useSession();
 	const { confirm, ConfirmationDialog } = useConfirm();
@@ -144,10 +123,9 @@ export function NegotiationsTable({
 		setError(null);
 
 		try {
+			// Se trae siempre el set completo (sin filtrar por status) para poder
+			// calcular los contadores por estado en base a los demás filtros activos.
 			const params = new URLSearchParams();
-			if (filters.estado) {
-				params.append("status", filters.estado);
-			}
 			params.append("limit", "5000");
 
 			if (isLawyer && userId) {
@@ -208,7 +186,8 @@ export function NegotiationsTable({
 				closingId: neg.closing?.id || null,
 			}));
 
-			setNegotiations(transformed);
+			// Las perdidas no se listan en el módulo, solo cuentan para las estadísticas
+			setNegotiations(transformed.filter((n) => n.status !== "PERDIDAS"));
 		} catch (err) {
 			console.error("Error fetching negotiations:", err);
 			setError("Error al cargar las negociaciones");
@@ -216,7 +195,7 @@ export function NegotiationsTable({
 		} finally {
 			setIsLoading(false);
 		}
-	}, [session?.user?.accessToken, filters.estado, isLawyer, userId]);
+	}, [session?.user?.accessToken, isLawyer, userId]);
 
 	useEffect(() => {
 		fetchNegotiations();
@@ -235,15 +214,10 @@ export function NegotiationsTable({
 	}, [openNegotiationId, negotiations, onOpenNegotiationHandled]);
 
 	// ─── Filters & sort ───
-	const filteredNegotiations = useMemo(() => {
-		const filtered = negotiations.filter((neg) => {
-			if (
-				neg.status === "FINALIZADAS" &&
-				!filters.showFinalizadas &&
-				filters.estado !== "FINALIZADAS"
-			) {
-				return false;
-			}
+	// Filtros "secundarios" (todo lo que no sea el tab de estado). Se usan tanto
+	// para la tabla como para calcular los contadores por estado de las tarjetas.
+	const matchesSecondaryFilters = useCallback(
+		(neg: Negotiation) => {
 			if (filters.searchTerm) {
 				const s = filters.searchTerm.toLowerCase();
 				const fields = [
@@ -286,6 +260,21 @@ export function NegotiationsTable({
 					return false;
 			}
 			return true;
+		},
+		[filters],
+	);
+
+	const filteredNegotiations = useMemo(() => {
+		const filtered = negotiations.filter((neg) => {
+			if (filters.estado && neg.status !== filters.estado) return false;
+			if (
+				neg.status === "FINALIZADAS" &&
+				!filters.showFinalizadas &&
+				filters.estado !== "FINALIZADAS"
+			) {
+				return false;
+			}
+			return matchesSecondaryFilters(neg);
 		});
 
 		if (sortConfig) {
@@ -347,7 +336,7 @@ export function NegotiationsTable({
 		}
 
 		return filtered;
-	}, [negotiations, filters, sortConfig]);
+	}, [negotiations, filters, sortConfig, matchesSecondaryFilters]);
 
 	const uniqueValues = useMemo<UniqueValues>(
 		() => ({
@@ -385,6 +374,25 @@ export function NegotiationsTable({
 			filtered: filteredNegotiations.length,
 		});
 	}, [negotiations.length, filteredNegotiations.length, onResultsChange]);
+
+	// Contadores por estado en base a los filtros secundarios (representante, contraparte,
+	// lesión, búsqueda, monto), ignorando el propio tab de estado — así las tarjetas de
+	// arriba reflejan el filtro aplicado en vez de quedar fijas al total global.
+	const statusCounts = useMemo(() => {
+		const counts = { iniciar: 0, curso: 0, suspenso: 0, finalizadas: 0 };
+		negotiations.forEach((neg) => {
+			if (!matchesSecondaryFilters(neg)) return;
+			if (neg.status === "INICIAR") counts.iniciar++;
+			else if (neg.status === "CURSO") counts.curso++;
+			else if (neg.status === "SUSPENSO") counts.suspenso++;
+			else if (neg.status === "FINALIZADAS") counts.finalizadas++;
+		});
+		return counts;
+	}, [negotiations, matchesSecondaryFilters]);
+
+	useEffect(() => {
+		onStatusCountsChange?.(statusCounts);
+	}, [statusCounts, onStatusCountsChange]);
 
 	// ─── Helpers ───
 	const formatCurrency = (value: number | null) => {
@@ -790,6 +798,7 @@ export function NegotiationsTable({
 						<TableHeader>
 							<TableRow className="bg-gray-50 dark:bg-white/5">
 								<ColHeader id="causa" label="Causa" />
+								<ColHeader id="estado" label="Estado" />
 								<ColHeader
 									id="abogadoRepresentante"
 									label="Abogado Representante"
@@ -818,16 +827,17 @@ export function NegotiationsTable({
 								<TableRow key={neg.id} className="group hover:bg-muted/50">
 									{isColumnVisible("causa") && (
 										<TableCell className="px-4 py-2 text-sm font-medium whitespace-nowrap">
-											<div className="flex items-center gap-2">
-												<span>
-													{neg.case.title || `Causa #${neg.caseId}`}
-												</span>
-												<span
-													className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_BADGE_STYLES[neg.status]}`}
-												>
-													{STATUS_LABELS[neg.status]}
-												</span>
-											</div>
+											{neg.case.title || `Causa #${neg.caseId}`}
+										</TableCell>
+									)}
+									{isColumnVisible("estado") && (
+										<TableCell className="px-4 py-2 text-sm whitespace-nowrap">
+											<NegotiationStatusDropdown
+												currentStatus={neg.status}
+												onStatusChange={(newStatus) =>
+													handleStatusChange(neg.id, newStatus)
+												}
+											/>
 										</TableCell>
 									)}
 									{isColumnVisible("abogadoRepresentante") && (
