@@ -31,7 +31,7 @@ export default function CasesDetailsPage() {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editMode, setEditMode] = useState(false);
 	const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-	const [activeTab, setActiveTab] = useState("files");
+	const [activeTab, setActiveTab] = useState("notes");
 
 	const [fileTypeFilter, setFileTypeFilter] = useState(0); // 0 for "todos"
 	const [isFilterSelectOpen, setIsFilterSelectOpen] = useState(false);
