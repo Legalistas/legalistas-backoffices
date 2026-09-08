@@ -858,13 +858,28 @@ export default function CashBoxPage() {
 	const subMovementOptions = useMemo(() => {
 		const selectedMovement = MOVEMENTS.find((m) => m.value === newType);
 		return (
-			selectedMovement?.subMovements.map((smItem) => ({
-				// Renamed sm to smItem
-				value: smItem.value,
-				label: smItem.label,
-			})) || []
+			selectedMovement?.subMovements
+				// Subtipos con `restrictedToUserId` (ej. "Alquiler") solo se
+				// ofrecen cuando el usuario seleccionado es ese.
+				.filter(
+					(smItem) =>
+						!smItem.restrictedToUserId ||
+						smItem.restrictedToUserId === newUserFrom,
+				)
+				.map((smItem) => ({
+					value: smItem.value,
+					label: smItem.label,
+				})) || []
 		);
-	}, [newType]);
+	}, [newType, newUserFrom]);
+
+	// Si el usuario cambia y el subtipo elegido dejó de estar disponible para
+	// él (ej. tenía "Alquiler" y ahora es otro usuario), lo limpiamos.
+	useEffect(() => {
+		if (newSubtype && !subMovementOptions.some((o) => o.value === newSubtype)) {
+			setNewSubtype("");
+		}
+	}, [subMovementOptions, newSubtype]);
 
 	// Manejar el cambio del tipo de movimiento
 	const handleMovementTypeChange = (value: string) => {

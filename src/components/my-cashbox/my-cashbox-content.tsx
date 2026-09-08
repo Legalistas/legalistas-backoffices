@@ -600,13 +600,20 @@ export default function MyCashboxContent() {
 	const subMovementOptions = useMemo(() => {
 		const selectedMovement = MOVEMENTS.find((m) => m.value === newType);
 		return (
-			selectedMovement?.subMovements.map((smItem) => ({
-				// Renamed sm to smItem
-				value: smItem.value,
-				label: smItem.label,
-			})) || []
+			selectedMovement?.subMovements
+				// Subtipos con `restrictedToUserId` (ej. "Alquiler") solo se
+				// ofrecen en la caja de ese usuario.
+				.filter(
+					(smItem) =>
+						!smItem.restrictedToUserId ||
+						String(smItem.restrictedToUserId) === userId,
+				)
+				.map((smItem) => ({
+					value: smItem.value,
+					label: smItem.label,
+				})) || []
 		);
-	}, [newType]);
+	}, [newType, userId]);
 
 	const filterPeriodOptions = useMemo(() => {
 		return [

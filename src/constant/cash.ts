@@ -5,6 +5,9 @@ export const MOVEMENTS = [
 		subMovements: [
 			{ value: "fee", label: "Honorarios" },
 			{ value: "pcl", label: "PCL" },
+			// Alquiler que la empresa le paga a Agustín Andereggen (id 2) por
+			// el inmueble — solo debe verse en su caja.
+			{ value: "rent", label: "Alquiler", restrictedToUserId: 2 },
 			{ value: "other", label: "Otros" },
 		],
 	},
@@ -21,6 +24,7 @@ export const MOVEMENTS = [
 			{ value: "fixer", label: "Repuestos Fixer" },
 			{ value: "brixar", label: "Brixar" },
 			{ value: "tarjetas", label: "Tarjetas" },
+			{ value: "rent", label: "Alquiler", restrictedToUserId: 2 },
 			{ value: "other", label: "Otros" },
 		],
 	},
