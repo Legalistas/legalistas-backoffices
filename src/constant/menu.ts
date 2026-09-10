@@ -112,6 +112,13 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: "/admin/calendar",
         roles: [...LEGAL, ...VENTAS],
       },
+      {
+        icon: ChartArea,
+        name: "Estadísticas Ventas",
+        path: "/admin/reports/sales",
+        roles: LEGAL_INTERNO,
+      },
+
     ],
   },
   {
