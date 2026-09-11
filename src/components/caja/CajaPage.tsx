@@ -9,6 +9,7 @@ import {
 	Scale,
 	TrendingDown,
 	TrendingUp,
+	UserPlus,
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -32,6 +33,7 @@ import CajaGeneralPanel from "./CajaGeneralPanel";
 import CajasGrid from "./CajasGrid";
 import MovimientoDialog from "./MovimientoDialog";
 import MovimientosPanel from "./MovimientosPanel";
+import NuevaCajaMonotributoDialog from "./NuevaCajaMonotributoDialog";
 import RubrosManager from "./RubrosManager";
 import TransferenciaDialog from "./TransferenciaDialog";
 import { useCajas } from "./useCajas";
@@ -182,6 +184,7 @@ export default function CajaPage() {
 	const [version, setVersion] = useState(0);
 	const [movOpen, setMovOpen] = useState(false);
 	const [trOpen, setTrOpen] = useState(false);
+	const [monoOpen, setMonoOpen] = useState(false);
 
 	const refrescar = () => {
 		reload();
@@ -305,7 +308,15 @@ export default function CajaPage() {
 					</TabsList>
 
 					{(["PRINCIPAL", "MONOTRIBUTO"] as const).map((g) => (
-						<TabsContent key={g} value={g} className="mt-4">
+						<TabsContent key={g} value={g} className="mt-4 space-y-4">
+							{g === "MONOTRIBUTO" && (
+								<div className="flex justify-end">
+									<Button variant="outline" size="sm" onClick={() => setMonoOpen(true)}>
+										<UserPlus className="mr-2 h-4 w-4" />
+										Nueva caja monotributo
+									</Button>
+								</div>
+							)}
 							<VistaCajas
 								cajas={cajasDe(g)}
 								selectedId={selectedId}
@@ -365,13 +376,24 @@ export default function CajaPage() {
 				onSaved={refrescar}
 			/>
 			{esAdmin && (
-				<TransferenciaDialog
-					open={trOpen}
-					onOpenChange={setTrOpen}
-					token={token}
-					cajas={operables}
-					onSaved={refrescar}
-				/>
+				<>
+					<TransferenciaDialog
+						open={trOpen}
+						onOpenChange={setTrOpen}
+						token={token}
+						cajas={operables}
+						onSaved={refrescar}
+					/>
+					<NuevaCajaMonotributoDialog
+						open={monoOpen}
+						onOpenChange={setMonoOpen}
+						token={token}
+						dueniosActuales={cajasDe("MONOTRIBUTO")
+							.map((c) => c.ownerUserId)
+							.filter((id): id is number => id !== null)}
+						onSaved={refrescar}
+					/>
+				</>
 			)}
 		</div>
 	);
