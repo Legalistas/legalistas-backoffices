@@ -1,7 +1,6 @@
 "use client";
 import {
 	Activity,
-	AlertTriangle,
 	ArrowRight,
 	CalendarDays,
 	CheckCircle2,
@@ -69,52 +68,6 @@ const salesRoles: string[] = [
 	Role.REPRESENTANTE_VENTAS,
 	Role.ANALISTA_VENTAS,
 ];
-
-// ── Tipos de alerta ─────────────────────────────────────────────────
-
-interface DashboardAlert {
-	id: number;
-	title: string;
-	assignedTo: string;
-}
-
-const MOCK_ALERTS: DashboardAlert[] = [
-	{ id: 1, title: "test", assignedTo: "Jonatan" },
-];
-
-// ── Alertas urgentes ────────────────────────────────────────────────
-
-function UrgentAlerts() {
-	const alerts = MOCK_ALERTS;
-	if (alerts.length === 0) return null;
-
-	return (
-		<Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30">
-			<CardContent className="p-4">
-				<div className="flex items-center gap-2 mb-2">
-					<AlertTriangle className="size-4 text-red-500" />
-					<span className="text-sm font-semibold text-red-600 dark:text-red-400">
-						{alerts.length}{" "}
-						{alerts.length === 1 ? "alerta urgente" : "alertas urgentes"}
-					</span>
-				</div>
-				<ul className="space-y-1">
-					{alerts.map((alert) => (
-						<li
-							key={alert.id}
-							className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300"
-						>
-							<span className="font-medium">{alert.title}</span>
-							<span className="text-red-400 dark:text-red-500">
-								· {alert.assignedTo}
-							</span>
-						</li>
-					))}
-				</ul>
-			</CardContent>
-		</Card>
-	);
-}
 
 // ── Component ──────────────────────────────────────────────────────
 
@@ -468,8 +421,6 @@ function LegalDashboard() {
 				isRefreshing={isRefreshing}
 				lastUpdated={lastUpdated}
 			/>
-
-			<UrgentAlerts />
 
 			{/* Mi Día + Stats */}
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -850,7 +801,6 @@ function SalesDashboard() {
 	return (
 		<div className="flex flex-col gap-6">
 			<DashboardGreetingHeader />
-			<UrgentAlerts />
 			<SalesOverview />
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 				<SalesPerformance />
