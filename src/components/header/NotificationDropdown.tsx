@@ -10,6 +10,7 @@ import {
 	Scale,
 	Settings,
 	SquareKanban,
+	Wallet,
 	X,
 } from "lucide-react";
 import Link from "next/link";
@@ -79,6 +80,8 @@ export default function NotificationDropdown() {
 				return <FileText className="h-4 w-4 text-green-500" />;
 			case "events":
 				return <Calendar className="h-4 w-4 text-indigo-500" />;
+			case "caja":
+				return <Wallet className="h-4 w-4 text-emerald-500" />;
 			case "success":
 				return <CheckCircle className="h-4 w-4 text-green-500" />;
 			case "warning":

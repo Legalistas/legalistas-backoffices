@@ -554,3 +554,8 @@ export const POSTS_AI_GENERATE_TITLES_ENDPOINT = `${API_BASE_URL}/posts/ai/gener
 export const POSTS_AI_SUGGEST_KEYWORD_ENDPOINT = `${API_BASE_URL}/posts/ai/suggest-keyword`;
 export const POSTS_AI_GENERATE_FAQ_ENDPOINT = `${API_BASE_URL}/posts/ai/generate-faq`;
 export const POSTS_AI_INTERNAL_LINKS_ENDPOINT = `${API_BASE_URL}/posts/ai/suggest-internal-links`;
+
+// ============================================================================
+// CAJA CONTABLE — módulo /caja (cajas, movimientos, transferencias, rubros)
+// ============================================================================
+export const CAJA_ENDPOINT = `${API_BASE_URL}/caja`;

@@ -24,6 +24,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import MiCajaWidget from "@/components/caja/MiCajaWidget";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DASHBOARD_LEGAL_STATS_ENDPOINT } from "@/constant/api-endpoints";
 import { SUPERADMIN } from "@/constant/menu";
@@ -133,8 +134,14 @@ export default function DashboardComponent() {
 		return "default";
 	}, [userRole]);
 
-	const baseDashboard =
-		dashboardType === "sales" ? <SalesDashboard /> : <LegalDashboard />;
+	// MiCajaWidget solo se ve si el usuario es dueño de una caja (Agustín,
+	// monotributos); para el resto no renderiza nada.
+	const baseDashboard = (
+		<div className="space-y-6">
+			<MiCajaWidget />
+			{dashboardType === "sales" ? <SalesDashboard /> : <LegalDashboard />}
+		</div>
+	);
 
 	const showAccountingTab =
 		userRole !== undefined && accountingPanelRoles.includes(userRole);

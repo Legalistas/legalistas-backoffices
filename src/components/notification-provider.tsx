@@ -51,8 +51,9 @@ const NotificationContext = createContext<NotificationContextType | undefined>(
 	undefined,
 );
 
-// Tipos de notificación que deben sonar (@ mención directa a este usuario).
-const SOUND_NOTIFICATION_TYPES = new Set(["nota_crm_mencion"]);
+// Tipos de notificación que deben sonar (@ mención directa a este usuario,
+// ingreso en la Caja contable).
+const SOUND_NOTIFICATION_TYPES = new Set(["nota_crm_mencion", "caja"]);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
 	const { data: session } = useSession();

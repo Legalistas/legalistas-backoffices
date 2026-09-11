@@ -17,9 +17,11 @@ import {
   SquareKanban,
   User,
   Users2,
+  Vault,
   Wallet,
   Wrench,
 } from "lucide-react";
+import { CAJA_ADMIN_ROLES } from "@/constant/caja";
 import { Role } from "@/constant/user";
 import type { MenuSection, NavItem } from "@/types/navigation";
 
@@ -232,6 +234,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Gastos e Ingresos",
         path: "/admin/accounting",
         roles: CONTABLE,
+      },
+      {
+        icon: Vault,
+        name: "Caja Contable",
+        path: "/admin/caja",
+        roles: CAJA_ADMIN_ROLES,
       },
     ],
   },
