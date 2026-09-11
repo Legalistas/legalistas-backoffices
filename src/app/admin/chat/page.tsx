@@ -1,6 +1,6 @@
-import { Metadata } from "next";
-import ChatContent from "@/components/chats/ChatContent";
+import { redirect } from "next/navigation";
 
+// El chat se quitó del panel (sin ChatProvider, ChatContent se rompería).
 export default function Chat() {
-	return <ChatContent />;
+	return redirect("/admin/dashboard");
 }

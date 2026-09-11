@@ -5,15 +5,11 @@ import { useSession } from "next-auth/react";
 import type React from "react";
 import { useEffect } from "react";
 import { Toaster } from "sonner";
-import AttendanceChecker from "@/components/attendance/AttendanceChecker";
 import AnniversaryGreeting from "@/components/celebrations/AnniversaryGreeting";
-import FloatingChatBubble from "@/components/FloatingChatBubble";
 import Header from "@/components/layout/Header";
 import LayoutSidebar from "@/components/layout/Sidebar";
 import { NotificationProvider } from "@/components/notification-provider";
 import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
-import { AttendanceProvider } from "@/context/AttendanceContext";
-import { ChatProvider } from "@/context/ChatContext";
 import { useSessionTracker } from "@/hooks/useSessionTracker";
 import { cn } from "@/lib/utils";
 
@@ -57,23 +53,20 @@ export default function AdminLayout({
 	const userId = Number(session.user.id);
 	if (!userId) return null;
 
+	// Chat (ChatProvider + FloatingChatBubble) y control de asistencia
+	// (AttendanceProvider + AttendanceChecker + timer del header) quitados del
+	// panel. Los componentes y el backend siguen existiendo.
 	return (
-		<ChatProvider userId={userId}>
-			<NotificationProvider>
-				<AttendanceProvider>
-					<SidebarProvider>
-						<LayoutSidebar />
-						<SidebarInset>
-							<Header />
-							<AnniversaryGreeting />
-							<AdminContent>{children}</AdminContent>
-						</SidebarInset>
-					</SidebarProvider>
-					<FloatingChatBubble />
-					<AttendanceChecker />
-					<Toaster />
-				</AttendanceProvider>
-			</NotificationProvider>
-		</ChatProvider>
+		<NotificationProvider>
+			<SidebarProvider>
+				<LayoutSidebar />
+				<SidebarInset>
+					<Header />
+					<AnniversaryGreeting />
+					<AdminContent>{children}</AdminContent>
+				</SidebarInset>
+			</SidebarProvider>
+			<Toaster />
+		</NotificationProvider>
 	);
 }
