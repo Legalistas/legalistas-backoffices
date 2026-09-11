@@ -1,5 +1,6 @@
 import {
   ArrowRightLeft,
+  BarChart3,
   Bell,
   CalendarDays,
   FolderCog,
@@ -145,6 +146,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Clientes",
         path: "/admin/customers",
         roles: [...LEGAL_INTERNO, ...VENTAS, DIRECTORA_AREA_MARKETING],
+      },
+      {
+        icon: BarChart3,
+        name: "Reporte de Ventas",
+        path: "/admin/reports/sales",
+        roles: VENTAS,
       },
     ],
   },
