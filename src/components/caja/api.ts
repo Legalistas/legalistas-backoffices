@@ -32,6 +32,31 @@ export async function cajaFetch<T>(
 const ars = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" });
 export const formatARS = (n: number) => ars.format(n);
 
+export const MESES = [
+	"Enero",
+	"Febrero",
+	"Marzo",
+	"Abril",
+	"Mayo",
+	"Junio",
+	"Julio",
+	"Agosto",
+	"Septiembre",
+	"Octubre",
+	"Noviembre",
+	"Diciembre",
+];
+
+/** { year, month0 } → "YYYY-MM" */
+export const mesParam = (year: number, month0: number) =>
+	`${year}-${String(month0 + 1).padStart(2, "0")}`;
+
+/** Último día del mes "YYYY-MM" → "YYYY-MM-DD". */
+export const finDeMes = (mes: string) => {
+	const [y, m] = mes.split("-").map(Number);
+	return `${mes}-${String(new Date(y, m, 0).getDate()).padStart(2, "0")}`;
+};
+
 /** "2026-09-11" → "11/09/2026" (sin pasar por Date para no correr el día). */
 export const formatFecha = (iso: string) => iso.split("-").reverse().join("/");
 

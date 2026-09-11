@@ -15,7 +15,7 @@ import {
 import { CAJA_GRUPO_LABEL } from "@/constant/caja";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaGrupo, CajaResumen, CajaTotales } from "@/types/caja";
-import { cajaFetch, formatARS } from "./api";
+import { cajaFetch, finDeMes, formatARS } from "./api";
 
 const Monto = ({ valor, className }: { valor: number; className?: string }) => (
 	<span className={cn("tabular-nums", valor < 0 && "text-red-600", className)}>
@@ -28,15 +28,25 @@ const nombreMes = (mes: string) => {
 	return new Date(y, m - 1, 1).toLocaleDateString("es-AR", { month: "long", year: "numeric" });
 };
 
+/** Primer día de los 6 meses que terminan en `mes` (YYYY-MM). */
+const inicioSeisMeses = (mes: string) => {
+	const [y, m] = mes.split("-").map(Number);
+	const d = new Date(y, m - 6, 1);
+	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+};
+
 /** Caja General: saldo de cada caja por grupo, resultado por mes y por rubro. */
 export default function CajaGeneralPanel({
 	cajas,
 	general,
+	mes,
 	token,
 	version,
 }: {
 	cajas: Caja[];
 	general: CajaTotales;
+	/** YYYY-MM elegido: el resumen muestra los 6 meses que terminan en él. */
+	mes: string;
 	token: string | undefined;
 	version: number;
 }) {
@@ -44,10 +54,11 @@ export default function CajaGeneralPanel({
 
 	useEffect(() => {
 		if (!token) return;
-		cajaFetch<{ data: CajaResumen }>("/resumen", token)
+		const params = new URLSearchParams({ desde: inicioSeisMeses(mes), hasta: finDeMes(mes) });
+		cajaFetch<{ data: CajaResumen }>(`/resumen?${params}`, token)
 			.then((r) => setResumen(r.data))
 			.catch((e) => console.error("[Caja] Error cargando resumen:", e));
-	}, [token, version]);
+	}, [token, mes, version]);
 
 	const grupos = (Object.keys(CAJA_GRUPO_LABEL) as CajaGrupo[])
 		.map((g) => ({ grupo: g, cajas: cajas.filter((c) => c.grupo === g) }))
@@ -117,7 +128,10 @@ export default function CajaGeneralPanel({
 			<Card>
 				<CardHeader>
 					<CardTitle className="text-base">Resultado por mes</CardTitle>
-					<CardDescription>Últimos 6 meses, sin transferencias entre cajas.</CardDescription>
+					<CardDescription>
+						6 meses hasta <span className="capitalize">{nombreMes(mes)}</span>, sin transferencias
+						entre cajas.
+					</CardDescription>
 				</CardHeader>
 				<CardContent>
 					{!resumen ? (
@@ -129,7 +143,7 @@ export default function CajaGeneralPanel({
 									<TableHead>Mes</TableHead>
 									<TableHead className="text-right">Ingresos</TableHead>
 									<TableHead className="text-right">Egresos</TableHead>
-									<TableHead className="text-right">Resultado</TableHead>
+									<TableHead className="text-right">Diferencia</TableHead>
 								</TableRow>
 							</TableHeader>
 							<TableBody>

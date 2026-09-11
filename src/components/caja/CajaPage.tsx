@@ -1,16 +1,32 @@
 "use client";
 
-import { ArrowLeftRight, Landmark, Lock, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import {
+	ArrowLeftRight,
+	Landmark,
+	Loader2,
+	Lock,
+	Plus,
+	Scale,
+	TrendingDown,
+	TrendingUp,
+} from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CAJA_GRUPO_LABEL } from "@/constant/caja";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaGrupo } from "@/types/caja";
-import { aplanarCajas, cajasOperables, formatARS } from "./api";
+import { aplanarCajas, cajasOperables, formatARS, MESES, mesParam } from "./api";
 import CajaEditDialog from "./CajaEditDialog";
 import CajaGeneralPanel from "./CajaGeneralPanel";
 import CajasGrid from "./CajasGrid";
@@ -48,11 +64,59 @@ function Kpi({
 	);
 }
 
+/** Selector de mes y año (define los totales del mes de tarjetas y estadísticas). */
+function SelectorMes({
+	year,
+	month0,
+	onChange,
+	loading,
+}: {
+	year: number;
+	month0: number;
+	onChange: (year: number, month0: number) => void;
+	loading: boolean;
+}) {
+	const actual = new Date().getFullYear();
+	const years = Array.from({ length: 4 }, (_, i) => actual - 3 + i);
+	if (!years.includes(year)) years.unshift(year);
+
+	return (
+		<div className="flex items-center gap-2">
+			{loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+			<Select value={String(month0)} onValueChange={(v) => onChange(year, Number(v))}>
+				<SelectTrigger className="w-36" aria-label="Mes">
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
+					{MESES.map((m, i) => (
+						<SelectItem key={m} value={String(i)}>
+							{m}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+			<Select value={String(year)} onValueChange={(v) => onChange(Number(v), month0)}>
+				<SelectTrigger className="w-24" aria-label="Año">
+					<SelectValue />
+				</SelectTrigger>
+				<SelectContent>
+					{years.map((y) => (
+						<SelectItem key={y} value={String(y)}>
+							{y}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+		</div>
+	);
+}
+
 /** Cajas de un grupo + movimientos de la caja elegida. */
 function VistaCajas({
 	cajas,
 	selectedId,
 	onSelect,
+	mesLabel,
 	token,
 	esAdmin,
 	version,
@@ -61,6 +125,7 @@ function VistaCajas({
 	cajas: Caja[];
 	selectedId: number | null;
 	onSelect: (id: number) => void;
+	mesLabel: string;
 	token: string | undefined;
 	esAdmin: boolean;
 	version: number;
@@ -75,6 +140,7 @@ function VistaCajas({
 				cajas={cajas}
 				selectedId={seleccionada?.id ?? null}
 				onSelect={onSelect}
+				mesLabel={mesLabel}
 				onEdit={esAdmin ? setEditando : undefined}
 			/>
 			{esAdmin && (
@@ -101,7 +167,13 @@ function VistaCajas({
 }
 
 export default function CajaPage() {
-	const { data, loading, error, reload, token } = useCajas();
+	const now = new Date();
+	const [year, setYear] = useState(now.getFullYear());
+	const [month0, setMonth0] = useState(now.getMonth());
+	const mes = mesParam(year, month0);
+	const mesLabel = `${MESES[month0].toLowerCase()} ${year}`;
+
+	const { data, loading, fetching, error, reload, token } = useCajas(mes);
 	const searchParams = useSearchParams();
 	const cajaIdParam = Number(searchParams.get("cajaId")) || null;
 
@@ -133,8 +205,8 @@ export default function CajaPage() {
 		return (
 			<div className="space-y-6">
 				<Skeleton className="h-10 w-64" />
-				<div className="grid gap-4 md:grid-cols-3">
-					{Array.from({ length: 3 }, (_, i) => (
+				<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+					{Array.from({ length: 4 }, (_, i) => (
 						<Skeleton key={i} className="h-28" />
 					))}
 				</div>
@@ -143,7 +215,7 @@ export default function CajaPage() {
 		);
 	}
 
-	if (error || !data) {
+	if (!data) {
 		return (
 			<Card className="mx-auto mt-10 max-w-md">
 				<CardContent className="flex flex-col items-center gap-3 py-10 text-center">
@@ -171,7 +243,16 @@ export default function CajaPage() {
 							: "Tu caja: saldo, movimientos y carga de ingresos y egresos."}
 					</p>
 				</div>
-				<div className="flex gap-2">
+				<div className="flex flex-wrap items-center gap-2">
+					<SelectorMes
+						year={year}
+						month0={month0}
+						loading={fetching}
+						onChange={(y, m) => {
+							setYear(y);
+							setMonth0(m);
+						}}
+					/>
 					{esAdmin && (
 						<Button variant="outline" onClick={() => setTrOpen(true)}>
 							<ArrowLeftRight className="mr-2 h-4 w-4" />
@@ -186,7 +267,7 @@ export default function CajaPage() {
 			</div>
 
 			{esAdmin && general && (
-				<div className="grid gap-4 md:grid-cols-3">
+				<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 					<Kpi
 						titulo="Caja General"
 						valor={general.saldo}
@@ -204,6 +285,12 @@ export default function CajaPage() {
 						valor={general.egresosMes}
 						icon={TrendingDown}
 						color="border-l-red-500"
+					/>
+					<Kpi
+						titulo="Diferencia del mes"
+						valor={general.ingresosMes - general.egresosMes}
+						icon={Scale}
+						color="border-l-sky-500"
 					/>
 				</div>
 			)}
@@ -223,6 +310,7 @@ export default function CajaPage() {
 								cajas={cajasDe(g)}
 								selectedId={selectedId}
 								onSelect={setSelectedId}
+								mesLabel={mesLabel}
 								token={token}
 								esAdmin
 								version={version}
@@ -233,7 +321,13 @@ export default function CajaPage() {
 
 					<TabsContent value="GENERAL" className="mt-4 space-y-6">
 						{general && (
-							<CajaGeneralPanel cajas={cajas} general={general} token={token} version={version} />
+							<CajaGeneralPanel
+								cajas={cajas}
+								general={general}
+								mes={mes}
+								token={token}
+								version={version}
+							/>
 						)}
 						<MovimientosPanel
 							token={token}
@@ -254,6 +348,7 @@ export default function CajaPage() {
 					cajas={cajas}
 					selectedId={selectedId}
 					onSelect={setSelectedId}
+					mesLabel={mesLabel}
 					token={token}
 					esAdmin={false}
 					version={version}

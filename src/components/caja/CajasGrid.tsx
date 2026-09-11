@@ -11,6 +11,8 @@ interface CajasGridProps {
 	cajas: Caja[];
 	selectedId: number | null;
 	onSelect: (id: number) => void;
+	/** Nombre del mes elegido para el resumen ("septiembre 2026"). */
+	mesLabel: string;
 	/** Solo admins: lápiz para editar nombre / saldo inicial. */
 	onEdit?: (caja: Caja) => void;
 }
@@ -45,10 +47,10 @@ function Saldo({ valor, className }: { valor: number; className?: string }) {
 	);
 }
 
-function MesResumen({ caja }: { caja: Caja }) {
+function MesResumen({ caja, mesLabel }: { caja: Caja; mesLabel: string }) {
 	return (
 		<p className="text-xs text-muted-foreground">
-			Este mes:{" "}
+			<span className="capitalize">{mesLabel}</span>:{" "}
 			<span className="text-emerald-600 tabular-nums">+{formatARS(caja.ingresosMes)}</span>{" "}
 			<span className="text-red-600 tabular-nums">−{formatARS(caja.egresosMes)}</span>
 		</p>
@@ -56,7 +58,13 @@ function MesResumen({ caja }: { caja: Caja }) {
 }
 
 /** Tarjetas de cajas. Las contenedoras (Caja Principal) listan sus sub-cajas. */
-export default function CajasGrid({ cajas, selectedId, onSelect, onEdit }: CajasGridProps) {
+export default function CajasGrid({
+	cajas,
+	selectedId,
+	onSelect,
+	mesLabel,
+	onEdit,
+}: CajasGridProps) {
 	if (cajas.length === 0) {
 		return <p className="text-sm text-muted-foreground">No hay cajas en este grupo.</p>;
 	}
@@ -67,32 +75,34 @@ export default function CajasGrid({ cajas, selectedId, onSelect, onEdit }: Cajas
 				<Card
 					key={caja.id}
 					className={cn(
-						"relative gap-0 py-0 transition-shadow",
+						"gap-0 py-0 transition-shadow",
 						selectedId === caja.id && "ring-2 ring-primary",
 					)}
 				>
-					<button
-						type="button"
-						onClick={() => onSelect(caja.id)}
-						className="w-full rounded-t-xl p-5 text-left hover:bg-muted/40"
-					>
-						<div className="flex items-start justify-between gap-2">
-							<p className="font-medium">{caja.nombre}</p>
-							{caja.owner && (
-								<span className="flex items-center gap-1 text-xs text-muted-foreground">
-									<User className="h-3 w-3" />
-									{caja.owner.name}
-								</span>
-							)}
-						</div>
-						<Saldo valor={caja.saldo} className="mt-2 block text-2xl font-semibold" />
-						<div className="mt-1">
-							<MesResumen caja={caja} />
-						</div>
-					</button>
-					{onEdit && (
-						<EditButton caja={caja} onEdit={onEdit} className="absolute right-3 bottom-3" />
-					)}
+					<div className="relative">
+						<button
+							type="button"
+							onClick={() => onSelect(caja.id)}
+							className="w-full rounded-t-xl p-5 text-left hover:bg-muted/40"
+						>
+							<div className="flex items-start justify-between gap-2">
+								<p className="font-medium">{caja.nombre}</p>
+								{caja.owner && (
+									<span className="flex items-center gap-1 text-xs text-muted-foreground">
+										<User className="h-3 w-3" />
+										{caja.owner.name}
+									</span>
+								)}
+							</div>
+							<Saldo valor={caja.saldo} className="mt-2 block text-2xl font-semibold" />
+							<div className="mt-1">
+								<MesResumen caja={caja} mesLabel={mesLabel} />
+							</div>
+						</button>
+						{onEdit && (
+							<EditButton caja={caja} onEdit={onEdit} className="absolute right-3 bottom-3" />
+						)}
+					</div>
 
 					{caja.esContenedora && (
 						<CardContent className="space-y-1 border-t px-2 py-2">

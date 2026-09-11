@@ -2,11 +2,17 @@ export type CajaGrupo = "PRINCIPAL" | "MONOTRIBUTO";
 export type CajaMovimientoTipo = "INGRESO" | "EGRESO";
 export type CajaRubroTipo = "INGRESO" | "EGRESO" | "AMBOS";
 
+/** Los "Mes" son del mes pedido a la API (`?mes=YYYY-MM`). */
 export interface CajaTotales {
+	/** Saldo hoy. */
 	saldo: number;
-	/** Del mes en curso, sin transferencias entre cajas. */
+	/** Saldo al 1° del mes (arrastre del mes anterior). */
+	saldoApertura: number;
+	/** Ingresos y egresos reales del mes, sin transferencias entre cajas. */
 	ingresosMes: number;
 	egresosMes: number;
+	transfEntradaMes: number;
+	transfSalidaMes: number;
 }
 
 export interface Caja extends CajaTotales {
@@ -27,6 +33,8 @@ export interface Caja extends CajaTotales {
 
 export interface CajasResponse {
 	esAdmin: boolean;
+	/** YYYY-MM de los totales "Mes". */
+	mes: string;
 	cajas: Caja[];
 	/** Caja General (solo admins). */
 	general: CajaTotales | null;
