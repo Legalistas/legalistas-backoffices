@@ -6,6 +6,7 @@ import type React from "react";
 import { useEffect } from "react";
 import { Toaster } from "sonner";
 import AnniversaryGreeting from "@/components/celebrations/AnniversaryGreeting";
+import BirthdayGreeting from "@/components/celebrations/BirthdayGreeting";
 import Header from "@/components/layout/Header";
 import LayoutSidebar from "@/components/layout/Sidebar";
 import { NotificationProvider } from "@/components/notification-provider";
@@ -63,6 +64,7 @@ export default function AdminLayout({
 				<SidebarInset>
 					<Header />
 					<AnniversaryGreeting />
+					<BirthdayGreeting />
 					<AdminContent>{children}</AdminContent>
 				</SidebarInset>
 			</SidebarProvider>
