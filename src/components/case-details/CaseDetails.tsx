@@ -221,10 +221,13 @@ export const CaseDetails = ({
 	const handleDownloadPdf = async () => {
 		toast.info("Generando PDF del resumen del caso...");
 		try {
-			const response = await fetch("/api/generate-case-pdf", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(caseData),
+			// Antes generaba el PDF client-side con jsPDF (/api/generate-case-pdf,
+			// ruta propia del frontend); el backend ya expone el mismo documento
+			// (mismo nombre de archivo, mismas secciones) vía Puppeteer, así que
+			// se saca la duplicación y se pide directo ahí.
+			const response = await fetch(`${CASES_ENDPOINT}/${caseData.id}/pdf`, {
+				method: "GET",
+				headers: { Authorization: `Bearer ${session?.user?.accessToken}` },
 			});
 
 			if (!response.ok) throw new Error("Error al generar el PDF");
