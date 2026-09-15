@@ -22,6 +22,7 @@ export function useSessionTracker() {
 
 	useEffect(() => {
 		const activityLogId = (session?.user as any)?.activityLogId;
+		const accessToken = (session?.user as any)?.accessToken;
 
 		if (!activityLogId) return;
 
@@ -38,7 +39,10 @@ export function useSessionTracker() {
 			try {
 				await fetch(SESSION_PAUSE_ENDPOINT, {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: {
+						"Content-Type": "application/json",
+						...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+					},
 					body: payload,
 					keepalive: true,
 				});
@@ -58,10 +62,12 @@ export function useSessionTracker() {
 		};
 
 		const sendSessionEnd = () => {
-			if (sentRef.current) return;
+			if (sentRef.current || !accessToken) return;
 			sentRef.current = true;
 
-			const payload = JSON.stringify({ activityLogId });
+			// El backend valida ownership con este token — sendBeacon no permite
+			// headers custom, así que viaja en el body.
+			const payload = JSON.stringify({ activityLogId, token: accessToken });
 
 			// sendBeacon garantiza el envío aunque el tab se cierre
 			const beaconSent = navigator.sendBeacon(
@@ -92,5 +98,5 @@ export function useSessionTracker() {
 			// Al desmontar el layout (logout explícito) también cerramos sesión
 			sendSessionEnd();
 		};
-	}, [(session?.user as any)?.activityLogId]);
+	}, [(session?.user as any)?.activityLogId, (session?.user as any)?.accessToken]);
 }
