@@ -1073,10 +1073,11 @@ export default function AccidentsWorkPage() {
 			};
 
 			// Llamar al endpoint para generar PDF
-			const response = await fetch("/api/generate-lrt-pdf", {
+			const response = await fetch(`${API_BASE_URL}/lrt/generate-pdf`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
 				body: JSON.stringify(pdfData),
 			});
@@ -1195,9 +1196,12 @@ export default function AccidentsWorkPage() {
 			// Generar y subir PDF al caso
 			try {
 				toast.info("Generando PDF de la liquidación...");
-				const pdfResponse = await fetch("/api/generate-lrt-pdf", {
+				const pdfResponse = await fetch(`${API_BASE_URL}/lrt/generate-pdf`, {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.user.accessToken}`,
+					},
 					body: JSON.stringify(calculationData),
 				});
 

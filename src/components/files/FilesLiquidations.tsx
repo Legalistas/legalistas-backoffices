@@ -103,10 +103,11 @@ export default function FilesLiquidations({
 			const data = result.liquidation.calculationData;
 
 			// Llamar al endpoint de generación de PDF
-			const pdfResponse = await fetch("/api/generate-lrt-pdf", {
+			const pdfResponse = await fetch(`${API_BASE_URL}/lrt/generate-pdf`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
+					Authorization: `Bearer ${session.user.accessToken}`,
 				},
 				body: JSON.stringify(data),
 			});
