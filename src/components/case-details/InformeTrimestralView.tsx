@@ -45,6 +45,7 @@ import {
 	CASES_ENDPOINT,
 	CASE_INFORME_ENDPOINT,
 	CASE_INFORME_PUSH_ENDPOINT,
+	MAILER_SEND_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { BASE_URL } from "@/constant/api-endpoints";
 import { stageCases } from "@/lib/constant";
@@ -538,14 +539,16 @@ export function InformeTrimestralView({
 			const stageMessage = STAGE_WA_MESSAGES[currentStageId] || "";
 
 			// Envía email + registra en el timeline del caso (email-log).
-			const res = await fetch("/api/notifications/email", {
+			const res = await fetch(MAILER_SEND_ENDPOINT, {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
 				body: JSON.stringify({
 					to: trimmed,
 					template: "case-informe-trimestral",
 					caseId: caseData.id,
-					accessToken: session?.user?.accessToken,
 					isResend: !!caseData.informeSentEmailAt,
 					variables: {
 						customerName: caseData.customer?.name,

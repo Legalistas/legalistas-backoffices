@@ -12,6 +12,10 @@ export const FORGOT_PASSWORD_ENDPOINT = `${API_BASE_URL}/auth/forgot-password`;
 export const SESSION_PAUSE_ENDPOINT = `${API_BASE_URL}/auth/session-pause`;
 export const SESSION_END_ENDPOINT = `${API_BASE_URL}/auth/session-end`;
 
+// Mailer Endpoints (envío de email con templates — vive en el backend,
+// antes era /api/notifications/email propio del frontend con SMTP directo)
+export const MAILER_SEND_ENDPOINT = `${API_BASE_URL}/mailer/send`;
+
 // Activity Logs Endpoints
 export const ACTIVITY_LOGS_ENDPOINT = `${API_BASE_URL}/activity-logs`;
 export const ACTIVITY_LOGS_STATS_ENDPOINT = `${API_BASE_URL}/activity-logs/stats`;

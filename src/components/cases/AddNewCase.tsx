@@ -577,6 +577,7 @@ export default function AddNewCase() {
 						? new Date(formData.accidentDate).toLocaleDateString("es-AR")
 						: undefined,
 					responsibleLawyerName: lawyerName,
+					accessToken: session?.user?.accessToken,
 				});
 			}
 

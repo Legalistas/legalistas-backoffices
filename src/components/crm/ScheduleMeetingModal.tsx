@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { LEADS_ENDPOINT } from "@/constant/api-endpoints";
+import { LEADS_ENDPOINT, MAILER_SEND_ENDPOINT } from "@/constant/api-endpoints";
 import { MEETING_TYPES } from "@/constant/crm";
 import { shouldBlockAutomaticEmail } from "@/lib/send-stage-email";
 import moment from "moment";
@@ -104,9 +104,14 @@ export default function ScheduleMeetingModal({
 			if (email && !shouldBlockAutomaticEmail(email)) {
 				const meetingDate = moment.utc(data.meeting.date);
 				const meetingLabel = MEETING_TYPES.find((t) => t.id === meetingType)?.name || meetingType;
-				fetch("/api/notifications/email", {
+				fetch(MAILER_SEND_ENDPOINT, {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: {
+						"Content-Type": "application/json",
+						...(session?.user?.accessToken
+							? { Authorization: `Bearer ${session.user.accessToken}` }
+							: {}),
+					},
 					body: JSON.stringify({
 						to: email,
 						leadId: Number(lead.id),

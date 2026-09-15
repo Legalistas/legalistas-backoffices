@@ -39,6 +39,7 @@ import {
 	LEADS_NOTES_DELETE_ENDPOINT,
 	LEADS_NOTES_ENDPOINT,
 	LEADS_NOTES_UPDATE_ENDPOINT,
+	MAILER_SEND_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { ART_COMPANIES, CRM_COLUMNS, INSURANCE_COMPANIES, MEETING_TYPES, SOURCE_CHANNEL } from "@/constant/crm";
 import { servicesType } from "@/lib/constant";
@@ -396,15 +397,17 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 					? `https://legalistas.ar/confirmacion-reunion/${m.token}`
 					: "https://legalistas.ar";
 
-				const res = await fetch("/api/notifications/email", {
+				const res = await fetch(MAILER_SEND_ENDPOINT, {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: {
+						"Content-Type": "application/json",
+						...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+					},
 					body: JSON.stringify({
 						to: email,
 						leadId: Number(lead.id),
 						template: "crm-reunion-concretar",
 						isResend: true,
-						accessToken,
 						variables: {
 							leadName,
 							meetingType: meetingLabel,
