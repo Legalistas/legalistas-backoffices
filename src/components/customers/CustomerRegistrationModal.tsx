@@ -318,7 +318,8 @@ export default function CustomerRegistrationModal({
 					birthDate: mode === "edit" ? (birthDate || new Date()) : null,
 					phone: newCustomer.userProfile?.phone || "",
 				},
-				userAddresses: newCustomer.userAddresses?.length
+				// stateId es NOT NULL en user_addresses: sin provincia no se manda dirección.
+				userAddresses: newCustomer.userAddresses?.[0]?.stateId
 					? [{ countryId: newCustomer.userAddresses[0].countryId, stateId: newCustomer.userAddresses[0].stateId,
 						city: newCustomer.userAddresses[0].city || "",
 						cityId: newCustomer.userAddresses[0].cityId ?? null,
