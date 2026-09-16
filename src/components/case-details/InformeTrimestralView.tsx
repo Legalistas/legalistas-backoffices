@@ -44,6 +44,7 @@ import {
 import {
 	CASES_ENDPOINT,
 	CASE_INFORME_ENDPOINT,
+	CASE_INFORME_GENERATE_PDF_ENDPOINT,
 	CASE_INFORME_PUSH_ENDPOINT,
 	MAILER_SEND_ENDPOINT,
 } from "@/constant/api-endpoints";
@@ -178,7 +179,6 @@ export function InformeTrimestralView({
 	>("idle");
 	const [downloadLink, setDownloadLink] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
-	const previewRef = useRef<HTMLDivElement>(null);
 	const prevStageIdRef = useRef(currentStageId);
 	const lastSavedIncapacityRef = useRef<string>(
 		caseData.disabilityPercentage != null
@@ -375,46 +375,43 @@ export function InformeTrimestralView({
 		}
 	};
 
+	// Genera el PDF real server-side (Puppeteer, texto real) a partir del
+	// estado actual editado en pantalla — reemplaza la vieja captura
+	// html2canvas + jsPDF de una sola imagen.
+	const generatePdfBlob = async (): Promise<Blob | null> => {
+		const response = await fetch(CASE_INFORME_GENERATE_PDF_ENDPOINT(caseData.id), {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${session?.user?.accessToken}`,
+			},
+			body: JSON.stringify({
+				customerName: caseData.customer?.name || "Cliente",
+				caseNumber: displayCaseNumber,
+				stageId: currentStageId,
+				estadoActualHtml: estadoActual,
+				incapacityPercentage,
+			}),
+		});
+		if (!response.ok) return null;
+		return response.blob();
+	};
+
 	const handleGeneratePdf = async () => {
-		if (!previewRef.current) return;
 		setIsGenerating(true);
 		toast.info("Generando informe trimestral...");
 		try {
-			const html2canvas = (await import("html2canvas-pro")).default;
-			const { default: jsPDF } = await import("jspdf");
+			const blob = await generatePdfBlob();
+			if (!blob) throw new Error("No se pudo generar el PDF");
 
-			const canvas = await html2canvas(previewRef.current, {
-				scale: 2,
-				useCORS: true,
-				allowTaint: true,
-				backgroundColor: "#ffffff",
-			});
-
-			const imgData = canvas.toDataURL("image/jpeg", 0.92);
-			const imgW = canvas.width;
-			const imgH = canvas.height;
-
-			const pdfW = 210;
-			const pdfH = 297;
-			const contentW = pdfW;
-			const contentH = (imgH * contentW) / imgW;
-
-			// Scale to fit 1 page if needed
-			const finalW = contentH > pdfH ? contentW * (pdfH / contentH) : contentW;
-			const finalH = contentH > pdfH ? pdfH : contentH;
-			const finalX = (pdfW - finalW) / 2;
-
-			const pdf = new jsPDF({
-				orientation: "portrait",
-				unit: "mm",
-				format: "a4",
-			});
-
-			pdf.addImage(imgData, "JPEG", finalX, 0, finalW, finalH);
-
-			pdf.save(
-				`Informe_Trimestral_${caseData.number || caseData.id}_${caseData.customer?.name?.replace(/\s+/g, "_") || "cliente"}.pdf`,
-			);
+			const url = window.URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = `Informe_Trimestral_${caseData.number || caseData.id}_${caseData.customer?.name?.replace(/\s+/g, "_") || "cliente"}.pdf`;
+			document.body.appendChild(a);
+			a.click();
+			window.URL.revokeObjectURL(url);
+			document.body.removeChild(a);
 			toast.success("Informe trimestral descargado correctamente");
 		} catch (error) {
 			console.error("Error generating quarterly report PDF:", error);
@@ -422,35 +419,6 @@ export function InformeTrimestralView({
 		} finally {
 			setIsGenerating(false);
 		}
-	};
-
-	const generatePdfBlob = async (): Promise<Blob | null> => {
-		if (!previewRef.current) return null;
-		const html2canvas = (await import("html2canvas-pro")).default;
-		const { default: jsPDF } = await import("jspdf");
-
-		const canvas = await html2canvas(previewRef.current, {
-			scale: 2,
-			useCORS: true,
-			allowTaint: true,
-			backgroundColor: "#ffffff",
-		});
-
-		const imgData = canvas.toDataURL("image/jpeg", 0.92);
-		const imgW = canvas.width;
-		const imgH = canvas.height;
-		const pdfW = 210;
-		const pdfH = 297;
-		const contentW = pdfW;
-		const contentH = (imgH * contentW) / imgW;
-		const finalW = contentH > pdfH ? contentW * (pdfH / contentH) : contentW;
-		const finalH = contentH > pdfH ? pdfH : contentH;
-		const finalX = (pdfW - finalW) / 2;
-
-		const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-		pdf.addImage(imgData, "JPEG", finalX, 0, finalW, finalH);
-
-		return pdf.output("blob");
 	};
 
 	const handleSendPush = async () => {
@@ -899,7 +867,7 @@ export function InformeTrimestralView({
 			</div>
 
 			{/* Report Preview */}
-			<div className="max-w-2xl mx-auto" ref={previewRef}>
+			<div className="max-w-2xl mx-auto">
 				<ReportPreview
 					customerName={caseData.customer?.name || "Cliente"}
 					caseNumber={displayCaseNumber}

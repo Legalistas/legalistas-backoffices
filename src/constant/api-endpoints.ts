@@ -500,6 +500,11 @@ export const POSTS_SEARCH_ENDPOINT = `${API_BASE_URL}/posts/search`;
 export const CASE_INFORME_ENDPOINT = (caseId: number) =>
 	`${API_BASE_URL}/cases/${caseId}/informe`;
 
+// Genera el PDF del informe trimestral server-side (Puppeteer). El backend
+// no persiste nada acá: solo renderiza y devuelve el PDF.
+export const CASE_INFORME_GENERATE_PDF_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/informe/generate-pdf`;
+
 // LEXIA - Analista IA
 export const LEXIA_ANALYTICS_ENDPOINT = `${API_BASE_URL}/lexia/analytics`;
 
