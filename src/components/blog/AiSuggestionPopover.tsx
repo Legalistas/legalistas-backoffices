@@ -9,6 +9,7 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 
 interface AiVariantLike {
@@ -70,8 +71,7 @@ export function AiSuggestionPopover<TBody>({
 				body: JSON.stringify(body),
 			});
 			if (!res.ok) {
-				const err = await res.json().catch(() => ({ error: "Error" }));
-				throw new Error(err.error || "Error en la IA");
+				throw new Error(await apiErrorMessage(res, "Error en la IA"));
 			}
 			const data = await res.json();
 			const list = extract(data);

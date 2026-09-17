@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { LEADS_ENDPOINT, MAILER_SEND_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { MEETING_TYPES } from "@/constant/crm";
 import { shouldBlockAutomaticEmail } from "@/lib/send-stage-email";
 import moment from "moment";
@@ -94,7 +95,9 @@ export default function ScheduleMeetingModal({
 			});
 
 			if (!response.ok) {
-				throw new Error(`Error: ${response.status} ${response.statusText}`);
+				throw new Error(
+					await apiErrorMessage(response, "Error al programar la reunión"),
+				);
 			}
 
 			const data = await response.json();
@@ -142,7 +145,9 @@ export default function ScheduleMeetingModal({
 			onOpenChange(false);
 		} catch (error) {
 			console.error("Error scheduling meeting:", error);
-			toast.error("Error al programar la reunión");
+			toast.error(
+				error instanceof Error ? error.message : "Error al programar la reunión",
+			);
 		} finally {
 			setIsSubmitting(false);
 		}

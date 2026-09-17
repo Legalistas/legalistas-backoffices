@@ -49,6 +49,7 @@ import {
 	MAILER_SEND_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { BASE_URL } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { stageCases } from "@/lib/constant";
 import type { Cases } from "@/types/cases";
 
@@ -245,11 +246,21 @@ export function InformeTrimestralView({
 						body: JSON.stringify(fields),
 					},
 				);
-				if (!response.ok) throw new Error("Error al guardar");
+				if (!response.ok)
+					throw new Error(
+						await apiErrorMessage(
+							response,
+							"No se pudieron guardar los datos del informe",
+						),
+					);
 				onCaseUpdated?.();
 			} catch (error) {
 				console.error("Error saving informe data:", error);
-				toast.error("No se pudieron guardar los datos del informe");
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "No se pudieron guardar los datos del informe",
+				);
 			} finally {
 				setIsSaving(false);
 			}
@@ -286,7 +297,10 @@ export function InformeTrimestralView({
 						disabilityPercentage: value ? Number.parseFloat(value) : null,
 					}),
 				});
-				if (!res.ok) throw new Error("Error al guardar incapacidad");
+				if (!res.ok)
+					throw new Error(
+						await apiErrorMessage(res, "No se pudo guardar el % de incapacidad"),
+					);
 				lastSavedIncapacityRef.current = value;
 				setAutoSavingIncapacity("saved");
 				onCaseUpdated?.();
@@ -294,7 +308,11 @@ export function InformeTrimestralView({
 			} catch (err) {
 				console.error("Auto-save incapacity failed:", err);
 				setAutoSavingIncapacity("idle");
-				toast.error("No se pudo guardar el % de incapacidad");
+				toast.error(
+					err instanceof Error
+						? err.message
+						: "No se pudo guardar el % de incapacidad",
+				);
 			}
 		}, 600);
 
@@ -323,7 +341,8 @@ export function InformeTrimestralView({
 			body: formData,
 		});
 
-		if (!response.ok) throw new Error("Error al subir el PDF");
+		if (!response.ok)
+			throw new Error(await apiErrorMessage(response, "Error al subir el PDF"));
 		const result = await response.json();
 		return result.data?.downloadToken || null;
 	};
@@ -369,7 +388,9 @@ export function InformeTrimestralView({
 			toast.success("Informe guardado correctamente");
 		} catch (error) {
 			console.error("Error saving informe:", error);
-			toast.error("Error al guardar el informe");
+			toast.error(
+				error instanceof Error ? error.message : "Error al guardar el informe",
+			);
 		} finally {
 			setIsSaving(false);
 		}
@@ -393,7 +414,10 @@ export function InformeTrimestralView({
 				incapacityPercentage,
 			}),
 		});
-		if (!response.ok) return null;
+		if (!response.ok)
+			throw new Error(
+				await apiErrorMessage(response, "No se pudo generar el PDF"),
+			);
 		return response.blob();
 	};
 
@@ -415,7 +439,11 @@ export function InformeTrimestralView({
 			toast.success("Informe trimestral descargado correctamente");
 		} catch (error) {
 			console.error("Error generating quarterly report PDF:", error);
-			toast.error("No se pudo generar el informe trimestral");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "No se pudo generar el informe trimestral",
+			);
 		} finally {
 			setIsGenerating(false);
 		}
@@ -533,8 +561,7 @@ export function InformeTrimestralView({
 			});
 
 			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(err?.error || "Error al enviar el email");
+				throw new Error(await apiErrorMessage(res, "Error al enviar el email"));
 			}
 
 			await saveToDb({ informeSentEmailAt: new Date().toISOString() });
@@ -583,7 +610,11 @@ export function InformeTrimestralView({
 		} catch (error) {
 			if ((error as Error)?.name !== "AbortError") {
 				console.error("Error sending via WhatsApp:", error);
-				toast.error("No se pudo enviar por WhatsApp");
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "No se pudo enviar por WhatsApp",
+				);
 			}
 		} finally {
 			setIsSending(false);

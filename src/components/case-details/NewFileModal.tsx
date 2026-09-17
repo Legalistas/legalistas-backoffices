@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import Radio from "@/components/shared/Radio";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -11,6 +12,7 @@ import {
 	SETTINGS_JURISDICTIONS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { STATUS_PROCESS, TYPES_PROCCESS } from "@/constant/causes";
+import { apiErrorMessage } from "@/lib/api-error";
 
 interface NewFileModalProps {
 	isOpen: boolean;
@@ -215,7 +217,10 @@ export const NewFileModal = ({
 				}),
 			});
 
-			if (!response.ok) throw new Error("Error al guardar el expediente");
+			if (!response.ok)
+				throw new Error(
+					await apiErrorMessage(response, "Error al guardar el expediente"),
+				);
 
 			const data = await response.json();
 			console.log("Expediente guardado:", data);
@@ -223,6 +228,9 @@ export const NewFileModal = ({
 			onClose();
 		} catch (err) {
 			console.error("Error al enviar el expediente:", err);
+			toast.error(
+				err instanceof Error ? err.message : "Error al guardar el expediente",
+			);
 		}
 	};
 

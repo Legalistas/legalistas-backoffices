@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/hooks/useConfirm";
 import { CASES_NOTES_DELETE_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { CasesNotes } from "@/types/cases";
 import { CreateNoteForm } from "./CreateNoteForm";
 import { NoteEditor } from "./NoteEditor";
@@ -87,15 +88,18 @@ export const NotesView = ({
 			);
 
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.message || "Error al eliminar la nota");
+				throw new Error(
+					await apiErrorMessage(response, "No se pudo eliminar la nota"),
+				);
 			}
 
 			toast.success("Nota eliminada correctamente");
 			onNoteDeleted?.(noteId);
 		} catch (error) {
 			console.error("Error deleting note:", error);
-			toast.error("No se pudo eliminar la nota");
+			toast.error(
+				error instanceof Error ? error.message : "No se pudo eliminar la nota",
+			);
 		} finally {
 			setDeletingNoteId(null);
 		}

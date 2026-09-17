@@ -30,6 +30,7 @@ import { useSession } from "next-auth/react";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -236,10 +237,11 @@ export default function ProfileContent() {
 					birthDate: profileData.birthDate, phone: profileData.phone,
 				}),
 			});
-			if (!res.ok) throw new Error("Error al actualizar");
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al actualizar el perfil"));
 			toast.success("Perfil actualizado correctamente");
-		} catch {
-			toast.error("Error al actualizar el perfil");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al actualizar el perfil");
 		} finally {
 			setIsLoading(false);
 		}

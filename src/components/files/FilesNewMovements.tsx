@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import type React from "react";
 import { useEffect, useState } from "react";
 import { CASES_FILES_MOVEMENTS_CREATE_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	FILES_MOVEMENTS_MODE,
 	FILES_MOVEMENTS_SCHEDULE_OPTIONS,
@@ -180,7 +181,7 @@ export default function FilesNewMovements({
 			const requestBody = {
 				mode: selectedMode?.value,
 				type: selectedType,
-				subtype: selectedSubType,
+				subType: selectedSubType,
 				date: localDate.toISOString(), // Enviar como ISO (UTC)
 				schedule,
 				status,
@@ -218,10 +219,11 @@ export default function FilesNewMovements({
 			console.log("Ok:", response.ok);
 
 			if (!response.ok) {
-				const errorText = await response.text();
-				console.log("Error response:", errorText);
 				throw new Error(
-					`Error creating movement: ${response.status} - ${errorText}`,
+					await apiErrorMessage(
+						response,
+						"Error desconocido al guardar el movimiento",
+					),
 				);
 			}
 

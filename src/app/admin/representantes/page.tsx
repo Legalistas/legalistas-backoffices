@@ -10,6 +10,7 @@ import {
 	REPRESENTATIVE_LEVEL_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { Role } from "@/constant/user";
+import { apiErrorMessage } from "@/lib/api-error";
 import type {
 	RepresentativeKpi,
 	RepresentativeLevel,
@@ -104,7 +105,10 @@ export default function RepresentantesPage() {
 				},
 				body: JSON.stringify({ level: newLevel, month, year }),
 			});
-			if (!response.ok) throw new Error(response.statusText);
+			if (!response.ok)
+				throw new Error(
+					await apiErrorMessage(response, "No se pudo actualizar el nivel"),
+				);
 			toast.success("Nivel actualizado");
 		} catch (err) {
 			console.error("Error updating level:", err);
@@ -114,7 +118,9 @@ export default function RepresentantesPage() {
 					r.userId === userId ? { ...r, level: previous ?? null } : r,
 				),
 			);
-			toast.error("No se pudo actualizar el nivel");
+			toast.error(
+				err instanceof Error ? err.message : "No se pudo actualizar el nivel",
+			);
 		}
 	};
 

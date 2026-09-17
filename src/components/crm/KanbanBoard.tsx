@@ -390,7 +390,8 @@ export default function KanbanBoard() {
 	useEffect(() => {
 		const fetchSellers = async () => {
 			try {
-				const response = await fetch(SELLERS_ENDPOINT, {
+				// Sin limit el backend devuelve 10 (default de paginación).
+				const response = await fetch(`${SELLERS_ENDPOINT}?limit=100000`, {
 					method: "GET",
 					headers: {
 						"Content-Type": "application/json",

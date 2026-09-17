@@ -23,6 +23,7 @@ import {
 	CASE_EXPENSES_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { TYPES_PROCCESS } from "@/constant/causes";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { CaseExpense, CasesFiles } from "@/types/cases";
 
 const CATEGORY_OPTIONS = [
@@ -208,8 +209,12 @@ export const GastosView = ({
 			});
 
 			if (!res.ok) {
-				const errorData = await res.text();
-				throw new Error(errorData);
+				throw new Error(
+					await apiErrorMessage(
+						res,
+						isEditing ? "Error al actualizar el gasto" : "Error al crear el gasto",
+					),
+				);
 			}
 
 			toast.success(
@@ -223,9 +228,11 @@ export const GastosView = ({
 		} catch (error) {
 			console.error("Error saving expense:", error);
 			toast.error(
-				editingExpenseId
-					? "Error al actualizar el gasto"
-					: "Error al crear el gasto",
+				error instanceof Error
+					? error.message
+					: editingExpenseId
+						? "Error al actualizar el gasto"
+						: "Error al crear el gasto",
 			);
 		} finally {
 			setIsSubmitting(false);
@@ -243,12 +250,15 @@ export const GastosView = ({
 					headers: { Authorization: `Bearer ${session?.user?.accessToken}` },
 				},
 			);
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al eliminar el gasto"));
 			toast.success("Gasto eliminado");
 			await fetchExpenses();
 		} catch (error) {
 			console.error("Error deleting expense:", error);
-			toast.error("Error al eliminar el gasto");
+			toast.error(
+				error instanceof Error ? error.message : "Error al eliminar el gasto",
+			);
 		}
 	};
 

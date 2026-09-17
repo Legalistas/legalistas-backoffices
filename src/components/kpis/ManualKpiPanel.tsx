@@ -32,6 +32,7 @@ import {
 	LAWYERS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { useConfirm } from "@/hooks/useConfirm";
+import { apiErrorMessage } from "@/lib/api-error";
 import type {
 	ManualKpiArea,
 	ManualKpiDef,
@@ -196,11 +197,12 @@ export default function ManualKpiPanel() {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Eliminado");
 			fetchEntries();
 		} catch (err) {
-			toast.error((err as Error).message);
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		}
 	};
 
@@ -399,10 +401,8 @@ function KpiForm({
 							method: "DELETE",
 							headers: { Authorization: `Bearer ${token}` },
 						});
-						if (!res.ok) {
-							const e = await res.json().catch(() => ({}));
-							throw new Error(e.error || "Error al eliminar");
-						}
+						if (!res.ok)
+							throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 					}
 					// existing == null y value=0: no-op (no crear registro vacío).
 					setSaveState("saved");
@@ -428,10 +428,8 @@ function KpiForm({
 						notes: notes || null,
 					}),
 				});
-				if (!res.ok) {
-					const e = await res.json().catch(() => ({}));
-					throw new Error(e.error || "Error al guardar");
-				}
+				if (!res.ok)
+					throw new Error(await apiErrorMessage(res, "Error al guardar"));
 				setSaveState("saved");
 				onSaved();
 				// Después de 2s vuelve a idle (limpia el "Guardado ✓").

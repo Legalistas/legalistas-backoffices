@@ -4,6 +4,7 @@ import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import {
 	Command,
@@ -193,8 +194,7 @@ export function LawyerFormDialog({
 				body: JSON.stringify(body),
 			});
 			if (!res.ok) {
-				const e = await res.json().catch(() => ({}));
-				throw new Error(e.error || "Error al guardar");
+				throw new Error(await apiErrorMessage(res, "Error al guardar"));
 			}
 			toast.success(isEdit ? "Abogado actualizado" : "Abogado creado");
 			onSaved();

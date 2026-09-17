@@ -13,6 +13,7 @@ import {
 	ATTENDANCE_BY_USER_ENDPOINT,
 	ATTENDANCE_TOGGLE_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 interface AttendanceRecord {
 	id: number;
@@ -159,7 +160,7 @@ export default function AttendanceTab({ userId }: AttendanceTabProps) {
 				method: "POST",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al registrar asistencia"));
 			const json = await res.json();
 			toast.success(
 				json.action === "checked-in"
@@ -167,8 +168,8 @@ export default function AttendanceTab({ userId }: AttendanceTabProps) {
 					: "Salida registrada",
 			);
 			loadRecords();
-		} catch {
-			toast.error("Error al registrar asistencia");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al registrar asistencia");
 		} finally {
 			setIsToggling(false);
 		}
@@ -231,12 +232,12 @@ export default function AttendanceTab({ userId }: AttendanceTabProps) {
 				},
 				body: JSON.stringify(payload),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar"));
 			toast.success(editingId ? "Registro actualizado" : "Registro creado");
 			closeForm();
 			loadRecords();
-		} catch {
-			toast.error("Error al guardar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar");
 		} finally {
 			setIsSaving(false);
 		}
@@ -255,11 +256,11 @@ export default function AttendanceTab({ userId }: AttendanceTabProps) {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Registro eliminado");
 			loadRecords();
-		} catch {
-			toast.error("Error al eliminar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		}
 	};
 

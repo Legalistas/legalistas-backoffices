@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	SETTINGS_COUNTRIES_ENDPOINT,
 	USERS_ENDPOINT,
@@ -338,8 +339,12 @@ export default function CustomerRegistrationModal({
 			});
 
 			if (!response.ok) {
-				const err = await response.json();
-				throw new Error(err.message || "Error");
+				throw new Error(
+					await apiErrorMessage(
+						response,
+						`Error al ${mode === "edit" ? "actualizar" : "crear"} el cliente`,
+					),
+				);
 			}
 
 			const saved = await response.json();
@@ -349,7 +354,11 @@ export default function CustomerRegistrationModal({
 			onRefreshCustomers?.();
 			onClose();
 		} catch (error: any) {
-			toast.error(`Error al ${mode === "edit" ? "actualizar" : "crear"} el cliente`);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: `Error al ${mode === "edit" ? "actualizar" : "crear"} el cliente`,
+			);
 		} finally {
 			setIsCreating(false);
 		}

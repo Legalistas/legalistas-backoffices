@@ -11,6 +11,7 @@ import {
 	PAYROLL_BY_ID_ENDPOINT,
 	PAYROLLS_BY_USER_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 interface Payroll {
 	id: number;
@@ -186,12 +187,12 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 				},
 				body: JSON.stringify(payload),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar"));
 			toast.success(editingId ? "Recibo actualizado" : "Recibo creado");
 			closeForm();
 			loadPayrolls();
-		} catch {
-			toast.error("Error al guardar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar");
 		} finally {
 			setIsSaving(false);
 		}
@@ -205,11 +206,11 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Recibo eliminado");
 			loadPayrolls();
-		} catch {
-			toast.error("Error al eliminar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		}
 	};
 

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAutosave } from "@/hooks/useAutosave";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import {
 	POSTS_AI_GENERATE_META_ENDPOINT,
@@ -290,8 +291,7 @@ export default function BlogFormContent({ initialPost }: BlogFormContentProps) {
 					body: JSON.stringify(value),
 				});
 				if (!res.ok) {
-					const err = await res.json().catch(() => ({ error: "Error" }));
-					throw new Error(err.error || `Error ${res.status}`);
+					throw new Error(await apiErrorMessage(res, `Error ${res.status}`));
 				}
 				const data = await res.json();
 				setCurrentPostId(data.id);
@@ -307,8 +307,7 @@ export default function BlogFormContent({ initialPost }: BlogFormContentProps) {
 				body: JSON.stringify(value),
 			});
 			if (!res.ok) {
-				const err = await res.json().catch(() => ({ error: "Error" }));
-				throw new Error(err.error || `Error ${res.status}`);
+				throw new Error(await apiErrorMessage(res, `Error ${res.status}`));
 			}
 		},
 		[session?.user?.accessToken, currentPostId, router],
@@ -355,8 +354,7 @@ export default function BlogFormContent({ initialPost }: BlogFormContentProps) {
 					body: JSON.stringify(payload),
 				});
 				if (!res.ok) {
-					const err = await res.json().catch(() => ({ error: "Error" }));
-					throw new Error(err.error || "Error al guardar");
+					throw new Error(await apiErrorMessage(res, "Error al guardar"));
 				}
 				toast.success(existingId ? "Post actualizado" : "Post creado");
 				router.push("/admin/blog");

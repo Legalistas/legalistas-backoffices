@@ -245,7 +245,7 @@ export const CASES_CONSULTATIONS_REOPEN_ENDPOINT = (id: string | number) =>
 	`${API_BASE_URL}/consultations/${id}/reopen`;
 
 export const CASES_CONSULTATIONS_CREATE_ENDPOINT = (caseId: number) =>
-	`${API_BASE_URL}/cases/${caseId}/consultations`;
+	`${API_BASE_URL}/cases/${caseId}/consultation`;
 
 export const CASES_CONSULTATIONS_DELETE_ENDPOINT = (
 	caseId: number,
@@ -526,8 +526,9 @@ export const WEB_CONTACT_CONVERT_ENDPOINT = (id: number) =>
 export const REPRESENTATIVES_KPIS_ENDPOINT = `${API_BASE_URL}/representatives/kpis`;
 
 // Asignación de nivel para un (mes, año) específico — se guarda en historial
+// (la ruta del backend es PATCH /employments/:userId/representative-level)
 export const REPRESENTATIVE_LEVEL_ENDPOINT = (userId: number) =>
-	`${API_BASE_URL}/representatives/${userId}/level`;
+	`${API_BASE_URL}/employments/${userId}/representative-level`;
 
 // Historial completo de medallas de un representante (todas las entradas)
 export const REPRESENTATIVE_LEVELS_HISTORY_ENDPOINT = (userId: number) =>

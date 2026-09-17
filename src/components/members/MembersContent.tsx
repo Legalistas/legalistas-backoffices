@@ -16,6 +16,7 @@ import { useSession } from "next-auth/react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	SETTINGS_COUNTRIES_ENDPOINT,
 	SETTINGS_ROLES_ENDPOINT,
@@ -325,12 +326,17 @@ export default function MembersContent() {
 					return;
 				}
 
-				if (!response.ok) throw new Error("Failed to delete user");
+				if (!response.ok)
+					throw new Error(
+						await apiErrorMessage(response, "Error al eliminar el miembro"),
+					);
 				toast.success("Miembro eliminado correctamente");
 				await fetchAllMembers();
 			} catch (error) {
 				console.error("Error al eliminar el miembro:", error);
-				toast.error("Error al eliminar el miembro");
+				toast.error(
+					error instanceof Error ? error.message : "Error al eliminar el miembro",
+				);
 			}
 		},
 		[session?.user?.accessToken, fetchAllMembers, confirm, allMembers],
@@ -350,7 +356,10 @@ export default function MembersContent() {
 					},
 					body: JSON.stringify({ isBlocked }),
 				});
-				if (!response.ok) throw new Error(`Failed to ${action} user`);
+				if (!response.ok)
+					throw new Error(
+						await apiErrorMessage(response, `Error al ${action} el usuario`),
+					);
 				const data = await response.json();
 				toast.success(
 					data.message ||
@@ -361,7 +370,9 @@ export default function MembersContent() {
 				);
 			} catch (error) {
 				console.error(`Error al ${action} el usuario:`, error);
-				toast.error(`Error al ${action} el usuario`);
+				toast.error(
+					error instanceof Error ? error.message : `Error al ${action} el usuario`,
+				);
 			}
 		},
 		[session?.user?.accessToken, confirm],

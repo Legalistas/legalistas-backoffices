@@ -28,6 +28,7 @@ import {
 	statusColors,
 	statusData,
 } from "@/constant/closing-manager";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import type {
 	ClosingManagerEntry,
@@ -210,11 +211,12 @@ export default function ClosingManagerTable({
 					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
 			});
-			if (!response.ok) throw new Error("Error al eliminar el cierre");
+			if (!response.ok)
+				throw new Error(await apiErrorMessage(response, "Error al eliminar el cierre"));
 			if (onRefresh) onRefresh();
 		} catch (err) {
 			console.error("Error deleting closing:", err);
-			toast.error("Error al eliminar el cierre");
+			toast.error(err instanceof Error ? err.message : "Error al eliminar el cierre");
 		}
 	};
 
@@ -247,12 +249,13 @@ export default function ClosingManagerTable({
 				},
 				body: JSON.stringify({ detail: editingDetailValue }),
 			});
-			if (!response.ok) throw new Error("Error al guardar detalle");
+			if (!response.ok)
+				throw new Error(await apiErrorMessage(response, "Error al guardar el detalle"));
 			setEditingDetailId(null);
 			if (onRefresh) onRefresh();
 		} catch (err) {
 			console.error("Error saving detail:", err);
-			toast.error("Error al guardar el detalle");
+			toast.error(err instanceof Error ? err.message : "Error al guardar el detalle");
 		} finally {
 			setSavingDetail(false);
 		}

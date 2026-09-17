@@ -272,7 +272,8 @@ export default function LeadFormDialog({
 	const fetchSellers = useCallback(async () => {
 		setIsSellerLoading(true);
 		try {
-			const response = await fetch(SELLERS_ENDPOINT, {
+			// Sin limit el backend devuelve 10 (default de paginación).
+			const response = await fetch(`${SELLERS_ENDPOINT}?limit=100000`, {
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${session?.user?.accessToken}`,

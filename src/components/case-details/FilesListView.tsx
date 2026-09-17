@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { CASES_FILES_DELETE_BY_CASE_ID_ENDPOINT } from "@/constant/api-endpoints";
 import { FILES_TYPE, STATUS_PROCESS } from "@/constant/causes";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	getFileTypeLabel,
 	getProceduralStageLabel,
@@ -72,7 +73,9 @@ export const FilesListView = ({
 				},
 			);
 			if (!response.ok) {
-				throw new Error("Failed to delete file");
+				throw new Error(
+					await apiErrorMessage(response, "Error al eliminar el archivo"),
+				);
 			}
 
 			console.log(`Deleting file with ID: ${fileId}`);
@@ -80,7 +83,9 @@ export const FilesListView = ({
 			router.push(`/admin/legal-cases/${caseId}`);
 		} catch (error) {
 			console.error("Error al eliminar el archivo:", error);
-			toast.error("Error al eliminar el archivo");
+			toast.error(
+				error instanceof Error ? error.message : "Error al eliminar el archivo",
+			);
 		}
 	};
 

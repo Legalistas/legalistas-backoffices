@@ -53,6 +53,7 @@ import {
 	STAGES_CRM,
 } from "@/constant/storage-structure";
 import { useConfirm } from "@/hooks/useConfirm";
+import { apiErrorMessage } from "@/lib/api-error";
 
 const STORAGE_BASE = `${API_BASE_URL}/storage`;
 
@@ -579,8 +580,7 @@ export default function FileManagerPage() {
 				body: JSON.stringify({ prefix, name }),
 			});
 			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(err.error || "Error al crear");
+				throw new Error(await apiErrorMessage(res, "Error al crear"));
 			}
 			toast.success("Carpeta creada");
 			setCreateFolderOpen(false);
@@ -608,7 +608,7 @@ export default function FileManagerPage() {
 				accessToken,
 				{ method: "DELETE" },
 			);
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Archivo eliminado");
 			fetchList(prefix);
 		} catch (err) {
@@ -631,7 +631,7 @@ export default function FileManagerPage() {
 				accessToken,
 				{ method: "DELETE" },
 			);
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			const json = await res.json();
 			toast.success(
 				`Carpeta eliminada${json.deleted ? ` (${json.deleted} objetos)` : ""}`,

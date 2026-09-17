@@ -30,6 +30,7 @@ import {
 	SETTINGS_JURISDICTIONS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { TYPES_PROCCESS } from "@/constant/causes";
+import { apiErrorMessage } from "@/lib/api-error";
 import { getProcessTypeLabel } from "@/lib/functions";
 import type { CaseDeadline, CasesFiles } from "@/types/cases";
 
@@ -497,10 +498,7 @@ export const PlazosView = ({
 				body: JSON.stringify(body),
 			});
 
-			if (!res.ok) {
-				const err = await res.json();
-				throw new Error(err.error || "Error al guardar");
-			}
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar"));
 
 			toast.success(isEditing ? "Plazo actualizado" : "Plazo creado");
 			setIsModalOpen(false);
@@ -522,7 +520,7 @@ export const PlazosView = ({
 					headers: { Authorization: `Bearer ${session?.user?.accessToken}` },
 				},
 			);
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Plazo eliminado");
 			fetchDeadlines();
 		} catch (error) {
@@ -543,7 +541,7 @@ export const PlazosView = ({
 					body: JSON.stringify({ status: newStatus }),
 				},
 			);
-			if (!res.ok) throw new Error("Error al actualizar");
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al actualizar"));
 			fetchDeadlines();
 		} catch (error) {
 			toast.error((error as Error).message);
@@ -583,10 +581,8 @@ export const PlazosView = ({
 					}),
 				},
 			);
-			if (!res.ok) {
-				const err = await res.json();
-				throw new Error(err.error || "Error al ajustar fecha");
-			}
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al ajustar fecha"));
 			toast.success("Fecha de vencimiento ajustada correctamente");
 			setIsAdjustModalOpen(false);
 			setAdjustingDeadline(null);

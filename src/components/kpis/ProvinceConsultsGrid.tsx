@@ -9,6 +9,7 @@ import {
 	SETTINGS_COUNTRIES_ENDPOINT,
 } from "@/constant/api-endpoints";
 import type { ManualKpiEntry } from "@/types/kpi";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -190,7 +191,8 @@ export default function ProvinceConsultsGrid({
 						method: "DELETE",
 						headers: { Authorization: `Bearer ${token}` },
 					});
-					if (!res.ok) throw new Error("No se pudo borrar");
+					if (!res.ok)
+						throw new Error(await apiErrorMessage(res, "No se pudo borrar"));
 				} else if (raw !== "" && parsed > 0) {
 					const res = await fetch(MANUAL_KPIS_ENDPOINT, {
 						method: "PUT",
@@ -207,10 +209,8 @@ export default function ProvinceConsultsGrid({
 							value: parsed,
 						}),
 					});
-					if (!res.ok) {
-						const e = await res.json().catch(() => ({}));
-						throw new Error(e.error || "No se pudo guardar");
-					}
+					if (!res.ok)
+						throw new Error(await apiErrorMessage(res, "No se pudo guardar"));
 				}
 				await loadEntries();
 			} catch (err) {

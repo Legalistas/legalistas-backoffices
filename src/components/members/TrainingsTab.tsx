@@ -30,6 +30,7 @@ import {
 	TRAINING_BY_ID_ENDPOINT,
 	TRAININGS_BY_USER_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type TrainingCategory =
 	| "COURSE"
@@ -265,12 +266,12 @@ export default function TrainingsTab({ userId }: TrainingsTabProps) {
 				},
 				body: JSON.stringify(payload),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar"));
 			toast.success(editingId ? "Capacitación actualizada" : "Capacitación creada");
 			closeForm();
 			loadTrainings();
-		} catch {
-			toast.error("Error al guardar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar");
 		} finally {
 			setIsSaving(false);
 		}
@@ -284,11 +285,11 @@ export default function TrainingsTab({ userId }: TrainingsTabProps) {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Capacitación eliminada");
 			loadTrainings();
-		} catch {
-			toast.error("Error al eliminar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		}
 	};
 

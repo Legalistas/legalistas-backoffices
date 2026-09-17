@@ -31,6 +31,7 @@ import {
 	DISCIPLINARY_BY_ID_ENDPOINT,
 	DISCIPLINARY_BY_USER_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type DisciplinaryType =
 	| "VERBAL_WARNING"
@@ -209,12 +210,12 @@ export default function DisciplinaryTab({ userId }: DisciplinaryTabProps) {
 				},
 				body: JSON.stringify(payload),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar"));
 			toast.success(editingId ? "Registro actualizado" : "Registro creado");
 			closeForm();
 			loadRecords();
-		} catch {
-			toast.error("Error al guardar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar");
 		} finally {
 			setIsSaving(false);
 		}
@@ -228,11 +229,11 @@ export default function DisciplinaryTab({ userId }: DisciplinaryTabProps) {
 				method: "POST",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al actualizar"));
 			toast.success("Notificación firmada");
 			loadRecords();
-		} catch {
-			toast.error("Error al actualizar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al actualizar");
 		}
 	};
 
@@ -244,11 +245,11 @@ export default function DisciplinaryTab({ userId }: DisciplinaryTabProps) {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Registro eliminado");
 			loadRecords();
-		} catch {
-			toast.error("Error al eliminar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		}
 	};
 

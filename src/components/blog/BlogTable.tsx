@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { POST_BY_ID_ENDPOINT } from "@/constant/api-endpoints";
 import { useConfirm } from "@/hooks/useConfirm";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { Post, PostTerm } from "@/types/blog";
 import { PostStatusBadge } from "./PostStatusBadge";
 
@@ -94,12 +95,15 @@ export function BlogTable({
 					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
 			});
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "No se pudo eliminar el post"));
 			toast.success("Post eliminado");
 			onRefresh();
 		} catch (err) {
 			console.error("[blog] delete:", err);
-			toast.error("No se pudo eliminar el post");
+			toast.error(
+				err instanceof Error ? err.message : "No se pudo eliminar el post",
+			);
 		}
 	};
 

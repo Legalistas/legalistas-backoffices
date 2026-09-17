@@ -27,6 +27,7 @@ import {
 	SETTINGS_COUNTRIES_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { PARTS_TYPES, TYPES_PROCCESS } from "@/constant/causes";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { CasePart, CasesFiles } from "@/types/cases";
 
 const PERSON_TYPE_OPTIONS = [
@@ -339,8 +340,12 @@ export const PartesView = ({
 			});
 
 			if (!res.ok) {
-				const errorData = await res.text();
-				throw new Error(errorData);
+				throw new Error(
+					await apiErrorMessage(
+						res,
+						isEditing ? "Error al actualizar la parte" : "Error al crear la parte",
+					),
+				);
 			}
 
 			toast.success(
@@ -354,9 +359,11 @@ export const PartesView = ({
 		} catch (error) {
 			console.error("Error saving part:", error);
 			toast.error(
-				editingPartId
-					? "Error al actualizar la parte"
-					: "Error al crear la parte",
+				error instanceof Error
+					? error.message
+					: editingPartId
+						? "Error al actualizar la parte"
+						: "Error al crear la parte",
 			);
 		} finally {
 			setIsSubmitting(false);
@@ -376,12 +383,15 @@ export const PartesView = ({
 					},
 				},
 			);
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al eliminar la parte"));
 			toast.success("Parte eliminada");
 			await fetchParts();
 		} catch (error) {
 			console.error("Error deleting part:", error);
-			toast.error("Error al eliminar la parte");
+			toast.error(
+				error instanceof Error ? error.message : "Error al eliminar la parte",
+			);
 		}
 	};
 

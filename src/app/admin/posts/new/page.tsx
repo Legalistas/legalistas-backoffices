@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { POSTS_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 export default function NewPostPage() {
 	const router = useRouter();
@@ -138,8 +139,7 @@ export default function NewPostPage() {
 				toast.success("Post creado exitosamente");
 				router.push("/admin/posts");
 			} else {
-				const error = await response.json();
-				toast.error(`Error: ${error.error || "No se pudo crear el post"}`);
+				toast.error(await apiErrorMessage(response, "No se pudo crear el post"));
 			}
 		} catch (error) {
 			console.error("Error creating post:", error);

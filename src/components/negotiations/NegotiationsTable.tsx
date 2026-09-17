@@ -35,6 +35,7 @@ import {
 } from "@/constant/api-endpoints";
 import { useConfirm } from "@/hooks/useConfirm";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
+import { apiErrorMessage } from "@/lib/api-error";
 import type {
 	Negotiation,
 	NegotiationStatus,
@@ -523,7 +524,8 @@ export function NegotiationsTable({
 					}),
 				},
 			);
-			if (!response.ok) throw new Error("Error al crear la oferta");
+			if (!response.ok)
+				throw new Error(await apiErrorMessage(response, "Error al agregar la oferta"));
 
 			setNuevoMonto("");
 			setOfferNotes("");
@@ -564,7 +566,7 @@ export function NegotiationsTable({
 				}
 			}
 		} catch (err) {
-			toast.error("Error al agregar la oferta");
+			toast.error(err instanceof Error ? err.message : "Error al agregar la oferta");
 		}
 	};
 

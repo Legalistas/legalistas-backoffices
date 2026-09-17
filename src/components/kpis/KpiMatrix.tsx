@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { Fragment, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { MANUAL_KPIS_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import type { KpiFormat, KpiMatrixRow, KpiMatrixSection } from "@/types/kpi";
 
@@ -209,15 +210,13 @@ function EditableCell({
 					value: numValue,
 				}),
 			});
-			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(err.error || `HTTP ${res.status}`);
-			}
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al guardar"));
 			setDisplayValue(numValue);
 			toast.success("Guardado");
 			onSaved();
 		} catch (err) {
-			toast.error((err as Error).message);
+			toast.error(err instanceof Error ? err.message : "Error al guardar");
 			setDisplayValue(value); // revertir a valor original
 		} finally {
 			setSaving(false);

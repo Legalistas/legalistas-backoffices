@@ -16,6 +16,7 @@ import {
 	POSTS_AI_INTERNAL_LINKS_ENDPOINT,
 	POSTS_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import type {
 	AiInternalLinkSuggestion,
@@ -139,8 +140,7 @@ export function AiInternalLinksDialog({
 				body: JSON.stringify({ title, contentHtml, candidates }),
 			});
 			if (!res.ok) {
-				const err = await res.json().catch(() => ({ error: "Error" }));
-				throw new Error(err.error || "Error en la IA");
+				throw new Error(await apiErrorMessage(res, "Error en la IA"));
 			}
 			const data: AiInternalLinksResponse = await res.json();
 			setSuggestions(data.suggestions);

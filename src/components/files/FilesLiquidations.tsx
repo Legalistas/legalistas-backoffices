@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import React, { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 interface Liquidation {
 	id: number;
@@ -112,7 +113,10 @@ export default function FilesLiquidations({
 				body: JSON.stringify(data),
 			});
 
-			if (!pdfResponse.ok) throw new Error("Error al generar PDF");
+			if (!pdfResponse.ok)
+				throw new Error(
+					await apiErrorMessage(pdfResponse, "Error al generar el PDF"),
+				);
 
 			// Descargar el PDF
 			const blob = await pdfResponse.blob();
@@ -126,7 +130,9 @@ export default function FilesLiquidations({
 			document.body.removeChild(a);
 		} catch (error) {
 			console.error("Error al generar PDF:", error);
-			toast.error("Error al generar el PDF");
+			toast.error(
+				error instanceof Error ? error.message : "Error al generar el PDF",
+			);
 		} finally {
 			setGeneratingPDF(null);
 		}

@@ -11,6 +11,7 @@ import {
 	GOOGLE_CALENDAR_STATUS_ENDPOINT,
 	GOOGLE_CALENDAR_SYNC_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 export function GoogleCalendarSync() {
 	const { data: session } = useSession();
@@ -68,14 +69,16 @@ export function GoogleCalendarSync() {
 
 	const handleDisconnect = async () => {
 		try {
-			await fetch(GOOGLE_CALENDAR_DISCONNECT_ENDPOINT, {
+			const res = await fetch(GOOGLE_CALENDAR_DISCONNECT_ENDPOINT, {
 				method: "DELETE",
 				headers,
 			});
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al desvincular"));
 			setConnected(false);
 			toast.success("Google Calendar desvinculado");
-		} catch {
-			toast.error("Error al desvincular");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al desvincular");
 		}
 	};
 
@@ -92,7 +95,7 @@ export function GoogleCalendarSync() {
 					`Sincronizado: ${data.summary.created} creados, ${data.summary.updated} actualizados`,
 				);
 			} else {
-				toast.error("Error al sincronizar");
+				toast.error(data.message || data.error || "Error al sincronizar");
 			}
 		} catch {
 			toast.error("Error al sincronizar eventos");

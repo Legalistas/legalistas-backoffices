@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { CASES_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	STUDIO_NAME,
 	STUDIO_PHONE,
@@ -91,9 +92,8 @@ export const CaseDetails = ({
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json();
 				throw new Error(
-					errorData.message || "Error al actualizar la etapa del caso",
+					await apiErrorMessage(response, "No se pudo actualizar la etapa del caso."),
 				);
 			}
 
@@ -110,7 +110,11 @@ export const CaseDetails = ({
 			onCaseUpdated?.();
 		} catch (error) {
 			console.error("Error updating case stage:", error);
-			toast.error("No se pudo actualizar la etapa del caso.");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "No se pudo actualizar la etapa del caso.",
+			);
 		} finally {
 			setIsUpdatingStage(false);
 		}
@@ -152,8 +156,9 @@ export const CaseDetails = ({
 				body: JSON.stringify({ [field]: lawyerId }),
 			});
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.message || "Error al actualizar abogado");
+				throw new Error(
+					await apiErrorMessage(response, "No se pudo actualizar el abogado."),
+				);
 			}
 			toast.success(
 				field === "responsibleLawyerId"
@@ -163,7 +168,11 @@ export const CaseDetails = ({
 			onCaseUpdated?.();
 		} catch (error) {
 			console.error("Error updating lawyer:", error);
-			toast.error("No se pudo actualizar el abogado.");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "No se pudo actualizar el abogado.",
+			);
 		}
 	};
 
@@ -180,15 +189,21 @@ export const CaseDetails = ({
 				body: JSON.stringify({ googleReviewLeft: checked }),
 			});
 			if (!response.ok) {
-				const errorData = await response.json();
 				throw new Error(
-					errorData.message || "Error al actualizar la reseña",
+					await apiErrorMessage(
+						response,
+						"No se pudo actualizar el estado de la reseña.",
+					),
 				);
 			}
 			onCaseUpdated?.();
 		} catch (error) {
 			console.error("Error updating google review flag:", error);
-			toast.error("No se pudo actualizar el estado de la reseña.");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "No se pudo actualizar el estado de la reseña.",
+			);
 			setGoogleReviewLeft(!checked);
 		} finally {
 			setIsUpdatingGoogleReview(false);

@@ -29,6 +29,7 @@ import {
 	CASE_EVENTS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { CASE_EVENTS_TYPE, TYPES_PROCCESS } from "@/constant/causes";
+import { apiErrorMessage } from "@/lib/api-error";
 import { getProcessTypeLabel } from "@/lib/functions";
 import type { CaseEvent, CasesFiles } from "@/types/cases";
 
@@ -353,10 +354,10 @@ export const EventosView = ({
 				}),
 			});
 
-			if (!res.ok) {
-				const errorData = await res.text();
-				throw new Error(errorData);
-			}
+			const fallback = isEditing
+				? "Error al actualizar el evento"
+				: "Error al crear el evento";
+			if (!res.ok) throw new Error(await apiErrorMessage(res, fallback));
 
 			toast.success(
 				isEditing
@@ -369,9 +370,11 @@ export const EventosView = ({
 		} catch (error) {
 			console.error("Error saving event:", error);
 			toast.error(
-				editingEventId
-					? "Error al actualizar el evento"
-					: "Error al crear el evento",
+				error instanceof Error
+					? error.message
+					: editingEventId
+						? "Error al actualizar el evento"
+						: "Error al crear el evento",
 			);
 		} finally {
 			setIsSubmitting(false);
@@ -391,12 +394,15 @@ export const EventosView = ({
 					},
 				},
 			);
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al eliminar el evento"));
 			toast.success("Evento eliminado");
 			await fetchEvents();
 		} catch (error) {
 			console.error("Error deleting event:", error);
-			toast.error("Error al eliminar el evento");
+			toast.error(
+				error instanceof Error ? error.message : "Error al eliminar el evento",
+			);
 		}
 	};
 
@@ -432,12 +438,15 @@ export const EventosView = ({
 					body: JSON.stringify({ status: newStatus }),
 				},
 			);
-			if (!res.ok) throw new Error("Error al actualizar estado");
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al actualizar el estado"));
 			toast.success("Estado actualizado");
 			await fetchEvents();
 		} catch (error) {
 			console.error("Error updating status:", error);
-			toast.error("Error al actualizar el estado");
+			toast.error(
+				error instanceof Error ? error.message : "Error al actualizar el estado",
+			);
 		}
 	};
 

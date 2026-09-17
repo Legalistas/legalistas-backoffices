@@ -154,7 +154,7 @@ export default function FilesExpenses({
 		try {
 			const userId = session?.user?.id; // Get userId from session
 			if (!userId) {
-				throw new Error("User ID not available. Cannot save expense.");
+				throw new Error("No se encontró el usuario de la sesión. No se puede guardar el gasto.");
 			}
 
 			let method: string;

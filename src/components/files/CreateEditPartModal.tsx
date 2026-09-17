@@ -28,6 +28,7 @@ import {
 	CUSTOMERS_ENDPOINT,
 	SETTINGS_COUNTRIES_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 export interface CaseParty {
 	id?: number;
@@ -36,6 +37,7 @@ export interface CaseParty {
 	phone?: string;
 	street?: string;
 	streetNumber?: string;
+	address?: string;
 	documentNumber?: string;
 	documentType?: string;
 	partyType: "DEMANDADO" | "DEMANDANTE" | "TERCERO" | "TESTIGO";
@@ -332,14 +334,29 @@ export default function CreateEditPartModal({
 					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
 				body: JSON.stringify({
-					parts: [dataToSend], // ✅ Envolvemos en `parts` y como array
+					// PUT: el backend exige `id` en la parte y guarda `address`
+					// (no street/streetNumber) — sin esto la edición daba 400.
+					parts: [
+						part
+							? {
+									...dataToSend,
+									id: part.id,
+									address:
+										dataToSend.street && dataToSend.streetNumber
+											? `${dataToSend.street} ${dataToSend.streetNumber}`
+											: part.address,
+								}
+							: dataToSend,
+					],
 				}),
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json();
 				throw new Error(
-					errorData.message || `Error ${part ? "updating" : "creating"} part`,
+					await apiErrorMessage(
+						response,
+						`Error al ${part ? "actualizar" : "crear"} la parte. Por favor, intenta nuevamente.`,
+					),
 				);
 			}
 
@@ -355,7 +372,9 @@ export default function CreateEditPartModal({
 		} catch (error) {
 			console.error("Error saving part:", error);
 			toast.error(
-				`Error al ${part ? "actualizar" : "crear"} la parte. Por favor, intenta nuevamente.`,
+				error instanceof Error
+					? error.message
+					: `Error al ${part ? "actualizar" : "crear"} la parte. Por favor, intenta nuevamente.`,
 			);
 		} finally {
 			setIsSubmitting(false);
@@ -412,9 +431,11 @@ export default function CreateEditPartModal({
 			);
 
 			if (!response.ok) {
-				const errorData = await response.json();
 				throw new Error(
-					errorData.message || "Error al agregar el ART como parte del caso",
+					await apiErrorMessage(
+						response,
+						"Error al agregar el ART al caso. Por favor, intenta nuevamente.",
+					),
 				);
 			}
 
@@ -428,7 +449,9 @@ export default function CreateEditPartModal({
 		} catch (error) {
 			console.error("Error saving selected ART:", error);
 			toast.error(
-				"Error al agregar el ART al caso. Por favor, intenta nuevamente.",
+				error instanceof Error
+					? error.message
+					: "Error al agregar el ART al caso. Por favor, intenta nuevamente.",
 			);
 		} finally {
 			setIsSubmitting(false);

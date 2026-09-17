@@ -2,6 +2,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { CASES_CONSULTATIONS_CREATE_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 interface CreateConsultationFormProps {
 	caseId: number;
@@ -39,11 +40,16 @@ export default function CreateConsultationForm({
 					body: JSON.stringify({ caseId, title, sender, description }),
 				},
 			);
-			if (!response.ok) throw new Error("No se pudo crear la consulta");
+			if (!response.ok)
+				throw new Error(
+					await apiErrorMessage(response, "Error al crear la consulta"),
+				);
 			toast.success("Consulta creada correctamente");
 			onSuccess();
 		} catch (err) {
-			toast.error("Error al crear la consulta");
+			toast.error(
+				err instanceof Error ? err.message : "Error al crear la consulta",
+			);
 		} finally {
 			setLoading(false);
 		}

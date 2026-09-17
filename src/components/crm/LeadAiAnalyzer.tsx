@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { CRM_ANALYZER_ENDPOINT, LEADS_NOTES_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,8 +48,7 @@ export default function LeadAiAnalyzer({ lead }: LeadAiAnalyzerProps) {
 				}),
 			});
 			if (!res.ok) {
-				const err = await res.json().catch(() => null);
-				throw new Error(err?.error || "Error al analizar las notas");
+				throw new Error(await apiErrorMessage(res, "Error al analizar las notas"));
 			}
 			const data = await res.json();
 			setSummary(data.summary);
@@ -85,11 +85,12 @@ export default function LeadAiAnalyzer({ lead }: LeadAiAnalyzerProps) {
 						: undefined,
 				}),
 			});
-			if (!res.ok) throw new Error(`Error: ${res.status}`);
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al guardar en Notas"));
 			setSaved(true);
 			toast.success("Guardado en Notas");
-		} catch {
-			toast.error("Error al guardar en Notas");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar en Notas");
 		} finally {
 			setSaving(false);
 		}

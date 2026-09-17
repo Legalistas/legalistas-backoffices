@@ -8,6 +8,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
 import { POST_BY_ID_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 export default function EditPostPage() {
 	const router = useRouter();
@@ -173,8 +174,9 @@ export default function EditPostPage() {
 				toast.success("Post actualizado exitosamente");
 				router.push("/admin/posts");
 			} else {
-				const error = await response.json();
-				toast.error(`Error: ${error.error || "No se pudo actualizar el post"}`);
+				toast.error(
+					await apiErrorMessage(response, "No se pudo actualizar el post"),
+				);
 			}
 		} catch (error) {
 			console.error("Error updating post:", error);

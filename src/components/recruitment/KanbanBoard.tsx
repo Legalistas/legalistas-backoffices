@@ -33,6 +33,7 @@ import {
 	RECRUITMENT_SOURCES,
 	type RecruitmentStage,
 } from "@/constant/recruitment";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { Candidate } from "@/types/recruitment";
 
 export default function RecruitmentKanbanBoard() {
@@ -117,11 +118,11 @@ export default function RecruitmentKanbanBoard() {
 				},
 				body: JSON.stringify({ stage: newStage }),
 			});
-			if (!res.ok) throw new Error(`Error ${res.status}`);
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo actualizar la etapa"));
 			toast.success("Etapa actualizada");
 		} catch (err) {
 			console.error(err);
-			toast.error("No se pudo actualizar la etapa");
+			toast.error(err instanceof Error ? err.message : "No se pudo actualizar la etapa");
 			setCandidates(previous);
 		}
 	};
@@ -144,12 +145,12 @@ export default function RecruitmentKanbanBoard() {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error(`Error ${res.status}`);
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo eliminar"));
 			setCandidates((prev) => prev.filter((c) => c.id !== id));
 			toast.success("Candidato eliminado");
 		} catch (err) {
 			console.error(err);
-			toast.error("No se pudo eliminar");
+			toast.error(err instanceof Error ? err.message : "No se pudo eliminar");
 		}
 	};
 

@@ -39,6 +39,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useConfirm } from "@/hooks/useConfirm";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Autocomplete } from "@/components/shared/Autocomplete"; // Importa el nuevo Autocomplete
 import { ClosingsCombobox, type ClosingOption } from "@/components/shared/ClosingsCombobox";
 import { Badge } from "@/components/ui/badge";
@@ -1152,7 +1153,7 @@ export default function CashBoxPage() {
 			toast.success("Transacción eliminada correctamente");
 			await loadData();
 		} else {
-			toast.error("Error al eliminar la transacción");
+			toast.error(await apiErrorMessage(response, "Error al eliminar la transacción"));
 		}
 	};
 

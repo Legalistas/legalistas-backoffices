@@ -17,6 +17,7 @@ import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { TASK_BY_ID_ENDPOINT, TASKS_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import TaskFormModal from "./TaskFormModal";
 import TasksSkeleton from "./TasksSkeleton";
@@ -244,6 +245,8 @@ export default function TaskComponents() {
 				setQuickTitle("");
 				fetchTasks();
 				toast.success("Tarea creada");
+			} else {
+				toast.error(await apiErrorMessage(res, "Error al crear tarea"));
 			}
 		} catch (err) {
 			toast.error("Error al crear tarea");
@@ -263,6 +266,8 @@ export default function TaskComponents() {
 			if (res.ok) {
 				setNewSubtaskTitle((prev) => ({ ...prev, [parentId]: "" }));
 				fetchTasks();
+			} else {
+				toast.error(await apiErrorMessage(res, "Error al crear subtarea"));
 			}
 		} catch (err) {
 			toast.error("Error al crear subtarea");
@@ -279,6 +284,7 @@ export default function TaskComponents() {
 				body: JSON.stringify({ completed: !task.completed }),
 			});
 			if (res.ok) fetchTasks();
+			else toast.error(await apiErrorMessage(res, "Error al actualizar tarea"));
 		} catch (err) {
 			toast.error("Error al actualizar tarea");
 		}
@@ -296,6 +302,8 @@ export default function TaskComponents() {
 				fetchTasks();
 				toast.success("Tarea eliminada");
 				if (expandedId === id) setExpandedId(null);
+			} else {
+				toast.error(await apiErrorMessage(res, "Error al eliminar tarea"));
 			}
 		} catch (err) {
 			toast.error("Error al eliminar tarea");

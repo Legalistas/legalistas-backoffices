@@ -42,6 +42,7 @@ import {
 	MAILER_SEND_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { ART_COMPANIES, CRM_COLUMNS, INSURANCE_COMPANIES, MEETING_TYPES, SOURCE_CHANNEL } from "@/constant/crm";
+import { apiErrorMessage } from "@/lib/api-error";
 import { servicesType } from "@/lib/constant";
 import { formatDate } from "@/lib/functions";
 import type { Lead } from "@/types/crm";
@@ -303,15 +304,16 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 					mentionedUserIds,
 				}),
 			});
-			if (!res.ok) throw new Error(`Error: ${res.status}`);
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al guardar la nota"));
 			await fetchLeadData();
 			setNoteContent("");
 			setMentionedUserIds([]);
 			toast.dismiss(savingToast);
 			toast.success("Nota guardada correctamente");
-		} catch {
+		} catch (err) {
 			toast.dismiss(savingToast);
-			toast.error("Error al guardar la nota");
+			toast.error(err instanceof Error ? err.message : "Error al guardar la nota");
 		}
 	};
 
@@ -329,11 +331,12 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 				},
 				body: JSON.stringify({ note: content }),
 			});
-			if (!res.ok) throw new Error("Failed to update note");
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al actualizar la nota."));
 			toast.success("Nota actualizada correctamente.");
 			fetchLeadData();
-		} catch {
-			toast.error("Error al actualizar la nota.");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al actualizar la nota.");
 		}
 	};
 
@@ -347,11 +350,12 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error("Failed to delete note");
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al eliminar la nota."));
 			toast.success("Nota eliminada correctamente.");
 			fetchLeadData();
-		} catch {
-			toast.error("Error al eliminar la nota.");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar la nota.");
 		}
 	};
 
@@ -420,7 +424,8 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 						},
 					}),
 				});
-				if (!res.ok) throw new Error(`Error: ${res.status}`);
+				if (!res.ok)
+					throw new Error(await apiErrorMessage(res, "Error al reenviar el email"));
 			} else {
 				await sendStageEmail({
 					email,
@@ -433,8 +438,8 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 				});
 			}
 			toast.success("Email reenviado correctamente");
-		} catch {
-			toast.error("Error al reenviar el email");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al reenviar el email");
 		}
 	};
 

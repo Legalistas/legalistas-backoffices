@@ -7,6 +7,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { LEADS_ENDPOINT } from "@/constant/api-endpoints";
 import { MEETING_TYPES } from "@/constant/crm";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { Lead } from "@/types/crm";
 import { Button } from "@/components/ui/button";
 import {
@@ -87,8 +88,9 @@ export default function LeadActivity({ lead }: LeadActivityProps) {
 				},
 			);
 			if (!response.ok) {
-				const errorData = await response.json().catch(() => ({}));
-				throw new Error(errorData.error || `Error: ${response.status}`);
+				throw new Error(
+					await apiErrorMessage(response, "Error al marcar realizada"),
+				);
 			}
 			toast.success("Reunión marcada como realizada");
 			router.refresh();

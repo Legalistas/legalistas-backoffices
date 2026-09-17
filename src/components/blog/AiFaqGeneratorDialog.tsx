@@ -13,6 +13,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { POSTS_AI_GENERATE_FAQ_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import type { AiFaqQuestion, AiFaqResponse } from "@/types/blog";
 
@@ -76,8 +77,7 @@ export function AiFaqGeneratorDialog({
 				body: JSON.stringify({ title, contentHtml, focusKeyword }),
 			});
 			if (!res.ok) {
-				const err = await res.json().catch(() => ({ error: "Error" }));
-				throw new Error(err.error || "Error en la IA");
+				throw new Error(await apiErrorMessage(res, "Error en la IA"));
 			}
 			const data: AiFaqResponse = await res.json();
 			setQuestions(data.questions);

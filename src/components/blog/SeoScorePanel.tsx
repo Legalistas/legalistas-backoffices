@@ -17,6 +17,7 @@ import {
 	POSTS_AI_ANALYZE_ENDPOINT,
 	POSTS_AI_SUGGEST_KEYWORD_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import type {
 	AiSeoAnalysisResponse,
@@ -150,8 +151,7 @@ export function SeoScorePanel({
 				}),
 			});
 			if (!res.ok) {
-				const err = await res.json().catch(() => ({ error: "Error" }));
-				throw new Error(err.error || "Error en el análisis IA");
+				throw new Error(await apiErrorMessage(res, "Error en el análisis IA"));
 			}
 			const data: AiSeoAnalysisResponse = await res.json();
 			setAiResult(data);

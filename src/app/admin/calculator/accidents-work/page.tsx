@@ -24,6 +24,7 @@ import {
 	API_BASE_URL,
 	CALCULATOR_CAUSES_LIST_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -1189,7 +1190,10 @@ export default function AccidentsWorkPage() {
 				body: JSON.stringify(requestBody),
 			});
 
-			if (!response.ok) throw new Error("Error al guardar liquidación");
+			if (!response.ok)
+				throw new Error(
+					await apiErrorMessage(response, "Error al guardar la liquidación"),
+				);
 
 			const result = await response.json();
 
@@ -1246,7 +1250,11 @@ export default function AccidentsWorkPage() {
 			}
 		} catch (error) {
 			console.error("Error al guardar liquidación:", error);
-			toast.error("Error al guardar la liquidación");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Error al guardar la liquidación",
+			);
 		} finally {
 			setIsSaving(false);
 		}

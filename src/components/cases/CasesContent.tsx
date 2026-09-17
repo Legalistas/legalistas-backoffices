@@ -12,6 +12,7 @@ import {
 	CASES_NOTES_CREATE_ENDPOINT,
 	LAWYERS_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { getServiceName, getStatusName } from "@/lib/functions";
 import { moveCaseFolderOnStageChange } from "@/lib/storage-move";
 import { Role } from "@/constant/user";
@@ -932,7 +933,9 @@ export default function CasesContent() {
 				});
 
 				if (!response.ok) {
-					throw new Error("Failed to delete case");
+					throw new Error(
+						await apiErrorMessage(response, "Error al eliminar el caso"),
+					);
 				}
 
 				toast.success("Caso eliminado correctamente");
@@ -951,7 +954,9 @@ export default function CasesContent() {
 				);
 			} catch (error) {
 				console.error("Error al eliminar el caso:", error);
-				toast.error("Error al eliminar el caso");
+				toast.error(
+					error instanceof Error ? error.message : "Error al eliminar el caso",
+				);
 			}
 		},
 		[
@@ -987,7 +992,9 @@ export default function CasesContent() {
 				});
 
 				if (!response.ok) {
-					throw new Error("Failed to update stage");
+					throw new Error(
+						await apiErrorMessage(response, "Error al actualizar la etapa"),
+					);
 				}
 
 				moveCaseFolderOnStageChange({
@@ -1012,7 +1019,9 @@ export default function CasesContent() {
 				);
 			} catch (error) {
 				console.error("Error al actualizar la etapa:", error);
-				toast.error("Error al actualizar la etapa");
+				toast.error(
+					error instanceof Error ? error.message : "Error al actualizar la etapa",
+				);
 			}
 		},
 		[
@@ -1047,7 +1056,9 @@ export default function CasesContent() {
 				});
 
 				if (!response.ok) {
-					throw new Error("Failed to update result");
+					throw new Error(
+						await apiErrorMessage(response, "Error al actualizar el estado"),
+					);
 				}
 
 				toast.success("Estado actualizado correctamente");
@@ -1066,7 +1077,9 @@ export default function CasesContent() {
 				);
 			} catch (error) {
 				console.error("Error al actualizar el estado:", error);
-				toast.error("Error al actualizar el estado");
+				toast.error(
+					error instanceof Error ? error.message : "Error al actualizar el estado",
+				);
 			}
 		},
 		[
@@ -1098,7 +1111,13 @@ export default function CasesContent() {
 					},
 					body: JSON.stringify({ googleReviewLeft: value }),
 				});
-				if (!response.ok) throw new Error("Failed to update review flag");
+				if (!response.ok)
+					throw new Error(
+						await apiErrorMessage(
+							response,
+							"No se pudo actualizar el estado de la reseña",
+						),
+					);
 				// Optimistic update local — no refetch para evitar reset de paginación.
 				setCases((prev) =>
 					prev.map((c) =>
@@ -1107,7 +1126,11 @@ export default function CasesContent() {
 				);
 			} catch (error) {
 				console.error("Error al actualizar reseña:", error);
-				toast.error("No se pudo actualizar el estado de la reseña");
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "No se pudo actualizar el estado de la reseña",
+				);
 			}
 		},
 		[session?.user?.accessToken],
@@ -1130,7 +1153,9 @@ export default function CasesContent() {
 				});
 
 				if (!response.ok) {
-					throw new Error("Failed to create note");
+					throw new Error(
+						await apiErrorMessage(response, "Error al guardar la observación"),
+					);
 				}
 
 				toast.success("Observación guardada correctamente");
@@ -1149,7 +1174,11 @@ export default function CasesContent() {
 				);
 			} catch (error) {
 				console.error("Error al guardar la observación:", error);
-				toast.error("Error al guardar la observación");
+				toast.error(
+					error instanceof Error
+						? error.message
+						: "Error al guardar la observación",
+				);
 			}
 		},
 		[

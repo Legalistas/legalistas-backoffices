@@ -17,6 +17,7 @@ import { FileFilters } from "@/components/case-details/FileFilters";
 import { NewFileModal } from "@/components/case-details/NewFileModal";
 import { CASES_ENDPOINT } from "@/constant/api-endpoints";
 import { getCurrentMainStage, mainSteps } from "@/constant/stage-mapping";
+import { apiErrorMessage } from "@/lib/api-error";
 import { stageCases } from "@/lib/constant";
 import type { Cases } from "@/types/cases";
 
@@ -129,21 +130,27 @@ export default function CasesDetailsPage() {
 
 	const handleDeleteCases = useCallback(async () => {
 		try {
-			const response = await fetch(`/api/cases/${params.caseId}`, {
+			// `/api/cases` no existe en Next: se borra directo en el backend.
+			const response = await fetch(`${CASES_ENDPOINT}/${params.caseId}`, {
 				method: "DELETE",
+				headers: {
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
 			});
 
 			if (!response.ok) {
-				throw new Error("Failed to delete case");
+				throw new Error(
+					await apiErrorMessage(response, "Error al eliminar el caso"),
+				);
 			}
 
-			toast.success("Case deleted successfully");
+			toast.success("Caso eliminado correctamente");
 			router.push("/admin/legal-cases");
 		} catch (err) {
 			console.error("Error deleting case:", err);
-			toast.error("Failed to delete case");
+			toast.error(err instanceof Error ? err.message : "Error al eliminar el caso");
 		}
-	}, [params.caseId, router]);
+	}, [params.caseId, router, session?.user?.accessToken]);
 
 	const filteredFiles = useCallback(() => {
 		if (!cases?.files) return [];

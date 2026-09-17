@@ -31,6 +31,7 @@ import {
 import { TYPES_PROCCESS } from "@/constant/causes";
 import { CEDULA_TEMPLATES } from "@/constant/cedula-templates";
 import { useConfirm } from "@/hooks/useConfirm";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { CasesFiles } from "@/types/cases";
 
 interface Cedula {
@@ -637,17 +638,17 @@ export const CedulasView = ({
 				}),
 			});
 
-			if (!res.ok) {
-				const error = await res.json();
-				throw new Error(error.message || "Error al crear cédula");
-			}
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al crear la cédula"));
 
 			toast.success("Cédula creada correctamente");
 			setIsCreating(false);
 			await fetchCedulas();
 		} catch (error) {
 			console.error("Error saving cedula:", error);
-			toast.error("Error al crear la cédula");
+			toast.error(
+				error instanceof Error ? error.message : "Error al crear la cédula",
+			);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -664,12 +665,15 @@ export const CedulasView = ({
 					headers: { Authorization: `Bearer ${session?.user?.accessToken}` },
 				},
 			);
-			if (!res.ok && res.status !== 204) throw new Error("Error al eliminar");
+			if (!res.ok && res.status !== 204)
+				throw new Error(await apiErrorMessage(res, "Error al eliminar la cédula"));
 			toast.success("Cédula eliminada");
 			await fetchCedulas();
 		} catch (error) {
 			console.error("Error deleting cedula:", error);
-			toast.error("Error al eliminar la cédula");
+			toast.error(
+				error instanceof Error ? error.message : "Error al eliminar la cédula",
+			);
 		}
 	};
 
