@@ -116,6 +116,9 @@ interface Customer {
 	};
 	userAddresses: {
 		city: string;
+		stateId?: number | null;
+		cityId?: number | null;
+		isDefault?: boolean;
 		state: {
 			name: string;
 		};
@@ -462,7 +465,18 @@ export default function LeadFormDialog({
 	};
 
 	const handleCustomerSelect = (customer: Customer) => {
-		setFormData((prev) => ({ ...prev, userId: customer.id }));
+		// La provincia/localidad de la oportunidad arranca desde la dirección
+		// del cliente — el dato ya está en la ficha y antes había que volver a
+		// cargarlo a mano. Lo que ya se eligió en el formulario no se pisa.
+		const addr =
+			customer.userAddresses?.find((a) => a.isDefault) ??
+			customer.userAddresses?.[0];
+		setFormData((prev) => ({
+			...prev,
+			userId: customer.id,
+			stateId: prev.stateId ?? addr?.stateId ?? null,
+			cityId: prev.cityId ?? addr?.cityId ?? null,
+		}));
 		setSearchQuery(customer.name);
 		setSelectedCustomerName(customer.name);
 		setHasSelectedCustomer(true);
