@@ -123,6 +123,13 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Monitor de Gestión",
         path: "/admin/crm-monitor",
       },
+      {
+        icon: ChartArea,
+        name: "Estadísticas Ventas",
+        path: "/admin/reports/sales",
+        roles: LEGAL_INTERNO,
+      },
+
     ],
   },
   {
