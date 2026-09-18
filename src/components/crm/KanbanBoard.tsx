@@ -266,39 +266,24 @@ export default function KanbanBoard() {
 				});
 			}
 
-			// Map leads
-			const mappedLeads = filteredData.map((item: any) => {
-				const columnId = item.columnId || getColumnIdFromStatus(item.status);
-				return {
-					id: item.id.toString(),
-					name: item.user?.name || "",
-					company: item.user?.userAddresses?.[0]?.city || "",
-					email: item.user?.email || "",
-					phone: item.user?.userProfile?.phone || "",
-					userId: item.userId,
-					sellerId: item.sellerId,
-					internalLawyerId: item.internalLawyerId,
-					responsibleLawyerId: item.responsibleLawyerId,
-					servicesId: item.servicesId,
-					sourceChannelId: item.sourceChannelId,
-					status: item.status,
-					columnId: columnId,
-					folderName: item.folderName ?? null,
-					notes: item.notes,
-					documentationComplete: item.documentationComplete,
-					createdAt: item.createdAt,
-					updatedAt: item.updatedAt,
-					services: {
-						values: item.servicesId,
-						label: getServiceLabel(item.servicesId),
-					},
-					seller: item.seller,
-					user: item.user,
-					internalLawyer: item.internalLawyer,
-					responsibleLawyer: item.responsibleLawyer,
-					referent: item.referent,
-				};
-			});
+			// Map leads. Se spreadea `item` entero: rearmar el objeto campo por
+			// campo perdía provincia/ciudad, lesión, fecha de accidente, ART,
+			// seguro y referente — la tarjeta mostraba la dirección del cliente
+			// en vez de la provincia del lead, y editar desde el kanban los
+			// borraba (el formulario los cargaba vacíos y los mandaba en null).
+			const mappedLeads = filteredData.map((item: any) => ({
+				...item,
+				id: item.id.toString(),
+				name: item.user?.name || "",
+				company: item.user?.userAddresses?.[0]?.city || "",
+				email: item.user?.email || "",
+				phone: item.user?.userProfile?.phone || "",
+				columnId: item.columnId || getColumnIdFromStatus(item.status),
+				services: {
+					values: item.servicesId,
+					label: getServiceLabel(item.servicesId),
+				},
+			}));
 
 			setLeads(mappedLeads);
 		} catch (error) {
