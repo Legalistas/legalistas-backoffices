@@ -64,6 +64,7 @@ import {
 import { ART_COMPANIES, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
 import { getCrmStoragePrefix } from "@/constant/storage-structure";
 import { Role } from "@/constant/user";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	sendStageEmail,
 	shouldBlockAutomaticEmail,
@@ -641,7 +642,16 @@ export default function LeadFormDialog({
 				body: JSON.stringify(dataToSend),
 			});
 
-			if (!response.ok) throw new Error(`Error: ${response.status}`);
+			if (!response.ok) {
+				throw new Error(
+					await apiErrorMessage(
+						response,
+						isCreating
+							? "Error al crear la oportunidad"
+							: "Error al actualizar la oportunidad",
+					),
+				);
+			}
 
 			if (isCreating) {
 				const responseData = await response.json().catch(() => null);
@@ -731,8 +741,12 @@ export default function LeadFormDialog({
 			toast.success(`Lead ${lead ? "actualizado" : "creado"} correctamente`);
 			onOpenChange(false);
 			window.location.reload();
-		} catch {
-			toast.error("Error al guardar el lead. Inténtalo de nuevo.");
+		} catch (err) {
+			toast.error(
+				err instanceof Error
+					? err.message
+					: "Error al guardar el lead. Inténtalo de nuevo.",
+			);
 		} finally {
 			setIsSubmitting(false);
 		}

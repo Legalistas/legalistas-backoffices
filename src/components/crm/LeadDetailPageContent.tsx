@@ -74,14 +74,17 @@ import {
 
 // --- Helpers (fuera del componente, no se recrean cada render) ---
 
-function getUserLocation(user: any) {
-	if (!user?.userAddresses || user.userAddresses.length === 0)
-		return "Sin ubicación";
+// Provincia/localidad propias de la oportunidad primero; la dirección del
+// cliente es el fallback (mismo criterio que el kanban).
+function getLeadLocation(lead: any) {
 	const addr =
-		user.userAddresses.find((a: any) => a.isDefault) || user.userAddresses[0];
+		lead?.user?.userAddresses?.find((a: any) => a.isDefault) ||
+		lead?.user?.userAddresses?.[0];
 	const parts = [];
-	if (addr.state?.name) parts.push(addr.state.name);
-	if (addr.city?.trim()) parts.push(addr.city);
+	const state = lead?.state?.name ?? addr?.state?.name;
+	const city = lead?.city?.name ?? addr?.locality?.name ?? addr?.city?.trim();
+	if (state) parts.push(state);
+	if (city) parts.push(city);
 	return parts.length > 0 ? parts.join(" - ") : "Sin ubicación";
 }
 
@@ -504,7 +507,7 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 							</div>
 							<p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
 								<MapPin className="h-3.75 w-3.75 text-primary" />
-								{getUserLocation(lead.user)}
+								{getLeadLocation(lead)}
 							</p>
 						</div>
 					</div>
@@ -688,7 +691,7 @@ export default function LeadDetailPageContent({ id }: { id: string }) {
 												<div>
 													<p className="font-medium">{lead.user.name}</p>
 													<p className="text-sm text-muted-foreground">
-														{lead.user.userAddresses?.[0]?.city || "Sin ubicación"}
+														{getLeadLocation(lead)}
 													</p>
 												</div>
 											</div>
