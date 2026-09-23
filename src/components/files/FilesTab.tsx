@@ -6,20 +6,20 @@ import FilesExpenses from "./FilesExpenses";
 import FilesNotes, { type Note } from "./FilesNotes";
 import FilesParts from "./FilesParts";
 
+// Campos del relevamiento 5.1. `partyType` es string y no una unión cerrada
+// porque las partes sin migrar traen los tipos viejos (DEMANDANTE, TERCERO).
 interface FilePart {
 	id?: number;
+	partyId?: number | null;
 	name: string;
-	email?: string;
-	phone?: string;
-	address?: string;
-	documentNumber?: string;
-	documentType?: string;
-	partyType: "DEMANDADO" | "DEMANDANTE" | "TERCERO" | "TESTIGO";
-	role?: string;
-	notes?: string;
-	countryId?: number;
-	stateId?: number;
-	city?: string;
+	partyType: string;
+	address?: string | null;
+	city?: string | null;
+	stateId?: number | null;
+	postalCode?: string | null;
+	phone?: string | null;
+	documentNumber?: string | null;
+	party?: { id: number; name: string; isActive: boolean } | null;
 }
 
 interface FileNote {

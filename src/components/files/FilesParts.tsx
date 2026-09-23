@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	BookMarked,
 	ChevronDown,
 	Eye,
 	EyeOff,
@@ -15,11 +16,8 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "@/hooks/useConfirm";
-import {
-	CASES_FILES_PARTS_CREATE_ENDPOINT,
-	CASES_FILES_PARTS_DELETE_ENDPOINT,
-	CASES_FILES_PARTS_UPDATE_ENDPOINT,
-} from "@/constant/api-endpoints";
+import { CASE_PART_BY_ID_ENDPOINT } from "@/constant/api-endpoints";
+import { partyTypeLabel } from "@/constant/parties";
 import {
 	Table,
 	TableBody,
@@ -29,20 +27,21 @@ import {
 } from "@/components/ui/table";
 import CreateEditPartModal from "./CreateEditPartModal";
 
+// Los campos son los del relevamiento 5.1. `partyType` es string y no una
+// unión cerrada porque las partes que todavía no se migraron traen los tipos
+// viejos (DEMANDANTE, TERCERO, 'abogado') y hay que poder mostrarlas.
 interface FilePart {
 	id?: number;
+	partyId?: number | null;
 	name: string;
-	email?: string;
-	phone?: string;
-	address?: string;
-	documentNumber?: string;
-	documentType?: string;
-	partyType: "DEMANDADO" | "DEMANDANTE" | "TERCERO" | "TESTIGO";
-	role?: string;
-	notes?: string;
-	countryId?: number;
-	stateId?: number;
-	city?: string;
+	partyType: string;
+	address?: string | null;
+	city?: string | null;
+	stateId?: number | null;
+	postalCode?: string | null;
+	phone?: string | null;
+	documentNumber?: string | null;
+	party?: { id: number; name: string; isActive: boolean } | null;
 }
 
 interface FilesPartsProps {
@@ -63,55 +62,48 @@ interface ColumnConfig {
 	required?: boolean;
 }
 
+// Columnas alineadas al relevamiento 5.1: se fueron email, tipo de documento,
+// rol y notas; entraron ciudad, código postal y el vínculo al catálogo.
 const defaultColumns: ColumnConfig[] = [
-	{ key: "id", label: "ID", visible: true },
-	{ key: "name", label: "Nombre", visible: true, required: true },
-	{ key: "email", label: "Email", visible: true },
-	{ key: "phone", label: "Teléfono", visible: true },
-	{ key: "address", label: "Dirección", visible: false },
-	{ key: "documentNumber", label: "N° Documento", visible: true },
-	{ key: "documentType", label: "Tipo Documento", visible: false },
+	{ key: "id", label: "ID", visible: false },
+	{ key: "name", label: "Razón social / Nombre", visible: true, required: true },
 	{ key: "partyType", label: "Tipo de Parte", visible: true, required: true },
-	{ key: "role", label: "Rol", visible: false },
-	{ key: "notes", label: "Notas", visible: false },
+	{ key: "party", label: "Catálogo", visible: true },
+	{ key: "address", label: "Domicilio", visible: true },
+	{ key: "city", label: "Ciudad", visible: true },
+	{ key: "postalCode", label: "C.P.", visible: false },
+	{ key: "phone", label: "Teléfono", visible: true },
+	{ key: "documentNumber", label: "DNI", visible: false },
 	{ key: "actions", label: "Acciones", visible: true, required: true },
 ];
 
 const presetConfigurations = {
 	basic: {
 		name: "Vista Básica",
-		columns: ["name", "partyType", "email", "phone", "actions"],
+		columns: ["name", "partyType", "phone", "actions"],
 	},
 	complete: {
 		name: "Vista Completa",
 		columns: [
 			"id",
 			"name",
-			"email",
-			"phone",
-			"address",
-			"documentNumber",
-			"documentType",
 			"partyType",
-			"role",
-			"notes",
+			"party",
+			"address",
+			"city",
+			"postalCode",
+			"phone",
+			"documentNumber",
 			"actions",
 		],
 	},
 	legal: {
 		name: "Vista Legal",
-		columns: [
-			"name",
-			"partyType",
-			"documentType",
-			"documentNumber",
-			"role",
-			"actions",
-		],
+		columns: ["name", "partyType", "party", "documentNumber", "actions"],
 	},
 	contact: {
 		name: "Vista Contacto",
-		columns: ["name", "email", "phone", "address", "actions"],
+		columns: ["name", "phone", "address", "city", "postalCode", "actions"],
 	},
 };
 
@@ -162,123 +154,45 @@ export default function FilesParts({
 		setShowColumnConfig(false);
 	};
 
+	// Cubre los tipos nuevos y los heredados, porque las partes sin migrar
+	// siguen trayendo DEMANDANTE y TERCERO.
 	const getPartyTypeColor = (type: string) => {
 		switch (type) {
 			case "DEMANDADO":
 				return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+			case "ACTOR":
 			case "DEMANDANTE":
 				return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+			case "TERCERO_CITADO_GARANTIA":
 			case "TERCERO":
 				return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
 			case "TESTIGO":
 				return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+			case "PERITO":
+				return "bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-200";
 			default:
 				return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
 		}
 	};
 
-	const handleSavePart = async (partData: FilePart) => {
-		if (!session?.user?.accessToken) {
-			toast.error("No hay sesión activa");
-			return;
-		}
+	// El modal guarda contra /cases/:caseId/parts y devuelve la parte ya
+	// persistida. Acá solo se refleja en la lista local: antes este handler
+	// hacía su propio POST/PUT contra los endpoints viejos, lo que ahora sería
+	// un guardado duplicado en la tabla equivocada.
+	const handleSavePart = (saved: FilePart) => {
+		const yaEstaba = localParts.some((p) => p.id === saved.id);
+		const actualizada = yaEstaba
+			? localParts.map((p) => (p.id === saved.id ? saved : p))
+			: [...localParts, saved];
 
-		setIsLoading(true);
-		try {
-			if (selectedPart?.id) {
-				// Actualizar parte existente
-				const response = await fetch(
-					CASES_FILES_PARTS_UPDATE_ENDPOINT(caseId, fileId, selectedPart.id),
-					{
-						method: "PUT",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${session.user.accessToken}`,
-						},
-						body: JSON.stringify({ parts: [partData] }),
-					},
-				);
+		setLocalParts(actualizada);
+		onPartsChange?.(actualizada);
+		if (yaEstaba) onEdit?.(saved);
+		else onAdd?.(saved);
 
-				if (!response.ok) {
-					const errorData = await response.json();
-					throw new Error(errorData.message || "Error al actualizar la parte");
-				}
-
-				const responseData = await response.json();
-				console.log("Respuesta de actualización:", responseData);
-
-				// Usar los datos devueltos por el backend o los datos originales con el ID
-				const updatedPartData = responseData.data || {
-					...partData,
-					id: selectedPart.id,
-				};
-
-				// Actualizar la lista local
-				const updatedParts = localParts.map((p) =>
-					p.id === selectedPart.id ? updatedPartData : p,
-				);
-				setLocalParts(updatedParts);
-				onPartsChange?.(updatedParts);
-
-				// Notificar al componente padre si existe el callback
-				onEdit?.(updatedPartData);
-
-				toast.success("Parte actualizada exitosamente");
-			} else {
-				// Crear nueva parte
-				const response = await fetch(
-					CASES_FILES_PARTS_CREATE_ENDPOINT(caseId, fileId),
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							Authorization: `Bearer ${session.user.accessToken}`,
-						},
-						body: JSON.stringify({ parts: [partData] }),
-					},
-				);
-
-				if (!response.ok) {
-					const errorData = await response.json();
-					throw new Error(errorData.message || "Error al crear la parte");
-				}
-
-				const responseData = await response.json();
-				console.log("Respuesta de creación:", responseData);
-
-				// Manejar diferentes formatos de respuesta del backend
-				let newPartData: FilePart;
-				if (responseData.data && Array.isArray(responseData.data)) {
-					// Si el backend devuelve un array
-					newPartData = responseData.data[0] || { ...partData, id: Date.now() };
-				} else if (responseData.data) {
-					// Si el backend devuelve un objeto
-					newPartData = responseData.data;
-				} else {
-					// Fallback: usar los datos originales con un ID temporal
-					newPartData = { ...partData, id: Date.now() };
-				}
-
-				// Actualizar la lista local
-				const updatedParts = [...localParts, newPartData];
-				setLocalParts(updatedParts);
-				onPartsChange?.(updatedParts);
-
-				// Notificar al componente padre si existe el callback
-				onAdd?.(newPartData);
-
-				toast.success("Parte agregada exitosamente");
-			}
-		} catch (error) {
-			console.error("Error al guardar la parte:", error);
-			toast.error(
-				error instanceof Error ? error.message : "Error al guardar la parte",
-			);
-		} finally {
-			setIsLoading(false);
-			setOpenCreateEditPartModal(false);
-			setSelectedPart(null);
-		}
+		setOpenCreateEditPartModal(false);
+		setSelectedPart(null);
+		onRefresh?.();
 	};
 
 	const handleDeletePart = async (partId: number | string) => {
@@ -293,15 +207,12 @@ export default function FilesParts({
 
 		setIsLoading(true);
 		try {
-			const response = await fetch(
-				CASES_FILES_PARTS_DELETE_ENDPOINT(caseId, fileId, partId),
-				{
-					method: "DELETE",
-					headers: {
-						Authorization: `Bearer ${session.user.accessToken}`,
-					},
+			const response = await fetch(CASE_PART_BY_ID_ENDPOINT(caseId, partId), {
+				method: "DELETE",
+				headers: {
+					Authorization: `Bearer ${session.user.accessToken}`,
 				},
-			);
+			});
 
 			if (!response.ok) {
 				const errorData = await response.json();
@@ -349,7 +260,28 @@ export default function FilesParts({
 					<span
 						className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getPartyTypeColor(part.partyType)}`}
 					>
-						{part.partyType}
+						{partyTypeLabel(part.partyType)}
+					</span>
+				);
+			// Distingue una parte reutilizada del catálogo de una cargada suelta,
+			// y avisa si la del catálogo se dio de baja después de asignarla.
+			case "party":
+				if (!part.party) {
+					return (
+						<span className="text-xs text-muted-foreground">Carga suelta</span>
+					);
+				}
+				return (
+					<span
+						className={`inline-flex items-center gap-1 text-xs ${part.party.isActive ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"}`}
+						title={
+							part.party.isActive
+								? `Del catálogo: ${part.party.name}`
+								: `"${part.party.name}" está dada de baja en el catálogo`
+						}
+					>
+						<BookMarked className="h-3 w-3 shrink-0" />
+						{part.party.isActive ? "Del catálogo" : "De baja"}
 					</span>
 				);
 			case "actions":
@@ -373,18 +305,14 @@ export default function FilesParts({
 						</button>
 					</div>
 				);
-			case "notes": {
-				const notes = part[columnKey];
-				return notes && typeof notes === "string" && notes.length > 50 ? (
-					<span title={notes} className="cursor-help">
-						{notes.substring(0, 50)}...
-					</span>
-				) : (
-					notes
-				);
+			default: {
+				const valor = part[columnKey];
+				// `party` y `partyId` tienen su propio case; lo que llega acá es
+				// siempre escalar.
+				return typeof valor === "string" || typeof valor === "number"
+					? valor || "-"
+					: "-";
 			}
-			default:
-				return part[columnKey] || "-";
 		}
 	};
 
