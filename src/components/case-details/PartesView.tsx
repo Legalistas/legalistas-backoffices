@@ -26,56 +26,43 @@ import {
 	CASE_PARTS_ENDPOINT,
 	SETTINGS_COUNTRIES_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { PARTS_TYPES, TYPES_PROCCESS } from "@/constant/causes";
+import { TYPES_PROCCESS } from "@/constant/causes";
+import {
+	PARTY_TYPE_LABELS,
+	PARTY_TYPES,
+	partyTypeLabel,
+} from "@/constant/parties";
 import { apiErrorMessage } from "@/lib/api-error";
 import type { CasePart, CasesFiles } from "@/types/cases";
 
-const PERSON_TYPE_OPTIONS = [
-	{ value: "fisica", label: "Persona Física" },
-	{ value: "juridica", label: "Persona Jurídica" },
-];
+// Tipo de persona y tipo de documento se eliminaron del formulario
+// (relevamiento 5.1): el único documento relevante es el DNI del testigo.
 
-const DOCUMENT_TYPE_OPTIONS = [
-	{ value: "DNI", label: "DNI" },
-	{ value: "CUIT", label: "CUIT" },
-	{ value: "CUIL", label: "CUIL" },
-	{ value: "CDI", label: "CDI" },
-	{ value: "pasaporte", label: "Pasaporte" },
-	{ value: "otro", label: "Otro" },
-];
-
+// Los cinco tipos del relevamiento 5.2. Se conservan además los colores de los
+// valores heredados, porque las partes que todavía no se migraron siguen
+// trayéndolos y hay que poder mostrarlas.
 const partyTypeColors: Record<string, string> = {
-	actor:
+	ACTOR:
 		"bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
-	demandado:
+	DEMANDADO:
 		"bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800",
-	coactor:
-		"bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
-	codemandado:
-		"bg-orange-50 text-orange-700 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800",
-	tercero:
+	TERCERO_CITADO_GARANTIA:
 		"bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800",
-	tercero_citado:
+	TESTIGO:
+		"bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800",
+	PERITO:
+		"bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-800",
+	// Heredados, solo lectura.
+	actor:
+		"bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
+	DEMANDANTE:
+		"bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
+	demandado:
+		"bg-red-50 text-red-600 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800",
+	TERCERO:
 		"bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-900/20 dark:text-purple-300 dark:border-purple-800",
-	citado_eviccion:
-		"bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-800",
-	citado_codemanda:
-		"bg-orange-50 text-orange-600 border-orange-200 dark:bg-orange-900/20 dark:text-orange-300 dark:border-orange-800",
-	aseguradora:
-		"bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
 	art: "bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
-	heredero:
-		"bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/20 dark:text-teal-300 dark:border-teal-800",
-	legatario:
-		"bg-teal-50 text-teal-600 border-teal-200 dark:bg-teal-900/20 dark:text-teal-300 dark:border-teal-800",
-	acreedor:
-		"bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-800",
-	sindico:
-		"bg-muted text-foreground border-input",
-	ministerio_publico:
-		"bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
-	asesor_menores:
-		"bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-900/20 dark:text-cyan-300 dark:border-cyan-800",
+	abogado: "bg-muted text-foreground border-input",
 };
 
 const getFileLabel = (f: any, customerName?: string): string => {
@@ -107,21 +94,19 @@ interface State {
 	name: string;
 }
 
+// Campos del relevamiento 5.1. Ya no están tipo de persona, tipo de documento,
+// país (fijo en Argentina), mail ni letrado patrocinante.
 const EMPTY_FORM = {
 	fileId: "" as string | number,
-	partyType: "actor",
+	partyId: null as number | null,
+	partyType: "" as string,
 	name: "",
-	personType: "fisica",
-	documentType: "DNI",
 	documentNumber: "",
-	countryId: "" as string | number,
 	stateId: "" as string | number,
 	city: "",
 	postalCode: "",
 	address: "",
 	phone: "",
-	email: "",
-	sponsoringLawyer: "",
 };
 
 interface PartesViewProps {
@@ -146,12 +131,9 @@ export const PartesView = ({
 	const [editingPartId, setEditingPartId] = useState<number | null>(null);
 	const [form, setForm] = useState(EMPTY_FORM);
 
-	// Countries / States
-	const [countries, setCountries] = useState<Country[]>([]);
+	// Provincias de Argentina — el país ya no se elige.
 	const [states, setStates] = useState<State[]>([]);
-	const [isCountryOpen, setIsCountryOpen] = useState(false);
 	const [isStateOpen, setIsStateOpen] = useState(false);
-	const countryRef = useRef<HTMLDivElement>(null);
 	const stateRef = useRef<HTMLDivElement>(null);
 
 	// ── Dropdowns state ──
@@ -160,11 +142,7 @@ export const PartesView = ({
 	const fileRef = useRef<HTMLDivElement>(null);
 	const fileSearchRef = useRef<HTMLInputElement>(null);
 	const [isPartyTypeOpen, setIsPartyTypeOpen] = useState(false);
-	const [isPersonTypeOpen, setIsPersonTypeOpen] = useState(false);
-	const [isDocTypeOpen, setIsDocTypeOpen] = useState(false);
 	const partyTypeRef = useRef<HTMLDivElement>(null);
-	const personTypeRef = useRef<HTMLDivElement>(null);
-	const docTypeRef = useRef<HTMLDivElement>(null);
 
 	// Cerrar dropdowns al click fuera
 	useEffect(() => {
@@ -173,28 +151,12 @@ export const PartesView = ({
 				setIsFileOpen(false);
 			if (isPartyTypeOpen && !partyTypeRef.current?.contains(e.target as Node))
 				setIsPartyTypeOpen(false);
-			if (
-				isPersonTypeOpen &&
-				!personTypeRef.current?.contains(e.target as Node)
-			)
-				setIsPersonTypeOpen(false);
-			if (isDocTypeOpen && !docTypeRef.current?.contains(e.target as Node))
-				setIsDocTypeOpen(false);
-			if (isCountryOpen && !countryRef.current?.contains(e.target as Node))
-				setIsCountryOpen(false);
 			if (isStateOpen && !stateRef.current?.contains(e.target as Node))
 				setIsStateOpen(false);
 		};
 		document.addEventListener("mousedown", handle);
 		return () => document.removeEventListener("mousedown", handle);
-	}, [
-		isFileOpen,
-		isPartyTypeOpen,
-		isPersonTypeOpen,
-		isDocTypeOpen,
-		isCountryOpen,
-		isStateOpen,
-	]);
+	}, [isFileOpen, isPartyTypeOpen, isStateOpen]);
 
 	// Auto-focus file search on open
 	useEffect(() => {
@@ -218,35 +180,28 @@ export const PartesView = ({
 		);
 	}, [files, fileSearch]);
 
-	// Fetch countries
-	const fetchCountries = useCallback(async () => {
+	// El país quedó fijo en Argentina (relevamiento 5.1), así que ya no se
+	// elige: se cargan directamente sus provincias en vez de encadenar dos
+	// selects.
+	const fetchStates = useCallback(async () => {
 		try {
 			const res = await fetch(`${SETTINGS_COUNTRIES_ENDPOINT}`, {
 				headers: { Authorization: `Bearer ${session?.user?.accessToken}` },
 			});
 			if (!res.ok) return;
 			const data = await res.json();
-			setCountries(data.data || []);
+			const argentina = (data.data || []).find(
+				(c: Country) => c.name?.toLowerCase() === "argentina",
+			);
+			setStates(argentina?.states || []);
 		} catch (error) {
-			console.error("Error fetching countries:", error);
+			console.error("Error fetching states:", error);
 		}
 	}, [session?.user?.accessToken]);
 
 	useEffect(() => {
-		if (session?.user?.accessToken) fetchCountries();
-	}, [fetchCountries, session?.user?.accessToken]);
-
-	// Update states when country changes
-	useEffect(() => {
-		if (form.countryId) {
-			const selectedCountry = countries.find(
-				(c) => c.id === Number(form.countryId),
-			);
-			setStates(selectedCountry?.states || []);
-		} else {
-			setStates([]);
-		}
-	}, [form.countryId, countries]);
+		if (session?.user?.accessToken) fetchStates();
+	}, [fetchStates, session?.user?.accessToken]);
 
 	// ── Fetch partes ──
 	const fetchParts = useCallback(async () => {
@@ -285,26 +240,37 @@ export const PartesView = ({
 		setEditingPartId(part.id);
 		setForm({
 			fileId: part.fileId || "",
-			partyType: part.partyType || "actor",
+			partyId: part.partyId ?? null,
+			// Una parte sin migrar puede traer un tipo que ya no se ofrece
+			// ('actor', 'DEMANDANTE'). Se deja vacío para que se elija uno válido
+			// en vez de traducirlo por nuestra cuenta.
+			partyType: (PARTY_TYPES as readonly string[]).includes(part.partyType)
+				? part.partyType
+				: "",
 			name: part.name || "",
-			personType: part.personType || "fisica",
-			documentType: part.documentType || "DNI",
 			documentNumber: part.documentNumber || "",
-			countryId: part.countryId || "",
 			stateId: part.stateId || "",
 			city: part.city || "",
 			postalCode: part.postalCode || "",
 			address: part.address || "",
 			phone: part.phone || "",
-			email: part.email || "",
-			sponsoringLawyer: part.sponsoringLawyer || "",
 		});
 		setIsModalOpen(true);
 	};
 
 	const handleSave = async () => {
-		if (!form.name.trim()) {
-			toast.error("El nombre es obligatorio");
+		// Los cinco obligatorios del relevamiento 5.1, más el expediente: la
+		// asignación es por expediente y no por caso (5.3).
+		const faltantes: string[] = [];
+		if (!form.name.trim()) faltantes.push("razón social o nombre");
+		if (!form.partyType) faltantes.push("tipo de parte");
+		if (!form.fileId) faltantes.push("expediente");
+		if (!form.address.trim()) faltantes.push("domicilio");
+		if (!form.city.trim()) faltantes.push("ciudad");
+		if (!form.stateId) faltantes.push("provincia");
+		if (!form.postalCode.trim()) faltantes.push("código postal");
+		if (faltantes.length > 0) {
+			toast.error(`Falta completar: ${faltantes.join(", ")}`);
 			return;
 		}
 
@@ -322,20 +288,16 @@ export const PartesView = ({
 					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
 				body: JSON.stringify({
-					fileId: form.fileId ? Number(form.fileId) : null,
+					fileId: Number(form.fileId),
+					partyId: form.partyId,
 					partyType: form.partyType,
 					name: form.name.trim(),
-					personType: form.personType,
-					documentType: form.documentType,
-					documentNumber: form.documentNumber || null,
-					countryId: form.countryId ? Number(form.countryId) : null,
-					stateId: form.stateId ? Number(form.stateId) : null,
-					city: form.city || null,
-					postalCode: form.postalCode || null,
-					address: form.address || null,
-					phone: form.phone || null,
-					email: form.email || null,
-					sponsoringLawyer: form.sponsoringLawyer || null,
+					address: form.address.trim(),
+					city: form.city.trim(),
+					stateId: Number(form.stateId),
+					postalCode: form.postalCode.trim(),
+					phone: form.phone.trim() || null,
+					documentNumber: form.documentNumber.trim() || null,
 				}),
 			});
 
@@ -395,8 +357,9 @@ export const PartesView = ({
 		}
 	};
 
-	const getPartyTypeLabel = (code: string) =>
-		PARTS_TYPES.find((t) => t.code === code)?.name || code;
+	// Resuelve también los tipos heredados, para que una parte sin migrar no
+	// muestre el código crudo en la tarjeta.
+	const getPartyTypeLabel = (code: string) => partyTypeLabel(code);
 
 	// ── Loading ──
 	if (loading) {
@@ -462,13 +425,21 @@ export const PartesView = ({
 							>
 								<div className="flex items-start justify-between gap-4">
 									<div className="flex items-start gap-3 min-w-0 flex-1">
+										{/* El ícono ya no depende del tipo de persona, que se eliminó
+										    del formulario: ahora distingue una parte reutilizada del
+										    catálogo de una carga suelta. */}
 										<div
-											className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${parte.personType === "fisica" ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800" : "bg-muted border border-border"}`}
+											className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${parte.party ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800" : "bg-muted border border-border"}`}
+											title={
+												parte.party
+													? `Del catálogo: ${parte.party.name}`
+													: "Carga suelta, no está en el catálogo"
+											}
 										>
-											{parte.personType === "fisica" ? (
-												<User className="h-5 w-5 text-blue-500" />
+											{parte.party ? (
+												<Building2 className="h-5 w-5 text-blue-500" />
 											) : (
-												<Building2 className="h-5 w-5 text-muted-foreground" />
+												<User className="h-5 w-5 text-muted-foreground" />
 											)}
 										</div>
 										<div className="flex-1 min-w-0">
@@ -483,12 +454,10 @@ export const PartesView = ({
 												</span>
 											</div>
 
-											{/* Document info */}
+											{/* DNI — el tipo de documento se eliminó del formulario. */}
 											{parte.documentNumber && (
 												<p className="mt-1 text-xs text-muted-foreground">
-													<span className="font-medium">
-														{parte.documentType}:
-													</span>{" "}
+													<span className="font-medium">DNI:</span>{" "}
 													{parte.documentNumber}
 												</p>
 											)}
@@ -509,17 +478,21 @@ export const PartesView = ({
 														<span>{parte.phone}</span>
 													</div>
 												)}
-												{parte.email && (
+												{parte.postalCode && (
 													<div className="flex items-center gap-1.5">
-														<Mail className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-														<span>{parte.email}</span>
+														<MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+														<span>
+															C.P. {parte.postalCode}
+															{parte.state ? ` — ${parte.state.name}` : ""}
+														</span>
 													</div>
 												)}
-												{parte.sponsoringLawyer && (
-													<div className="flex items-center gap-1.5">
-														<FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+												{parte.party && !parte.party.isActive && (
+													<div className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+														<FileText className="h-3.5 w-3.5 shrink-0" />
 														<span>
-															Letrado patrocinante: {parte.sponsoringLawyer}
+															"{parte.party.name}" está dada de baja en el
+															catálogo
 														</span>
 													</div>
 												)}
@@ -595,9 +568,6 @@ export const PartesView = ({
 											onClick={() => {
 												setIsFileOpen(!isFileOpen);
 												setIsPartyTypeOpen(false);
-												setIsPersonTypeOpen(false);
-												setIsDocTypeOpen(false);
-												setIsCountryOpen(false);
 												setIsStateOpen(false);
 											}}
 											className="w-full flex items-center justify-between text-sm text-left bg-muted border border-border rounded-lg px-3 py-2.5 hover:border-input focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
@@ -681,8 +651,8 @@ export const PartesView = ({
 								/>
 							</div>
 
-							{/* Tipo de parte + Tipo de persona */}
-							<div className="grid grid-cols-2 gap-3">
+							{/* Tipo de parte */}
+							<div className="grid grid-cols-1 gap-3">
 								{/* Dropdown: Tipo de parte */}
 								<div>
 									<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
@@ -693,14 +663,15 @@ export const PartesView = ({
 											type="button"
 											onClick={() => {
 												setIsPartyTypeOpen(!isPartyTypeOpen);
-												setIsPersonTypeOpen(false);
-												setIsDocTypeOpen(false);
 											}}
 											className="w-full flex items-center justify-between text-sm text-left bg-muted border border-border rounded-lg px-3 py-2.5 hover:border-input focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
 										>
 											<span className="truncate text-foreground">
-												{PARTS_TYPES.find((t) => t.code === form.partyType)
-													?.name || "Seleccionar"}
+												{form.partyType
+													? PARTY_TYPE_LABELS[
+															form.partyType as keyof typeof PARTY_TYPE_LABELS
+														]
+													: "Seleccionar"}
 											</span>
 											<ChevronDown
 												className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isPartyTypeOpen ? "rotate-180" : ""}`}
@@ -709,66 +680,19 @@ export const PartesView = ({
 										{isPartyTypeOpen && (
 											<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
 												<div className="max-h-52 overflow-y-auto">
-													{PARTS_TYPES.map((t) => (
+													{PARTY_TYPES.map((t) => (
 														<button
-															key={t.id}
+															key={t}
 															type="button"
 															onClick={() => {
-																setForm({ ...form, partyType: t.code });
+																setForm({ ...form, partyType: t });
 																setIsPartyTypeOpen(false);
 															}}
-															className={`w-full px-3 py-2.5 text-left hover:bg-muted transition-colors border-b border-border last:border-0 ${form.partyType === t.code ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
+															className={`w-full px-3 py-2.5 text-left hover:bg-muted transition-colors border-b border-border last:border-0 ${form.partyType === t ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
 														>
-															<span className="text-sm">{t.name}</span>
-															<span className="block text-[11px] text-muted-foreground">
-																{t.description}
+															<span className="text-sm">
+																{PARTY_TYPE_LABELS[t]}
 															</span>
-														</button>
-													))}
-												</div>
-											</div>
-										)}
-									</div>
-								</div>
-
-								{/* Dropdown: Tipo de persona */}
-								<div>
-									<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-										Tipo de persona <span className="text-red-500">*</span>
-									</label>
-									<div className="relative" ref={personTypeRef}>
-										<button
-											type="button"
-											onClick={() => {
-												setIsPersonTypeOpen(!isPersonTypeOpen);
-												setIsPartyTypeOpen(false);
-												setIsDocTypeOpen(false);
-											}}
-											className="w-full flex items-center justify-between text-sm text-left bg-muted border border-border rounded-lg px-3 py-2.5 hover:border-input focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-										>
-											<span className="truncate text-foreground">
-												{PERSON_TYPE_OPTIONS.find(
-													(o) => o.value === form.personType,
-												)?.label || "Seleccionar"}
-											</span>
-											<ChevronDown
-												className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isPersonTypeOpen ? "rotate-180" : ""}`}
-											/>
-										</button>
-										{isPersonTypeOpen && (
-											<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
-												<div className="max-h-52 overflow-y-auto">
-													{PERSON_TYPE_OPTIONS.map((o) => (
-														<button
-															key={o.value}
-															type="button"
-															onClick={() => {
-																setForm({ ...form, personType: o.value });
-																setIsPersonTypeOpen(false);
-															}}
-															className={`w-full px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors border-b border-border last:border-0 ${form.personType === o.value ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
-														>
-															{o.label}
 														</button>
 													))}
 												</div>
@@ -780,51 +704,6 @@ export const PartesView = ({
 
 							{/* Documento */}
 							<div className="grid grid-cols-2 gap-3">
-								{/* Dropdown: Tipo de documento */}
-								<div>
-									<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-										Tipo de documento <span className="text-red-500">*</span>
-									</label>
-									<div className="relative" ref={docTypeRef}>
-										<button
-											type="button"
-											onClick={() => {
-												setIsDocTypeOpen(!isDocTypeOpen);
-												setIsPartyTypeOpen(false);
-												setIsPersonTypeOpen(false);
-											}}
-											className="w-full flex items-center justify-between text-sm text-left bg-muted border border-border rounded-lg px-3 py-2.5 hover:border-input focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-										>
-											<span className="truncate text-foreground">
-												{DOCUMENT_TYPE_OPTIONS.find(
-													(o) => o.value === form.documentType,
-												)?.label || "Seleccionar"}
-											</span>
-											<ChevronDown
-												className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isDocTypeOpen ? "rotate-180" : ""}`}
-											/>
-										</button>
-										{isDocTypeOpen && (
-											<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
-												<div className="max-h-52 overflow-y-auto">
-													{DOCUMENT_TYPE_OPTIONS.map((o) => (
-														<button
-															key={o.value}
-															type="button"
-															onClick={() => {
-																setForm({ ...form, documentType: o.value });
-																setIsDocTypeOpen(false);
-															}}
-															className={`w-full px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors border-b border-border last:border-0 ${form.documentType === o.value ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
-														>
-															{o.label}
-														</button>
-													))}
-												</div>
-											</div>
-										)}
-									</div>
-								</div>
 								<div>
 									<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
 										Nro. de documento
@@ -853,62 +732,6 @@ export const PartesView = ({
 
 							{/* País + Provincia */}
 							<div className="grid grid-cols-2 gap-3">
-								{/* Dropdown: País */}
-								<div>
-									<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-										País
-									</label>
-									<div className="relative" ref={countryRef}>
-										<button
-											type="button"
-											onClick={() => {
-												setIsCountryOpen(!isCountryOpen);
-												setIsStateOpen(false);
-												setIsPartyTypeOpen(false);
-												setIsPersonTypeOpen(false);
-												setIsDocTypeOpen(false);
-											}}
-											className="w-full flex items-center justify-between text-sm text-left bg-muted border border-border rounded-lg px-3 py-2.5 hover:border-input focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
-										>
-											<span
-												className={`truncate ${!form.countryId ? "text-muted-foreground" : "text-foreground"}`}
-											>
-												{form.countryId
-													? countries.find(
-															(c) => c.id === Number(form.countryId),
-														)?.name || "Seleccionar"
-													: "Seleccionar país"}
-											</span>
-											<ChevronDown
-												className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isCountryOpen ? "rotate-180" : ""}`}
-											/>
-										</button>
-										{isCountryOpen && (
-											<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg overflow-hidden">
-												<div className="max-h-52 overflow-y-auto">
-													{countries.map((c) => (
-														<button
-															key={c.id}
-															type="button"
-															onClick={() => {
-																setForm({
-																	...form,
-																	countryId: c.id,
-																	stateId: "",
-																});
-																setIsCountryOpen(false);
-															}}
-															className={`w-full px-3 py-2.5 text-sm text-left hover:bg-muted transition-colors border-b border-border last:border-0 ${Number(form.countryId) === c.id ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
-														>
-															{c.name}
-														</button>
-													))}
-												</div>
-											</div>
-										)}
-									</div>
-								</div>
-
 								{/* Dropdown: Provincia/Estado */}
 								<div>
 									<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
@@ -920,10 +743,7 @@ export const PartesView = ({
 											onClick={() => {
 												if (states.length > 0) {
 													setIsStateOpen(!isStateOpen);
-													setIsCountryOpen(false);
 													setIsPartyTypeOpen(false);
-													setIsPersonTypeOpen(false);
-													setIsDocTypeOpen(false);
 												}
 											}}
 											disabled={states.length === 0}
@@ -1023,8 +843,8 @@ export const PartesView = ({
 								Contacto
 							</h3>
 
-							{/* Teléfono + Email */}
-							<div className="grid grid-cols-2 gap-3">
+							{/* Teléfono */}
+							<div className="grid grid-cols-1 gap-3">
 								<div>
 									<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
 										<Phone className="h-3.5 w-3.5 text-muted-foreground" />
@@ -1040,48 +860,9 @@ export const PartesView = ({
 										}
 									/>
 								</div>
-								<div>
-									<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-										<Mail className="h-3.5 w-3.5 text-muted-foreground" />
-										Email
-									</label>
-									<input
-										type="email"
-										className={inputClass}
-										placeholder="email@ejemplo.com"
-										value={form.email}
-										onChange={(e) =>
-											setForm({ ...form, email: e.target.value })
-										}
-									/>
-								</div>
 							</div>
 						</div>
 
-						{/* Separador */}
-						<div className="border-t border-border" />
-
-						{/* ── Sección: Representación legal ── */}
-						<div className="space-y-3">
-							<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-								Representación legal
-							</h3>
-							<div>
-								<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
-									<FileText className="h-3.5 w-3.5 text-muted-foreground" />
-									Letrado patrocinante
-								</label>
-								<input
-									type="text"
-									className={inputClass}
-									placeholder="Nombre del letrado patrocinante"
-									value={form.sponsoringLawyer}
-									onChange={(e) =>
-										setForm({ ...form, sponsoringLawyer: e.target.value })
-									}
-								/>
-							</div>
-						</div>
 					</div>
 
 					{/* Footer */}
