@@ -327,6 +327,13 @@ export const CALCULATOR_CAUSES_LIST_ENDPOINT = `${API_BASE_URL}/statistics/cause
 // DASHBOARD ENDPOINTS
 export const DASHBOARD_LEGAL_STATS_ENDPOINT = `${API_BASE_URL}/dashboard/legal-stats`;
 
+// PARTIES ENDPOINTS
+// Catálogo global de partes reutilizables — aseguradoras, peritos habituales.
+// Se carga una vez y se reutiliza entre expedientes (relevamiento 5.3).
+export const PARTIES_ENDPOINT = `${API_BASE_URL}/parties`;
+export const PARTY_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/parties/${id}`;
+
 // TASKS ENDPOINTS
 export const TASKS_ENDPOINT = `${API_BASE_URL}/tasks`;
 export const TASKS_CASES_ENDPOINT = `${API_BASE_URL}/tasks/cases`;
