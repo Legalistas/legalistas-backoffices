@@ -25,7 +25,7 @@ export default function CasesDetailsPage() {
 	const router = useRouter();
 	const params = useParams();
 	const searchParams = useSearchParams();
-	const { data: session } = useSession();
+	const { data: session, status: sessionStatus } = useSession();
 	const [cases, setCases] = useState<Cases | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -124,9 +124,16 @@ export default function CasesDetailsPage() {
 		}
 	}, [params.caseId, session?.user?.accessToken]);
 
+	// Se espera a que NextAuth resuelva la sesión antes de pedir el caso.
+	//
+	// Sin esta guarda, el primer render dispara el fetch con `session` todavía
+	// en undefined y manda el header literal "Bearer undefined", que el backend
+	// rechaza con 401 "Invalid token" — el error "No se pudo cargar el caso"
+	// que aparecía al entrar y se arreglaba refrescando.
 	useEffect(() => {
+		if (sessionStatus === "loading") return;
 		fetchCaseData();
-	}, [fetchCaseData]);
+	}, [fetchCaseData, sessionStatus]);
 
 	const handleDeleteCases = useCallback(async () => {
 		try {
