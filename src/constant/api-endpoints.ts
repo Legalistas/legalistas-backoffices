@@ -340,6 +340,9 @@ export const LEADS_NOTES_DELETE_ENDPOINT = (leadId: number, noteId: number) =>
 
 export const LEADS_UPLOAD_ENDPOINT = (leadId: number) =>
 	`${API_BASE_URL}/crm/leads/${leadId}/documents`;
+// URL de descarga: firmada si está en MinIO (00_CRM/…), o la ruta vieja del disco.
+export const LEADS_DOCUMENT_URL_ENDPOINT = (leadId: number, documentId: number) =>
+	`${API_BASE_URL}/crm/leads/${leadId}/documents/${documentId}/url`;
 export const LEADS_DOCUMENTS_DELETE_ENDPOINT = (
 	leadId: number,
 	documentId: number,

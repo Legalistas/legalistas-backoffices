@@ -14,6 +14,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import {
 	BASE_URL,
+	LEADS_DOCUMENT_URL_ENDPOINT,
 	LEADS_DOCUMENTS_DELETE_ENDPOINT,
 } from "@/constant/api-endpoints";
 import type { Lead } from "@/types/crm";
@@ -87,28 +88,25 @@ export default function LeadDocuments({
 		});
 	};
 
-	// Función para descargar un documento
+	// Descargar un documento. Los nuevos están en MinIO (carpeta del cliente en
+	// 00_CRM/…) y se abren con una URL firmada; los viejos, del disco del server.
 	const handleDownload = async (docItem: any) => {
 		try {
-			// Verificar que tenemos la ruta del archivo
-			if (!docItem.filePath) {
+			if (!docItem.filePath && !docItem.objectKey) {
 				toast.error("Ruta del archivo no disponible");
 				return;
 			}
 
-			// Construir la URL completa del documento
-			const fileUrl = `${BASE_URL}/${docItem.filePath}`;
+			let fileUrl = `${BASE_URL}/${docItem.filePath}`;
+			if (docItem.objectKey) {
+				const res = await fetch(LEADS_DOCUMENT_URL_ENDPOINT(Number(lead.id), docItem.id), {
+					headers: { Authorization: `Bearer ${session?.user?.accessToken}` },
+				});
+				if (!res.ok) throw new Error("No se pudo obtener el documento");
+				fileUrl = ((await res.json()) as { url: string }).url;
+			}
 
-			// Crear un enlace temporal y simular clic para descargar
-			const a = document.createElement("a");
-			a.href = fileUrl;
-			a.download = docItem.fileName || "documento";
-			a.target = "_blank"; // Abrir en nueva pestaña por si es necesario autenticación
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-
-			toast.success("Descargando documento...");
+			window.open(fileUrl, "_blank", "noopener,noreferrer");
 		} catch (error) {
 			console.error("Error al descargar:", error);
 			toast.error("Error al descargar el documento");
