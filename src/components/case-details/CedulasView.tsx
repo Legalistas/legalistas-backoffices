@@ -43,7 +43,7 @@ interface Cedula {
 	partName?: string;
 	content: string;
 	pdfPath?: string;
-	// PDF en MinIO: 1_ESCRITOS/{expediente}/CEDULAS/{destinatario}/
+	// PDF en MinIO: {expediente}/2_CEDULAS/{destinatario}/
 	objectKey?: string | null;
 	juez?: string;
 	secretaria?: string;
@@ -199,7 +199,7 @@ export const CedulasView = ({
 		);
 	}, [judicialFiles, fileSearch]);
 
-	// Mismo criterio que la carpeta CEDULAS/ del expediente: agrupadas por
+	// Mismo criterio que la carpeta 2_CEDULAS/ del expediente: agrupadas por
 	// destinatario y, dentro de cada uno, de la más antigua a la más reciente
 	// (el backend ya las devuelve en orden cronológico). Aplica igual a cédula
 	// judicial y carta certificada.

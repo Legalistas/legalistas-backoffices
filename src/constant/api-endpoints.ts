@@ -137,7 +137,7 @@ export const ESCRITOS_VARIABLES_ENDPOINT = `${API_BASE_URL}/escritos/variables`;
 export const ESCRITOS_PLANTILLAS_ENDPOINT = `${API_BASE_URL}/escritos/plantillas`;
 export const ESCRITOS_PLANTILLA_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/escritos/plantillas/${id}`;
-// Subpath de la carpeta del expediente en 1_ESCRITOS/.
+// Subpath de la carpeta del expediente (en la raíz del caso: `2_JUDICIAL_… nº …/`).
 export const CASE_EXPEDIENTE_FOLDER_ENDPOINT = (
 	caseId: number,
 	fileId: number,

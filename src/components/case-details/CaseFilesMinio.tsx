@@ -37,10 +37,20 @@ import { useConfirm } from "@/hooks/useConfirm";
 import { getExpedienteLabel } from "@/lib/expediente-label";
 
 // Árbol interno del caso (backend: services/minio-paths.ts):
-//   0_DOCUMENTOS/            lo que no depende de un expediente
-//   1_ESCRITOS/{id}_{CUIJ}/  lo generado o asociado a cada expediente
+//   0_DOCUMENTOS/                          lo que no depende de un expediente
+//   1_ADMINISTRATIVO_{carátula} nº {nro}/  una carpeta por expediente
+//   2_JUDICIAL_… / 3_MEDIDA_CAUTELAR_… / 4_MEDIDA_ASEGURAMIENTO_PRUEBA_…
+//     1_INICIO/ 2_CEDULAS/ 3_ESCRITOS/
+//   5_LIQUIDACIONES/                       liquidaciones de la causa, por fecha
 const DOCUMENTS_FOLDER = "0_DOCUMENTOS";
-const ESCRITOS_FOLDER = "1_ESCRITOS";
+const LIQUIDACIONES_FOLDER = "5_LIQUIDACIONES";
+const EXPEDIENTE_FOLDER_RE =
+	/^[1-4]_(ADMINISTRATIVO|JUDICIAL|MEDIDA_CAUTELAR|MEDIDA_ASEGURAMIENTO_PRUEBA)_/;
+const EXPEDIENTE_SUBFOLDER_LABELS: Record<string, string> = {
+	"1_INICIO": "Inicio",
+	"2_CEDULAS": "Cédulas",
+	"3_ESCRITOS": "Escritos",
+};
 
 type Expediente = Parameters<typeof getExpedienteLabel>[0];
 
@@ -108,10 +118,10 @@ export default function CaseFilesMinio({
 		[token],
 	);
 
-	// En la raíz no se sube nada suelto: hay que entrar a Documentos o a un
-	// expediente. `1_ESCRITOS/` a secas tampoco — es solo el contenedor.
+	// En la raíz no se sube nada suelto: hay que entrar a Documentos, a
+	// Liquidaciones o a un expediente.
 	const isRoot = subpath === "";
-	const canWriteHere = !isRoot && subpath !== `${ESCRITOS_FOLDER}/`;
+	const canWriteHere = !isRoot;
 
 	const expedienteLabelById = useMemo(() => {
 		const map = new Map<number, string>();
@@ -149,24 +159,18 @@ export default function CaseFilesMinio({
 		fetchList(subpath);
 	}, [subpath, fetchList]);
 
-	// Nombre legible de cada segmento: "Documentos", "Escritos" y la carátula
-	// del expediente en lugar de `45_21_12345678_9`.
-	const segmentLabel = useCallback(
-		(segment: string, parent: string) => {
-			if (parent === "" && segment === DOCUMENTS_FOLDER) return "Documentos";
-			if (parent === "" && segment === ESCRITOS_FOLDER) return "Escritos";
-			if (parent === `${ESCRITOS_FOLDER}/`) {
-				const id = Number(/^(\d+)_/.exec(segment)?.[1]);
-				return expedienteLabelById.get(id) ?? segment;
-			}
-			// Dentro de cada expediente, las cédulas van aparte de los escritos.
-			if (segment === "CEDULAS" && parent.startsWith(`${ESCRITOS_FOLDER}/`)) {
-				return "Cédulas";
-			}
-			return segment;
-		},
-		[expedienteLabelById],
-	);
+	// Nombre legible de cada segmento: "Documentos", "Liquidaciones" y, dentro
+	// de un expediente, "Inicio" / "Cédulas" / "Escritos". La carpeta del
+	// expediente ya se lee sola (categoría + carátula + nº).
+	const segmentLabel = useCallback((segment: string, parent: string) => {
+		if (parent === "" && segment === DOCUMENTS_FOLDER) return "Documentos";
+		if (parent === "" && segment === LIQUIDACIONES_FOLDER) return "Liquidaciones";
+		const parentName = parent.split("/").filter(Boolean).pop() ?? "";
+		if (EXPEDIENTE_FOLDER_RE.test(parentName) && EXPEDIENTE_SUBFOLDER_LABELS[segment]) {
+			return EXPEDIENTE_SUBFOLDER_LABELS[segment];
+		}
+		return segment;
+	}, []);
 
 	const breadcrumbs = useMemo(() => {
 		const parts = subpath.split("/").filter(Boolean);
@@ -175,8 +179,7 @@ export default function CaseFilesMinio({
 		for (const p of parts) {
 			const label = segmentLabel(p, running);
 			running += `${p}/`;
-			// "Escritos" vuelve a la raíz, donde están listados los expedientes.
-			acc.push({ label, subpath: running === `${ESCRITOS_FOLDER}/` ? "" : running });
+			acc.push({ label, subpath: running });
 		}
 		return acc;
 	}, [subpath, segmentLabel]);
@@ -341,10 +344,14 @@ export default function CaseFilesMinio({
 		}
 	};
 
-	// En la raíz, lo que no es Documentos ni Escritos es del árbol anterior.
+	// En la raíz, lo que no es Documentos, Liquidaciones ni un expediente es del
+	// árbol anterior (1_ESCRITOS/, …).
 	const legacyFolders = isRoot
 		? (data?.folders ?? []).filter(
-				(f) => f.name !== DOCUMENTS_FOLDER && f.name !== ESCRITOS_FOLDER,
+				(f) =>
+					f.name !== DOCUMENTS_FOLDER &&
+					f.name !== LIQUIDACIONES_FOLDER &&
+					!EXPEDIENTE_FOLDER_RE.test(f.name),
 			)
 		: [];
 
@@ -456,10 +463,10 @@ export default function CaseFilesMinio({
 				</button>
 			</section>
 
-			{/* Escritos — uno por expediente */}
+			{/* Expedientes — una carpeta por expediente */}
 			<section className="space-y-2">
 				<div className="flex items-center justify-between gap-2">
-					<h3 className="text-sm font-semibold">Escritos por expediente</h3>
+					<h3 className="text-sm font-semibold">Expedientes</h3>
 					<Link href={`/admin/legal-cases/${caseId}/srt-forms/new`}>
 						<Button size="sm" variant="outline">
 							<Plus className="h-4 w-4 mr-1" />
@@ -468,7 +475,8 @@ export default function CaseFilesMinio({
 					</Link>
 				</div>
 				<p className="text-xs text-muted-foreground">
-					Demandas, formularios, RPU, anexos y cédulas de cada expediente.
+					Cada expediente tiene Inicio, Cédulas y Escritos (demandas, formularios,
+					RPU, anexos).
 				</p>
 				{expedientes.length === 0 ? (
 					<div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
@@ -502,7 +510,25 @@ export default function CaseFilesMinio({
 				)}
 			</section>
 
-			{/* Lo que quedó del árbol anterior (1_ADMINISTRATIVO, 2_JUDICIAL_…) */}
+			{/* Liquidaciones — a nivel caso */}
+			<section className="space-y-2">
+				<h3 className="text-sm font-semibold">Liquidaciones</h3>
+				<button
+					type="button"
+					onClick={() => setSubpath(`${LIQUIDACIONES_FOLDER}/`)}
+					className="flex w-full items-center gap-3 rounded-md border px-4 py-3 text-left transition-colors hover:bg-muted/40"
+				>
+					<FolderOpen className="h-5 w-5 shrink-0 text-amber-500" />
+					<div className="min-w-0">
+						<div className="text-sm font-medium">Liquidaciones de la causa</div>
+						<div className="text-xs text-muted-foreground">
+							Las que se van haciendo desde la calculadora, por fecha.
+						</div>
+					</div>
+				</button>
+			</section>
+
+			{/* Lo que quedó del árbol anterior (1_ESCRITOS/, …) */}
 			{data && (legacyFolders.length > 0 || data.files.length > 0) && (
 				<section className="space-y-2">
 					<h3 className="text-sm font-semibold text-muted-foreground">
