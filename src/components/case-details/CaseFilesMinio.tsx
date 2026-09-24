@@ -131,11 +131,18 @@ export default function CaseFilesMinio({
 		return map;
 	}, [expedientes, customerName]);
 
+	// Solo cuenta la respuesta del último pedido: si se entra a una carpeta
+	// antes de que termine de cargar la anterior, la respuesta vieja llegaba
+	// después y mostraba el contenido de otra carpeta.
+	const requestIdRef = useRef(0);
+
 	const fetchList = useCallback(
 		async (nextSubpath: string) => {
 			if (!token) return;
+			const requestId = ++requestIdRef.current;
 			setLoading(true);
 			setError(null);
+			setData(null);
 			try {
 				const url = `${API_BASE_URL}/cases/${caseId}/minio/list${nextSubpath ? `?subpath=${encodeURIComponent(nextSubpath)}` : ""}`;
 				const res = await fetch(url, { headers: authHeaders });
@@ -144,12 +151,14 @@ export default function CaseFilesMinio({
 					throw new Error(j.error || `HTTP ${res.status}`);
 				}
 				const json = (await res.json()) as ListResponse;
+				if (requestId !== requestIdRef.current) return;
 				setData(json);
 			} catch (e) {
+				if (requestId !== requestIdRef.current) return;
 				setError((e as Error).message);
 				setData(null);
 			} finally {
-				setLoading(false);
+				if (requestId === requestIdRef.current) setLoading(false);
 			}
 		},
 		[caseId, token, authHeaders],

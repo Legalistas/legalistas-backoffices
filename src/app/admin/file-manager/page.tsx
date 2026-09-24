@@ -401,7 +401,12 @@ function FileManagerPage() {
 		return () => clearTimeout(timer);
 	}, [search, currentPrefix, accessToken]);
 
+	// Solo cuenta la respuesta del último pedido (una carpeta que tardó no pisa
+	// a la que se abrió después).
+	const requestIdRef = useRef(0);
+
 	const fetchList = useCallback(async (targetPrefix: string) => {
+		const requestId = ++requestIdRef.current;
 		setLoading(true);
 		setError(null);
 		try {
@@ -411,12 +416,14 @@ function FileManagerPage() {
 			);
 			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al listar el bucket"));
 			const json = (await res.json()) as ListResponse;
+			if (requestId !== requestIdRef.current) return;
 			setData(json);
 		} catch (err) {
+			if (requestId !== requestIdRef.current) return;
 			setError(err instanceof Error ? err.message : "Error desconocido");
 			setData(null);
 		} finally {
-			setLoading(false);
+			if (requestId === requestIdRef.current) setLoading(false);
 		}
 	}, [accessToken]);
 
