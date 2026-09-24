@@ -9,6 +9,11 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { LawyerSelectDropdown } from "@/components/cases/LawyerSelectDropdown";
 import { StageSelectDropdown } from "@/components/cases/StageSelectDropdown";
+import {
+	type AdministrativeSubstage,
+	aplicaSubetapa,
+	SubstageSelect,
+} from "@/components/cases/SubstageSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -114,6 +119,35 @@ export const CaseDetails = ({
 				error instanceof Error
 					? error.message
 					: "No se pudo actualizar la etapa del caso.",
+			);
+		} finally {
+			setIsUpdatingStage(false);
+		}
+	};
+
+	// El backend mueve la carpeta del caso a 2_ADMINISTRATIVO/{subetapa}/.
+	const handleSubstageChange = async (substage: AdministrativeSubstage) => {
+		if (substage === (caseData.administrativeSubstage ?? "INICIADO")) return;
+		setIsUpdatingStage(true);
+		try {
+			const response = await fetch(`${CASES_ENDPOINT}/${caseData.id}`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
+				body: JSON.stringify({ administrativeSubstage: substage }),
+			});
+			if (!response.ok) {
+				throw new Error(
+					await apiErrorMessage(response, "No se pudo actualizar la subetapa."),
+				);
+			}
+			toast.success("Subetapa actualizada: la carpeta del caso se movió");
+			onCaseUpdated?.();
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "No se pudo actualizar la subetapa.",
 			);
 		} finally {
 			setIsUpdatingStage(false);
@@ -391,6 +425,23 @@ export const CaseDetails = ({
 								)}
 							</div>
 						</div>
+
+						{/* Subetapa: solo Administrativo + Accidente de Trabajo. Mueve la carpeta. */}
+						{aplicaSubetapa(Number(caseData.stageId), Number(caseData.servicesId)) && (
+							<>
+								<div className="h-5 w-px bg-border" />
+								<div className="flex items-center gap-2">
+									<span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+										Subetapa
+									</span>
+									<SubstageSelect
+										value={caseData.administrativeSubstage}
+										onChange={handleSubstageChange}
+										disabled={isUpdatingStage}
+									/>
+								</div>
+							</>
+						)}
 
 						{Number(caseData.stageId) === 6 && (
 							<>

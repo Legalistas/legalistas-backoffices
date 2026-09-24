@@ -109,6 +109,12 @@ export const ME_ATTENDANCE_ACTION_ENDPOINT = `${API_BASE_URL}/me/attendance/acti
 // LEGAL CASES
 export const CASES_ENDPOINT = `${API_BASE_URL}/cases`;
 export const CASES_EXPIRATION_ALERTS_ENDPOINT = `${API_BASE_URL}/cases/expiration-alerts`;
+// Lead del CRM de la causa: notas y reunión de entrada.
+export const CASE_CRM_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/crm`;
+// Línea de tiempo: registro cronológico de la causa.
+export const CASE_TIMELINE_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/timeline`;
 // Expedientes del caso.
 export const CASE_FILES_ENDPOINT = (caseId: number) =>
 	`${API_BASE_URL}/cases/${caseId}/files`;

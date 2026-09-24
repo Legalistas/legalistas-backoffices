@@ -323,7 +323,7 @@ export default function GenerateSrtFormPage() {
 								<strong>Trabajador</strong>, <strong>Empleador</strong> y{" "}
 								<strong>ART</strong> en la tab{" "}
 								<Link
-									href={`/admin/legal-cases/${caseId}?tab=info`}
+									href={`/admin/legal-cases/${caseId}?tab=informacion&sub=srt`}
 									className="underline"
 								>
 									Info
@@ -418,7 +418,7 @@ export default function GenerateSrtFormPage() {
 										Se completa con los datos del trabajador y del letrado que
 										ya están en la tab{" "}
 										<Link
-											href={`/admin/legal-cases/${caseId}?tab=info`}
+											href={`/admin/legal-cases/${caseId}?tab=informacion&sub=srt`}
 											className="underline"
 										>
 											Info

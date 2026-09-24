@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
 	Tabs,
 	TabsContent,
@@ -15,28 +15,63 @@ import type {
 	CasesFiles,
 	CasesNotes,
 } from "@/types/cases";
-import { CaseAnalysisView } from "@/components/case-analyzer/CaseAnalysisView";
 import CaseFilesMinio from "./CaseFilesMinio";
-import CaseLogsComponent from "./CaseLogsComponent";
 import { CedulasView } from "./CedulasView";
-import { EscritosView } from "./EscritosView";
 import ConsultationsView from "./ConsultationsView";
+import { EscritosView } from "./EscritosView";
 import { EventosView } from "./EventosView";
 import { FilesListView } from "./FilesListView";
 import { GastosView } from "./GastosView";
+import { InformacionView } from "./InformacionView";
 import { InformeTrimestralView } from "./InformeTrimestralView";
 import { LiquidacionView } from "./LiquidacionView";
 import { NotesView } from "./NotesView";
-import { PartesView } from "./PartesView";
 import { PlazosView } from "./PlazosView";
 import SrtFormsHistory from "./SrtFormsHistory";
-import { SrtInfoView } from "./SrtInfoView";
+import { TimelineView } from "./TimelineView";
+
+// Navegación de la causa (relevamiento 7). Orden acordado:
+//   Notas → Expedientes → Cédulas → Escritos → Eventos → Liquidación
+// y después Información (Info + Partes unificadas) y Línea de tiempo. Las que
+// el relevamiento no ordena quedan al final, para no perder nada. "Análisis"
+// se mantiene pero deshabilitado hasta que se reestructure su API.
+
+const TABS = [
+	{ value: "notes", label: "Notas" },
+	{ value: "files", label: "Expedientes" },
+	{ value: "cedulas", label: "Cédulas" },
+	{ value: "escritos", label: "Escritos" },
+	{ value: "eventos", label: "Eventos" },
+	{ value: "liquidacion", label: "Liquidación" },
+	{ value: "informacion", label: "Información" },
+	{ value: "timeline", label: "Línea de tiempo" },
+	{ value: "documents", label: "Documentos" },
+	{ value: "plazos", label: "Plazos" },
+	{ value: "gastos", label: "Gastos" },
+	{ value: "consultations", label: "Consultas" },
+	{ value: "informe", label: "Informe" },
+] as const;
+
+type TabValue = (typeof TABS)[number]["value"];
+
+// Links viejos: Info y Partes ahora son subtabs de Información.
+const LEGACY_TABS: Record<string, TabValue> = {
+	info: "informacion",
+	partes: "informacion",
+};
+
+const normalizarTab = (t: string | null | undefined): TabValue | null => {
+	if (!t) return null;
+	if (t in LEGACY_TABS) return LEGACY_TABS[t];
+	return TABS.some((x) => x.value === t) ? (t as TabValue) : null;
+};
 
 interface CaseTabsProps {
 	activeTab: string;
 	onTabChange: (tab: string) => void;
 	notes: CasesNotes[];
-	logs: CaseLogs[];
+	/** @deprecated La actividad se ve en "Línea de tiempo" (GET /timeline). */
+	logs?: CaseLogs[];
 	consultation: CaseConsultations[];
 	caseId: string;
 	caseData: Cases;
@@ -59,7 +94,6 @@ export const CaseTabs = ({
 	activeTab,
 	onTabChange,
 	notes = [],
-	logs = [],
 	consultation = [],
 	caseId,
 	caseData,
@@ -73,18 +107,17 @@ export const CaseTabs = ({
 }: CaseTabsProps) => {
 	const router = useRouter();
 	const searchParams = useSearchParams();
-	const [tab, setTab] = useState(() => searchParams.get("tab") || activeTab);
+	const [tab, setTab] = useState<TabValue>(
+		() => normalizarTab(searchParams.get("tab")) ?? normalizarTab(activeTab) ?? "notes",
+	);
 
-	useEffect(() => {
-		const urlTab = searchParams.get("tab");
-		if (urlTab && urlTab !== tab) setTab(urlTab);
-	}, []);
-
-	const handleTabChange = (newTab: string) => {
+	const handleTabChange = (value: string) => {
+		const newTab = normalizarTab(value) ?? "notes";
 		setTab(newTab);
 		onTabChange(newTab);
 		const params = new URLSearchParams(window.location.search);
 		params.set("tab", newTab);
+		params.delete("sub");
 		router.replace(`${window.location.pathname}?${params.toString()}`);
 	};
 
@@ -100,84 +133,19 @@ export const CaseTabs = ({
 	const tabContentClass = "bg-card text-card-foreground";
 
 	return (
-		<Tabs defaultValue={tab} onValueChange={handleTabChange} className="w-full">
+		<Tabs value={tab} onValueChange={handleTabChange} className="w-full">
 			<TabsList className="w-full bg-card text-card-foreground p-2 overflow-x-auto">
-				<TabsTrigger value="info">Info</TabsTrigger>
-				<TabsTrigger value="files">Expedientes</TabsTrigger>
-				<TabsTrigger value="eventos">Eventos</TabsTrigger>
-				<TabsTrigger value="plazos">Plazos</TabsTrigger>
-				<TabsTrigger value="documents">Documentos</TabsTrigger>
-				<TabsTrigger value="escritos">Escritos</TabsTrigger>
-				<TabsTrigger value="notes">Notas</TabsTrigger>
-				<TabsTrigger value="liquidacion">Liquidación</TabsTrigger>
-				<TabsTrigger value="partes">Partes</TabsTrigger>
-				<TabsTrigger value="gastos">Gastos</TabsTrigger>
-				<TabsTrigger value="cedulas">Cédulas</TabsTrigger>
-				<TabsTrigger value="consultations">Consultas</TabsTrigger>
-				<TabsTrigger value="informe">Informe</TabsTrigger>
-				<TabsTrigger value="ia">Análisis IA</TabsTrigger>
+				{TABS.map((t) => (
+					<TabsTrigger key={t.value} value={t.value}>
+						{t.label}
+					</TabsTrigger>
+				))}
+				{/* Provisorio: se mantiene pero deshabilitado hasta reestructurar su API. */}
+				<TabsTrigger value="ia" disabled title="En reestructuración">
+					Análisis
+				</TabsTrigger>
 			</TabsList>
 
-			{/* 0. Info — bloques A-E para todos los formularios SRT */}
-			<TabsContent value="info" className={tabContentClass}>
-				<SrtInfoView caseId={caseId} />
-			</TabsContent>
-
-			{/* 1. Expedientes */}
-			<TabsContent value="files" className={tabContentClass}>
-				<FilesListView
-					files={filteredFiles}
-					caseId={caseId}
-					customer={customer}
-					onAddNewFile={onAddNewFile}
-				/>
-			</TabsContent>
-
-			{/* 2. Eventos */}
-			<TabsContent value="eventos" className={tabContentClass}>
-				<EventosView
-					files={filteredFiles}
-					caseId={caseId}
-					responsibleLawyer={responsibleLawyer}
-					internalLawyer={internalLawyer}
-					customerName={customer?.name}
-				/>
-			</TabsContent>
-
-			{/* 3. Plazos */}
-			<TabsContent value="plazos" className={tabContentClass}>
-				<PlazosView
-					files={filteredFiles}
-					caseId={caseId}
-					responsibleLawyer={responsibleLawyer}
-					internalLawyer={internalLawyer}
-					customerName={customer?.name}
-				/>
-			</TabsContent>
-
-			{/* 4. Documentos (árbol MinIO scopeado al caso): Documentos del caso +
-			    Escritos por expediente */}
-			<TabsContent value="documents" className={tabContentClass}>
-				<div className="space-y-4 p-4">
-					<CaseFilesMinio
-						caseId={caseId}
-						files={filteredFiles}
-						customerName={customer?.name}
-					/>
-					<SrtFormsHistory caseId={caseId} />
-				</div>
-			</TabsContent>
-
-			{/* 4b. Escritos por expediente, en orden cronológico */}
-			<TabsContent value="escritos" className={tabContentClass}>
-				<EscritosView
-					caseId={caseId}
-					files={filteredFiles}
-					customerName={customer?.name}
-				/>
-			</TabsContent>
-
-			{/* 5. Notas */}
 			<TabsContent value="notes" className={tabContentClass}>
 				<NotesView
 					notes={notes}
@@ -188,39 +156,72 @@ export const CaseTabs = ({
 				/>
 			</TabsContent>
 
-			{/* 6. Liquidación */}
+			<TabsContent value="files" className={tabContentClass}>
+				<FilesListView
+					files={filteredFiles}
+					caseId={caseId}
+					customer={customer}
+					onAddNewFile={onAddNewFile}
+				/>
+			</TabsContent>
+
+			<TabsContent value="cedulas" className={tabContentClass}>
+				<CedulasView caseId={caseId} files={filteredFiles} customerName={customer?.name} />
+			</TabsContent>
+
+			<TabsContent value="escritos" className={tabContentClass}>
+				<EscritosView caseId={caseId} files={filteredFiles} customerName={customer?.name} />
+			</TabsContent>
+
+			<TabsContent value="eventos" className={tabContentClass}>
+				<EventosView
+					files={filteredFiles}
+					caseId={caseId}
+					responsibleLawyer={responsibleLawyer}
+					internalLawyer={internalLawyer}
+					customerName={customer?.name}
+				/>
+			</TabsContent>
+
 			<TabsContent value="liquidacion" className={tabContentClass}>
 				<LiquidacionView caseData={caseData} />
 			</TabsContent>
 
-			{/* 7. Partes */}
-			<TabsContent value="partes" className={tabContentClass}>
-				<PartesView
+			<TabsContent value="informacion" className={tabContentClass}>
+				<InformacionView
 					caseId={caseId}
+					caseData={caseData}
 					files={filteredFiles}
 					customerName={customer?.name}
 				/>
 			</TabsContent>
 
-			{/* 8. Gastos */}
+			<TabsContent value="timeline" className={tabContentClass}>
+				<TimelineView caseId={caseId} />
+			</TabsContent>
+
+			{/* Árbol MinIO del caso: Documentos del caso + Escritos por expediente. */}
+			<TabsContent value="documents" className={tabContentClass}>
+				<div className="space-y-4 p-4">
+					<CaseFilesMinio caseId={caseId} files={filteredFiles} customerName={customer?.name} />
+					<SrtFormsHistory caseId={caseId} />
+				</div>
+			</TabsContent>
+
+			<TabsContent value="plazos" className={tabContentClass}>
+				<PlazosView
+					files={filteredFiles}
+					caseId={caseId}
+					responsibleLawyer={responsibleLawyer}
+					internalLawyer={internalLawyer}
+					customerName={customer?.name}
+				/>
+			</TabsContent>
+
 			<TabsContent value="gastos" className={tabContentClass}>
-				<GastosView
-					caseId={caseId}
-					files={filteredFiles}
-					customerName={customer?.name}
-				/>
+				<GastosView caseId={caseId} files={filteredFiles} customerName={customer?.name} />
 			</TabsContent>
 
-			{/* 9. Cédulas */}
-			<TabsContent value="cedulas" className={tabContentClass}>
-				<CedulasView
-					caseId={caseId}
-					files={filteredFiles}
-					customerName={customer?.name}
-				/>
-			</TabsContent>
-
-			{/* 10. Consultas */}
 			<TabsContent value="consultations" className={tabContentClass}>
 				<ConsultationsView
 					consultations={consultation}
@@ -229,14 +230,8 @@ export const CaseTabs = ({
 				/>
 			</TabsContent>
 
-			{/* 11. Informe Trimestral */}
 			<TabsContent value="informe" className={tabContentClass}>
 				<InformeTrimestralView caseData={caseData} onCaseUpdated={onCaseUpdated} />
-			</TabsContent>
-
-			{/* 12. Análisis IA (Proyecto 4) */}
-			<TabsContent value="ia" className={tabContentClass}>
-				<CaseAnalysisView caseId={caseId} />
 			</TabsContent>
 		</Tabs>
 	);
