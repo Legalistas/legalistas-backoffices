@@ -30,6 +30,7 @@ import { SUPERADMIN } from "@/constant/menu";
 import { Role } from "@/constant/user";
 import AccountingDashboard from "./AccountingDashboard";
 import DashboardGreetingHeader from "./DashboardGreetingHeader";
+import EventosPorConfirmar from "./EventosPorConfirmar";
 import { SalesConversion } from "./SalesConversion";
 import { SalesLead } from "./SalesLead";
 import { SalesLocation } from "./SalesLocation";
@@ -802,6 +803,7 @@ function SalesDashboard() {
 		<div className="flex flex-col gap-6">
 			<DashboardGreetingHeader />
 			<SalesOverview />
+			<EventosPorConfirmar />
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 				<SalesPerformance />
 				<SalesConversion />

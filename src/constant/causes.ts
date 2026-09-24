@@ -127,21 +127,23 @@ export const FILES_MOVEMENTS_SCHEDULE_OPTIONS = [
 ];
 
 // ============================================================================
-// CASE EVENTS - Tipos de eventos (solo Audiencia y Pericia)
+// CASE EVENTS - Tipos de evento (relevamiento 8.1). Espeja el backend
+// (src/constants/caseEvents.ts). Los ids de subtipo que siguen existiendo
+// conservan su número; los retirados se migraron (20260924_eventos_subtipos).
 // ============================================================================
+export const CASE_EVENT_TYPE_AUDIENCIA = 1;
+
 export const CASE_EVENTS_TYPE = [
   {
     id: 1,
     value: 1,
     label: "Audiencia",
     subType: [
-      { id: 1, value: 1, label: "Homologación" },
-      { id: 2, value: 2, label: "Trámite" },
-      { id: 3, value: 3, label: "AVC" },
-      { id: 4, value: 4, label: "Ratificación" },
+      { id: 8, value: 8, label: "Judicial" },
+      { id: 9, value: 9, label: "Mediación" },
       { id: 5, value: 5, label: "Testimonial" },
-      { id: 6, value: 6, label: "Confesional" },
-      { id: 7, value: 7, label: "Reconocimiento" },
+      { id: 1, value: 1, label: "Homologación" },
+      { id: 4, value: 4, label: "Ratificación" },
     ],
   },
   {
@@ -149,11 +151,9 @@ export const CASE_EVENTS_TYPE = [
     value: 2,
     label: "Pericia",
     subType: [
-      { id: 1, value: 1, label: "Pericia SRT" },
-      { id: 2, value: 2, label: "Pericia JPM (Privada)" },
-      { id: 3, value: 3, label: "Pericia Oficial (Judicial)" },
-      { id: 4, value: 4, label: "Pericia Psicológica" },
-      { id: 5, value: 5, label: "Otras Pericias" },
+      { id: 1, value: 1, label: "SRT" },
+      { id: 2, value: 2, label: "Junta médica privada" },
+      { id: 3, value: 3, label: "Pericia oficial" },
     ],
   },
   {
@@ -161,15 +161,21 @@ export const CASE_EVENTS_TYPE = [
     value: 3,
     label: "Reunión",
     subType: [
-      { id: 1, value: 1, label: "Con el cliente" },
-      { id: 2, value: 2, label: "Con la contraparte" },
-      { id: 3, value: 3, label: "Interna del equipo" },
+      { id: 4, value: 4, label: "Videollamada" },
+      { id: 5, value: 5, label: "Presencial" },
     ],
   },
 ];
 
+/** "Judicial", "SRT"… (null si no hay subtipo o no existe). */
+export function caseEventSubTypeLabel(type?: number | null, subType?: number | null): string | null {
+  const t = CASE_EVENTS_TYPE.find((x) => x.value === type);
+  return t?.subType.find((s) => s.value === subType)?.label ?? null;
+}
+
 export const CASE_EVENTS_STATUS_OPTIONS = [
   { value: "pendiente", label: "Pendiente" },
+  { value: "confirmado", label: "Confirmado" },
   { value: "completado", label: "Completado" },
   { value: "cancelado", label: "Cancelado" },
   { value: "reprogramado", label: "Reprogramado" },

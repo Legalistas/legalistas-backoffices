@@ -44,6 +44,7 @@ import {
 	PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { CASE_EVENTS_TYPE, caseEventSubTypeLabel } from "@/constant/causes";
 
 type EventSource = "calendar" | "cases" | "crm";
 
@@ -67,26 +68,7 @@ const SOURCE_INFO: Record<
 	crm: { label: "Reunión CRM", color: "#0d9488" },
 };
 
-const CASE_EVENT_TYPES: Record<number, string> = {
-	1: "Audiencia",
-	2: "Pericia",
-};
-const CASE_AUDIENCIA_SUBTYPES: Record<number, string> = {
-	1: "Homologación",
-	2: "Trámite",
-	3: "AVC",
-	4: "Ratificación",
-	5: "Testimonial",
-	6: "Confesional",
-	7: "Reconocimiento",
-};
-const CASE_PERICIA_SUBTYPES: Record<number, string> = {
-	1: "Pericia SRT",
-	2: "JPM (Privada)",
-	3: "Oficial (Judicial)",
-	4: "Psicológica",
-	5: "Otras",
-};
+// Tipos y subtipos de evento de causa: catálogo único en constant/causes.ts.
 
 interface Lawyer {
 	id: number;
@@ -221,13 +203,10 @@ export const EventModal = ({
 	const isSaveDisabled = !title || !start || !!dateError;
 
 	const meta = event?.sourceMeta || {};
-	const caseEventType = meta.type ? CASE_EVENT_TYPES[meta.type] : null;
-	const caseEventSubType =
-		meta.type === 1
-			? CASE_AUDIENCIA_SUBTYPES[meta.subType]
-			: meta.type === 2
-				? CASE_PERICIA_SUBTYPES[meta.subType]
-				: null;
+	const caseEventType = meta.type
+		? (CASE_EVENTS_TYPE.find((t) => t.value === meta.type)?.label ?? null)
+		: null;
+	const caseEventSubType = caseEventSubTypeLabel(meta.type, meta.subType);
 
 	const SourceIcon = () => {
 		const iconClass = "h-4 w-4";

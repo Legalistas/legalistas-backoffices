@@ -362,6 +362,10 @@ export const CALCULATOR_CAUSES_LIST_ENDPOINT = `${API_BASE_URL}/statistics/cause
 
 // DASHBOARD ENDPOINTS
 export const DASHBOARD_LEGAL_STATS_ENDPOINT = `${API_BASE_URL}/dashboard/legal-stats`;
+// Seguimiento de Ventas: eventos que el cliente todavía no confirmó.
+export const DASHBOARD_EVENTS_TO_CONFIRM_ENDPOINT = `${API_BASE_URL}/dashboard/eventos-por-confirmar`;
+export const DASHBOARD_EVENT_CONFIRM_ENDPOINT = (eventId: number) =>
+	`${API_BASE_URL}/dashboard/eventos-por-confirmar/${eventId}/confirm`;
 
 // PARTIES ENDPOINTS
 // Catálogo global de partes reutilizables — aseguradoras, peritos habituales.

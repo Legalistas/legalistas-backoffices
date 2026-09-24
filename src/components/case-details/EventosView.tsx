@@ -28,7 +28,7 @@ import {
 	CASE_EVENT_BY_ID_ENDPOINT,
 	CASE_EVENTS_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { CASE_EVENTS_TYPE } from "@/constant/causes";
+import { CASE_EVENT_TYPE_AUDIENCIA, CASE_EVENTS_TYPE } from "@/constant/causes";
 import { getExpedienteLabel } from "@/lib/expediente-label";
 import { apiErrorMessage } from "@/lib/api-error";
 import { getProcessTypeLabel } from "@/lib/functions";
@@ -290,6 +290,19 @@ export const EventosView = ({
 	}, [files, responsibleOptions]);
 
 	const handleSaveEvent = async () => {
+		// Relevamiento 8.2: siempre con expediente; la audiencia (presencial)
+		// lleva la dirección, que se le notifica al cliente.
+		if (!newEvent.fileId) {
+			toast.error("Seleccioná el expediente del evento");
+			return;
+		}
+		if (
+			selectedType === CASE_EVENT_TYPE_AUDIENCIA &&
+			!newEvent.location.trim()
+		) {
+			toast.error("Cargá el lugar de la audiencia (dirección)");
+			return;
+		}
 		if (!selectedType) {
 			toast.error("Seleccioná un tipo de evento");
 			return;
@@ -709,14 +722,14 @@ export const EventosView = ({
 							)}
 						</>
 					)}
-					{/* El expediente es opcional: el backend acepta `fileId` null y
-					    una audiencia puede existir antes de que se cargue el
-					    expediente. Condicionar el botón a `files.length > 0` dejaba
-					    a esas causas sin forma de registrar el evento. */}
+					{/* El evento va siempre asociado a un expediente (relevamiento
+					    8.2): sin expedientes cargados no se puede crear. */}
 					<button
 						type="button"
 						onClick={handleOpenNewEvent}
-						className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-foreground bg-card border border-border rounded-md hover:bg-muted transition-colors"
+						disabled={files.length === 0}
+						title={files.length === 0 ? "Creá primero un expediente en la tab Expedientes" : undefined}
+						className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-foreground bg-card border border-border rounded-md hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						<Plus className="h-3.5 w-3.5" />
 						Nuevo evento
@@ -802,7 +815,7 @@ export const EventosView = ({
 							<div>
 								<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
 									<FileText className="h-3.5 w-3.5 text-muted-foreground" />
-									Expediente
+									Expediente <span className="text-destructive">*</span>
 								</label>
 								<div className="relative" ref={fileDropdownRef}>
 									<button
@@ -954,7 +967,13 @@ export const EventosView = ({
 								<div>
 									<label className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1.5">
 										<MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-										Lugar
+										{selectedType === CASE_EVENT_TYPE_AUDIENCIA ? (
+											<>
+												Lugar (dirección) <span className="text-destructive">*</span>
+											</>
+										) : (
+											"Lugar"
+										)}
 									</label>
 									<input
 										type="text"
@@ -962,7 +981,11 @@ export const EventosView = ({
 										onChange={(e) =>
 											setNewEvent({ ...newEvent, location: e.target.value })
 										}
-										placeholder="Juzgado, consultorio, etc."
+										placeholder={
+											selectedType === CASE_EVENT_TYPE_AUDIENCIA
+												? "Dirección del juzgado: se le avisa al cliente"
+												: "Consultorio, link de la videollamada, etc."
+										}
 										className="w-full text-sm bg-muted border border-border rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#09A4B5]/20 focus:border-primary transition-colors"
 									/>
 								</div>
@@ -982,6 +1005,10 @@ export const EventosView = ({
 							<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
 								Responsable
 							</h3>
+							<p className="text-xs text-muted-foreground -mt-1">
+								Se notifica siempre al abogado externo y al interno del caso; el
+								cliente recibe el aviso en la app para confirmar asistencia.
+							</p>
 							<div className="grid grid-cols-2 gap-2">
 								{responsibleOptions.map((person) => (
 									<label
