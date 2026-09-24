@@ -1,3 +1,4 @@
+import { MAILER_SEND_ENDPOINT } from "@/constant/api-endpoints";
 import { shouldBlockAutomaticEmail } from "./send-stage-email";
 
 interface SendCaseEmailParams {
@@ -9,6 +10,7 @@ interface SendCaseEmailParams {
   injury?: string;
   accidentDate?: string;
   responsibleLawyerName?: string;
+  accessToken?: string;
 }
 
 /**
@@ -24,6 +26,7 @@ export async function sendCaseEmail({
   injury,
   accidentDate,
   responsibleLawyerName,
+  accessToken,
 }: SendCaseEmailParams): Promise<void> {
   if (shouldBlockAutomaticEmail(email)) {
     console.log(
@@ -33,9 +36,12 @@ export async function sendCaseEmail({
   }
 
   try {
-    await fetch("/api/notifications/email", {
+    await fetch(MAILER_SEND_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify({
         to: email,
         template: "case-inicio-tramite",

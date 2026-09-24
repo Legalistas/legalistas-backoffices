@@ -10,6 +10,7 @@ import {
 	Scale,
 	Settings,
 	SquareKanban,
+	Wallet,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Notification } from "@/components/notification-provider";
@@ -56,6 +57,8 @@ export default function NotificationCard({
 				return <FileText className="h-5 w-5 text-green-500" />;
 			case "events":
 				return <Calendar className="h-5 w-5 text-indigo-500" />;
+			case "caja":
+				return <Wallet className="h-5 w-5 text-emerald-500" />;
 			case "success":
 				return <CheckCircle className="h-5 w-5 text-green-500" />;
 			case "warning":
@@ -81,6 +84,8 @@ export default function NotificationCard({
 				return "Archivos";
 			case "events":
 				return "Eventos";
+			case "caja":
+				return "Caja";
 			case "success":
 				return "Éxito";
 			case "warning":
@@ -108,6 +113,8 @@ export default function NotificationCard({
 				return "bg-green-100 text-green-800";
 			case "events":
 				return "bg-indigo-100 text-indigo-800";
+			case "caja":
+				return "bg-emerald-100 text-emerald-800";
 			case "success":
 				return "bg-green-100 text-green-800";
 			case "warning":

@@ -10,6 +10,7 @@ import {
 	Scale,
 	Settings,
 	SquareKanban,
+	Wallet,
 	X,
 } from "lucide-react";
 import Link from "next/link";
@@ -39,9 +40,9 @@ export default function NotificationDropdown() {
 		notifications,
 		loading,
 		markNotificationAsRead,
+		isRinging,
 	} = useNotifications();
 	const [isOpen, setIsOpen] = useState(false);
-	const [notifying, setNotifying] = useState(true);
 
 	function toggleDropdown() {
 		setIsOpen(!isOpen);
@@ -53,7 +54,6 @@ export default function NotificationDropdown() {
 
 	const handleClick = () => {
 		toggleDropdown();
-		setNotifying(false);
 	};
 
 	const handleNotificationClick = (notification: Notification) => {
@@ -80,6 +80,8 @@ export default function NotificationDropdown() {
 				return <FileText className="h-4 w-4 text-green-500" />;
 			case "events":
 				return <Calendar className="h-4 w-4 text-indigo-500" />;
+			case "caja":
+				return <Wallet className="h-4 w-4 text-emerald-500" />;
 			case "success":
 				return <CheckCircle className="h-4 w-4 text-green-500" />;
 			case "warning":
@@ -106,7 +108,15 @@ export default function NotificationDropdown() {
 						<span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-75 animate-ping"></span>
 					</span>
 				)}
-				<Bell className="w-5 h-5" />
+				<Bell
+					className={`w-5 h-5 origin-top ${
+						isRinging
+							? "animate-bell-ring"
+							: unreadCount > 0
+								? "animate-bell-idle"
+								: ""
+					}`}
+				/>
 			</button>
 			<Dropdown
 				isOpen={isOpen}

@@ -20,19 +20,13 @@ import type { Lead } from "@/types/crm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-	Card,
-	CardContent,
-	CardDescription,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
-import {
 	Table,
 	TableBody,
 	TableCell,
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
+import AddDocumentButton from "./AddDocumentButton";
 
 interface LeadDocumentsProps {
 	lead: Lead;
@@ -168,13 +162,15 @@ export default function LeadDocuments({
 	};
 
 	return (
-		<Card>
-			<CardHeader>
-				<CardTitle>Documentos</CardTitle>
-				<CardDescription>Archivos relacionados con este lead</CardDescription>
-			</CardHeader>
-			<CardContent>
-				{(lead.crmDocument?.length ?? 0) > 0 ? (
+		<div>
+			<div className="mb-4 flex items-center justify-between">
+				<h3 className="flex items-center gap-2 text-lg font-semibold">
+					<FileText className="h-5 w-5 text-primary" />
+					Documentos
+				</h3>
+				<AddDocumentButton lead={lead} onLeadUpdate={onLeadUpdate} />
+			</div>
+			{(lead.crmDocument?.length ?? 0) > 0 ? (
 					<div className="overflow-x-auto">
 						<Table className="w-full">
 							<TableHeader>
@@ -258,7 +254,6 @@ export default function LeadDocuments({
 						</p>
 					</div>
 				)}
-			</CardContent>
-		</Card>
+		</div>
 	);
 }

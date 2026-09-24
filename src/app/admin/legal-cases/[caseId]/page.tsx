@@ -17,6 +17,7 @@ import { FileFilters } from "@/components/case-details/FileFilters";
 import { NewFileModal } from "@/components/case-details/NewFileModal";
 import { CASES_ENDPOINT } from "@/constant/api-endpoints";
 import { getCurrentMainStage, mainSteps } from "@/constant/stage-mapping";
+import { apiErrorMessage } from "@/lib/api-error";
 import { stageCases } from "@/lib/constant";
 import type { Cases } from "@/types/cases";
 
@@ -24,14 +25,14 @@ export default function CasesDetailsPage() {
 	const router = useRouter();
 	const params = useParams();
 	const searchParams = useSearchParams();
-	const { data: session } = useSession();
+	const { data: session, status: sessionStatus } = useSession();
 	const [cases, setCases] = useState<Cases | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editMode, setEditMode] = useState(false);
 	const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-	const [activeTab, setActiveTab] = useState("files");
+	const [activeTab, setActiveTab] = useState("notes");
 
 	const [fileTypeFilter, setFileTypeFilter] = useState(0); // 0 for "todos"
 	const [isFilterSelectOpen, setIsFilterSelectOpen] = useState(false);
@@ -123,27 +124,40 @@ export default function CasesDetailsPage() {
 		}
 	}, [params.caseId, session?.user?.accessToken]);
 
+	// Se espera a que NextAuth resuelva la sesión antes de pedir el caso.
+	//
+	// Sin esta guarda, el primer render dispara el fetch con `session` todavía
+	// en undefined y manda el header literal "Bearer undefined", que el backend
+	// rechaza con 401 "Invalid token" — el error "No se pudo cargar el caso"
+	// que aparecía al entrar y se arreglaba refrescando.
 	useEffect(() => {
+		if (sessionStatus === "loading") return;
 		fetchCaseData();
-	}, [fetchCaseData]);
+	}, [fetchCaseData, sessionStatus]);
 
 	const handleDeleteCases = useCallback(async () => {
 		try {
-			const response = await fetch(`/api/cases/${params.caseId}`, {
+			// `/api/cases` no existe en Next: se borra directo en el backend.
+			const response = await fetch(`${CASES_ENDPOINT}/${params.caseId}`, {
 				method: "DELETE",
+				headers: {
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
 			});
 
 			if (!response.ok) {
-				throw new Error("Failed to delete case");
+				throw new Error(
+					await apiErrorMessage(response, "Error al eliminar el caso"),
+				);
 			}
 
-			toast.success("Case deleted successfully");
+			toast.success("Caso eliminado correctamente");
 			router.push("/admin/legal-cases");
 		} catch (err) {
 			console.error("Error deleting case:", err);
-			toast.error("Failed to delete case");
+			toast.error(err instanceof Error ? err.message : "Error al eliminar el caso");
 		}
-	}, [params.caseId, router]);
+	}, [params.caseId, router, session?.user?.accessToken]);
 
 	const filteredFiles = useCallback(() => {
 		if (!cases?.files) return [];
@@ -293,7 +307,6 @@ export default function CasesDetailsPage() {
 							notes={cases.notes || []}
 							consultation={cases.consultation || []}
 							logs={cases.logs || []}
-							documents={cases.documents || []}
 							caseId={params.caseId as string}
 							caseData={cases}
 							filteredFiles={filteredFiles()}

@@ -47,6 +47,9 @@ export interface Addresses {
 	countryId: number;
 	stateId: number;
 	city: string;
+	/** FK al catálogo de localidades (KPIs v1.1, punto 7.2). */
+	cityId?: number | null;
+	locality?: { id: number; name: string } | null;
 	cp: string | null;
 	street: string | null;
 	streetNumber: string;

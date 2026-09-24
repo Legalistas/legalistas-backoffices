@@ -4,10 +4,12 @@ import { useSession } from "next-auth/react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	SETTINGS_COUNTRIES_ENDPOINT,
 	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
+import LocalitySelect from "@/components/common/LocalitySelect";
 import type { User } from "@/types/users";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -71,6 +73,8 @@ interface CustomerForm {
 		countryId?: number;
 		stateId?: number;
 		city: string;
+		/** FK al catálogo de localidades (KPIs v1.1, punto 7.2). */
+		cityId?: number;
 		cp: string;
 		street: string;
 		streetNumber: string;
@@ -217,7 +221,8 @@ export default function CustomerRegistrationModal({
 				},
 				userAddresses: (editingCustomer.userAddresses || []).map((addr) => ({
 					id: addr.id, userId: addr.userId, countryId: addr.countryId, stateId: addr.stateId,
-					city: addr.city, cp: addr.cp || "", street: addr.street || "", streetNumber: addr.streetNumber,
+					city: addr.city, cityId: addr.cityId ?? undefined,
+					cp: addr.cp || "", street: addr.street || "", streetNumber: addr.streetNumber,
 					description: addr.description, isDefault: addr.isDefault,
 					state: { id: addr.state.id, name: addr.state.name, countryId: addr.state.countryId,
 						country: { id: addr.country.id, name: addr.country.name, code: addr.country.code, phoneCode: addr.country.prefix } },
@@ -243,11 +248,6 @@ export default function CustomerRegistrationModal({
 			setNewCustomer((prev) => ({ ...prev, street: value }));
 		} else if (name === "streetNumber") {
 			setNewCustomer((prev) => ({ ...prev, streetNumber: value }));
-		} else if (name === "city") {
-			setNewCustomer((prev) => {
-				const addr = prev.userAddresses[0] || createEmptyAddress(prev.id || 0);
-				return { ...prev, userAddresses: [{ ...addr, city: value }, ...prev.userAddresses.slice(1)] };
-			});
 		} else if (name.startsWith("profile.")) {
 			const field = name.replace("profile.", "");
 			setNewCustomer((prev) => ({
@@ -263,13 +263,39 @@ export default function CustomerRegistrationModal({
 		const numValue = value === "" ? undefined : Number.parseInt(value);
 		setNewCustomer((prev) => {
 			const addr = prev.userAddresses[0] || createEmptyAddress(prev.id || 0);
-			const updated = { ...addr, [name]: numValue, ...(name === "countryId" && { stateId: undefined }) };
+			// Cambiar país invalida la provincia, y cambiar provincia invalida
+			// la localidad — si no, queda un Rosario colgado de Córdoba.
+			const updated = {
+				...addr,
+				[name]: numValue,
+				...(name === "countryId" && { stateId: undefined, cityId: undefined }),
+				...(name === "stateId" && { cityId: undefined, city: "" }),
+			};
 			return { ...prev, userAddresses: [updated, ...prev.userAddresses.slice(1)] };
 		});
 	};
 
+	/**
+	 * Guarda la localidad elegida. Además del `cityId` deja el nombre en
+	 * `city` (texto), que sigue siendo lo que muestran las pantallas viejas
+	 * mientras dure la transición del punto 7.2.
+	 */
+	const handleAddressCityChange = (cityId: number | null, name?: string) => {
+		setNewCustomer((prev) => {
+			const addr = prev.userAddresses[0] || createEmptyAddress(prev.id || 0);
+			return {
+				...prev,
+				userAddresses: [
+					{ ...addr, cityId: cityId ?? undefined, ...(name && { city: name }) },
+					...prev.userAddresses.slice(1),
+				],
+			};
+		});
+	};
+
 	const createEmptyAddress = (userId: number) => ({
-		id: 0, userId, countryId: 1, stateId: undefined as number | undefined, city: "", cp: "", street: "", streetNumber: "",
+		id: 0, userId, countryId: 1, stateId: undefined as number | undefined,
+		city: "", cityId: undefined as number | undefined, cp: "", street: "", streetNumber: "",
 		description: "", isDefault: true, state: { id: 0, name: "", countryId: 1, country: { id: 1, name: "", code: "", phoneCode: "" } },
 	});
 
@@ -293,9 +319,12 @@ export default function CustomerRegistrationModal({
 					birthDate: mode === "edit" ? (birthDate || new Date()) : null,
 					phone: newCustomer.userProfile?.phone || "",
 				},
-				userAddresses: newCustomer.userAddresses?.length
+				// stateId es NOT NULL en user_addresses: sin provincia no se manda dirección.
+				userAddresses: newCustomer.userAddresses?.[0]?.stateId
 					? [{ countryId: newCustomer.userAddresses[0].countryId, stateId: newCustomer.userAddresses[0].stateId,
-						city: newCustomer.userAddresses[0].city || "", cp: newCustomer.userAddresses[0].cp || "",
+						city: newCustomer.userAddresses[0].city || "",
+						cityId: newCustomer.userAddresses[0].cityId ?? null,
+						cp: newCustomer.userAddresses[0].cp || "",
 						street: mode === "edit" ? (newCustomer.street || "") : null,
 						streetNumber: mode === "edit" ? (newCustomer.streetNumber || "") : null,
 						description: newCustomer.userAddresses[0].description || "", isDefault: true }]
@@ -310,8 +339,12 @@ export default function CustomerRegistrationModal({
 			});
 
 			if (!response.ok) {
-				const err = await response.json();
-				throw new Error(err.message || "Error");
+				throw new Error(
+					await apiErrorMessage(
+						response,
+						`Error al ${mode === "edit" ? "actualizar" : "crear"} el cliente`,
+					),
+				);
 			}
 
 			const saved = await response.json();
@@ -321,7 +354,11 @@ export default function CustomerRegistrationModal({
 			onRefreshCustomers?.();
 			onClose();
 		} catch (error: any) {
-			toast.error(`Error al ${mode === "edit" ? "actualizar" : "crear"} el cliente`);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: `Error al ${mode === "edit" ? "actualizar" : "crear"} el cliente`,
+			);
 		} finally {
 			setIsCreating(false);
 		}
@@ -473,8 +510,15 @@ export default function CustomerRegistrationModal({
 								</Select>
 							</div>
 							<div className="space-y-2 sm:col-span-2">
-								<Label htmlFor="clientCity">Ciudad</Label>
-								<Input id="clientCity" name="city" value={newCustomer.userAddresses?.[0]?.city || ""} onChange={handleInputChange} placeholder="Buenos Aires" />
+								<Label>Ciudad / Localidad</Label>
+								{/* Desplegable dependiente de la provincia (KPIs v1.1,
+								    punto 7.2). Antes era texto libre y por eso no se
+								    podía medir por ciudad. */}
+								<LocalitySelect
+									stateId={newCustomer.userAddresses?.[0]?.stateId}
+									cityId={newCustomer.userAddresses?.[0]?.cityId}
+									onSelect={handleAddressCityChange}
+								/>
 							</div>
 						</div>
 					</section>

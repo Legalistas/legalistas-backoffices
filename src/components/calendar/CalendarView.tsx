@@ -18,6 +18,7 @@ import {
 	SETTINGS_HOLIDAY_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { apiErrorMessage } from "@/lib/api-error";
 import { EventModal } from "./EventModal";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
@@ -303,7 +304,9 @@ const CalendarView = ({
 		setHolidaysError(null);
 
 		try {
-			const res = await fetch(SETTINGS_HOLIDAY_ENDPOINT, {
+			// Sin limit el backend pagina de a 50 (orden por fecha asc) y se
+			// perdían los feriados más nuevos.
+			const res = await fetch(`${SETTINGS_HOLIDAY_ENDPOINT}?limit=1000`, {
 				headers: authHeaders(),
 				cache: "no-store",
 			});
@@ -492,7 +495,8 @@ const CalendarView = ({
 					headers: authHeaders(),
 					body: JSON.stringify(body),
 				});
-				if (!res.ok) throw new Error("Error al crear evento");
+				if (!res.ok)
+					throw new Error(await apiErrorMessage(res, "Error al crear evento"));
 				const json = await res.json();
 				savedId = String(json.data.id);
 			} else if (selectedEvent?.id) {
@@ -502,7 +506,10 @@ const CalendarView = ({
 					headers: authHeaders(),
 					body: JSON.stringify(body),
 				});
-				if (!res.ok) throw new Error("Error al actualizar evento");
+				if (!res.ok)
+					throw new Error(
+						await apiErrorMessage(res, "Error al actualizar evento"),
+					);
 			}
 
 			// Actualizar estado local
@@ -553,7 +560,8 @@ const CalendarView = ({
 					method: "DELETE",
 					headers: authHeaders(),
 				});
-				if (!res.ok) throw new Error("Error al eliminar evento");
+				if (!res.ok)
+					throw new Error(await apiErrorMessage(res, "Error al eliminar evento"));
 				setEvents((prev) => prev.filter((e) => e.id !== selectedEvent.id));
 			} catch (err) {
 				showError(

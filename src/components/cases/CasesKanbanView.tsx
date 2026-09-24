@@ -225,6 +225,15 @@ export function CasesKanbanView({
 																{caseItem.title || "Sin título"}
 															</h4>
 
+															{caseItem._count?.caseEvents === 0 && (
+																<span
+																	title="Sin audiencias, pericias ni reuniones cargadas"
+																	className="inline-flex items-center gap-1 mb-1 rounded-full bg-red-50 dark:bg-red-950 px-1.5 py-0.5 text-[10px] font-medium text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+																>
+																	Sin eventos
+																</span>
+															)}
+
 															{/* Service & Client */}
 															<div className="flex-1 min-h-0">
 																{caseItem.servicesId && (

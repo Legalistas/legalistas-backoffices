@@ -1,0 +1,947 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Anexo II - Rechazo Accidente de Trabajo</title>
+
+  <style>
+/*! tailwindcss v4.1.10 | MIT License | https://tailwindcss.com */
+@layer properties;
+@layer theme, base, components, utilities;
+@layer theme {
+  :root, :host {
+    --font-sans: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+      "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+      "Courier New", monospace;
+    --color-slate-100: oklch(96.8% 0.007 247.896);
+    --color-slate-900: oklch(20.8% 0.042 265.755);
+    --color-neutral-400: oklch(70.8% 0 0);
+    --color-neutral-500: oklch(55.6% 0 0);
+    --color-neutral-600: oklch(43.9% 0 0);
+    --color-neutral-800: oklch(26.9% 0 0);
+    --color-black: #000;
+    --color-white: #fff;
+    --spacing: 0.25rem;
+    --text-sm: 0.875rem;
+    --text-sm--line-height: calc(1.25 / 0.875);
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+    --font-weight-black: 900;
+    --tracking-tight: -0.025em;
+    --tracking-normal: 0em;
+    --leading-tight: 1.25;
+    --leading-snug: 1.375;
+    --leading-relaxed: 1.625;
+    --radius-md: 0.375rem;
+    --default-font-family: var(--font-sans);
+    --default-mono-font-family: var(--font-mono);
+  }
+}
+@layer base {
+  *, ::after, ::before, ::backdrop, ::file-selector-button {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
+  html, :host {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    font-family: var(--default-font-family, ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji");
+    font-feature-settings: var(--default-font-feature-settings, normal);
+    font-variation-settings: var(--default-font-variation-settings, normal);
+    -webkit-tap-highlight-color: transparent;
+  }
+  hr {
+    height: 0;
+    color: inherit;
+    border-top-width: 1px;
+  }
+  abbr:where([title]) {
+    -webkit-text-decoration: underline dotted;
+    text-decoration: underline dotted;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  a {
+    color: inherit;
+    -webkit-text-decoration: inherit;
+    text-decoration: inherit;
+  }
+  b, strong {
+    font-weight: bolder;
+  }
+  code, kbd, samp, pre {
+    font-family: var(--default-mono-font-family, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace);
+    font-feature-settings: var(--default-mono-font-feature-settings, normal);
+    font-variation-settings: var(--default-mono-font-variation-settings, normal);
+    font-size: 1em;
+  }
+  small {
+    font-size: 80%;
+  }
+  sub, sup {
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+  }
+  sub {
+    bottom: -0.25em;
+  }
+  sup {
+    top: -0.5em;
+  }
+  table {
+    text-indent: 0;
+    border-color: inherit;
+    border-collapse: collapse;
+  }
+  :-moz-focusring {
+    outline: auto;
+  }
+  progress {
+    vertical-align: baseline;
+  }
+  summary {
+    display: list-item;
+  }
+  ol, ul, menu {
+    list-style: none;
+  }
+  img, svg, video, canvas, audio, iframe, embed, object {
+    display: block;
+    vertical-align: middle;
+  }
+  img, video {
+    max-width: 100%;
+    height: auto;
+  }
+  button, input, select, optgroup, textarea, ::file-selector-button {
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    border-radius: 0;
+    background-color: transparent;
+    opacity: 1;
+  }
+  :where(select:is([multiple], [size])) optgroup {
+    font-weight: bolder;
+  }
+  :where(select:is([multiple], [size])) optgroup option {
+    padding-inline-start: 20px;
+  }
+  ::file-selector-button {
+    margin-inline-end: 4px;
+  }
+  ::placeholder {
+    opacity: 1;
+  }
+  @supports (not (-webkit-appearance: -apple-pay-button))  or (contain-intrinsic-size: 1px) {
+    ::placeholder {
+      color: currentcolor;
+      @supports (color: color-mix(in lab, red, red)) {
+        color: color-mix(in oklab, currentcolor 50%, transparent);
+      }
+    }
+  }
+  textarea {
+    resize: vertical;
+  }
+  ::-webkit-search-decoration {
+    -webkit-appearance: none;
+  }
+  ::-webkit-date-and-time-value {
+    min-height: 1lh;
+    text-align: inherit;
+  }
+  ::-webkit-datetime-edit {
+    display: inline-flex;
+  }
+  ::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+  ::-webkit-datetime-edit, ::-webkit-datetime-edit-year-field, ::-webkit-datetime-edit-month-field, ::-webkit-datetime-edit-day-field, ::-webkit-datetime-edit-hour-field, ::-webkit-datetime-edit-minute-field, ::-webkit-datetime-edit-second-field, ::-webkit-datetime-edit-millisecond-field, ::-webkit-datetime-edit-meridiem-field {
+    padding-block: 0;
+  }
+  :-moz-ui-invalid {
+    box-shadow: none;
+  }
+  button, input:where([type="button"], [type="reset"], [type="submit"]), ::file-selector-button {
+    appearance: button;
+  }
+  ::-webkit-inner-spin-button, ::-webkit-outer-spin-button {
+    height: auto;
+  }
+  [hidden]:where(:not([hidden="until-found"])) {
+    display: none !important;
+  }
+}
+@layer utilities {
+  .absolute {
+    position: absolute;
+  }
+  .sticky {
+    position: sticky;
+  }
+  .top-0 {
+    top: calc(var(--spacing) * 0);
+  }
+  .right-8 {
+    right: calc(var(--spacing) * 8);
+  }
+  .bottom-8 {
+    bottom: calc(var(--spacing) * 8);
+  }
+  .z-50 {
+    z-index: 50;
+  }
+  .mx-auto {
+    margin-inline: auto;
+  }
+  .-mt-4 {
+    margin-top: calc(var(--spacing) * -4);
+  }
+  .mt-0 {
+    margin-top: calc(var(--spacing) * 0);
+  }
+  .mt-1 {
+    margin-top: calc(var(--spacing) * 1);
+  }
+  .mt-2 {
+    margin-top: calc(var(--spacing) * 2);
+  }
+  .mt-3 {
+    margin-top: calc(var(--spacing) * 3);
+  }
+  .mt-4 {
+    margin-top: calc(var(--spacing) * 4);
+  }
+  .mt-6 {
+    margin-top: calc(var(--spacing) * 6);
+  }
+  .mt-7 {
+    margin-top: calc(var(--spacing) * 7);
+  }
+  .mt-8 {
+    margin-top: calc(var(--spacing) * 8);
+  }
+  .mt-9 {
+    margin-top: calc(var(--spacing) * 9);
+  }
+  .mt-12 {
+    margin-top: calc(var(--spacing) * 12);
+  }
+  .mt-24 {
+    margin-top: calc(var(--spacing) * 24);
+  }
+  .mb-2 {
+    margin-bottom: calc(var(--spacing) * 2);
+  }
+  .ml-1 {
+    margin-left: calc(var(--spacing) * 1);
+  }
+  .ml-\[76px\] {
+    margin-left: 76px;
+  }
+  .block {
+    display: block;
+  }
+  .flex {
+    display: flex;
+  }
+  .grid {
+    display: grid;
+  }
+  .h-\[72px\] {
+    height: 72px;
+  }
+  .h-\[76px\] {
+    height: 76px;
+  }
+  .h-\[88px\] {
+    height: 88px;
+  }
+  .min-h-\[58px\] {
+    min-height: 58px;
+  }
+  .w-\[88px\] {
+    width: 88px;
+  }
+  .w-full {
+    width: 100%;
+  }
+  .max-w-\[330px\] {
+    max-width: 330px;
+  }
+  .flex-1 {
+    flex: 1;
+  }
+  .grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .grid-cols-\[1\.15fr_\.55fr_\.55fr\] {
+    grid-template-columns: 1.15fr .55fr .55fr;
+  }
+  .grid-cols-\[1fr_1fr\] {
+    grid-template-columns: 1fr 1fr;
+  }
+  .flex-col {
+    flex-direction: column;
+  }
+  .items-center {
+    align-items: center;
+  }
+  .items-end {
+    align-items: flex-end;
+  }
+  .items-start {
+    align-items: flex-start;
+  }
+  .justify-between {
+    justify-content: space-between;
+  }
+  .justify-center {
+    justify-content: center;
+  }
+  .gap-2 {
+    gap: calc(var(--spacing) * 2);
+  }
+  .gap-3 {
+    gap: calc(var(--spacing) * 3);
+  }
+  .gap-9 {
+    gap: calc(var(--spacing) * 9);
+  }
+  .rounded-full {
+    border-radius: calc(infinity * 1px);
+  }
+  .rounded-md {
+    border-radius: var(--radius-md);
+  }
+  .border {
+    border-style: var(--tw-border-style);
+    border-width: 1px;
+  }
+  .border-0 {
+    border-style: var(--tw-border-style);
+    border-width: 0px;
+  }
+  .border-b {
+    border-bottom-style: var(--tw-border-style);
+    border-bottom-width: 1px;
+  }
+  .border-neutral-400 {
+    border-color: var(--color-neutral-400);
+  }
+  .border-neutral-500 {
+    border-color: var(--color-neutral-500);
+  }
+  .border-white\/25 {
+    border-color: color-mix(in srgb, #fff 25%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      border-color: color-mix(in oklab, var(--color-white) 25%, transparent);
+    }
+  }
+  .bg-\[\#087fbd\] {
+    background-color: #087fbd;
+  }
+  .bg-slate-100 {
+    background-color: var(--color-slate-100);
+  }
+  .bg-slate-900\/95 {
+    background-color: color-mix(in srgb, oklch(20.8% 0.042 265.755) 95%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-slate-900) 95%, transparent);
+    }
+  }
+  .bg-transparent {
+    background-color: transparent;
+  }
+  .p-0 {
+    padding: calc(var(--spacing) * 0);
+  }
+  .p-2 {
+    padding: calc(var(--spacing) * 2);
+  }
+  .p-3 {
+    padding: calc(var(--spacing) * 3);
+  }
+  .px-1 {
+    padding-inline: calc(var(--spacing) * 1);
+  }
+  .px-2 {
+    padding-inline: calc(var(--spacing) * 2);
+  }
+  .px-4 {
+    padding-inline: calc(var(--spacing) * 4);
+  }
+  .py-1 {
+    padding-block: calc(var(--spacing) * 1);
+  }
+  .py-1\.5 {
+    padding-block: calc(var(--spacing) * 1.5);
+  }
+  .py-2 {
+    padding-block: calc(var(--spacing) * 2);
+  }
+  .py-3 {
+    padding-block: calc(var(--spacing) * 3);
+  }
+  .pt-2 {
+    padding-top: calc(var(--spacing) * 2);
+  }
+  .pr-2 {
+    padding-right: calc(var(--spacing) * 2);
+  }
+  .pb-2 {
+    padding-bottom: calc(var(--spacing) * 2);
+  }
+  .pb-3 {
+    padding-bottom: calc(var(--spacing) * 3);
+  }
+  .pl-2 {
+    padding-left: calc(var(--spacing) * 2);
+  }
+  .text-center {
+    text-align: center;
+  }
+  .text-right {
+    text-align: right;
+  }
+  .align-top {
+    vertical-align: top;
+  }
+  .font-sans {
+    font-family: var(--font-sans);
+  }
+  .font-serif {
+    font-family: var(--font-serif);
+  }
+  .text-sm {
+    font-size: var(--text-sm);
+    line-height: var(--tw-leading, var(--text-sm--line-height));
+  }
+  .text-\[6\.5px\] {
+    font-size: 6.5px;
+  }
+  .text-\[8px\] {
+    font-size: 8px;
+  }
+  .text-\[9\.5px\] {
+    font-size: 9.5px;
+  }
+  .text-\[9px\] {
+    font-size: 9px;
+  }
+  .text-\[10\.5px\] {
+    font-size: 10.5px;
+  }
+  .text-\[10px\] {
+    font-size: 10px;
+  }
+  .text-\[11px\] {
+    font-size: 11px;
+  }
+  .text-\[12px\] {
+    font-size: 12px;
+  }
+  .text-\[13px\] {
+    font-size: 13px;
+  }
+  .text-\[15px\] {
+    font-size: 15px;
+  }
+  .text-\[16px\] {
+    font-size: 16px;
+  }
+  .text-\[18px\] {
+    font-size: 18px;
+  }
+  .text-\[43px\] {
+    font-size: 43px;
+  }
+  .leading-\[1\.05\] {
+    --tw-leading: 1.05;
+    line-height: 1.05;
+  }
+  .leading-\[1\.25\] {
+    --tw-leading: 1.25;
+    line-height: 1.25;
+  }
+  .leading-none {
+    --tw-leading: 1;
+    line-height: 1;
+  }
+  .leading-relaxed {
+    --tw-leading: var(--leading-relaxed);
+    line-height: var(--leading-relaxed);
+  }
+  .leading-snug {
+    --tw-leading: var(--leading-snug);
+    line-height: var(--leading-snug);
+  }
+  .leading-tight {
+    --tw-leading: var(--leading-tight);
+    line-height: var(--leading-tight);
+  }
+  .font-black {
+    --tw-font-weight: var(--font-weight-black);
+    font-weight: var(--font-weight-black);
+  }
+  .font-bold {
+    --tw-font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-bold);
+  }
+  .font-extrabold {
+    --tw-font-weight: var(--font-weight-extrabold);
+    font-weight: var(--font-weight-extrabold);
+  }
+  .font-semibold {
+    --tw-font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-semibold);
+  }
+  .tracking-\[-4px\] {
+    --tw-tracking: -4px;
+    letter-spacing: -4px;
+  }
+  .tracking-normal {
+    --tw-tracking: var(--tracking-normal);
+    letter-spacing: var(--tracking-normal);
+  }
+  .tracking-tight {
+    --tw-tracking: var(--tracking-tight);
+    letter-spacing: var(--tracking-tight);
+  }
+  .text-\[\#087fbd\] {
+    color: #087fbd;
+  }
+  .text-black {
+    color: var(--color-black);
+  }
+  .text-neutral-600 {
+    color: var(--color-neutral-600);
+  }
+  .text-neutral-800 {
+    color: var(--color-neutral-800);
+  }
+  .text-white {
+    color: var(--color-white);
+  }
+  .italic {
+    font-style: italic;
+  }
+  .shadow {
+    --tw-shadow: 0 1px 3px 0 var(--tw-shadow-color, rgb(0 0 0 / 0.1)), 0 1px 2px -1px var(--tw-shadow-color, rgb(0 0 0 / 0.1));
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .outline-none {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  .hover\:bg-\[\#056fa6\] {
+    &:hover {
+      @media (hover: hover) {
+        background-color: #056fa6;
+      }
+    }
+  }
+  .hover\:bg-white\/10 {
+    &:hover {
+      @media (hover: hover) {
+        background-color: color-mix(in srgb, #fff 10%, transparent);
+        @supports (color: color-mix(in lab, red, red)) {
+          background-color: color-mix(in oklab, var(--color-white) 10%, transparent);
+        }
+      }
+    }
+  }
+}
+@property --tw-border-style {
+  syntax: "*";
+  inherits: false;
+  initial-value: solid;
+}
+@property --tw-leading {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-font-weight {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-tracking {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-shadow-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+@property --tw-inset-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-inset-shadow-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-inset-shadow-alpha {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 100%;
+}
+@property --tw-ring-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-inset-ring-color {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-inset-ring-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@property --tw-ring-inset {
+  syntax: "*";
+  inherits: false;
+}
+@property --tw-ring-offset-width {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --tw-ring-offset-color {
+  syntax: "*";
+  inherits: false;
+  initial-value: #fff;
+}
+@property --tw-ring-offset-shadow {
+  syntax: "*";
+  inherits: false;
+  initial-value: 0 0 #0000;
+}
+@layer properties {
+  @supports ((-webkit-hyphens: none) and (not (margin-trim: inline))) or ((-moz-orient: inline) and (not (color:rgb(from red r g b)))) {
+    *, ::before, ::after, ::backdrop {
+      --tw-border-style: solid;
+      --tw-leading: initial;
+      --tw-font-weight: initial;
+      --tw-tracking: initial;
+      --tw-shadow: 0 0 #0000;
+      --tw-shadow-color: initial;
+      --tw-shadow-alpha: 100%;
+      --tw-inset-shadow: 0 0 #0000;
+      --tw-inset-shadow-color: initial;
+      --tw-inset-shadow-alpha: 100%;
+      --tw-ring-color: initial;
+      --tw-ring-shadow: 0 0 #0000;
+      --tw-inset-ring-color: initial;
+      --tw-inset-ring-shadow: 0 0 #0000;
+      --tw-ring-inset: initial;
+      --tw-ring-offset-width: 0px;
+      --tw-ring-offset-color: #fff;
+      --tw-ring-offset-shadow: 0 0 #0000;
+    }
+  }
+}
+
+
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { font-family: Arial, Helvetica, sans-serif; }
+    .a4 {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 14px auto;
+      background: #fff;
+      box-shadow: 0 10px 30px rgba(0,0,0,.12);
+      padding: 7.5mm 8mm 7mm;
+      position: relative;
+    }
+    .form-input {
+      width: 100%;
+      min-height: 25px;
+      border: 0;
+      border-bottom: 1px solid #8b8b8b;
+      outline: none;
+      padding: 2px 5px;
+      background: transparent;
+      font-size: 11px;
+    }
+    .form-input:focus, textarea:focus { background: #f7fbfd; }
+    .cell-input {
+      width: 100%;
+      min-height: 31px;
+      border: 0;
+      outline: none;
+      padding: 4px 6px;
+      background: transparent;
+      font-size: 11px;
+    }
+    .rule { border-bottom: 1px solid #8b8b8b; }
+    .grid-rule > * { border-bottom: 1px solid #8b8b8b; }
+    .v-rule { border-left: 1px solid #8b8b8b; }
+    .check {
+      appearance: none;
+      width: 17px;
+      height: 17px;
+      border: 1.5px solid #1599d1;
+      background: #fff;
+      display: inline-grid;
+      place-content: center;
+      vertical-align: middle;
+      margin: 0;
+    }
+    .check::before {
+      content: '';
+      width: 9px;
+      height: 9px;
+      transform: scale(0);
+      transition: transform .08s ease-in-out;
+      background: #1599d1;
+    }
+    .check:checked::before { transform: scale(1); }
+    .section-title {
+      background: #087fbd;
+      color: #fff;
+      text-align: center;
+      font-weight: 700;
+      font-size: 12px;
+      line-height: 1.2;
+      padding: 8px 10px;
+    }
+    .label { font-size: 11px; line-height: 1.15; color: #303030; }
+    .small { font-size: 9px; line-height: 1.25; }
+    .footer-note { font-size: 8px; line-height: 1.25; color: #646464; }
+    textarea { resize: none; }
+    @media print {
+      body { background: #fff !important; }
+      .a4 { margin: 0; box-shadow: none; page-break-after: always; }
+      .a4:last-child { page-break-after: auto; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-neutral-800">
+  <div class="no-print sticky top-0 z-50 flex justify-center gap-3 bg-slate-900/95 p-3 text-sm text-white shadow">
+    <button onclick="window.print()" class="rounded-md bg-[#087fbd] px-4 py-2 font-semibold hover:bg-[#056fa6]">Imprimir / Guardar PDF</button>
+    <button onclick="document.querySelectorAll('input, textarea').forEach(el => { if (el.type === 'checkbox' || el.type === 'radio') el.checked = false; else el.value = ''; })" class="rounded-md border border-white/25 px-4 py-2 hover:bg-white/10">Limpiar formulario</button>
+  </div>
+
+  <!-- PÁGINA 1 -->
+  <section class="a4 flex flex-col">
+    <main class="flex-1">
+      <h1 class="mb-2 text-center text-[13px] font-extrabold tracking-tight text-neutral-600">ANEXO II – RECHAZO ACCIDENTE DE TRABAJO</h1>
+
+      <div class="section-title">Datos del trabajador</div>
+      <div class="grid-rule">
+        <label class="block pt-2 label">Nombre y apellido<input class="form-input" /></label>
+        <label class="block pt-2 label">CUIL<input class="form-input" /></label>
+      </div>
+
+      <div class="section-title mt-0">Asistencia Letrada (Procedimientos Res. SRT N° 298/17)</div>
+      <div class="grid grid-cols-2 text-[11px]">
+        <label class="rule py-1.5 pr-2">Nombre y Apellido<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input class="cell-input" /></div>
+        <label class="rule py-1.5 pr-2">CUIT/Domicilio electrónico<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input class="cell-input" /></div>
+        <label class="rule py-1.5 pr-2">Matrícula - Jurisdicción<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input class="cell-input" /></div>
+      </div>
+
+      <div class="section-title">Datos del Empleador</div>
+      <div class="grid grid-cols-2 text-[11px]">
+        <label class="rule py-1.5 pr-2">Nombre/Razón Social<input class="cell-input p-0" /></label>
+        <label class="rule v-rule py-1.5 pl-2">CUIT<input class="cell-input p-0" /></label>
+      </div>
+      <label class="block pt-2 label">Domicilio del lugar de efectiva prestación de servicios<br>o donde habitualmente reporta<input class="form-input" /></label>
+      <label class="block pt-2 label">Localidad<input class="form-input" /></label>
+      <label class="block pt-2 label">Provincia<input class="form-input" /></label>
+
+      <div class="section-title mt-0">DATOS DE LA ART, EMPLEADOR AUTOASEGURADO O EMPLEADOR NO ASEGURADO</div>
+      <div class="grid grid-cols-2 text-[11px]">
+        <label class="rule py-1.5 pr-2">Denominación/Razón Social<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input class="cell-input" /></div>
+        <label class="rule py-1.5 pr-2">CUIT (En caso de empleadores)<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input class="cell-input" /></div>
+      </div>
+
+      <div class="section-title">Datos del accidente</div>
+      <div class="grid grid-cols-2 text-[11px]">
+        <div class="rule flex items-center px-1 py-2">Tipo de contingencia</div>
+        <div class="rule v-rule">
+          <label class="flex items-center gap-3 border-b border-neutral-400 px-4 py-2"><input type="checkbox" class="check" /> Accidente de trabajo</label>
+          <label class="flex items-center gap-3 px-4 py-2"><input type="checkbox" class="check" /> Accidente in itinere</label>
+        </div>
+      </div>
+
+      <label class="block pt-2 label">Fecha de la denuncia:<input type="date" class="form-input" /></label>
+      <label class="block pt-2 label">Fecha de baja laboral (en caso de corresponder):<input type="date" class="form-input" /></label>
+      <label class="block pt-2 label">Fecha de ocurrencia:<input type="date" class="form-input" /></label>
+
+      <label class="block pt-2 label">Describí los hechos y las circunstancias en que ocurrió el accidente:
+        <textarea class="mt-1 h-[72px] w-full border-0 border-b border-neutral-400 bg-transparent px-1 py-1 text-[11px] outline-none"></textarea>
+      </label>
+      <label class="block pt-2 label">Detallá el o los compromisos o diagnósticos derivados de la contingencia:
+        <textarea class="mt-1 h-[72px] w-full border-0 border-b border-neutral-400 bg-transparent px-1 py-1 text-[11px] outline-none"></textarea>
+      </label>
+    </main>
+
+    <footer class="mt-4 flex items-end justify-between">
+      <img src="logo-srt-azul.svg" alt="Superintendencia de Riesgos del Trabajo" class="h-[38px] w-auto" />
+      <div class="max-w-[330px] text-right footer-note">
+        <div class="font-bold">ANEXO II – RECHAZO DE ACCIDENTE DE TRABAJO | 1</div>
+        <div>Los formularios deben completarse en su formato editable</div>
+        <div>disponible en la web del Organismo <strong>www.argentina.gob.ar/srt</strong></div>
+      </div>
+    </footer>
+  </section>
+
+  <!-- PÁGINA 2 -->
+  <section class="a4 flex flex-col">
+    <main class="flex-1">
+      <div class="section-title">Solo en caso de accidentes in itinere</div>
+      <div class="grid grid-cols-2 text-[11px]">
+        <label class="rule py-1.5 pr-2">Horario de ingreso y egreso al puesto de trabajo<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input class="cell-input" /></div>
+        <label class="rule py-1.5 pr-2">Domicilio del lugar donde presta servicios o donde<br>habitualmente se reporta<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input class="cell-input" /></div>
+        <label class="rule py-1.5 pr-2">Domicilio de residencia<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input class="cell-input" /></div>
+        <label class="rule py-1.5 pr-2">Lugar del accidente<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input class="cell-input" /></div>
+        <label class="rule py-1.5 pr-2">Hora del accidente<input class="cell-input p-0" /></label>
+        <div class="rule v-rule"><input type="time" class="cell-input" /></div>
+        <div class="rule flex items-center py-2 pr-2">¿Realizó denuncia policial?</div>
+        <div class="rule v-rule flex items-center justify-center gap-9 py-2">
+          <label class="flex items-center gap-2">Sí <input type="checkbox" class="check" /></label>
+          <label class="flex items-center gap-2">No <input type="checkbox" class="check" /></label>
+        </div>
+      </div>
+
+      <div class="section-title">Atención médica</div>
+      <label class="block pt-2 label">Fecha de primera atención médica:<input type="date" class="form-input" /></label>
+
+      <div class="mt-1 grid grid-cols-[1fr_1fr] text-[11px]">
+        <div class="rule py-2 pr-2">1. &nbsp; ¿Recibiste atención de la ART?</div>
+        <div class="rule v-rule flex items-center justify-center gap-9 py-2"><label class="flex items-center gap-2">Sí <input type="checkbox" class="check" /></label><label class="flex items-center gap-2">No <input type="checkbox" class="check" /></label></div>
+        <div class="rule py-2 pr-2">2. &nbsp; ¿Recibiste atención médica de la Obra Social, Prepaga<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; o Salud Pública?</div>
+        <div class="rule v-rule flex items-center justify-center gap-9 py-2"><label class="flex items-center gap-2">Sí <input type="checkbox" class="check" /></label><label class="flex items-center gap-2">No <input type="checkbox" class="check" /></label></div>
+        <div class="rule py-2 pr-2">3. &nbsp; ¿Realizaste algún estudio médico en la Obra Social,<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Prepaga o Salud Pública?</div>
+        <div class="rule v-rule flex items-center justify-center gap-9 py-2"><label class="flex items-center gap-2">Sí <input type="checkbox" class="check" /></label><label class="flex items-center gap-2">No <input type="checkbox" class="check" /></label></div>
+      </div>
+
+      <label class="block pt-2 label">Detallá las pruebas ofrecidas que demuestran que tiene origen laboral:
+        <textarea class="mt-1 h-[76px] w-full border-0 border-b border-neutral-400 bg-transparent px-1 py-1 text-[11px] outline-none"></textarea>
+      </label>
+
+      <p class="mt-2 border-b border-neutral-400 pb-2 text-[9.5px] leading-[1.25]">
+        Las partes deberán ofrecer, en su primera presentación, toda la prueba de la que intenten valerse acompañando en esa oportunidad la documental pertinente. Cuando la parte trabajadora invocare haber recibido tratamiento médico a través de su Obra Social o de prestadores públicos o particulares, deberá acompañar la historia clínica correspondiente. (art. 7° Res. SRT N° 298/17; punto 19 del Anexo I de la Resolución SRT 179/15; art. 14, Ley N° 26.529 )*
+      </p>
+
+      <div class="section-title">Atención médica</div>
+      <div class="grid grid-cols-[1.15fr_.55fr_.55fr] text-[11px]">
+        <div class="rule flex items-center py-2 pr-2">Solicito la intervención de la Comisión Médica</div>
+        <label class="rule v-rule px-2 py-2">N°<input class="cell-input p-0" /></label>
+        <label class="rule v-rule px-2 py-2">Jurisdicción<input class="cell-input p-0" /></label>
+      </div>
+
+      <div class="grid grid-cols-2 text-[11px]">
+        <div class="rule flex items-start py-3 pr-2 leading-tight">Fundamento (Acompañar DNI, Certificado Res. SRT N°<br>698/17 o DDJJ Res. SRT N° 11/18, según corresponda)</div>
+        <div class="rule v-rule">
+          <label class="flex items-center gap-3 border-b border-neutral-400 px-4 py-2"><input type="checkbox" class="check" /> Domicilio</label>
+          <label class="flex items-center gap-3 border-b border-neutral-400 px-4 py-2"><input type="checkbox" class="check" /> Domicilio de efectiva prestación de servicios</label>
+          <label class="flex items-center gap-3 px-4 py-2"><input type="checkbox" class="check" /> Domicilio donde habitualmente reporta</label>
+        </div>
+      </div>
+
+      <p class="rule py-2 text-[10.5px]">La persona firmante declara que la información consignada es verídica y completa.</p>
+
+      <div class="grid grid-cols-2 text-[11px]">
+        <label class="rule min-h-[58px] py-2 pr-2">Firma Trabajador.<input class="cell-input p-0" /></label>
+        <label class="rule v-rule min-h-[58px] px-2 py-2">Aclaración<input class="cell-input p-0" /></label>
+        <label class="rule min-h-[58px] py-2 pr-2">Firma Letrado Patrocinante.<br>(En caso de corresponder)<input class="cell-input p-0" /></label>
+        <label class="rule v-rule min-h-[58px] px-2 py-2">Aclaración<input class="cell-input p-0" /></label>
+      </div>
+
+      <label class="block pt-2 label">Fecha:<input type="date" class="form-input" /></label>
+      <p class="mt-2 text-[9px] italic"><strong>Aclaración:</strong> En caso de que los espacios no resulten suficientes, incorpore una hoja aparte debidamente firmada con la información adicional.</p>
+    </main>
+
+    <footer class="mt-3 flex items-end justify-between">
+      <img src="logo-srt-azul.svg" alt="Superintendencia de Riesgos del Trabajo" class="h-[38px] w-auto" />
+      <div class="max-w-[330px] text-right footer-note">
+        <div class="font-bold">ANEXO II – RECHAZO DE ACCIDENTE DE TRABAJO | 2</div>
+        <div>Los formularios deben completarse en su formato editable</div>
+        <div>disponible en la web del Organismo <strong>www.argentina.gob.ar/srt</strong></div>
+      </div>
+    </footer>
+  </section>
+
+  <!-- PÁGINA 3: HOJA ADICIONAL DE FIRMAS -->
+  <section class="a4 font-serif text-black">
+    <div class="mx-auto mt-8 h-[88px] w-[88px] rounded-full border border-neutral-400 p-2 text-center text-[10px] leading-tight text-neutral-600 flex items-center justify-center">ESCUDO<br>ARGENTINO</div>
+    <div class="mt-1 text-center text-[16px]">República Argentina - Poder Ejecutivo Nacional</div>
+
+    <div class="mt-12 text-center text-[18px] font-bold leading-tight">Hoja Adicional de Firmas<br>Anexo</div>
+
+    <div class="mt-9 text-[16px]"><strong>Número:</strong>&nbsp; IF-2026-09572332-APN-SRT#MCH</div>
+
+    <div class="mt-9 text-right text-[15px] leading-relaxed">
+      <div>CIUDAD DE BUENOS AIRES</div>
+      <div>Martes 27 de Enero de 2026</div>
+    </div>
+
+    <div class="mt-6 border-b border-neutral-500 pb-3 text-[15px]"><strong>Referencia:</strong>&nbsp; ANEXO II - Expediente EX-2025-140614308-APN-SCL#SRT</div>
+
+    <p class="mt-8 text-[15px]">El documento fue importado por el sistema GEDO con un total de 2 pagina/s.</p>
+
+    <div class="mt-24 text-[9px] font-sans leading-tight">
+      <div>Digitally signed by GESTION DOCUMENTAL ELECTRONICA - GDE</div>
+      <div>Date: 2026.01.27 14:09:39 -03:00</div>
+    </div>
+
+    <div class="mt-7 text-[12px] leading-snug">
+      <div>E/E Fernando Gabriel Perez</div>
+      <div>Gerente General</div>
+      <div>Gerencia General</div>
+      <div>Superintendencia de Riesgos del Trabajo</div>
+    </div>
+
+    <div class="absolute bottom-8 right-8 text-[8px] font-sans leading-tight">
+      <div>Digitally signed by GESTION DOCUMENTAL</div>
+      <div>ELECTRONICA - GDE</div>
+      <div>Date: 2026.01.27 14:09:39 -03:00</div>
+    </div>
+  </section>
+</body>
+</html>

@@ -23,6 +23,7 @@ import ClosingManagerTable from "@/components/closing-manager/closing-manager-ta
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
 	CLOSINGS_ENDPOINT,
 	CLOSINGS_EXPORT_ENDPOINT,
@@ -73,7 +74,8 @@ export default function ClosingManagerPage() {
 	const now = new Date();
 	const [month, setMonth] = useState(now.getMonth() + 1);
 	const [year, setYear] = useState(now.getFullYear());
-	const [viewAll, setViewAll] = useState(false);
+	const [viewAll, setViewAll] = useState(true);
+	const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
 	// Filtros avanzados
 	const [filters, setFilters] = useState<ClosingFiltersState>({
@@ -84,6 +86,7 @@ export default function ClosingManagerPage() {
 		pclStatus: "",
 		responsibleLawyerId: "",
 		internalLawyerId: "",
+		paymentPending: "",
 	});
 	const [visibleColumns, setVisibleColumns] = useState<string[]>([
 		"case",
@@ -96,6 +99,28 @@ export default function ClosingManagerPage() {
 		"capitalState",
 		"montoTransferir",
 	]);
+
+	// Tab actual: "all" o "pending". "pending" fuerza paymentPending=true en la
+	// query + muestra columnas de estado (feeStatus/pclStatus) + ordena por
+	// fecha ascendente (más viejo primero — spec KPIs #108).
+	const [activeTab, setActiveTab] = useState<"all" | "pending">("all");
+
+	// Cuando el user cambia de tab, ajustar filtro + columnas + orden.
+	useEffect(() => {
+		if (activeTab === "pending") {
+			setFilters((prev) => ({ ...prev, paymentPending: "true" }));
+			setVisibleColumns((prev) => {
+				const cols = new Set(prev);
+				cols.add("feeStatus");
+				cols.add("pclStatus");
+				return Array.from(cols);
+			});
+			setSortOrder("asc");
+		} else {
+			setFilters((prev) => ({ ...prev, paymentPending: "" }));
+			setSortOrder("desc");
+		}
+	}, [activeTab]);
 
 	// =========================================================================
 	// Fetch closings
@@ -111,6 +136,7 @@ export default function ClosingManagerPage() {
 					limit: pagination.limit.toString(),
 					month: month.toString(),
 					year: year.toString(),
+					sortOrder,
 				};
 				if (viewAll) params.viewAll = "true";
 				if (filters.search) params.search = filters.search;
@@ -118,6 +144,11 @@ export default function ClosingManagerPage() {
 				if (filters.capitalState) params.capitalState = filters.capitalState;
 				if (filters.feeStatus) params.feeStatus = filters.feeStatus;
 				if (filters.pclStatus) params.pclStatus = filters.pclStatus;
+				if (
+					filters.paymentPending === "true" ||
+					filters.paymentPending === "false"
+				)
+					params.paymentPending = filters.paymentPending;
 				if (filters.responsibleLawyerId)
 					params.responsibleLawyerId = filters.responsibleLawyerId;
 				if (filters.internalLawyerId)
@@ -149,6 +180,7 @@ export default function ClosingManagerPage() {
 			month,
 			year,
 			viewAll,
+			sortOrder,
 			filters,
 			session?.user?.accessToken,
 			permissions,
@@ -166,6 +198,10 @@ export default function ClosingManagerPage() {
 				year: year.toString(),
 				view: viewAll ? "annual" : "monthly",
 			};
+			if (filters.responsibleLawyerId)
+				params.responsibleLawyerId = filters.responsibleLawyerId;
+			if (filters.internalLawyerId)
+				params.internalLawyerId = filters.internalLawyerId;
 			const url = buildFilteredUrl(CLOSINGS_KPIS_ENDPOINT, permissions, params);
 			const response = await fetch(url, {
 				headers: {
@@ -180,7 +216,15 @@ export default function ClosingManagerPage() {
 		} catch {
 			// Silent fail for KPIs
 		}
-	}, [month, year, viewAll, session?.user?.accessToken, permissions]);
+	}, [
+		month,
+		year,
+		viewAll,
+		filters.responsibleLawyerId,
+		filters.internalLawyerId,
+		session?.user?.accessToken,
+		permissions,
+	]);
 
 	// =========================================================================
 	// Export
@@ -196,6 +240,10 @@ export default function ClosingManagerPage() {
 			};
 			if (viewAll) params.viewAll = "true";
 			if (filters.type) params.type = filters.type;
+			if (filters.responsibleLawyerId)
+				params.responsibleLawyerId = filters.responsibleLawyerId;
+			if (filters.internalLawyerId)
+				params.internalLawyerId = filters.internalLawyerId;
 
 			const url = buildFilteredUrl(
 				CLOSINGS_EXPORT_ENDPOINT,
@@ -322,7 +370,7 @@ export default function ClosingManagerPage() {
 					valueColor: "text-purple-600",
 				},
 				{
-					label: "Total a transferir",
+					label: "Total a cobrar",
 					value: kpis?.totalTransferir ?? 0,
 					format: "currency" as const,
 					icon: ArrowRightLeft,
@@ -392,6 +440,25 @@ export default function ClosingManagerPage() {
 				</div>
 			</div>
 
+			{/* Tabs: Todos / Pendientes de cobro */}
+			<Tabs
+				value={activeTab}
+				onValueChange={(v) => setActiveTab(v as "all" | "pending")}
+				className="w-full"
+			>
+				<TabsList>
+					<TabsTrigger value="all">Todos los cierres</TabsTrigger>
+					<TabsTrigger value="pending">
+						Pendientes de cobro
+						{activeTab === "pending" && pagination.total > 0 && (
+							<span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
+								{pagination.total}
+							</span>
+						)}
+					</TabsTrigger>
+				</TabsList>
+			</Tabs>
+
 			{/* KPI Cards */}
 			<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
 				{kpiCards.map((kpi) => (
@@ -430,6 +497,10 @@ export default function ClosingManagerPage() {
 				onMonthChange={setMonth}
 				onYearChange={setYear}
 				onToggleViewAll={() => setViewAll(!viewAll)}
+				sortOrder={sortOrder}
+				onToggleSortOrder={() =>
+					setSortOrder((prev) => (prev === "desc" ? "asc" : "desc"))
+				}
 			/>
 
 			{/* Content */}

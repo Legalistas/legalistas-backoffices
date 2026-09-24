@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Anexo III - Rechazo de Enfermedad Profesional</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @page { size: A4; margin: 0; }
+    * { box-sizing: border-box; }
+    body {
+      background: #e5e7eb;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #222;
+    }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 12px auto;
+      background: white;
+      padding: 8mm 8mm 7mm;
+      position: relative;
+      box-shadow: 0 1px 8px rgba(0,0,0,.12);
+    }
+    .section-title {
+      background: #0a7fbd;
+      color: white;
+      text-align: center;
+      font-weight: 700;
+      padding: 4px 6px;
+      font-size: 12px;
+      line-height: 1.25;
+    }
+    .field-row {
+      min-height: 31px;
+      border-bottom: 1px solid #7b7b7b;
+      display: grid;
+      align-items: stretch;
+    }
+    .field-label {
+      padding: 6px 6px 4px;
+      font-size: 11px;
+      line-height: 1.18;
+    }
+    .field-input {
+      width: 100%;
+      min-height: 29px;
+      border: 0;
+      outline: 0;
+      padding: 4px 6px;
+      font-size: 11px;
+      background: transparent;
+    }
+    .col-divider { border-left: 1px solid #7b7b7b; }
+    .text-area {
+      width: 100%;
+      min-height: 82px;
+      border: 0;
+      border-bottom: 1px solid #7b7b7b;
+      resize: vertical;
+      outline: none;
+      padding: 6px;
+      font-size: 11px;
+    }
+    .tiny { font-size: 9px; line-height: 1.25; }
+    .checkbox {
+      appearance: none;
+      width: 17px;
+      height: 17px;
+      border: 1.6px solid #1689c4;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 6px;
+      position: relative;
+      background: white;
+    }
+    .checkbox:checked::after {
+      content: "✓";
+      position: absolute;
+      left: 2px;
+      top: -2px;
+      font-size: 15px;
+      color: #0a7fbd;
+      font-weight: 700;
+    }
+    .footer {
+      position: absolute;
+      left: 8mm;
+      right: 8mm;
+      bottom: 6mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+    }
+    .srt-mark {
+      font-size: 34px;
+      line-height: .9;
+      color: #0a7fbd;
+      font-weight: 800;
+      letter-spacing: -2px;
+    }
+    .sig-line {
+      border-bottom: 1px solid #7b7b7b;
+      min-height: 48px;
+      padding: 6px;
+      font-size: 11px;
+    }
+    @media print {
+      body { background: white; }
+      .page {
+        margin: 0;
+        box-shadow: none;
+        page-break-after: always;
+      }
+      .page:last-child { page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- PÁGINA 1 -->
+  <section class="page">
+    <div class="text-center font-bold text-[13px] mb-2">ANEXO III – RECHAZO ENFERMEDAD PROFESIONAL</div>
+
+    <div class="section-title">Datos del trabajador</div>
+    <div class="field-row grid-cols-1">
+      <label class="field-label">Nombre y apellido
+        <input class="field-input block px-0" type="text">
+      </label>
+    </div>
+    <div class="field-row grid-cols-1">
+      <label class="field-label">CUIL
+        <input class="field-input block px-0" type="text">
+      </label>
+    </div>
+
+    <div class="section-title mt-1">Asistencia Letrada (Procedimientos Res. SRT N° 298/17)</div>
+    <div class="field-row grid-cols-2">
+      <label class="field-label">Nombre y apellido
+        <input class="field-input block px-0" type="text">
+      </label>
+      <div class="col-divider"></div>
+    </div>
+    <div class="field-row grid-cols-2">
+      <label class="field-label">CUIT/Domicilio electrónico
+        <input class="field-input block px-0" type="text">
+      </label>
+      <div class="col-divider"></div>
+    </div>
+    <div class="field-row grid-cols-2">
+      <label class="field-label">Matrícula - Jurisdicción
+        <input class="field-input block px-0" type="text">
+      </label>
+      <div class="col-divider"></div>
+    </div>
+
+    <div class="section-title mt-1">Datos del Empleador</div>
+    <div class="field-row grid-cols-1">
+      <label class="field-label">Nombre/Razón Social/CUIT
+        <input class="field-input block px-0" type="text">
+      </label>
+    </div>
+    <div class="field-row grid-cols-1">
+      <label class="field-label">Establecimiento del lugar de efectiva prestación de servicios<br>o donde habitualmente reporta el trabajador
+        <input class="field-input block px-0" type="text">
+      </label>
+    </div>
+    <div class="field-row grid-cols-1">
+      <label class="field-label">Localidad
+        <input class="field-input block px-0" type="text">
+      </label>
+    </div>
+    <div class="field-row grid-cols-1">
+      <label class="field-label">Provincia
+        <input class="field-input block px-0" type="text">
+      </label>
+    </div>
+
+    <div class="section-title mt-1 uppercase">DATOS DE LA ART, EMPLEADOR AUTOASEGURADO O EMPLEADOR NO ASEGURADO</div>
+    <div class="field-row grid-cols-1">
+      <label class="field-label">Denominación/Razón Social
+        <input class="field-input block px-0" type="text">
+      </label>
+    </div>
+    <div class="field-row grid-cols-1">
+      <label class="field-label">CUIT (En caso de empleadores)
+        <input class="field-input block px-0" type="text">
+      </label>
+    </div>
+
+    <div class="section-title mt-1">Datos de la enfermedad</div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">Fecha de la denuncia</div>
+      <input class="field-input col-divider" type="date">
+    </div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">Fecha de baja laboral</div>
+      <input class="field-input col-divider" type="date">
+    </div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">Fecha de diagnóstico</div>
+      <input class="field-input col-divider" type="date">
+    </div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">Sector/Área de trabajo</div>
+      <input class="field-input col-divider" type="text">
+    </div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">Antigüedad en la tarea</div>
+      <input class="field-input col-divider" type="text">
+    </div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">Año de ingreso a la empresa</div>
+      <input class="field-input col-divider" type="text">
+    </div>
+
+    <label class="field-label block pb-0">Describí detalladamente las tareas que realizás:</label>
+    <textarea class="text-area min-h-[105px]"></textarea>
+
+    <div class="footer">
+      <img src="logo-srt-azul.svg" alt="Superintendencia de Riesgos del Trabajo" style="width:32mm;height:auto" />
+      <div class="text-right text-[8px] text-gray-500 leading-tight">
+        <div class="font-bold">ANEXO III – RECHAZO DE ENFERMEDAD PROFESIONAL | 1</div>
+        <div>Los formularios deben completarse en su formato editable</div>
+        <div>disponible en la web del Organismo <b>www.argentina.gob.ar/srt</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PÁGINA 2 -->
+  <section class="page">
+    <label class="field-label block pb-0">Diagnóstico de la enfermedad que denunciás:</label>
+    <textarea class="text-area min-h-[100px]"></textarea>
+
+    <div class="field-row grid-cols-2 mt-1">
+      <div class="field-label">¿Realizaste o realizás tareas similares para otros empleadores?</div>
+      <div class="col-divider flex items-center justify-center gap-10 text-[11px]">
+        <label>Sí <input class="checkbox ml-1" type="checkbox"></label>
+        <label>No <input class="checkbox ml-1" type="checkbox"></label>
+      </div>
+    </div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">¿Denunciaste la misma enfermedad a otro empleador?</div>
+      <div class="col-divider flex items-center justify-center gap-10 text-[11px]">
+        <label>Sí <input class="checkbox ml-1" type="checkbox"></label>
+        <label>No <input class="checkbox ml-1" type="checkbox"></label>
+      </div>
+    </div>
+    <div class="field-row grid-cols-1">
+      <label class="field-label">Nombre/Razón Social y CUIT de los empleadores, en caso de corresponder.
+        <input class="field-input block px-0" type="text">
+      </label>
+    </div>
+
+    <div class="section-title mt-1">Atención médica</div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">1. ¿Recibiste atención de la ART?</div>
+      <div class="col-divider flex items-center justify-center gap-10 text-[11px]">
+        <label>Sí <input class="checkbox ml-1" type="checkbox"></label>
+        <label>No <input class="checkbox ml-1" type="checkbox"></label>
+      </div>
+    </div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">2. ¿La aseguradora te dio el alta médica?</div>
+      <div class="col-divider flex items-center justify-center gap-10 text-[11px]">
+        <label>Sí <input class="checkbox ml-1" type="checkbox"></label>
+        <label>No <input class="checkbox ml-1" type="checkbox"></label>
+      </div>
+    </div>
+    <div class="field-row grid-cols-2">
+      <div class="field-label">3. ¿Recibiste atención médica de la Obra Social, Prepaga o Salud Pública?</div>
+      <div class="col-divider flex items-center justify-center gap-10 text-[11px]">
+        <label>Sí <input class="checkbox ml-1" type="checkbox"></label>
+        <label>No <input class="checkbox ml-1" type="checkbox"></label>
+      </div>
+    </div>
+
+    <label class="field-label block pb-0">Detallá las pruebas ofrecidas que demuestran que tiene origen laboral:</label>
+    <textarea class="text-area min-h-[88px]"></textarea>
+
+    <div class="tiny px-1 py-2 border-b border-gray-500">
+      Las partes deberán ofrecer, en su primera presentación, toda la prueba de la que intenten valerse acompañando en esa oportunidad la documental pertinente.
+      Cuando la parte trabajadora invocare haber recibido tratamiento médico a través de su Obra Social o de prestadores públicos o particulares,
+      deberá acompañar la historia clínica correspondiente. (art. 7° Res. SRT N° 298/17; punto 19 del Anexo I de la Resolución SRT 179/15; art. 14, Ley N° 26.529 )*
+    </div>
+
+    <div class="section-title mt-1">Opción de competencia</div>
+    <div class="field-row grid-cols-[1.7fr_.85fr_.85fr]">
+      <div class="field-label">Solicito la intervención de la Comisión Médica</div>
+      <label class="field-label col-divider">N° <input class="field-input inline-block w-[75%]" type="text"></label>
+      <label class="field-label col-divider">Jurisdicción <input class="field-input inline-block w-full px-0" type="text"></label>
+    </div>
+
+    <div class="grid grid-cols-2 border-b border-gray-500 min-h-[94px]">
+      <div class="field-label flex items-center">
+        Fundamento (Acompañar DNI, Certificado Res. SRT N° 698/17 o DDJJ Res. SRT N° 11/18, según corresponda)
+      </div>
+      <div class="col-divider text-[11px]">
+        <label class="flex items-center gap-2 px-4 py-2 border-b border-gray-400">
+          <input class="checkbox" type="checkbox"> Domicilio
+        </label>
+        <label class="flex items-center gap-2 px-4 py-2 border-b border-gray-400">
+          <input class="checkbox" type="checkbox"> Domicilio de efectiva prestación de servicios
+        </label>
+        <label class="flex items-center gap-2 px-4 py-2">
+          <input class="checkbox" type="checkbox"> Domicilio donde habitualmente reporta
+        </label>
+      </div>
+    </div>
+
+    <div class="field-row grid-cols-1">
+      <div class="field-label">La persona firmante declara que la información consignada es verídica y completa.</div>
+    </div>
+
+    <div class="grid grid-cols-2">
+      <div class="sig-line">Firma Trabajador</div>
+      <div class="sig-line col-divider">Aclaración</div>
+      <div class="sig-line border-b border-gray-500">Firma Letrado Patrocinante.<br>(En caso de corresponder)</div>
+      <div class="sig-line col-divider border-b border-gray-500">Aclaración</div>
+    </div>
+
+    <div class="field-row grid-cols-1">
+      <label class="field-label">Fecha:
+        <input class="field-input block px-0" type="date">
+      </label>
+    </div>
+
+    <div class="text-[8px] italic font-semibold py-2 border-b border-gray-500">
+      Aclaración: En caso de que los espacios no resulten suficientes, incorpore una hoja aparte debidamente firmada con la información adicional.
+    </div>
+
+    <div class="footer">
+      <img src="logo-srt-azul.svg" alt="Superintendencia de Riesgos del Trabajo" style="width:32mm;height:auto" />
+      <div class="text-right text-[8px] text-gray-500 leading-tight">
+        <div class="font-bold">ANEXO III – RECHAZO DE ENFERMEDAD PROFESIONAL | 2</div>
+        <div>Los formularios deben completarse en su formato editable</div>
+        <div>disponible en la web del Organismo <b>www.argentina.gob.ar/srt</b></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PÁGINA 3 - HOJA ADICIONAL DE FIRMAS -->
+  <section class="page">
+    <div class="mt-10 text-center">
+      <div class="text-[12px]">República Argentina - Poder Ejecutivo Nacional</div>
+      <div class="text-[15px] font-bold mt-6">Hoja Adicional de Firmas</div>
+      <div class="text-[13px] mt-1">Anexo</div>
+    </div>
+
+    <div class="mt-14 text-[11px] leading-7">
+      <div><b>Número:</b> <input class="border-b border-gray-500 outline-none w-[72%] px-2" type="text"></div>
+      <div class="mt-4"><b>Referencia:</b> ANEXO III - Expediente EX-2025-140614308-APN-SCL#SRT</div>
+      <p class="mt-8">El documento fue importado por el sistema GEDO con un total de 2 pagina/s.</p>
+    </div>
+
+    <div class="mt-16 border border-gray-300 p-6 text-[10px] leading-6">
+      <div><b>Fecha:</b> Martes 27 de Enero de 2026</div>
+      <div><b>Número de documento:</b> IF-2026-09572484-APN-SRT#MCH</div>
+      <div><b>Localidad:</b> CIUDAD DE BUENOS AIRES</div>
+      <div class="mt-5"><b>Firmante:</b> E/E Fernando Gabriel Perez</div>
+      <div><b>Cargo:</b> Gerente General</div>
+      <div><b>Repartición:</b> Gerencia General Superintendencia de Riesgos del Trabajo</div>
+    </div>
+  </section>
+
+</body>
+</html>

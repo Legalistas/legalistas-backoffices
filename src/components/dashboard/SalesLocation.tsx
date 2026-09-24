@@ -127,7 +127,7 @@ export function SalesLocation() {
 		},
 		yaxis: {
 			title: {
-				text: "Localidad",
+				text: "Provincia",
 			},
 			labels: {
 				style: {
@@ -164,7 +164,7 @@ export function SalesLocation() {
 	return (
 		<Card className="col-span-1">
 			<CardHeader>
-				<CardTitle>Distribución por Localidades</CardTitle>
+				<CardTitle>Distribución por Provincia</CardTitle>
 				<CardDescription>Cantidad de leads por provincia</CardDescription>
 			</CardHeader>
 			<CardContent>

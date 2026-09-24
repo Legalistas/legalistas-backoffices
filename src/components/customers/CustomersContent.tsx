@@ -4,6 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	CUSTOMERS_ENDPOINT,
 	CUSTOMERS_EXPORT_ENDPOINT,
@@ -134,13 +135,18 @@ export default function CustomersContent() {
 					},
 				});
 
-				if (!response.ok) throw new Error("Failed to delete user");
+				if (!response.ok)
+					throw new Error(
+						await apiErrorMessage(response, "Error al eliminar el cliente"),
+					);
 
 				toast.success("Cliente eliminado correctamente");
 				fetchCustomers();
 			} catch (error) {
 				console.error("Error al eliminar el cliente:", error);
-				toast.error("Error al eliminar el cliente");
+				toast.error(
+					error instanceof Error ? error.message : "Error al eliminar el cliente",
+				);
 			}
 		},
 		[session?.user?.accessToken, fetchCustomers],

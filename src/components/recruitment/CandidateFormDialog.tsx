@@ -33,6 +33,7 @@ import {
 	type RecruitmentSource,
 	type RecruitmentStage,
 } from "@/constant/recruitment";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { Candidate, CandidateFormData } from "@/types/recruitment";
 
 interface CandidateFormDialogProps {
@@ -127,7 +128,7 @@ export default function CandidateFormDialog({
 				body: JSON.stringify(payload),
 			});
 
-			if (!res.ok) throw new Error(`Error ${res.status}`);
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo guardar el candidato"));
 
 			toast.success(
 				isEdit ? "Candidato actualizado" : "Candidato creado correctamente",
@@ -136,7 +137,7 @@ export default function CandidateFormDialog({
 			onSaved();
 		} catch (err) {
 			console.error(err);
-			toast.error("No se pudo guardar el candidato");
+			toast.error(err instanceof Error ? err.message : "No se pudo guardar el candidato");
 		} finally {
 			setSubmitting(false);
 		}

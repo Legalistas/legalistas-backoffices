@@ -1,7 +1,6 @@
 "use client";
 
 import { Moon, Sun } from "lucide-react";
-import AttendanceHeaderIndicator from "@/components/attendance/AttendanceHeaderIndicator";
 import NotificationDropdown from "@/components/header/NotificationDropdown";
 import GlobalSearch from "@/components/layout/GlobalSearch";
 import { Button } from "@/components/ui/button";
@@ -24,7 +23,6 @@ export default function Header() {
 			</div>
 
 			<div className="ml-auto flex items-center gap-2">
-				<AttendanceHeaderIndicator />
 				<Button
 					variant="ghost"
 					size="icon"

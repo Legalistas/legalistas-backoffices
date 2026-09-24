@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { CASES_NOTES_CREATE_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 interface CreateNoteFormProps {
 	caseId: string;
@@ -55,8 +56,12 @@ export const CreateNoteForm = ({
 			);
 
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.message || "Error al crear la nota");
+				throw new Error(
+					await apiErrorMessage(
+						response,
+						"No se pudo crear la nota. Por favor, intenta de nuevo.",
+					),
+				);
 			}
 
 			toast.success("Nota creada exitosamente");
@@ -64,7 +69,11 @@ export const CreateNoteForm = ({
 			router.push(`/admin/legal-cases/${caseId}`);
 		} catch (error) {
 			console.error("Error creating note:", error);
-			toast.error("No se pudo crear la nota. Por favor, intenta de nuevo.");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "No se pudo crear la nota. Por favor, intenta de nuevo.",
+			);
 		} finally {
 			setIsSubmitting(false);
 		}

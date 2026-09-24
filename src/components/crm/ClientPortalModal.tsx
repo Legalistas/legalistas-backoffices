@@ -35,6 +35,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { API_BASE_URL } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { Lead } from "@/types/crm";
 
 interface ClientPortalModalProps {
@@ -145,8 +146,9 @@ export default function ClientPortalModal({
 			);
 
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.error || "Error al crear el formulario");
+				throw new Error(
+					await apiErrorMessage(response, "Error al crear el formulario"),
+				);
 			}
 
 			const data = await response.json();

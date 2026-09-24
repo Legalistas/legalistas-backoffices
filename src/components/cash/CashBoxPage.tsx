@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import type ApexCharts from "react-apexcharts";
 import type {
 	CalculatedUserBalance,
@@ -14,21 +15,33 @@ const ReactApexChart = dynamic(() => import("react-apexcharts"), {
 });
 
 import {
+	AlertCircle,
 	ArrowRightLeft,
 	Ban,
+	Briefcase,
 	Calculator,
 	CalendarIcon,
+	CheckCircle2,
+	CreditCard,
 	DollarSign,
+	FileText,
 	HandCoins,
+	type LucideIcon,
 	Plus,
+	Send,
+	Tag,
 	Trash2,
+	User as UserIcon,
+	Wallet,
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { useConfirm } from "@/hooks/useConfirm";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Autocomplete } from "@/components/shared/Autocomplete"; // Importa el nuevo Autocomplete
+import { ClosingsCombobox, type ClosingOption } from "@/components/shared/ClosingsCombobox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -55,14 +68,38 @@ import {
 	Table,
 	TableBody,
 	TableCell,
+	TableHead,
 	TableHeader,
 	TableRow,
 } from "@/components/ui/table";
-import { CASH_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	CASH_ENDPOINT,
+	CLOSINGS_ENDPOINT,
+	CREDIT_CARDS_ENDPOINT,
+	USERS_ENDPOINT,
+} from "@/constant/api-endpoints";
 import { MOVEMENTS } from "@/constant/cash"; // Importar MOVEMENTS y su tipo
 import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/users";
+import { CreditCardsPanel, type CreditCardWithPending } from "./CreditCardsPanel";
+
+function FieldLabel({
+	icon: Icon,
+	htmlFor,
+	children,
+}: {
+	icon: LucideIcon;
+	htmlFor: string;
+	children: ReactNode;
+}) {
+	return (
+		<Label htmlFor={htmlFor} className="flex items-center gap-1.5">
+			<Icon className="size-3.5 text-cyan-600 dark:text-cyan-400" />
+			{children}
+		</Label>
+	);
+}
 
 export default function CashBoxPage() {
 	const { data: session } = useSession();
@@ -103,6 +140,12 @@ export default function CashBoxPage() {
 		new Date().toISOString().substring(0, 10),
 	);
 	const [newDescription, setNewDescription] = useState<string>("");
+	const [newClosingId, setNewClosingId] = useState<string>("");
+	const [closingsOptions, setClosingsOptions] = useState<ClosingOption[]>([]);
+	// "cash" (Efectivo/Transferencia, default) o el id de una tarjeta —
+	// pagar con tarjeta no descuenta el saldo hasta liquidar el resumen.
+	const [newPaymentMethod, setNewPaymentMethod] = useState<string>("cash");
+	const [creditCards, setCreditCards] = useState<CreditCardWithPending[]>([]);
 
 	// State para el input del modal "Abrir Caja"
 	const [newBoxInitialAmount, setNewBoxInitialAmount] = useState<string>("");
@@ -305,6 +348,74 @@ export default function CashBoxPage() {
 		}
 	}, [isNewBoxModalOpen, closedMonths]);
 
+	// Cargar cierres con HP/PCL pendiente (no cobrado) cuando se abre el modal
+	// y el subtipo elegido es Honorarios (fee) o PCL. Filtra según corresponda.
+	useEffect(() => {
+		const isFeeIngreso = newType === "income" && newSubtype === "fee";
+		const isPclIngreso = newType === "income" && newSubtype === "pcl";
+		if (
+			!isRegisterMovementModalOpen ||
+			(!isFeeIngreso && !isPclIngreso) ||
+			!session?.user?.accessToken
+		) {
+			return;
+		}
+		const controller = new AbortController();
+		(async () => {
+			try {
+				const year = new Date().getFullYear();
+				const url = `${CLOSINGS_ENDPOINT}?viewAll=true&year=${year}&limit=1000`;
+				const res = await fetch(url, {
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.user.accessToken}`,
+					},
+					signal: controller.signal,
+				});
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				const json = await res.json();
+				const items: ClosingOption[] = (json?.data ?? [])
+					.filter((c: any) =>
+						isFeeIngreso
+							? c.feeStatus !== "CHARGED"
+							: c.pclStatus != null && c.pclStatus !== "CHARGED",
+					)
+					.map((c: any) => ({
+						id: c.id,
+						number: c.case?.number,
+						title: c.case?.title,
+						date: c.date,
+						hpTotal: c.hpTotal,
+						hpPaid: c.hpPaid,
+						hpRemaining: c.hpRemaining,
+						pclTotal: c.pclTotal,
+						pclPaid: c.pclPaid,
+						pclRemaining: c.pclRemaining,
+					}));
+				setClosingsOptions(items);
+			} catch (err) {
+				if ((err as Error).name !== "AbortError") {
+					console.error("Error cargando cierres:", err);
+				}
+			}
+		})();
+		return () => controller.abort();
+	}, [
+		isRegisterMovementModalOpen,
+		newType,
+		newSubtype,
+		session?.user?.accessToken,
+	]);
+
+	// Si el usuario cambia tipo/subtipo y deja de aplicar HP/PCL, limpiar selección.
+	useEffect(() => {
+		const isFeeIngreso = newType === "income" && newSubtype === "fee";
+		const isPclIngreso = newType === "income" && newSubtype === "pcl";
+		if (!isFeeIngreso && !isPclIngreso && newClosingId) {
+			setNewClosingId("");
+		}
+	}, [newType, newSubtype, newClosingId]);
+
 	const formatCurrency = (amount: number) => {
 		// Asegurarse de que el monto sea un número antes de formatear
 		if (typeof amount !== "number" || isNaN(amount)) {
@@ -377,6 +488,9 @@ export default function CashBoxPage() {
 			}
 		} else {
 			if (!newSubtype || newUserFrom === null) valid = false;
+			// Cierre asociado ya NO es obligatorio para ingresos de Honorarios/PCL —
+			// si se selecciona, el backend lo vincula y marca CHARGED; si no, se
+			// registra como transacción suelta.
 		}
 
 		if (!valid) {
@@ -396,6 +510,13 @@ export default function CashBoxPage() {
 		};
 		if (newType === "transfer") {
 			payload.userTransferId = newUserTo;
+		}
+		if (newClosingId) {
+			payload.closingId = Number(newClosingId);
+		}
+		if (newType === "expense" && newPaymentMethod !== "cash") {
+			payload.paymentMethod = "card";
+			payload.creditCardId = Number(newPaymentMethod);
 		}
 
 		const response = await fetch(`${CASH_ENDPOINT}/movements`, {
@@ -417,9 +538,12 @@ export default function CashBoxPage() {
 			setNewAmount("");
 			setNewDescription("");
 			setNewDate(new Date().toISOString().substring(0, 10));
+			setNewClosingId("");
+			setNewPaymentMethod("cash");
 			setIsRegisterMovementModalOpen(false);
 			toast.success(result.message);
 			await loadData();
+			if (payload.creditCardId) await fetchCreditCards();
 		} else {
 			toast.error(`Error al registrar movimiento: ${result.message}`);
 		}
@@ -539,9 +663,14 @@ export default function CashBoxPage() {
 				userMap.set(user.id, {
 					id: user.id,
 					name: user.name,
-					avatar: user?.image?.startsWith("http")
-						? user?.image
-						: `${process.env.NEXT_PUBLIC_BACKEND_URL}${user?.image || ""}`,
+					// Sin `image` no se puede armar una URL válida: el template daría
+					// el host pelado (`https://backend.legalistas.ar`), que next/image
+					// rechaza por no matchear ningún remotePattern.
+					avatar: user?.image
+						? user.image.startsWith("http")
+							? user.image
+							: `${process.env.NEXT_PUBLIC_BACKEND_URL}${user.image}`
+						: "/placeholder.svg",
 					totalBalance: 0,
 					income: 0,
 					expenses: 0,
@@ -608,8 +737,17 @@ export default function CashBoxPage() {
 				(u) => u.totalBalance !== 0 || u.income > 0 || u.expenses > 0,
 			);
 
+			// Usuarios que no vienen en `apiUsers` (esa lista excluye a los
+			// abogados representantes) se ocultan de la tabla, pero sus montos
+			// siguen sumando en los totales de abajo. Por eso los totales se
+			// calculan sobre `filteredUserBalances` y no sobre los visibles.
+			const knownUserIds = new Set(apiUsers.map((u) => Number(u.id)));
+			const visibleUserBalances = filteredUserBalances.filter((u) =>
+				knownUserIds.has(Number(u.id)),
+			);
+
 			setCalculatedUserBalances(
-				filteredUserBalances.sort((a, b) => a.name.localeCompare(b.name)),
+				visibleUserBalances.sort((a, b) => a.name.localeCompare(b.name)),
 			);
 			setTotalCalculatedUsersBalance(
 				filteredUserBalances.reduce((sum, u) => sum + u.totalBalance, 0),
@@ -691,21 +829,64 @@ export default function CashBoxPage() {
 		}
 	}, [session?.user?.accessToken]); // Re-fetch if session token changes
 
+	const fetchCreditCards = useCallback(async () => {
+		if (!session?.user?.accessToken) return;
+		try {
+			const response = await fetch(CREDIT_CARDS_ENDPOINT, {
+				headers: { Authorization: `Bearer ${session.user.accessToken}` },
+			});
+			if (!response.ok) return;
+			const { data } = await response.json();
+			setCreditCards(data || []);
+		} catch (err) {
+			console.error("Error fetching credit cards:", err);
+		}
+	}, [session?.user?.accessToken]);
+
+	useEffect(() => {
+		fetchCreditCards();
+	}, [fetchCreditCards]);
+
+	const paymentMethodOptions = useMemo(() => {
+		return [
+			{ value: "cash", label: "Efectivo / Transferencia" },
+			...creditCards
+				.filter((c) => c.isActive)
+				.map((c) => ({ value: String(c.id), label: c.name })),
+		];
+	}, [creditCards]);
+
 	const subMovementOptions = useMemo(() => {
 		const selectedMovement = MOVEMENTS.find((m) => m.value === newType);
 		return (
-			selectedMovement?.subMovements.map((smItem) => ({
-				// Renamed sm to smItem
-				value: smItem.value,
-				label: smItem.label,
-			})) || []
+			selectedMovement?.subMovements
+				// Subtipos con `restrictedToUserId` (ej. "Alquiler") solo se
+				// ofrecen cuando el usuario seleccionado es ese.
+				.filter(
+					(smItem) =>
+						!smItem.restrictedToUserId ||
+						smItem.restrictedToUserId === newUserFrom,
+				)
+				.map((smItem) => ({
+					value: smItem.value,
+					label: smItem.label,
+				})) || []
 		);
-	}, [newType]);
+	}, [newType, newUserFrom]);
+
+	// Si el usuario cambia y el subtipo elegido dejó de estar disponible para
+	// él (ej. tenía "Alquiler" y ahora es otro usuario), lo limpiamos.
+	useEffect(() => {
+		if (newSubtype && !subMovementOptions.some((o) => o.value === newSubtype)) {
+			setNewSubtype("");
+		}
+	}, [subMovementOptions, newSubtype]);
 
 	// Manejar el cambio del tipo de movimiento
 	const handleMovementTypeChange = (value: string) => {
 		setNewType(value);
 		setNewSubtype(""); // Resetear el subtipo cuando el tipo cambia
+		setNewPaymentMethod("cash"); // El pago con tarjeta solo aplica a egresos
 	};
 
 	const handleCloseMonth = async () => {
@@ -972,7 +1153,7 @@ export default function CashBoxPage() {
 			toast.success("Transacción eliminada correctamente");
 			await loadData();
 		} else {
-			toast.error("Error al eliminar la transacción");
+			toast.error(await apiErrorMessage(response, "Error al eliminar la transacción"));
 		}
 	};
 
@@ -1064,6 +1245,13 @@ export default function CashBoxPage() {
 					</div>
 				</div>
 
+				<CreditCardsPanel
+					cards={creditCards}
+					onRefetch={fetchCreditCards}
+					accessToken={session?.user?.accessToken}
+					userId={session?.user?.id}
+				/>
+
 				{/* Saldo acumulado bar */}
 				<div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-xl border bg-card/50 px-4 py-3">
 					<div className="flex items-center gap-3">
@@ -1134,16 +1322,23 @@ export default function CashBoxPage() {
 
 				{/* Modal para Registrar Nuevo Movimiento */}
 				<Dialog open={isRegisterMovementModalOpen} onOpenChange={(open) => !open && setIsRegisterMovementModalOpen(false)}>
-					<DialogContent className="sm:max-w-[425px]">
+					<DialogContent className="sm:max-w-[460px]">
 						<DialogHeader>
-							<DialogTitle>Registrar Nuevo Movimiento</DialogTitle>
-							<DialogDescription>
-								Añade un nuevo ingreso o gasto a la caja.
-							</DialogDescription>
+							<div className="flex items-center gap-3">
+								<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
+									<Wallet className="size-5 text-cyan-600 dark:text-cyan-400" />
+								</div>
+								<div>
+									<DialogTitle>Registrar Nuevo Movimiento</DialogTitle>
+									<DialogDescription>
+										Añade un nuevo ingreso o gasto a la caja.
+									</DialogDescription>
+								</div>
+							</div>
 						</DialogHeader>
-							<div className="grid gap-4 py-4">
-								<div className="space-y-2">
-									<Label htmlFor="movement-type">Tipo de Movimiento</Label>
+							<div className="grid grid-cols-2 gap-4 py-4">
+								<div className={cn("space-y-2", (!newType || newType === "transfer") && "col-span-2")}>
+									<FieldLabel icon={ArrowRightLeft} htmlFor="movement-type">Tipo de Movimiento</FieldLabel>
 									<Select
 										id="movement-type"
 										value={newType}
@@ -1155,7 +1350,7 @@ export default function CashBoxPage() {
 								{newType &&
 									newType !== "transfer" && ( // Mostrar subtipo solo si se selecciona income/expense
 										<div className="space-y-2">
-											<Label htmlFor="movement-subtype">Subtipo</Label>
+											<FieldLabel icon={Tag} htmlFor="movement-subtype">Subtipo</FieldLabel>
 											<Select
 												id="movement-subtype"
 												value={newSubtype}
@@ -1170,7 +1365,7 @@ export default function CashBoxPage() {
 								{newType === "transfer" ? (
 									<>
 										<div className="space-y-2">
-											<Label htmlFor="movement-user-from">Usuario Origen</Label>
+											<FieldLabel icon={UserIcon} htmlFor="movement-user-from">Usuario Origen</FieldLabel>
 											<Autocomplete
 												id="movement-user-from"
 												value={newUserFrom}
@@ -1180,7 +1375,7 @@ export default function CashBoxPage() {
 											/>
 										</div>
 										<div className="space-y-2">
-											<Label htmlFor="movement-user-to">Usuario Destino</Label>
+											<FieldLabel icon={UserIcon} htmlFor="movement-user-to">Usuario Destino</FieldLabel>
 											<Autocomplete
 												id="movement-user-to"
 												value={newUserTo}
@@ -1191,8 +1386,8 @@ export default function CashBoxPage() {
 										</div>
 									</>
 								) : (
-									<div className="space-y-2">
-										<Label htmlFor="movement-user-from">Usuario</Label>
+									<div className="col-span-2 space-y-2">
+										<FieldLabel icon={UserIcon} htmlFor="movement-user-from">Usuario</FieldLabel>
 										<Autocomplete
 											id="movement-user-from"
 											value={newUserFrom}
@@ -1203,17 +1398,21 @@ export default function CashBoxPage() {
 									</div>
 								)}
 								<div className="space-y-2">
-									<Label htmlFor="movement-amount">Monto</Label>
-									<Input
-										id="movement-amount"
-										type="number"
-										value={newAmount}
-										onChange={(e) => setNewAmount(e.target.value)}
-										placeholder="0.00"
-									/>
+									<FieldLabel icon={DollarSign} htmlFor="movement-amount">Monto</FieldLabel>
+									<div className="relative">
+										<DollarSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+										<Input
+											id="movement-amount"
+											type="number"
+											value={newAmount}
+											onChange={(e) => setNewAmount(e.target.value)}
+											placeholder="0.00"
+											className="pl-9"
+										/>
+									</div>
 								</div>
 								<div className="space-y-2">
-									<Label htmlFor="movement-date">Fecha de Carga</Label>
+									<FieldLabel icon={CalendarIcon} htmlFor="movement-date">Fecha de Carga</FieldLabel>
 									<Input
 										id="movement-date"
 										type="date"
@@ -1221,10 +1420,100 @@ export default function CashBoxPage() {
 										onChange={(e) => setNewDate(e.target.value)}
 									/>
 								</div>
-								<div className="space-y-2">
-									<Label htmlFor="movement-description">
-										Descripción / Detalle
-									</Label>
+								{/* Medio de pago: solo para egresos. Con tarjeta, el gasto se
+								    acumula y no descuenta el saldo hasta liquidar el resumen. */}
+								{newType === "expense" && (
+									<div className="col-span-2 space-y-2">
+										<FieldLabel icon={CreditCard} htmlFor="movement-payment-method">Medio de pago</FieldLabel>
+										<Select
+											id="movement-payment-method"
+											value={newPaymentMethod}
+											onValueChange={setNewPaymentMethod}
+											options={paymentMethodOptions}
+											placeholder="Selecciona medio de pago"
+										/>
+									</div>
+								)}
+								{newType === "income" &&
+									(newSubtype === "fee" || newSubtype === "pcl") && (
+										<div className="col-span-2 space-y-2">
+											<FieldLabel icon={Briefcase} htmlFor="movement-closing">
+												Cierre asociado{" "}
+												<span className="text-xs text-destructive font-normal">
+													(requerido)
+												</span>
+											</FieldLabel>
+											<ClosingsCombobox
+												id="movement-closing"
+												value={newClosingId}
+												onChange={setNewClosingId}
+												options={closingsOptions}
+												placeholder="Buscar cierre por #, título o fecha..."
+											/>
+											{newClosingId &&
+												(() => {
+													const selectedClosing = closingsOptions.find(
+														(c) => String(c.id) === newClosingId,
+													);
+													if (!selectedClosing) return null;
+													const remaining =
+														newSubtype === "fee"
+															? selectedClosing.hpRemaining
+															: selectedClosing.pclRemaining;
+													if (remaining == null) return null;
+
+													const entered = Number.parseFloat(newAmount);
+													const hasEntered = !Number.isNaN(entered) && entered > 0;
+													const leftover = Math.round((remaining - entered) * 100) / 100;
+													const willComplete = hasEntered && leftover <= 0.01 && entered <= remaining + 0.01;
+													const overpaying = hasEntered && entered > remaining + 0.01;
+
+													return (
+														<div
+															className={cn(
+																"mt-1 flex items-start gap-2 rounded-lg border p-3",
+																willComplete
+																	? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
+																	: "border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/30",
+															)}
+														>
+															{willComplete ? (
+																<CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+															) : (
+																<AlertCircle className="mt-0.5 size-4 shrink-0 text-red-500" />
+															)}
+															<div className="space-y-0.5 text-xs">
+																<p className={willComplete ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}>
+																	Falta pagar: <span className="font-semibold">{formatCurrency(remaining)}</span>
+																</p>
+																{hasEntered && !willComplete && !overpaying && (
+																	<p className="text-red-700 dark:text-red-400">
+																		Quedaría pendiente: <span className="font-semibold">{formatCurrency(leftover)}</span>
+																	</p>
+																)}
+																{overpaying && (
+																	<p className="font-medium text-red-700 dark:text-red-400">
+																		El monto supera lo que falta pagar.
+																	</p>
+																)}
+																{willComplete && (
+																	<p className="text-emerald-700 dark:text-emerald-400">
+																		Completa el pago — quedará cobrado.
+																	</p>
+																)}
+															</div>
+														</div>
+													);
+												})()}
+										</div>
+									)}
+								<div className="col-span-2 space-y-2">
+									<FieldLabel icon={FileText} htmlFor="movement-description">
+										Descripción / Detalle{" "}
+										<span className="text-xs text-destructive font-normal">
+											(requerido)
+										</span>
+									</FieldLabel>
 									<textarea
 										id="movement-description"
 										value={newDescription}
@@ -1242,7 +1531,8 @@ export default function CashBoxPage() {
 								>
 									Cancelar
 								</Button>
-								<Button onClick={handleAddMovement}>
+								<Button onClick={handleAddMovement} className="gap-1.5">
+									<Send className="size-4" />
 									Registrar Movimiento
 								</Button>
 							</DialogFooter>
@@ -1372,15 +1662,16 @@ export default function CashBoxPage() {
 						Ver Movimientos Detallados
 					</Button>
 				</div>
-				<Card className="overflow-hidden">
-					<Table className="w-full">
-						<TableHeader>
-							<TableRow className="bg-muted/40 hover:bg-muted/40">
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-left">Miembro</TableCell>
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Saldo Total</TableCell>
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Ingresos</TableCell>
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">Gastos</TableCell>
-								<TableCell className="px-4 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right w-25" />
+				{/* Sin <Card>: el propio <Table> ya aporta borde, redondeo y sombra;
+				    envolverlo duplicaba el marco y agregaba el py-6 de la Card. */}
+				<Table className="w-full">
+					<TableHeader>
+							<TableRow className="hover:bg-transparent">
+								<TableHead className="px-6 py-3 uppercase tracking-wider">Miembro</TableHead>
+								<TableHead className="px-6 py-3 uppercase tracking-wider text-right">Saldo Total</TableHead>
+								<TableHead className="px-6 py-3 uppercase tracking-wider text-right">Ingresos</TableHead>
+								<TableHead className="px-6 py-3 uppercase tracking-wider text-right">Gastos</TableHead>
+								<TableHead className="px-6 py-3 w-25" />
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -1391,7 +1682,7 @@ export default function CashBoxPage() {
 										className="group transition-colors hover:bg-muted/30 cursor-pointer"
 										onClick={() => router.push(`/admin/cashbox/${user.id}`)}
 									>
-										<TableCell className="px-4 py-2.5">
+										<TableCell className="px-6 py-3">
 											<div className="flex items-center gap-3">
 												<Image
 													src={user.avatar || "/placeholder.svg"}
@@ -1403,16 +1694,16 @@ export default function CashBoxPage() {
 												<span className="text-sm font-medium">{user.name}</span>
 											</div>
 										</TableCell>
-										<TableCell className={cn("px-4 py-2.5 text-sm text-right font-semibold tabular-nums", user.totalBalance >= 0 ? "text-green-600" : "text-red-600")}>
+										<TableCell className={cn("px-6 py-3 text-sm text-right font-semibold tabular-nums", user.totalBalance >= 0 ? "text-green-600" : "text-red-600")}>
 											{formatCurrency(user.totalBalance)}
 										</TableCell>
-										<TableCell className="px-4 py-2.5 text-sm text-right text-green-600 tabular-nums">
+										<TableCell className="px-6 py-3 text-sm text-right text-green-600 tabular-nums">
 											{formatCurrency(user.income)}
 										</TableCell>
-										<TableCell className="px-4 py-2.5 text-sm text-right text-red-600 tabular-nums">
+										<TableCell className="px-6 py-3 text-sm text-right text-red-600 tabular-nums">
 											{formatCurrency(user.expenses)}
 										</TableCell>
-										<TableCell className="px-4 py-2.5 text-right">
+										<TableCell className="px-6 py-3 text-right">
 											<Button
 												variant="ghost"
 												size="sm"
@@ -1436,21 +1727,20 @@ export default function CashBoxPage() {
 								</TableRow>
 							)}
 							<TableRow className="bg-muted/40 hover:bg-muted/40 border-t-2">
-								<TableCell className="px-4 py-2.5 text-sm font-bold">Totales</TableCell>
-								<TableCell className={cn("px-4 py-2.5 text-sm text-right font-bold tabular-nums", totalCalculatedUsersBalance >= 0 ? "text-green-700" : "text-red-700")}>
+								<TableCell className="px-6 py-3 text-sm font-bold">Totales</TableCell>
+								<TableCell className={cn("px-6 py-3 text-sm text-right font-bold tabular-nums", totalCalculatedUsersBalance >= 0 ? "text-green-700" : "text-red-700")}>
 									{formatCurrency(totalCalculatedUsersBalance)}
 								</TableCell>
-								<TableCell className="px-4 py-2.5 text-sm text-right font-bold text-green-700 tabular-nums">
+								<TableCell className="px-6 py-3 text-sm text-right font-bold text-green-700 tabular-nums">
 									{formatCurrency(totalCalculatedUsersIncome)}
 								</TableCell>
-								<TableCell className="px-4 py-2.5 text-sm text-right font-bold text-red-700 tabular-nums">
+								<TableCell className="px-6 py-3 text-sm text-right font-bold text-red-700 tabular-nums">
 									{formatCurrency(totalCalculatedUsersExpenses)}
 								</TableCell>
-								<TableCell />
+								<TableCell className="px-6 py-3" />
 							</TableRow>
 						</TableBody>
 					</Table>
-				</Card>
 			</div>
 
 			{/* Main Content Grid */}

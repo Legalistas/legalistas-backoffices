@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { CASES_FILES_DELETE_BY_CASE_ID_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { getProceduralStageLabel, getProcessTypeLabel } from "@/lib/functions";
 import type { CasesFiles } from "@/types/cases";
 
@@ -40,7 +41,9 @@ export const FilesCardView = ({
 				},
 			);
 			if (!response.ok) {
-				throw new Error("Failed to delete file");
+				throw new Error(
+					await apiErrorMessage(response, "Error al eliminar el archivo"),
+				);
 			}
 
 			console.log(`Deleting file with ID: ${fileId}`);
@@ -49,7 +52,9 @@ export const FilesCardView = ({
 			router.push(`/admin/legal-cases/${caseId}`);
 		} catch (error) {
 			console.error("Error al eliminar el archivo:", error);
-			toast.error("Error al eliminar el archivo");
+			toast.error(
+				error instanceof Error ? error.message : "Error al eliminar el archivo",
+			);
 		}
 	};
 	return (

@@ -8,6 +8,7 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useConfirm } from "@/hooks/useConfirm";
 import { POST_BY_ID_ENDPOINT, POSTS_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 interface Post {
 	id: number;
@@ -73,7 +74,7 @@ export default function PostsAdminPage() {
 				toast.success("Post eliminado exitosamente");
 				fetchPosts();
 			} else {
-				toast.error("Error al eliminar el post");
+				toast.error(await apiErrorMessage(response, "Error al eliminar el post"));
 			}
 		} catch (error) {
 			console.error("Error deleting post:", error);

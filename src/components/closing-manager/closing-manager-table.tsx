@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Eye, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Eye, Loader2, Pencil, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -28,17 +28,21 @@ import {
 	statusColors,
 	statusData,
 } from "@/constant/closing-manager";
+import { apiErrorMessage } from "@/lib/api-error";
 import { cn } from "@/lib/utils";
 import type {
 	ClosingManagerEntry,
 	Pagination as PaginationType,
 } from "@/types/closing-manager";
 import ViewClosingModal from "./ViewClosingModal";
+import ClosingPaymentHistoryModal from "./ClosingPaymentHistoryModal";
 
 // =============================================================================
 // Definición de columnas v2 — 21 columnas (sin intimation ni sepblac)
 // =============================================================================
 const COLUMNS = [
+	// Columna indicador fija de cobro — siempre visible al inicio.
+	{ id: "paymentIndicator", label: "Cobro", align: "center", width: "w-[4%]" },
 	{ id: "date", label: "Fecha", align: "left", width: "w-[8%]" },
 	{ id: "case", label: "Causa", align: "left", width: "w-[14%]" },
 	{ id: "lawyer", label: "Representante", align: "left", width: "w-[11%]" },
@@ -69,13 +73,13 @@ const COLUMNS = [
 		width: "",
 	},
 	{ id: "aportesLegalistas", label: "Aportes Legalistas ($)", align: "right", width: "" },
-	{ id: "montoTransferir", label: "Monto a Transferir ($)", align: "right", width: "w-[10%]" },
+	{ id: "montoTransferir", label: "Monto a Cobrar ($)", align: "right", width: "w-[10%]" },
 	{ id: "totalCaseExpenses", label: "Gastos Causa ($)", align: "right", width: "" },
 	{ id: "detail", label: "Detalle", align: "left", width: "" },
 ] as const;
 
 // Columna montoTransferir siempre visible (no se puede ocultar)
-const ALWAYS_VISIBLE = ["montoTransferir"];
+const ALWAYS_VISIBLE = ["paymentIndicator", "montoTransferir"];
 
 interface ClosingManagerTableProps {
 	closings: ClosingManagerEntry[];
@@ -118,6 +122,12 @@ export default function ClosingManagerTable({
 		null,
 	);
 
+	// Historial de pagos parciales HP/PCL
+	const [paymentHistory, setPaymentHistory] = useState<{
+		closingId: number;
+		subtype: "fee" | "pcl";
+	} | null>(null);
+
 	// Inline edit state
 	const [editingDetailId, setEditingDetailId] = useState<number | null>(null);
 	const [editingDetailValue, setEditingDetailValue] = useState("");
@@ -145,6 +155,23 @@ export default function ClosingManagerTable({
 		if ((columnId === "hpLegalistas" || columnId === "pclLegalistas") && !canSeeHpLegalistas) return false;
 		return ALWAYS_VISIBLE.includes(columnId) || visibleColumns.includes(columnId);
 	};
+
+	// Una causa se considera "cobrada por completo" cuando los honorarios están
+	// cobrados (CHARGED) y el PCL no está pendiente (no existe o también está CHARGED).
+	const isFullyCharged = (closing: ClosingManagerEntry) => {
+		const feeOk = closing.feeStatus === "CHARGED";
+		const pclOk = !closing.pclStatus || closing.pclStatus === "CHARGED";
+		return feeOk && pclOk;
+	};
+
+	// Los importes se muestran en verde cuando su concepto ya está cobrado, para
+	// distinguir de un vistazo la plata que entró de la que todavía se espera.
+	// HP y PCL se evalúan por separado: uno puede estar cobrado y el otro no.
+	const amountClass = (charged: boolean) =>
+		cn(
+			"text-right block",
+			charged && "text-green-600 dark:text-green-400 font-semibold",
+		);
 
 
 	// =========================================================================
@@ -184,11 +211,12 @@ export default function ClosingManagerTable({
 					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
 			});
-			if (!response.ok) throw new Error("Error al eliminar el cierre");
+			if (!response.ok)
+				throw new Error(await apiErrorMessage(response, "Error al eliminar el cierre"));
 			if (onRefresh) onRefresh();
 		} catch (err) {
 			console.error("Error deleting closing:", err);
-			toast.error("Error al eliminar el cierre");
+			toast.error(err instanceof Error ? err.message : "Error al eliminar el cierre");
 		}
 	};
 
@@ -221,12 +249,13 @@ export default function ClosingManagerTable({
 				},
 				body: JSON.stringify({ detail: editingDetailValue }),
 			});
-			if (!response.ok) throw new Error("Error al guardar detalle");
+			if (!response.ok)
+				throw new Error(await apiErrorMessage(response, "Error al guardar el detalle"));
 			setEditingDetailId(null);
 			if (onRefresh) onRefresh();
 		} catch (err) {
 			console.error("Error saving detail:", err);
-			toast.error("Error al guardar el detalle");
+			toast.error(err instanceof Error ? err.message : "Error al guardar el detalle");
 		} finally {
 			setSavingDetail(false);
 		}
@@ -244,6 +273,30 @@ export default function ClosingManagerTable({
 		columnId: string,
 	) => {
 		switch (columnId) {
+			case "paymentIndicator": {
+				const fullyCharged = isFullyCharged(closing);
+				const feePending = closing.feeStatus !== "CHARGED";
+				const pclPending =
+					!!closing.pclStatus && closing.pclStatus !== "CHARGED";
+				const tooltip = fullyCharged
+					? "Cobrado por completo"
+					: [
+							feePending ? "HP pendiente" : null,
+							pclPending ? "PCL pendiente" : null,
+						]
+							.filter(Boolean)
+							.join(" · ");
+				return (
+					<div className="flex items-center justify-center" title={tooltip}>
+						{fullyCharged ? (
+							<CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+						) : (
+							<AlertTriangle className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+						)}
+					</div>
+				);
+			}
+
 			case "date":
 				return <span>{formatDate(closing.date)}</span>;
 
@@ -319,37 +372,68 @@ export default function ClosingManagerTable({
 
 			case "hpTotal":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.feeStatus === "CHARGED")}>
 						{formatCurrency(Number(closing.hpTotal))}
 					</span>
 				);
 
 			case "hpRepresentante":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.feeStatus === "CHARGED")}>
 						{formatCurrency(closing.hpRepresentante)}
 					</span>
 				);
 
-			case "hpLegalistas":
+			case "hpLegalistas": {
+				// hpLegalistas viene del backend ya NETO de aportes Legalistas.
+				const aportes = closing.applyContributions
+					? Number(closing.aportesLegalistas || 0)
+					: 0;
 				return (
-					<span className="text-right block">
-						{formatCurrency(closing.hpLegalistas)}
+					<span
+						className={amountClass(closing.feeStatus === "CHARGED")}
+						title={
+							aportes > 0
+								? `HP Legalistas neto. Aportes restados: ${formatCurrency(aportes)}`
+								: undefined
+						}
+					>
+						{formatCurrency(Number(closing.hpLegalistas || 0))}
 					</span>
 				);
+			}
 
 			case "feeStatus": {
 				const label = statusData[closing.feeStatus] || "-";
 				return (
-					<Badge
-						className={cn(
-							"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
-							statusColors[closing.feeStatus] || "",
+					<div className="flex flex-col items-start gap-0.5">
+						<Badge
+							className={cn(
+								"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
+								statusColors[closing.feeStatus] || "",
+							)}
+							title={label}
+						>
+							{label}
+						</Badge>
+						{closing.feeStatus === "PARTIAL" && (
+							<>
+								<span className="text-[10px] text-muted-foreground whitespace-nowrap">
+									{formatCurrency(Number(closing.hpTotal))} ={" "}
+									{formatCurrency(closing.hpPaid)}
+								</span>
+								<button
+									type="button"
+									onClick={() =>
+										setPaymentHistory({ closingId: closing.id, subtype: "fee" })
+									}
+									className="text-[10px] text-primary underline underline-offset-2 hover:no-underline"
+								>
+									Ver historial
+								</button>
+							</>
 						)}
-						title={label}
-					>
-						{label}
-					</Badge>
+					</div>
 				);
 			}
 
@@ -362,7 +446,7 @@ export default function ClosingManagerTable({
 
 			case "pclTotal":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.pclStatus === "CHARGED")}>
 						{closing.pclTotal != null
 							? formatCurrency(Number(closing.pclTotal))
 							: "-"}
@@ -371,14 +455,14 @@ export default function ClosingManagerTable({
 
 			case "pclRepresentante":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.pclStatus === "CHARGED")}>
 						{formatCurrency(closing.pclRepresentante)}
 					</span>
 				);
 
 			case "pclLegalistas":
 				return (
-					<span className="text-right block">
+					<span className={amountClass(closing.pclStatus === "CHARGED")}>
 						{formatCurrency(closing.pclLegalistas)}
 					</span>
 				);
@@ -387,15 +471,34 @@ export default function ClosingManagerTable({
 				if (!closing.pclStatus) return <span>-</span>;
 				const label = statusData[closing.pclStatus] || "-";
 				return (
-					<Badge
-						className={cn(
-							"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
-							statusColors[closing.pclStatus] || "",
+					<div className="flex flex-col items-start gap-0.5">
+						<Badge
+							className={cn(
+								"text-[10px] font-semibold px-1.5 py-0.5 max-w-full truncate",
+								statusColors[closing.pclStatus] || "",
+							)}
+							title={label}
+						>
+							{label}
+						</Badge>
+						{closing.pclStatus === "PARTIAL" && (
+							<>
+								<span className="text-[10px] text-muted-foreground whitespace-nowrap">
+									{formatCurrency(Number(closing.pclTotal))} ={" "}
+									{formatCurrency(closing.pclPaid)}
+								</span>
+								<button
+									type="button"
+									onClick={() =>
+										setPaymentHistory({ closingId: closing.id, subtype: "pcl" })
+									}
+									className="text-[10px] text-primary underline underline-offset-2 hover:no-underline"
+								>
+									Ver historial
+								</button>
+							</>
 						)}
-						title={label}
-					>
-						{label}
-					</Badge>
+					</div>
 				);
 			}
 
@@ -539,7 +642,20 @@ export default function ClosingManagerTable({
 					<TableBody>
 						{closings.length > 0 ? (
 							closings.map((closing) => (
-								<TableRow key={closing.id} className="group hover:bg-gray-50 dark:hover:bg-white/5">
+								<TableRow
+									key={closing.id}
+									className={cn(
+										"group transition-colors",
+										isFullyCharged(closing)
+											? "bg-gray-300 dark:bg-white/20 hover:bg-gray-400/70 dark:hover:bg-white/25"
+											: "hover:bg-gray-50 dark:hover:bg-white/5",
+									)}
+									title={
+										isFullyCharged(closing)
+											? "Causa cobrada por completo"
+											: undefined
+									}
+								>
 									{COLUMNS.map((col) =>
 										isColumnVisible(col.id) ? (
 											<TableCell
@@ -616,6 +732,14 @@ export default function ClosingManagerTable({
 				isOpen={!!viewClosing}
 				onClose={() => setViewClosing(null)}
 			/>
+			{paymentHistory && (
+				<ClosingPaymentHistoryModal
+					closingId={paymentHistory.closingId}
+					subtype={paymentHistory.subtype}
+					isOpen={!!paymentHistory}
+					onClose={() => setPaymentHistory(null)}
+				/>
+			)}
 			{ConfirmationDialog}
 		</div>
 	);

@@ -13,7 +13,6 @@ import {
 	getFileTypeLabel,
 	getProceduralStageLabel,
 	getProcessTypeLabel,
-	getStatusProcessLabel,
 } from "@/lib/functions";
 import type { CasesFiles } from "@/types/cases";
 import { NewFileModal } from "../case-details/NewFileModal";
@@ -52,20 +51,13 @@ export default function FilesHeader({ file }: FilesHeaderProps) {
 					<div>
 						<div className="grid grid-cols-1 gap-2">
 							<h1 className="text-xl font-bold text-gray-900 break-words max-w-full sm:max-w-2xl 2xl:max-w-none">
-								{file?.case?.customer?.name}
-								{file &&
-								Array.isArray(file.filesParts) &&
-								file.filesParts.length > 0 &&
-								file.filesParts[0]?.name
-									? `C/${file.filesParts[0].name}`
-									: ""}
-								S/{" "}
-								{getProcessTypeLabel(
-									typeof file?.typeProcessId === "number"
-										? file.typeProcessId
-										: null,
-								)}
-								.
+								{/* Carátula automática (partes + tipo de proceso). */}
+								{file?.title ||
+									`${file?.case?.customer?.name ?? ""} S/ ${getProcessTypeLabel(
+										typeof file?.typeProcessId === "number"
+											? file.typeProcessId
+											: null,
+									)}`}
 							</h1>
 							{/* 
                             <Badge className="ml-0 bg-blue-100 text-blue-600 font-medium rounded-full px-4 py-2 text-xs whitespace-pre-line !leading-[1.1]">
@@ -78,8 +70,8 @@ export default function FilesHeader({ file }: FilesHeaderProps) {
 							{file?.filetype !== undefined
 								? getFileTypeLabel(file.filetype)
 								: "Tipo desconocido"}{" "}
-							• {getStatusProcessLabel(file?.statusProcessId ?? 0)} •{" "}
-							{file?.court?.charter}
+							• {file?.court?.charter}
+							{file?.injury ? ` • Lesión: ${file.injury}` : ""}
 						</p>
 					</div>
 				</div>

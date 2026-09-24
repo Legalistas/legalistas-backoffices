@@ -12,6 +12,10 @@ export const FORGOT_PASSWORD_ENDPOINT = `${API_BASE_URL}/auth/forgot-password`;
 export const SESSION_PAUSE_ENDPOINT = `${API_BASE_URL}/auth/session-pause`;
 export const SESSION_END_ENDPOINT = `${API_BASE_URL}/auth/session-end`;
 
+// Mailer Endpoints (envío de email con templates — vive en el backend,
+// antes era /api/notifications/email propio del frontend con SMTP directo)
+export const MAILER_SEND_ENDPOINT = `${API_BASE_URL}/mailer/send`;
+
 // Activity Logs Endpoints
 export const ACTIVITY_LOGS_ENDPOINT = `${API_BASE_URL}/activity-logs`;
 export const ACTIVITY_LOGS_STATS_ENDPOINT = `${API_BASE_URL}/activity-logs/stats`;
@@ -105,6 +109,71 @@ export const ME_ATTENDANCE_ACTION_ENDPOINT = `${API_BASE_URL}/me/attendance/acti
 // LEGAL CASES
 export const CASES_ENDPOINT = `${API_BASE_URL}/cases`;
 export const CASES_EXPIRATION_ALERTS_ENDPOINT = `${API_BASE_URL}/cases/expiration-alerts`;
+// Expedientes del caso.
+export const CASE_FILES_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/files`;
+// Subida al caso: sin `fileId` va a Documentos; con `fileId`, a los Escritos
+// de ese expediente.
+export const CASE_DOCUMENTS_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/documents`;
+// Escritos y plantillas.
+export const ESCRITOS_ENDPOINT = `${API_BASE_URL}/escritos`;
+export const ESCRITO_ENDPOINT = (id: number) => `${API_BASE_URL}/escritos/${id}`;
+// Vista previa: PDF de lo último guardado, sin archivarlo.
+export const ESCRITO_PDF_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/escritos/${id}/pdf`;
+// Genera el PDF y lo guarda en la carpeta del expediente.
+export const ESCRITO_GUARDAR_PDF_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/escritos/${id}/guardar-pdf`;
+export const ESCRITO_PDF_GUARDADO_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/escritos/${id}/pdf-guardado`;
+export const ESCRITOS_VARIABLES_ENDPOINT = `${API_BASE_URL}/escritos/variables`;
+export const ESCRITOS_PLANTILLAS_ENDPOINT = `${API_BASE_URL}/escritos/plantillas`;
+export const ESCRITOS_PLANTILLA_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/escritos/plantillas/${id}`;
+// Subpath de la carpeta del expediente en 1_ESCRITOS/.
+export const CASE_EXPEDIENTE_FOLDER_ENDPOINT = (
+	caseId: number,
+	fileId: number,
+) => `${API_BASE_URL}/cases/${caseId}/minio/expediente/${fileId}`;
+
+// SRT — Formularios (maestro de abogados SRT + info del caso)
+export const CASE_SRT_INFO_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/srt-info`;
+export const CASE_SRT_FORMS_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/srt-forms`;
+export const CASE_SRT_FORM_DOWNLOAD_ENDPOINT = (
+	caseId: number,
+	formId: number,
+) => `${API_BASE_URL}/cases/${caseId}/srt-forms/${formId}/download`;
+export const SRT_LAWYERS_ENDPOINT = `${API_BASE_URL}/lawyers`;
+export const SRT_LAWYER_BY_ID_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/lawyers/${userId}`;
+export const SRT_LAWYERS_ELIGIBLE_USERS_ENDPOINT = `${API_BASE_URL}/lawyers/eligible-users`;
+
+// KPIs — manuales
+export const MANUAL_KPIS_CATALOG_ENDPOINT = `${API_BASE_URL}/manual-kpis/catalog`;
+export const MANUAL_KPIS_ENDPOINT = `${API_BASE_URL}/manual-kpis`;
+export const MANUAL_KPI_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/manual-kpis/${id}`;
+
+// KPIs — automáticos por área
+export const KPI_LEGAL_ENDPOINT = `${API_BASE_URL}/kpis/legal`;
+// Próximamente: /kpis/sales, /kpis/marketing, /kpis/accounting, /kpis/summary
+
+// CRM Monitor (Proyecto 3) — alertas de estancamiento + reporte semanal
+export const CRM_MONITOR_REPORT_ENDPOINT = `${API_BASE_URL}/crm-monitor/report`;
+export const CRM_MONITOR_RUN_ENDPOINT = `${API_BASE_URL}/crm-monitor/run`;
+export const CRM_MONITOR_RULES_ENDPOINT = `${API_BASE_URL}/crm-monitor/rules`;
+
+// Case Analyzer (Proyecto 4) — análisis de expedientes con IA
+export const CASE_ANALYSIS_LIST_ENDPOINT = (caseId: number | string) =>
+	`${API_BASE_URL}/cases/${caseId}/analysis`;
+export const CASE_ANALYSIS_DETAIL_ENDPOINT = (
+	caseId: number | string,
+	analysisId: number | string,
+) => `${API_BASE_URL}/cases/${caseId}/analysis/${analysisId}`;
+// El endpoint POST para crear/subir usa CASE_ANALYSIS_LIST_ENDPOINT (misma URL, verbo POST).
 
 export const CASES_NOTES_CREATE_ENDPOINT = (caseId: number) =>
 	`${API_BASE_URL}/cases/${caseId}/notes`;
@@ -203,7 +272,7 @@ export const CASES_CONSULTATIONS_REOPEN_ENDPOINT = (id: string | number) =>
 	`${API_BASE_URL}/consultations/${id}/reopen`;
 
 export const CASES_CONSULTATIONS_CREATE_ENDPOINT = (caseId: number) =>
-	`${API_BASE_URL}/cases/${caseId}/consultations`;
+	`${API_BASE_URL}/cases/${caseId}/consultation`;
 
 export const CASES_CONSULTATIONS_DELETE_ENDPOINT = (
 	caseId: number,
@@ -285,6 +354,13 @@ export const CALCULATOR_CAUSES_LIST_ENDPOINT = `${API_BASE_URL}/statistics/cause
 // DASHBOARD ENDPOINTS
 export const DASHBOARD_LEGAL_STATS_ENDPOINT = `${API_BASE_URL}/dashboard/legal-stats`;
 
+// PARTIES ENDPOINTS
+// Catálogo global de partes reutilizables — aseguradoras, peritos habituales.
+// Se carga una vez y se reutiliza entre expedientes (relevamiento 5.3).
+export const PARTIES_ENDPOINT = `${API_BASE_URL}/parties`;
+export const PARTY_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/parties/${id}`;
+
 // TASKS ENDPOINTS
 export const TASKS_ENDPOINT = `${API_BASE_URL}/tasks`;
 export const TASKS_CASES_ENDPOINT = `${API_BASE_URL}/tasks/cases`;
@@ -297,6 +373,8 @@ export const SETTINGS_JURISDICTIONS_EXPORT_EXCEL_ENDPOINT = `${API_BASE_URL}/set
 export const UPLOAD_ENDPOINT = `${API_BASE_URL}/upload`;
 export const SETTINGS_HOLIDAY_ENDPOINT = `${API_BASE_URL}/settings/holidays`;
 export const SETTINGS_COUNTRIES_ENDPOINT = `${API_BASE_URL}/settings/countries`;
+// Localidades por provincia: `${SETTINGS_STATES_ENDPOINT}/${stateId}/localities`
+export const SETTINGS_STATES_ENDPOINT = `${API_BASE_URL}/settings/states`;
 export const SETTINGS_ROLES_ENDPOINT = `${API_BASE_URL}/settings/roles`;
 export const SETTINGS_DEADLINE_TYPES_ENDPOINT = `${API_BASE_URL}/settings/deadline-types`;
 
@@ -325,7 +403,19 @@ export const NOTIFICATIONS_ENDPOINT = (userId: number) =>
 export const NOTIFICATIONS_READ_ENDPOINT = (notificationId: number) =>
 	`${API_BASE_URL}/notifications/${notificationId}/read`;
 
+// Push del informe trimestral al cliente. El backend (legalistas_backend) ya
+// resuelve OneSignal — el frontend solo le pasa el caseId, el título, el mensaje
+// y el link.
+export const CASE_INFORME_PUSH_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/informe/push`;
+
 export const CASH_ENDPOINT = `${API_BASE_URL}/cash`;
+
+export const CREDIT_CARDS_ENDPOINT = `${API_BASE_URL}/credit-cards`;
+export const CREDIT_CARD_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/credit-cards/${id}`;
+export const CREDIT_CARD_SETTLE_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/credit-cards/${id}/settle`;
 
 // ============================================================================
 // CONTABLE - Gestor de Gastos e Ingresos (A Cobrar / A Pagar)
@@ -385,6 +475,9 @@ export const CLOSINGS_KPIS_ENDPOINT = `${API_BASE_URL}/closings/kpis`;
 // Exportar cierres a Excel/CSV
 export const CLOSINGS_EXPORT_ENDPOINT = `${API_BASE_URL}/closings/export`;
 
+// Lista de usuarios habilitados a registrar cobros (HP/PCL)
+export const CLOSINGS_CHARGE_COLLECTORS_ENDPOINT = `${API_BASE_URL}/closings/charge-collectors`;
+
 // Individual closing endpoints
 export const CLOSING_BY_ID_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/closings/${id}`;
@@ -392,6 +485,10 @@ export const CLOSING_BY_ID_ENDPOINT = (id: number) =>
 // Inline edit del campo detalle
 export const CLOSING_DETAIL_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/closings/${id}/detail`;
+
+// Historial de pagos parciales HP/PCL de un cierre
+export const CLOSING_PAYMENTS_ENDPOINT = (id: number, subtype: "fee" | "pcl") =>
+	`${API_BASE_URL}/closings/${id}/payments?subtype=${subtype}`;
 
 // ============================================================================
 // POSTS / BLOG MODULE - Sistema de Posts estilo WordPress
@@ -437,8 +534,23 @@ export const POSTS_SEARCH_ENDPOINT = `${API_BASE_URL}/posts/search`;
 export const CASE_INFORME_ENDPOINT = (caseId: number) =>
 	`${API_BASE_URL}/cases/${caseId}/informe`;
 
+// Genera el PDF del informe trimestral server-side (Puppeteer). El backend
+// no persiste nada acá: solo renderiza y devuelve el PDF.
+export const CASE_INFORME_GENERATE_PDF_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/informe/generate-pdf`;
+
 // LEXIA - Analista IA
 export const LEXIA_ANALYTICS_ENDPOINT = `${API_BASE_URL}/lexia/analytics`;
+
+// CRM Analyzer - notas crudas → mensaje prolijo para la abogada/o (IA)
+export const CRM_ANALYZER_ENDPOINT = `${API_BASE_URL}/crm-analyzer/analyze`;
+
+// Web Contact - bandeja de contactos del formulario público (legalistas.ar)
+export const WEB_CONTACT_ENDPOINT = `${API_BASE_URL}/web-contact`;
+export const WEB_CONTACT_REJECT_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/web-contact/${id}/reject`;
+export const WEB_CONTACT_CONVERT_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/web-contact/${id}/convert`;
 
 // ============================================================================
 // REPRESENTATIVES MODULE - Seguimiento de desempeño de representantes
@@ -448,9 +560,46 @@ export const LEXIA_ANALYTICS_ENDPOINT = `${API_BASE_URL}/lexia/analytics`;
 export const REPRESENTATIVES_KPIS_ENDPOINT = `${API_BASE_URL}/representatives/kpis`;
 
 // Asignación de nivel para un (mes, año) específico — se guarda en historial
+// (la ruta del backend es PATCH /employments/:userId/representative-level)
 export const REPRESENTATIVE_LEVEL_ENDPOINT = (userId: number) =>
-	`${API_BASE_URL}/representatives/${userId}/level`;
+	`${API_BASE_URL}/employments/${userId}/representative-level`;
 
 // Historial completo de medallas de un representante (todas las entradas)
 export const REPRESENTATIVE_LEVELS_HISTORY_ENDPOINT = (userId: number) =>
 	`${API_BASE_URL}/representatives/${userId}/levels`;
+
+// ============================================================================
+// MINIO MODULE — bootstrap, health, backfill y resync de carpetas de casos
+// ============================================================================
+export const MINIO_HEALTH_ENDPOINT = `${API_BASE_URL}/minio/health`;
+export const MINIO_BOOTSTRAP_ENDPOINT = `${API_BASE_URL}/minio/bootstrap`;
+export const MINIO_BACKFILL_ENDPOINT = `${API_BASE_URL}/minio/backfill`;
+export const MINIO_CLEANUP_OLD_SUBSTAGES_ENDPOINT = `${API_BASE_URL}/minio/cleanup-old-substages`;
+export const MINIO_RESYNC_CASE_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/minio/cases/${caseId}/resync`;
+export const MINIO_RESYNC_LEAD_ENDPOINT = (leadId: number) =>
+	`${API_BASE_URL}/minio/leads/${leadId}/resync`;
+
+// Verificar disponibilidad de slug (admin)
+export const POSTS_SLUG_CHECK_ENDPOINT = `${API_BASE_URL}/posts/slug-check`;
+
+// Autores elegibles para firmar posts (E-E-A-T)
+export const POSTS_AUTHORS_ENDPOINT = `${API_BASE_URL}/posts/authors`;
+export const POST_AUTHOR_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/posts/authors/${id}`;
+
+// Subida de imágenes del blog (admin frontend — no toca el backend)
+export const BLOG_UPLOAD_ENDPOINT = "/api/blog/upload";
+
+// AI endpoints (admin only)
+export const POSTS_AI_ANALYZE_ENDPOINT = `${API_BASE_URL}/posts/ai/analyze`;
+export const POSTS_AI_GENERATE_META_ENDPOINT = `${API_BASE_URL}/posts/ai/generate-meta`;
+export const POSTS_AI_GENERATE_TITLES_ENDPOINT = `${API_BASE_URL}/posts/ai/generate-titles`;
+export const POSTS_AI_SUGGEST_KEYWORD_ENDPOINT = `${API_BASE_URL}/posts/ai/suggest-keyword`;
+export const POSTS_AI_GENERATE_FAQ_ENDPOINT = `${API_BASE_URL}/posts/ai/generate-faq`;
+export const POSTS_AI_INTERNAL_LINKS_ENDPOINT = `${API_BASE_URL}/posts/ai/suggest-internal-links`;
+
+// ============================================================================
+// CAJA CONTABLE — módulo /caja (cajas, movimientos, transferencias, rubros)
+// ============================================================================
+export const CAJA_ENDPOINT = `${API_BASE_URL}/caja`;

@@ -1,22 +1,40 @@
 "use client";
 
 import {
+	AlertCircle,
 	ArrowDown,
+	ArrowRightLeft,
 	ArrowUp,
+	Briefcase,
+	CalendarIcon,
+	CheckCircle2,
+	CreditCard,
 	DollarSign,
 	FileText,
+	type LucideIcon,
 	ListFilter,
 	Plus,
+	Send,
+	Tag,
+	User as UserIcon,
+	Wallet,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
-import { CASH_ENDPOINT, USERS_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	CASH_ENDPOINT,
+	CLOSINGS_ENDPOINT,
+	CREDIT_CARDS_ENDPOINT,
+	USERS_ENDPOINT,
+} from "@/constant/api-endpoints";
 import { MOVEMENTS } from "@/constant/cash";
 import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/users";
 import { Autocomplete } from "@/components/shared/Autocomplete";
+import { ClosingsCombobox, type ClosingOption } from "@/components/shared/ClosingsCombobox";
 import { Pagination } from "@/components/shared/Pagination";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +50,24 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { CreditCardWithPending } from "@/components/cash/CreditCardsPanel";
+
+function FieldLabel({
+	icon: Icon,
+	htmlFor,
+	children,
+}: {
+	icon: LucideIcon;
+	htmlFor: string;
+	children: ReactNode;
+}) {
+	return (
+		<Label htmlFor={htmlFor} className="flex items-center gap-1.5">
+			<Icon className="size-3.5 text-cyan-600 dark:text-cyan-400" />
+			{children}
+		</Label>
+	);
+}
 
 export default function MyCashboxContent() {
 	const { data: session } = useSession();
@@ -70,6 +106,12 @@ export default function MyCashboxContent() {
 		new Date().toISOString().substring(0, 10),
 	);
 	const [newDescription, setNewDescription] = useState<string>("");
+	const [newClosingId, setNewClosingId] = useState<string>("");
+	const [closingsOptions, setClosingsOptions] = useState<ClosingOption[]>([]);
+	// "cash" (Efectivo/Transferencia, default) o el id de una tarjeta —
+	// pagar con tarjeta no descuenta el saldo hasta liquidar el resumen.
+	const [newPaymentMethod, setNewPaymentMethod] = useState<string>("cash");
+	const [creditCards, setCreditCards] = useState<CreditCardWithPending[]>([]);
 
 	const formatCurrency = (amount: number) => {
 		if (typeof amount !== "number" || isNaN(amount)) {
@@ -157,6 +199,98 @@ export default function MyCashboxContent() {
 			fetchUsers();
 		}
 	}, [session?.user?.accessToken]); // Re-fetch if session token changes
+
+	const fetchCreditCards = useCallback(async () => {
+		if (!session?.user?.accessToken) return;
+		try {
+			const response = await fetch(CREDIT_CARDS_ENDPOINT, {
+				headers: { Authorization: `Bearer ${session.user.accessToken}` },
+			});
+			if (!response.ok) return;
+			const { data } = await response.json();
+			setCreditCards(data || []);
+		} catch (err) {
+			console.error("Error fetching credit cards:", err);
+		}
+	}, [session?.user?.accessToken]);
+
+	useEffect(() => {
+		fetchCreditCards();
+	}, [fetchCreditCards]);
+
+	// Cargar cierres con el cobro correspondiente pendiente cuando se abre el
+	// modal. Aplica a ingresos con subtype `fee` (Honorarios) o `pcl`. Filtra
+	// según el subtype elegido — solo muestra cierres con ESE cobro pendiente.
+	useEffect(() => {
+		const isPayableIngreso =
+			newType === "income" && (newSubtype === "fee" || newSubtype === "pcl");
+		if (
+			!isRegisterMovementModalOpen ||
+			!isPayableIngreso ||
+			!session?.user?.accessToken
+		) {
+			return;
+		}
+		const controller = new AbortController();
+		(async () => {
+			try {
+				const year = new Date().getFullYear();
+				const url = `${CLOSINGS_ENDPOINT}?viewAll=true&year=${year}&limit=1000`;
+				const res = await fetch(url, {
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.user.accessToken}`,
+					},
+					signal: controller.signal,
+				});
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				const json = await res.json();
+				const items: ClosingOption[] = (json?.data ?? [])
+					.filter((c: any) => {
+						if (newSubtype === "fee") {
+							// Honorarios: cierre existe → siempre tiene HP acordado.
+							// Mostrar solo si feeStatus !== CHARGED.
+							return c.feeStatus !== "CHARGED";
+						}
+						// PCL: puede no existir (pclStatus null) o estar ya cobrado.
+						return c.pclStatus != null && c.pclStatus !== "CHARGED";
+					})
+					.map((c: any) => ({
+						id: c.id,
+						number: c.case?.number,
+						title: c.case?.title,
+						date: c.date,
+						hpTotal: c.hpTotal,
+						hpPaid: c.hpPaid,
+						hpRemaining: c.hpRemaining,
+						pclTotal: c.pclTotal,
+						pclPaid: c.pclPaid,
+						pclRemaining: c.pclRemaining,
+					}));
+				setClosingsOptions(items);
+			} catch (err) {
+				if ((err as Error).name !== "AbortError") {
+					console.error("Error cargando cierres:", err);
+				}
+			}
+		})();
+		return () => controller.abort();
+	}, [
+		isRegisterMovementModalOpen,
+		newType,
+		newSubtype,
+		session?.user?.accessToken,
+	]);
+
+	// Si el usuario cambia tipo/subtipo y deja de aplicar (fee/pcl), limpiar
+	// la selección de cierre.
+	useEffect(() => {
+		const isPayableIngreso =
+			newType === "income" && (newSubtype === "fee" || newSubtype === "pcl");
+		if (!isPayableIngreso && newClosingId) {
+			setNewClosingId("");
+		}
+	}, [newType, newSubtype, newClosingId]);
 
 	const years = useMemo(() => {
 		const currentYearNum = new Date().getFullYear();
@@ -353,6 +487,10 @@ export default function MyCashboxContent() {
 			return;
 		}
 
+		// Cierre asociado ya NO es obligatorio para ingresos de Honorarios/PCL —
+		// si se selecciona, el backend lo vincula al Closing y lo marca CHARGED;
+		// si no, se registra como transacción suelta.
+
 		setLoading(true);
 
 		const bodyPayload: {
@@ -363,6 +501,9 @@ export default function MyCashboxContent() {
 			date: Date;
 			description: string;
 			userTransferId?: number;
+			closingId?: number;
+			paymentMethod?: string;
+			creditCardId?: number;
 		} = {
 			type: newType, // Send the actual type, including "transfer"
 			subtype: newSubtype,
@@ -374,6 +515,15 @@ export default function MyCashboxContent() {
 
 		if (newType === "transfer" && newUser !== null) {
 			bodyPayload.userTransferId = newUser;
+		}
+
+		if (newClosingId) {
+			bodyPayload.closingId = Number(newClosingId);
+		}
+
+		if (newType === "expense" && newPaymentMethod !== "cash") {
+			bodyPayload.paymentMethod = "card";
+			bodyPayload.creditCardId = Number(newPaymentMethod);
 		}
 
 		const response = await fetch(`${CASH_ENDPOINT}/movements`, {
@@ -394,9 +544,12 @@ export default function MyCashboxContent() {
 			setNewAmount("");
 			setNewDescription("");
 			setNewDate(new Date().toISOString().substring(0, 10));
+			setNewClosingId("");
+			setNewPaymentMethod("cash");
 			setIsRegisterMovementModalOpen(false); // Close modal
 			toast.success(result.message);
 			await fetchData(); // Recargar datos para obtener los movimientos actualizados
+			if (bodyPayload.creditCardId) await fetchCreditCards();
 		} else {
 			toast.error(`Error al registrar movimiento: ${result.message}`);
 		}
@@ -447,13 +600,20 @@ export default function MyCashboxContent() {
 	const subMovementOptions = useMemo(() => {
 		const selectedMovement = MOVEMENTS.find((m) => m.value === newType);
 		return (
-			selectedMovement?.subMovements.map((smItem) => ({
-				// Renamed sm to smItem
-				value: smItem.value,
-				label: smItem.label,
-			})) || []
+			selectedMovement?.subMovements
+				// Subtipos con `restrictedToUserId` (ej. "Alquiler") solo se
+				// ofrecen en la caja de ese usuario.
+				.filter(
+					(smItem) =>
+						!smItem.restrictedToUserId ||
+						String(smItem.restrictedToUserId) === userId,
+				)
+				.map((smItem) => ({
+					value: smItem.value,
+					label: smItem.label,
+				})) || []
 		);
-	}, [newType]);
+	}, [newType, userId]);
 
 	const filterPeriodOptions = useMemo(() => {
 		return [
@@ -469,7 +629,17 @@ export default function MyCashboxContent() {
 	const handleMovementTypeChange = (value: string) => {
 		setNewType(value);
 		setNewSubtype(""); // Resetear el subtipo cuando el tipo cambia
+		setNewPaymentMethod("cash"); // El pago con tarjeta solo aplica a egresos
 	};
+
+	const paymentMethodOptions = useMemo(() => {
+		return [
+			{ value: "cash", label: "Efectivo / Transferencia" },
+			...creditCards
+				.filter((c) => c.isActive)
+				.map((c) => ({ value: String(c.id), label: c.name })),
+		];
+	}, [creditCards]);
 
 	if (loading) {
 		return (
@@ -566,18 +736,25 @@ export default function MyCashboxContent() {
 					</Button>
 					{/* Modal para Registrar Nuevo Movimiento */}
 					<Dialog open={isRegisterMovementModalOpen} onOpenChange={(open) => !open && setIsRegisterMovementModalOpen(false)}>
-						<DialogContent className="sm:max-w-106.5">
+						<DialogContent className="sm:max-w-[460px]">
 							<DialogHeader>
-								<DialogTitle>Registrar Nuevo Movimiento</DialogTitle>
-								<DialogDescription>
-									Añade un nuevo ingreso, gasto o transferencia entre usuarios.
-								</DialogDescription>
+								<div className="flex items-center gap-3">
+									<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-cyan-100 dark:bg-cyan-900/40">
+										<Wallet className="size-5 text-cyan-600 dark:text-cyan-400" />
+									</div>
+									<div>
+										<DialogTitle>Registrar Nuevo Movimiento</DialogTitle>
+										<DialogDescription>
+											Añade un nuevo ingreso, gasto o transferencia entre usuarios.
+										</DialogDescription>
+									</div>
+								</div>
 							</DialogHeader>
 
-							<div className="grid gap-4 py-4">
+							<div className="grid grid-cols-2 gap-4 py-4">
 								{/* Tipo de movimiento */}
-								<div className="space-y-2">
-									<Label htmlFor="movement-type">Tipo de Movimiento</Label>
+								<div className={cn("space-y-2", (!newType || newType === "transfer") && "col-span-2")}>
+									<FieldLabel icon={ArrowRightLeft} htmlFor="movement-type">Tipo de Movimiento</FieldLabel>
 									<Select
 										id="movement-type"
 										value={newType}
@@ -590,7 +767,7 @@ export default function MyCashboxContent() {
 								{/* Subtipo solo si no es transferencia */}
 								{newType && newType !== "transfer" && (
 									<div className="space-y-2">
-										<Label htmlFor="movement-subtype">Subtipo</Label>
+										<FieldLabel icon={Tag} htmlFor="movement-subtype">Subtipo</FieldLabel>
 										<Select
 											id="movement-subtype"
 											value={newSubtype}
@@ -604,8 +781,8 @@ export default function MyCashboxContent() {
 
 								{/* Usuario destino solo si es transferencia */}
 								{newType === "transfer" && (
-									<div className="space-y-2">
-										<Label htmlFor="movement-user">Usuario Destino</Label>
+									<div className="col-span-2 space-y-2">
+										<FieldLabel icon={UserIcon} htmlFor="movement-user">Usuario Destino</FieldLabel>
 										<Autocomplete
 											id="movement-user"
 											value={newUser}
@@ -618,19 +795,23 @@ export default function MyCashboxContent() {
 
 								{/* Monto */}
 								<div className="space-y-2">
-									<Label htmlFor="movement-amount">Monto</Label>
-									<Input
-										id="movement-amount"
-										type="number"
-										value={newAmount}
-										onChange={(e) => setNewAmount(e.target.value)}
-										placeholder="0.00"
-									/>
+									<FieldLabel icon={DollarSign} htmlFor="movement-amount">Monto</FieldLabel>
+									<div className="relative">
+										<DollarSign className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+										<Input
+											id="movement-amount"
+											type="number"
+											value={newAmount}
+											onChange={(e) => setNewAmount(e.target.value)}
+											placeholder="0.00"
+											className="pl-9"
+										/>
+									</div>
 								</div>
 
 								{/* Fecha */}
 								<div className="space-y-2">
-									<Label htmlFor="movement-date">Fecha de Carga</Label>
+									<FieldLabel icon={CalendarIcon} htmlFor="movement-date">Fecha de Carga</FieldLabel>
 									<Input
 										id="movement-date"
 										type="date"
@@ -639,11 +820,113 @@ export default function MyCashboxContent() {
 									/>
 								</div>
 
+								{/* Medio de pago: solo para egresos. Con tarjeta, el gasto se
+								    acumula y no descuenta el saldo hasta liquidar el resumen. */}
+								{newType === "expense" && (
+									<div className="col-span-2 space-y-2">
+										<FieldLabel icon={CreditCard} htmlFor="movement-payment-method">Medio de pago</FieldLabel>
+										<Select
+											id="movement-payment-method"
+											value={newPaymentMethod}
+											onValueChange={setNewPaymentMethod}
+											options={paymentMethodOptions}
+											placeholder="Selecciona medio de pago"
+										/>
+									</div>
+								)}
+
+								{/* Cierre asociado — requerido en Ingreso + Honorarios o PCL.
+								    Al guardar, el backend marca ese cobro del cierre como CHARGED. */}
+								{newType === "income" &&
+									(newSubtype === "fee" || newSubtype === "pcl") && (
+										<div className="col-span-2 space-y-2">
+											<FieldLabel icon={Briefcase} htmlFor="movement-closing">
+												Cierre asociado{" "}
+												<span className="text-xs text-red-600 font-normal">
+													(requerido)
+												</span>
+											</FieldLabel>
+											<ClosingsCombobox
+												id="movement-closing"
+												value={newClosingId}
+												onChange={setNewClosingId}
+												options={closingsOptions}
+												placeholder={
+													newSubtype === "fee"
+														? "Buscar cierre con HP pendiente..."
+														: "Buscar cierre con PCL pendiente..."
+												}
+											/>
+											{closingsOptions.length === 0 && (
+												<p className="text-xs text-muted-foreground">
+													No hay cierres con{" "}
+													{newSubtype === "fee" ? "HP" : "PCL"} pendiente en el
+													año actual.
+												</p>
+											)}
+											{newClosingId &&
+												(() => {
+													const selectedClosing = closingsOptions.find(
+														(c) => String(c.id) === newClosingId,
+													);
+													if (!selectedClosing) return null;
+													const remaining =
+														newSubtype === "fee"
+															? selectedClosing.hpRemaining
+															: selectedClosing.pclRemaining;
+													if (remaining == null) return null;
+
+													const entered = Number.parseFloat(newAmount);
+													const hasEntered = !Number.isNaN(entered) && entered > 0;
+													const leftover = Math.round((remaining - entered) * 100) / 100;
+													const willComplete = hasEntered && leftover <= 0.01 && entered <= remaining + 0.01;
+													const overpaying = hasEntered && entered > remaining + 0.01;
+
+													return (
+														<div
+															className={cn(
+																"mt-1 flex items-start gap-2 rounded-lg border p-3",
+																willComplete
+																	? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
+																	: "border-red-200 bg-red-50 dark:border-red-900/40 dark:bg-red-950/30",
+															)}
+														>
+															{willComplete ? (
+																<CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+															) : (
+																<AlertCircle className="mt-0.5 size-4 shrink-0 text-red-500" />
+															)}
+															<div className="space-y-0.5 text-xs">
+																<p className={willComplete ? "text-emerald-700 dark:text-emerald-400" : "text-red-700 dark:text-red-400"}>
+																	Falta pagar: <span className="font-semibold">{formatCurrency(remaining)}</span>
+																</p>
+																{hasEntered && !willComplete && !overpaying && (
+																	<p className="text-red-700 dark:text-red-400">
+																		Quedaría pendiente: <span className="font-semibold">{formatCurrency(leftover)}</span>
+																	</p>
+																)}
+																{overpaying && (
+																	<p className="font-medium text-red-700 dark:text-red-400">
+																		El monto supera lo que falta pagar.
+																	</p>
+																)}
+																{willComplete && (
+																	<p className="text-emerald-700 dark:text-emerald-400">
+																		Completa el pago — quedará cobrado.
+																	</p>
+																)}
+															</div>
+														</div>
+													);
+												})()}
+										</div>
+									)}
+
 								{/* Descripción */}
-								<div className="space-y-2">
-									<Label htmlFor="movement-description">
+								<div className="col-span-2 space-y-2">
+									<FieldLabel icon={FileText} htmlFor="movement-description">
 										Descripción / Detalle
-									</Label>
+									</FieldLabel>
 									<textarea
 										id="movement-description"
 										value={newDescription}
@@ -662,7 +945,8 @@ export default function MyCashboxContent() {
 								>
 									Cancelar
 								</Button>
-								<Button onClick={handleAddMovement}>
+								<Button onClick={handleAddMovement} className="gap-1.5">
+									<Send className="size-4" />
 									Registrar Movimiento
 								</Button>
 							</DialogFooter>

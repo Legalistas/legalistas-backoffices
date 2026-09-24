@@ -42,6 +42,7 @@ import {
 } from "@/constant/api-endpoints";
 import { MOVEMENTS } from "@/constant/cash";
 import { Role } from "@/constant/user";
+import { apiErrorMessage } from "@/lib/api-error";
 import type { Transaction } from "@/types/cash";
 import type {
 	ScheduledSummary,
@@ -311,11 +312,11 @@ export default function AccountingDashboard() {
 				method: "POST",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al aprobar"));
 			toast.success("Licencia aprobada");
 			setPendingLeaves((prev) => prev.filter((x) => x.id !== l.id));
-		} catch {
-			toast.error("Error al aprobar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al aprobar");
 		} finally {
 			setActingId(null);
 		}
@@ -334,11 +335,11 @@ export default function AccountingDashboard() {
 				},
 				body: JSON.stringify({ rejectionReason: reason || null }),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al rechazar"));
 			toast.success("Licencia rechazada");
 			setPendingLeaves((prev) => prev.filter((x) => x.id !== l.id));
-		} catch {
-			toast.error("Error al rechazar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al rechazar");
 		} finally {
 			setActingId(null);
 		}

@@ -28,6 +28,11 @@ export interface Lead {
 	artId?: number | null;
 	insuranceId?: number | null;
 	injury?: string | null;
+	/** Provincia / localidad de la oportunidad (KPIs v1.1, punto 7). */
+	stateId?: number | null;
+	cityId?: number | null;
+	state?: { id: number; name: string } | null;
+	city?: { id: number; name: string } | null;
 	accepted?: boolean;
 	acceptedAt?: string;
 	folderName?: string | null;
@@ -88,6 +93,9 @@ export interface CrmMeeting {
 	responsibleLawyerId: number;
 	userId: number;
 	confirmationStatus?: string;
+	/** Asistencia real. Alimenta el KPI de videollamadas realizadas. */
+	realizada?: boolean;
+	realizadaAt?: string | null;
 	confirmedAt?: string;
 	token?: string;
 	createdAt: string;

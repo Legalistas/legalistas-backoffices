@@ -63,6 +63,13 @@ export default function ViewClosingModal({
 
 	const montoPositivo = closing.montoTransferir >= 0;
 
+	// hpLegalistas viene del backend ya neto de aportes Legalistas.
+	const aportesAplicados = closing.applyContributions
+		? Number(closing.aportesLegalistas || 0)
+		: 0;
+	const hpLegalistasNeto = Number(closing.hpLegalistas || 0);
+	const hpLegalistasBruto = hpLegalistasNeto + aportesAplicados;
+
 	return (
 		<Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
 			<SheetContent className="w-full sm:max-w-lg overflow-y-auto p-0" showCloseButton={false}>
@@ -114,7 +121,7 @@ export default function ViewClosingModal({
 						)}
 					>
 						<p className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1">
-							Monto a Transferir a Legalistas
+							Monto a Cobrar por Legalistas
 						</p>
 						<div className="flex items-center gap-2">
 							{montoPositivo ? (
@@ -199,23 +206,88 @@ export default function ViewClosingModal({
 						</div>
 					</div>
 
+					{/* Gestión de cobros — solo si hay algún registro */}
+					{(closing.hpChargedAt ||
+						closing.hpChargedBy ||
+						closing.pclChargedAt ||
+						closing.pclChargedBy) && (
+						<div className="rounded-xl border border-green-200 dark:border-green-900/40 bg-green-50/40 dark:bg-green-900/10 p-4 space-y-3">
+							<p className="text-[11px] font-semibold uppercase tracking-wider text-green-800 dark:text-green-300">
+								Gestión de cobros
+							</p>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								{(closing.hpChargedAt || closing.hpChargedBy) && (
+									<div className="space-y-1">
+										<p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+											HP cobrado
+										</p>
+										<p className="text-sm text-foreground">
+											{closing.hpChargedAt
+												? new Date(closing.hpChargedAt).toLocaleDateString(
+														"es-AR",
+														{ day: "2-digit", month: "long", year: "numeric" },
+													)
+												: "Sin fecha"}
+										</p>
+										<p className="text-xs text-muted-foreground">
+											{closing.hpChargedBy
+												? `Por ${closing.hpChargedBy.name}`
+												: "Sin responsable registrado"}
+										</p>
+									</div>
+								)}
+								{(closing.pclChargedAt || closing.pclChargedBy) && (
+									<div className="space-y-1">
+										<p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+											PCL cobrado
+										</p>
+										<p className="text-sm text-foreground">
+											{closing.pclChargedAt
+												? new Date(closing.pclChargedAt).toLocaleDateString(
+														"es-AR",
+														{ day: "2-digit", month: "long", year: "numeric" },
+													)
+												: "Sin fecha"}
+										</p>
+										<p className="text-xs text-muted-foreground">
+											{closing.pclChargedBy
+												? `Por ${closing.pclChargedBy.name}`
+												: "Sin responsable registrado"}
+										</p>
+									</div>
+								)}
+							</div>
+						</div>
+					)}
+
 					{/* HP Section */}
 					<SectionCard
 						title="Honorarios Pactados (HP)"
-						color="blue"
+						color={closing.feeStatus === "CHARGED" ? "green" : "blue"}
 						distribution={closing.hpDistribution}
 						items={[
 							{ label: "Convenido", value: formatPercent(closing.hpAgreed) },
 							{ label: "Total", value: formatCurrency(closing.hpTotal), highlight: true },
 							{ label: "Representante", value: formatCurrency(closing.hpRepresentante) },
-							{ label: "Legalistas", value: formatCurrency(closing.hpLegalistas), bold: true },
+							{
+								label:
+									aportesAplicados > 0 ? "Legalistas (neto)" : "Legalistas",
+								value: formatCurrency(hpLegalistasNeto),
+								bold: true,
+							},
 						]}
 					/>
+					{aportesAplicados > 0 && (
+						<p className="text-[11px] text-muted-foreground -mt-3 px-1">
+							HP Legalistas neto = {formatCurrency(hpLegalistasBruto)} −
+							aportes {formatCurrency(aportesAplicados)}
+						</p>
+					)}
 
 					{/* PCL Section */}
 					<SectionCard
 						title="Pacto de Cuota Litis (PCL)"
-						color="violet"
+						color={closing.pclStatus === "CHARGED" ? "green" : "violet"}
 						distribution={closing.pclDistribution}
 						items={[
 							{ label: "Convenido", value: formatPercent(closing.pclAgreed) },
@@ -230,7 +302,13 @@ export default function ViewClosingModal({
 						title="Aportes"
 						color="amber"
 						distribution={closing.applyContributions}
-						distributionLabel={closing.applyContributions ? "Aplicados" : "No aplicados"}
+						distributionLabel={
+							!closing.applyContributions
+								? "No aplicados"
+								: closing.hpDistribution
+									? `${closing.aportesRepresentantePercent ?? 25}% Rep.`
+									: "100% Leg."
+						}
 						items={[
 							{ label: "Totales", value: formatCurrency(closing.contributionsAmount), highlight: true },
 							{ label: "Representante", value: formatCurrency(closing.aportesRepresentante) },
@@ -314,6 +392,14 @@ const sectionColors = {
 		badge: "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300",
 		highlight: "text-amber-700 dark:text-amber-400",
 	},
+	// Se usa para HP/PCL cuando el concepto ya está cobrado (CHARGED).
+	green: {
+		bg: "bg-green-50 dark:bg-green-900/20",
+		border: "border-green-200 dark:border-green-800",
+		title: "text-green-700 dark:text-green-400",
+		badge: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300",
+		highlight: "text-green-700 dark:text-green-400",
+	},
 };
 
 function SectionCard({
@@ -324,7 +410,7 @@ function SectionCard({
 	items,
 }: {
 	title: string;
-	color: "blue" | "violet" | "amber";
+	color: "blue" | "violet" | "amber" | "green";
 	distribution: boolean;
 	distributionLabel?: string;
 	items: SectionItem[];

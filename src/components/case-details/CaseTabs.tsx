@@ -12,13 +12,14 @@ import type {
 	Cases,
 	CaseConsultations,
 	CaseLogs,
-	CasesDocuments,
 	CasesFiles,
 	CasesNotes,
 } from "@/types/cases";
-import CaseDocuments from "./CaseDocuments";
+import { CaseAnalysisView } from "@/components/case-analyzer/CaseAnalysisView";
+import CaseFilesMinio from "./CaseFilesMinio";
 import CaseLogsComponent from "./CaseLogsComponent";
 import { CedulasView } from "./CedulasView";
+import { EscritosView } from "./EscritosView";
 import ConsultationsView from "./ConsultationsView";
 import { EventosView } from "./EventosView";
 import { FilesListView } from "./FilesListView";
@@ -28,13 +29,14 @@ import { LiquidacionView } from "./LiquidacionView";
 import { NotesView } from "./NotesView";
 import { PartesView } from "./PartesView";
 import { PlazosView } from "./PlazosView";
+import SrtFormsHistory from "./SrtFormsHistory";
+import { SrtInfoView } from "./SrtInfoView";
 
 interface CaseTabsProps {
 	activeTab: string;
 	onTabChange: (tab: string) => void;
 	notes: CasesNotes[];
 	logs: CaseLogs[];
-	documents?: CasesDocuments[];
 	consultation: CaseConsultations[];
 	caseId: string;
 	caseData: Cases;
@@ -59,7 +61,6 @@ export const CaseTabs = ({
 	notes = [],
 	logs = [],
 	consultation = [],
-	documents = [],
 	caseId,
 	caseData,
 	filteredFiles,
@@ -96,19 +97,17 @@ export const CaseTabs = ({
 		router.push(`/admin/legal-cases/${caseId}`);
 	};
 
-	const handleDocumentLoad = () => {
-		router.refresh();
-	};
-
 	const tabContentClass = "bg-card text-card-foreground";
 
 	return (
 		<Tabs defaultValue={tab} onValueChange={handleTabChange} className="w-full">
 			<TabsList className="w-full bg-card text-card-foreground p-2 overflow-x-auto">
+				<TabsTrigger value="info">Info</TabsTrigger>
 				<TabsTrigger value="files">Expedientes</TabsTrigger>
 				<TabsTrigger value="eventos">Eventos</TabsTrigger>
 				<TabsTrigger value="plazos">Plazos</TabsTrigger>
 				<TabsTrigger value="documents">Documentos</TabsTrigger>
+				<TabsTrigger value="escritos">Escritos</TabsTrigger>
 				<TabsTrigger value="notes">Notas</TabsTrigger>
 				<TabsTrigger value="liquidacion">Liquidación</TabsTrigger>
 				<TabsTrigger value="partes">Partes</TabsTrigger>
@@ -116,7 +115,13 @@ export const CaseTabs = ({
 				<TabsTrigger value="cedulas">Cédulas</TabsTrigger>
 				<TabsTrigger value="consultations">Consultas</TabsTrigger>
 				<TabsTrigger value="informe">Informe</TabsTrigger>
+				<TabsTrigger value="ia">Análisis IA</TabsTrigger>
 			</TabsList>
+
+			{/* 0. Info — bloques A-E para todos los formularios SRT */}
+			<TabsContent value="info" className={tabContentClass}>
+				<SrtInfoView caseId={caseId} />
+			</TabsContent>
 
 			{/* 1. Expedientes */}
 			<TabsContent value="files" className={tabContentClass}>
@@ -150,12 +155,25 @@ export const CaseTabs = ({
 				/>
 			</TabsContent>
 
-			{/* 4. Documentos */}
+			{/* 4. Documentos (árbol MinIO scopeado al caso): Documentos del caso +
+			    Escritos por expediente */}
 			<TabsContent value="documents" className={tabContentClass}>
-				<CaseDocuments
-					documents={documents}
+				<div className="space-y-4 p-4">
+					<CaseFilesMinio
+						caseId={caseId}
+						files={filteredFiles}
+						customerName={customer?.name}
+					/>
+					<SrtFormsHistory caseId={caseId} />
+				</div>
+			</TabsContent>
+
+			{/* 4b. Escritos por expediente, en orden cronológico */}
+			<TabsContent value="escritos" className={tabContentClass}>
+				<EscritosView
 					caseId={caseId}
-					onDocumentLoad={handleDocumentLoad}
+					files={filteredFiles}
+					customerName={customer?.name}
 				/>
 			</TabsContent>
 
@@ -214,6 +232,11 @@ export const CaseTabs = ({
 			{/* 11. Informe Trimestral */}
 			<TabsContent value="informe" className={tabContentClass}>
 				<InformeTrimestralView caseData={caseData} onCaseUpdated={onCaseUpdated} />
+			</TabsContent>
+
+			{/* 12. Análisis IA (Proyecto 4) */}
+			<TabsContent value="ia" className={tabContentClass}>
+				<CaseAnalysisView caseId={caseId} />
 			</TabsContent>
 		</Tabs>
 	);

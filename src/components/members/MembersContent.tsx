@@ -16,11 +16,13 @@ import { useSession } from "next-auth/react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	SETTINGS_COUNTRIES_ENDPOINT,
 	SETTINGS_ROLES_ENDPOINT,
 	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
+import DeactivateSellerDialog from "@/components/members/DeactivateSellerDialog";
 import { useConfirm } from "@/hooks/useConfirm";
 import type { User } from "@/types/users";
 import { Badge } from "@/components/ui/badge";
@@ -51,6 +53,7 @@ import RoleMultiSelect from "./RoleMultiSelect";
 import { Can } from "@/components/auth/Can";
 import { Role } from "@/constant/user";
 import { SUPERADMIN } from "@/constant/menu";
+import { getRoleIdentifier, INTERNAL_TEAM_ROLES, isInternalTeamMember } from "@/constant/team";
 
 const EMPLOYMENT_ALLOWED_ROLES = [
 	...SUPERADMIN,
@@ -60,43 +63,6 @@ const EMPLOYMENT_ALLOWED_ROLES = [
 	Role.ANALISTA_FINANCIERO,
 	Role.TESORERO,
 	Role.AUDITOR_INTERNO,
-];
-
-// Roles internos del equipo
-const INTERNAL_TEAM_ROLES = [
-	"admin",
-	"director_general_ceo",
-	"gerente_general_coo",
-	"directora_area_legal",
-	"coordinador_legal",
-	"abogado_representante",
-	"abogado_interno",
-	"asistente_legal",
-	"director_area_it",
-	"coordinador_it",
-	"administrador_sistemas",
-	"desarrollador_software",
-	"soporte_tecnico",
-	"directora_area_ventas",
-	"coordinador_ventas",
-	"gerente_ventas",
-	"ejecutivo_ventas",
-	"representante_ventas",
-	"analista_ventas",
-	"directora_area_marketing",
-	"coordinador_marketing",
-	"director_marketing",
-	"especialista_marketing_digital",
-	"disenador_grafico",
-	"investigador_mercado",
-	"gestor_contenidos",
-	"directora_area_contable",
-	"coordinador_financiero",
-	"director_financiero",
-	"contador_senior",
-	"analista_financiero",
-	"tesorero",
-	"auditor_interno",
 ];
 
 // Roles legales/abogados
@@ -110,18 +76,6 @@ const LAWYER_ROLES = [
 
 type TabType = "all" | "lawyers" | "staff";
 
-function getRoleIdentifier(member: any): string {
-	return (
-		member.roleUser?.[0]?.role?.slug?.toLowerCase() ||
-		member.roleUser?.[0]?.role?.name?.toLowerCase() ||
-		""
-	);
-}
-
-function isInternalTeamMember(member: any): boolean {
-	return INTERNAL_TEAM_ROLES.includes(getRoleIdentifier(member));
-}
-
 function isLawyer(member: any): boolean {
 	return LAWYER_ROLES.includes(getRoleIdentifier(member));
 }
@@ -131,6 +85,14 @@ export default function MembersContent() {
 	const { confirm, ConfirmationDialog } = useConfirm();
 	const router = useRouter();
 	const [allMembers, setAllMembers] = useState<any[]>([]);
+	// Miembro para el que se abrió el diálogo de baja con redistribución.
+	const [deactivateTarget, setDeactivateTarget] = useState<{
+		id: number;
+		name: string;
+	} | null>(null);
+	// Los dados de baja se ocultan por defecto: el registro sigue existiendo
+	// para conservar sus métricas, pero no es parte del equipo activo.
+	const [showInactive, setShowInactive] = useState(false);
 	const [isLoading, setIsLoading] = useState(true);
 	const [currentPage, setCurrentPage] = useState(1);
 	const [searchTerm, setSearchTerm] = useState("");
@@ -151,20 +113,33 @@ export default function MembersContent() {
 
 	const isInitialRender = useRef(true);
 
-	// Stats - solo miembros internos
+	// Stats - solo miembros internos ACTIVOS. Los dados de baja no cuentan
+	// como parte del equipo.
 	const memberStats = useMemo(() => {
-		const internalMembers = allMembers.filter(isInternalTeamMember);
+		const internalMembers = allMembers.filter(
+			(m) => isInternalTeamMember(m) && !m.isBlocked,
+		);
 		return {
 			total: internalMembers.length,
 			lawyers: internalMembers.filter(isLawyer).length,
 			staff: internalMembers.filter((m) => !isLawyer(m)).length,
 			hr: internalMembers.filter((m) => m.employment).length,
+			inactivos: allMembers.filter(
+				(m) => isInternalTeamMember(m) && m.isBlocked,
+			).length,
 		};
 	}, [allMembers]);
 
 	// Filtrado - solo miembros internos, sin clientes
 	const filteredMembers = useMemo(() => {
 		let filtered = allMembers.filter(isInternalTeamMember);
+
+		// Los dados de baja quedan fuera salvo que se pidan explícitamente:
+		// siguen existiendo para conservar sus métricas, pero no son parte
+		// del equipo y no deberían aparecer en la operación diaria.
+		if (!showInactive) {
+			filtered = filtered.filter((m) => !m.isBlocked);
+		}
 
 		if (activeTab === "lawyers") {
 			filtered = filtered.filter(isLawyer);
@@ -191,7 +166,7 @@ export default function MembersContent() {
 		}
 
 		return filtered;
-	}, [allMembers, searchTerm, selectedRoles, activeTab]);
+	}, [allMembers, searchTerm, selectedRoles, activeTab, showInactive]);
 
 	const hasActiveFilters = Boolean(
 		searchTerm.trim() || selectedRoles.length > 0 || activeTab !== "all",
@@ -337,15 +312,34 @@ export default function MembersContent() {
 						Authorization: `Bearer ${session?.user?.accessToken}`,
 					},
 				});
-				if (!response.ok) throw new Error("Failed to delete user");
+
+				// 409 = tiene oportunidades asignadas. Borrarlo las arrastraría
+				// por cascade y se perderían sus KPIs históricos, así que el
+				// backend lo frena y acá ofrecemos la baja con redistribución
+				// (KPIs Ventas v1.1, punto 10).
+				if (response.status === 409) {
+					const member = allMembers.find((m) => m.id === id);
+					setDeactivateTarget({
+						id,
+						name: member?.name ?? "este usuario",
+					});
+					return;
+				}
+
+				if (!response.ok)
+					throw new Error(
+						await apiErrorMessage(response, "Error al eliminar el miembro"),
+					);
 				toast.success("Miembro eliminado correctamente");
 				await fetchAllMembers();
 			} catch (error) {
 				console.error("Error al eliminar el miembro:", error);
-				toast.error("Error al eliminar el miembro");
+				toast.error(
+					error instanceof Error ? error.message : "Error al eliminar el miembro",
+				);
 			}
 		},
-		[session?.user?.accessToken, fetchAllMembers, confirm],
+		[session?.user?.accessToken, fetchAllMembers, confirm, allMembers],
 	);
 
 	const handleToggleBlock = useCallback(
@@ -362,7 +356,10 @@ export default function MembersContent() {
 					},
 					body: JSON.stringify({ isBlocked }),
 				});
-				if (!response.ok) throw new Error(`Failed to ${action} user`);
+				if (!response.ok)
+					throw new Error(
+						await apiErrorMessage(response, `Error al ${action} el usuario`),
+					);
 				const data = await response.json();
 				toast.success(
 					data.message ||
@@ -373,7 +370,9 @@ export default function MembersContent() {
 				);
 			} catch (error) {
 				console.error(`Error al ${action} el usuario:`, error);
-				toast.error(`Error al ${action} el usuario`);
+				toast.error(
+					error instanceof Error ? error.message : `Error al ${action} el usuario`,
+				);
 			}
 		},
 		[session?.user?.accessToken, confirm],
@@ -793,6 +792,24 @@ export default function MembersContent() {
 						</TabsList>
 					</Tabs>
 
+					{/* Los dados de baja no aparecen salvo que se pidan. El
+					    registro sigue existiendo para conservar sus métricas
+					    históricas, pero no es parte del equipo activo. */}
+					{memberStats.inactivos > 0 && (
+						<button
+							type="button"
+							onClick={() => setShowInactive((v) => !v)}
+							className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+								showInactive
+									? "border-primary bg-primary/5 text-foreground"
+									: "border-border text-muted-foreground hover:text-foreground"
+							}`}
+						>
+							{showInactive ? "Ocultar" : "Mostrar"} dados de baja
+							<Badge variant="secondary">{memberStats.inactivos}</Badge>
+						</button>
+					)}
+
 					<div className="flex items-center gap-2">
 						<div className="relative">
 							<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -1154,6 +1171,18 @@ export default function MembersContent() {
 					</form>
 				</DialogContent>
 			</Dialog>
+
+			{/* Baja con redistribución de leads. Se abre cuando el DELETE
+			    devuelve 409 porque el usuario tiene oportunidades asignadas. */}
+			<DeactivateSellerDialog
+				open={deactivateTarget !== null}
+				member={deactivateTarget}
+				candidates={allMembers
+					.filter((m) => !m.isBlocked)
+					.map((m) => ({ id: m.id, name: m.name }))}
+				onOpenChange={(v) => !v && setDeactivateTarget(null)}
+				onDone={fetchAllMembers}
+			/>
 
 		{ConfirmationDialog}
 		</div>

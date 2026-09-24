@@ -1,6 +1,8 @@
 "use client";
 
 import {
+	ArrowDownNarrowWide,
+	ArrowUpNarrowWide,
 	CalendarDays,
 	ChevronDown,
 	Columns,
@@ -52,6 +54,13 @@ export interface ClosingFiltersState {
 	pclStatus: string;
 	responsibleLawyerId: string;
 	internalLawyerId: string;
+	/**
+	 * Estado de cobro:
+	 *  - "true"    → Pendiente de Honorarios (HP o PCL sin cobrar)
+	 *  - "false"   → Cobrado (HP y PCL completos)
+	 *  - ""        → Todos
+	 */
+	paymentPending: string;
 }
 
 interface ClosingFiltersProps {
@@ -65,6 +74,8 @@ interface ClosingFiltersProps {
 	onMonthChange: (month: number) => void;
 	onYearChange: (year: number) => void;
 	onToggleViewAll: () => void;
+	sortOrder: "asc" | "desc";
+	onToggleSortOrder: () => void;
 }
 
 const columnLabels: Record<string, string> = {
@@ -88,7 +99,7 @@ const columnLabels: Record<string, string> = {
 	contributionsAmount: "Aportes Totales ($)",
 	aportesRepresentante: "Aportes Representante ($)",
 	aportesLegalistas: "Aportes Legalistas ($)",
-	montoTransferir: "Monto a Transferir ($)",
+	montoTransferir: "Monto a Cobrar ($)",
 	totalCaseExpenses: "Gastos Causa ($)",
 	detail: "Detalle",
 };
@@ -108,6 +119,8 @@ export default function ClosingFilters({
 	onMonthChange,
 	onYearChange,
 	onToggleViewAll,
+	sortOrder,
+	onToggleSortOrder,
 }: ClosingFiltersProps) {
 	const { data: session } = useSession();
 	const [localSearch, setLocalSearch] = useState(filters.search);
@@ -190,6 +203,7 @@ export default function ClosingFilters({
 			pclStatus: "",
 			responsibleLawyerId: "",
 			internalLawyerId: "",
+			paymentPending: "",
 		});
 	};
 
@@ -200,7 +214,8 @@ export default function ClosingFilters({
 		filters.feeStatus ||
 		filters.pclStatus ||
 		filters.responsibleLawyerId ||
-		filters.internalLawyerId;
+		filters.internalLawyerId ||
+		filters.paymentPending;
 	const activeFilterCount = [
 		filters.type,
 		filters.capitalState,
@@ -208,6 +223,7 @@ export default function ClosingFilters({
 		filters.pclStatus,
 		filters.responsibleLawyerId,
 		filters.internalLawyerId,
+		filters.paymentPending,
 	].filter(Boolean).length;
 
 	const toggleColumn = (columnId: string) => {
@@ -291,7 +307,46 @@ export default function ClosingFilters({
 						>
 							{viewAll ? "Anual" : "Año completo"}
 						</button>
+
+						<div className="h-5 w-px bg-gray-300" />
+
+						<button
+							onClick={onToggleSortOrder}
+							title={
+								sortOrder === "desc"
+									? "Más nuevos primero (click para invertir)"
+									: "Más viejos primero (click para invertir)"
+							}
+							className="flex items-center gap-1 h-8 px-2.5 rounded-md text-xs font-medium text-gray-600 hover:bg-gray-100 dark:hover:bg-white/5 transition-all whitespace-nowrap"
+						>
+							{sortOrder === "desc" ? (
+								<ArrowDownNarrowWide className="h-3.5 w-3.5" />
+							) : (
+								<ArrowUpNarrowWide className="h-3.5 w-3.5" />
+							)}
+							<span>{sortOrder === "desc" ? "Nuevos" : "Viejos"}</span>
+						</button>
 					</div>
+
+					{/* Estado de cobro */}
+					<Select
+						value={filters.paymentPending || "all"}
+						onValueChange={(value) =>
+							onFiltersChange({
+								...filters,
+								paymentPending: value === "all" ? "" : value,
+							})
+						}
+					>
+						<SelectTrigger className="h-9 w-52 bg-gray-50 dark:bg-white/5 text-sm">
+							<SelectValue placeholder="Estado de cobro" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="all">Todos los cobros</SelectItem>
+							<SelectItem value="true">Pendiente de Honorarios</SelectItem>
+							<SelectItem value="false">Cobrado</SelectItem>
+						</SelectContent>
+					</Select>
 
 					{/* Búsqueda */}
 					<div className="flex-1 relative">

@@ -4,6 +4,7 @@ import { AlertCircle, Loader2, Save, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import {
 	Select,
@@ -12,13 +13,28 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { CLOSING_BY_ID_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	CLOSING_BY_ID_ENDPOINT,
+	CLOSINGS_CHARGE_COLLECTORS_ENDPOINT,
+} from "@/constant/api-endpoints";
 import {
 	closingType,
 	statusCapital,
 	statusData,
 } from "@/constant/closing-manager";
 import type { ClosingManagerEntry } from "@/types/closing-manager";
+
+const toDateInputValue = (raw?: string | null): string => {
+	if (!raw) return "";
+	const d = new Date(raw);
+	if (Number.isNaN(d.getTime())) return "";
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${y}-${m}-${day}`;
+};
+
+const todayInputValue = () => toDateInputValue(new Date().toISOString());
 
 interface EditClosingProps {
 	closing: ClosingManagerEntry;
@@ -58,9 +74,23 @@ export default function EditClosing({
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
 	const [contributionsAmount, setContributionsAmount] = useState("0");
 	const [applyContributions, setApplyContributions] = useState(true);
+	const [aportesRepresentantePercent, setAportesRepresentantePercent] =
+		useState("25");
 	const [detail, setDetail] = useState("");
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+
+	// Cobro HP/PCL
+	const [hpChargedAt, setHpChargedAt] = useState("");
+	const [hpChargedById, setHpChargedById] = useState("");
+	const [pclChargedAt, setPclChargedAt] = useState("");
+	const [pclChargedById, setPclChargedById] = useState("");
+	const [collectors, setCollectors] = useState<
+		{ id: number; name: string }[]
+	>([]);
+
+	const hpCharged = feeStatus === "CHARGED";
+	const pclCharged = pclStatus === "CHARGED";
 
 	// Initialize from closing data
 	useEffect(() => {
@@ -77,27 +107,68 @@ export default function EditClosing({
 			setPclStatus(closing.pclStatus || "EARRINGS");
 			setContributionsAmount(String(closing.contributionsAmount ?? 0));
 			setApplyContributions(closing.applyContributions ?? true);
+			setAportesRepresentantePercent(
+				String(closing.aportesRepresentantePercent ?? 25),
+			);
 			setDetail(closing.detail || "");
+			setHpChargedAt(toDateInputValue(closing.hpChargedAt));
+			setHpChargedById(
+				closing.hpChargedById ? String(closing.hpChargedById) : "",
+			);
+			setPclChargedAt(toDateInputValue(closing.pclChargedAt));
+			setPclChargedById(
+				closing.pclChargedById ? String(closing.pclChargedById) : "",
+			);
 		}
 	}, [closing]);
+
+	// Cargar usuarios habilitados para registrar cobros. Usa el endpoint
+	// dedicado del backend (`CHARGE_COLLECTOR_ROLES` en closing.controller.ts)
+	// en vez de reimplementar la lista de roles acá — antes esta lista local
+	// solo tenía 4 roles administrativos y dejaba afuera a legales (Julieta,
+	// Agustín) que el backend sí habilita.
+	useEffect(() => {
+		const token = session?.user?.accessToken;
+		if (!token) return;
+		(async () => {
+			try {
+				const res = await fetch(CLOSINGS_CHARGE_COLLECTORS_ENDPOINT, {
+					headers: { Authorization: `Bearer ${token}` },
+				});
+				if (!res.ok) return;
+				const data: { id: number; name: string }[] = await res.json();
+				setCollectors(data);
+			} catch {
+				// silent
+			}
+		})();
+	}, [session?.user?.accessToken]);
 
 	// Calculated fields in real-time
 	const calc = useMemo(() => {
 		const hp = Number(hpTotal) || 0;
 		const pcl = Number(pclTotal) || 0;
 		const aportes = applyContributions ? Number(contributionsAmount) || 0 : 0;
+		const aportesRepPctClamped = Math.max(
+			0,
+			Math.min(100, Number(aportesRepresentantePercent) || 0),
+		);
+		const aportesRepRatio = withRepresentante ? aportesRepPctClamped / 100 : 0;
 
 		const hpRep = withRepresentante ? hp * 0.25 : 0;
 		const hpLeg = hp - hpRep;
 		const pclRep = withRepresentante ? pcl * 0.25 : 0;
 		const pclLeg = pcl - pclRep;
-		const aportesRep = withRepresentante ? aportes * 0.25 : 0;
-		const aportesLeg = withRepresentante ? aportes * 0.75 : aportes;
-		const montoTransferir = hpLeg + pclLeg - aportesLeg;
+		const aportesRep = aportes * aportesRepRatio;
+		const aportesLeg = aportes - aportesRep;
+		// Los aportes Legalistas se descuentan de HP Legalistas (NO de PCL Legalistas).
+		const hpLegNeto = hpLeg - aportesLeg;
+		const montoTransferir = hpLegNeto + pclLeg;
 
 		return {
 			hpRep,
 			hpLeg,
+			hpLegNeto,
 			pclRep,
 			pclLeg,
 			aportesRep,
@@ -110,7 +181,30 @@ export default function EditClosing({
 		pclTotal,
 		contributionsAmount,
 		applyContributions,
+		aportesRepresentantePercent,
 	]);
+
+	const handleHpChargedToggle = (checked: boolean) => {
+		if (checked) {
+			setFeeStatus("CHARGED");
+			if (!hpChargedAt) setHpChargedAt(todayInputValue());
+		} else {
+			setFeeStatus("EARRINGS");
+			setHpChargedAt("");
+			setHpChargedById("");
+		}
+	};
+
+	const handlePclChargedToggle = (checked: boolean) => {
+		if (checked) {
+			setPclStatus("CHARGED");
+			if (!pclChargedAt) setPclChargedAt(todayInputValue());
+		} else {
+			setPclStatus("EARRINGS");
+			setPclChargedAt("");
+			setPclChargedById("");
+		}
+	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -131,12 +225,18 @@ export default function EditClosing({
 					hpAgreed: parseFloat(hpAgreed) || 20,
 					hpTotal: parseFloat(hpTotal) || 0,
 					hpDistribution: withRepresentante,
+					hpChargedAt: hpCharged ? hpChargedAt || null : null,
+					hpChargedById: hpCharged && hpChargedById ? Number(hpChargedById) : null,
 					pclAgreed: parseFloat(pclAgreed) || 0,
 					pclTotal: parseFloat(pclTotal) || 0,
 					pclDistribution: withRepresentante,
 					pclStatus,
+					pclChargedAt: pclCharged ? pclChargedAt || null : null,
+					pclChargedById: pclCharged && pclChargedById ? Number(pclChargedById) : null,
 					contributionsAmount: parseFloat(contributionsAmount) || 0,
 					applyContributions,
+					aportesRepresentantePercent:
+						parseFloat(aportesRepresentantePercent) || 25,
 					detail: detail || null,
 				}),
 			});
@@ -363,11 +463,61 @@ export default function EditClosing({
 							</div>
 							<div className="space-y-1">
 								<label className="text-xs text-gray-500">
-									HP Legalistas ($)
+									HP Legalistas{calc.aportesLeg > 0 ? " (neto)" : ""} ($)
 								</label>
-								<div className="h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm font-medium">
-									{formatARS(calc.hpLeg)}
+								<div
+									className="h-10 flex items-center px-3 rounded-md bg-gray-50 border border-gray-200 text-sm font-medium"
+									title={
+										calc.aportesLeg > 0
+											? `${formatARS(calc.hpLeg)} − aportes ${formatARS(calc.aportesLeg)}`
+											: undefined
+									}
+								>
+									{formatARS(calc.hpLegNeto)}
 								</div>
+							</div>
+						</div>
+
+						{/* Cobro HP */}
+						<div className="border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+							<label className="flex items-center gap-2 cursor-pointer select-none h-10">
+								<Checkbox
+									checked={hpCharged}
+									onCheckedChange={(v) => handleHpChargedToggle(v === true)}
+								/>
+								<span className="text-sm font-medium">HP Cobrado</span>
+							</label>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">Fecha de cobro</label>
+								<input
+									type="date"
+									value={hpChargedAt}
+									onChange={(e) => setHpChargedAt(e.target.value)}
+									disabled={!hpCharged}
+									className={inputClass}
+								/>
+							</div>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">Cobró</label>
+								<Select
+									value={hpChargedById || "none"}
+									onValueChange={(v) =>
+										setHpChargedById(v === "none" ? "" : v)
+									}
+									disabled={!hpCharged}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Seleccionar" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="none">Sin asignar</SelectItem>
+										{collectors.map((u) => (
+											<SelectItem key={u.id} value={String(u.id)}>
+												{u.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
 							</div>
 						</div>
 					</div>
@@ -422,6 +572,49 @@ export default function EditClosing({
 								</div>
 							</div>
 						</div>
+
+						{/* Cobro PCL */}
+						<div className="border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+							<label className="flex items-center gap-2 cursor-pointer select-none h-10">
+								<Checkbox
+									checked={pclCharged}
+									onCheckedChange={(v) => handlePclChargedToggle(v === true)}
+								/>
+								<span className="text-sm font-medium">PCL Cobrado</span>
+							</label>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">Fecha de cobro</label>
+								<input
+									type="date"
+									value={pclChargedAt}
+									onChange={(e) => setPclChargedAt(e.target.value)}
+									disabled={!pclCharged}
+									className={inputClass}
+								/>
+							</div>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">Cobró</label>
+								<Select
+									value={pclChargedById || "none"}
+									onValueChange={(v) =>
+										setPclChargedById(v === "none" ? "" : v)
+									}
+									disabled={!pclCharged}
+								>
+									<SelectTrigger>
+										<SelectValue placeholder="Seleccionar" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="none">Sin asignar</SelectItem>
+										{collectors.map((u) => (
+											<SelectItem key={u.id} value={String(u.id)}>
+												{u.name}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						</div>
 					</div>
 
 					{/* Aportes */}
@@ -433,7 +626,7 @@ export default function EditClosing({
 								<Switch checked={applyContributions} onCheckedChange={setApplyContributions} />
 							</div>
 						</div>
-						<div className="grid grid-cols-3 gap-4">
+						<div className="grid grid-cols-4 gap-4">
 							<div className="space-y-1">
 								<label className="text-xs text-gray-500">
 									Aportes Totales ($)
@@ -446,6 +639,23 @@ export default function EditClosing({
 									onChange={(e) => setContributionsAmount(e.target.value)}
 									className={inputClass}
 									disabled={!applyContributions}
+								/>
+							</div>
+							<div className="space-y-1">
+								<label className="text-xs text-gray-500">
+									% Representante
+								</label>
+								<input
+									type="number"
+									step="0.01"
+									min="0"
+									max="100"
+									value={aportesRepresentantePercent}
+									onChange={(e) =>
+										setAportesRepresentantePercent(e.target.value)
+									}
+									className={inputClass}
+									disabled={!applyContributions || !withRepresentante}
 								/>
 							</div>
 							<div className="space-y-1">
@@ -470,12 +680,15 @@ export default function EditClosing({
 							</div>
 						</div>
 						<p className="text-xs text-gray-400">
-							Monto manual ingresado por la contadora.{" "}
-							{withRepresentante ? "Distribución: 75% Legalistas / 25% Representante." : "Distribución: 100% Legalistas."}
+							Los aportes Legalistas se descuentan de los Honorarios (HP), no
+							del PCL.{" "}
+							{withRepresentante
+								? `Distribución: ${100 - (parseFloat(aportesRepresentantePercent) || 0)}% Legalistas / ${parseFloat(aportesRepresentantePercent) || 0}% Representante.`
+								: "Distribución: 100% Legalistas."}
 						</p>
 					</div>
 
-					{/* Monto a Transferir + Gastos de la Causa */}
+					{/* Monto a Cobrar + Gastos de la Causa */}
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
 						<div
 							className={`rounded-lg p-4 border-2 lg:col-span-2 ${calc.montoTransferir < 0 ? "border-red-300 bg-red-50" : "border-primary/30 bg-primary/5"}`}
@@ -483,10 +696,10 @@ export default function EditClosing({
 							<div className="flex items-center justify-between">
 								<div>
 									<h4 className="font-semibold text-sm">
-										Monto a Transferir a Legalistas
+										Monto a Cobrar por Legalistas
 									</h4>
 									<p className="text-xs text-gray-500 mt-0.5">
-										HP Legalistas + PCL Legalistas - Aportes Legalistas
+										HP Legalistas (neto de aportes) + PCL Legalistas
 									</p>
 								</div>
 								<span

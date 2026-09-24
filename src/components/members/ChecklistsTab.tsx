@@ -51,6 +51,7 @@ import {
 	CHECKLIST_ITEMS_ENDPOINT,
 	CHECKLISTS_BY_USER_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import type {
 	EmploymentChecklist,
 	EmploymentChecklistItem,
@@ -155,12 +156,12 @@ export default function ChecklistsTab({ userId }: ChecklistsTabProps) {
 				},
 				body: JSON.stringify({ type }),
 			});
-			if (!res.ok) throw new Error(`Error ${res.status}`);
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo crear la checklist"));
 			toast.success(`Checklist de ${TYPE_LABELS[type]} creada`);
 			fetchChecklists();
 		} catch (err) {
 			console.error(err);
-			toast.error("No se pudo crear la checklist");
+			toast.error(err instanceof Error ? err.message : "No se pudo crear la checklist");
 		}
 	};
 
@@ -192,11 +193,11 @@ export default function ChecklistsTab({ userId }: ChecklistsTabProps) {
 				},
 				body: JSON.stringify({ status: newStatus }),
 			});
-			if (!res.ok) throw new Error(`Error ${res.status}`);
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo actualizar el item"));
 			fetchChecklists();
 		} catch (err) {
 			console.error(err);
-			toast.error("No se pudo actualizar el item");
+			toast.error(err instanceof Error ? err.message : "No se pudo actualizar el item");
 			fetchChecklists();
 		} finally {
 			setActioningId(null);
@@ -211,12 +212,12 @@ export default function ChecklistsTab({ userId }: ChecklistsTabProps) {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error(`Error ${res.status}`);
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo eliminar el item"));
 			toast.success("Item eliminado");
 			fetchChecklists();
 		} catch (err) {
 			console.error(err);
-			toast.error("No se pudo eliminar el item");
+			toast.error(err instanceof Error ? err.message : "No se pudo eliminar el item");
 		}
 	};
 
@@ -507,13 +508,13 @@ function AddItemDialog({
 					category,
 				}),
 			});
-			if (!res.ok) throw new Error(`Error ${res.status}`);
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo agregar el item"));
 			toast.success("Item agregado");
 			onOpenChange(false);
 			onAdded();
 		} catch (err) {
 			console.error(err);
-			toast.error("No se pudo agregar el item");
+			toast.error(err instanceof Error ? err.message : "No se pudo agregar el item");
 		} finally {
 			setSubmitting(false);
 		}

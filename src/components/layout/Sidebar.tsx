@@ -88,7 +88,7 @@ export default function LayoutSidebar() {
 
 	return (
 		<Sidebar collapsible="icon" variant="sidebar">
-			<SidebarHeader className="p-4 flex items-center justify-center">
+			<SidebarHeader className="h-14 flex items-center justify-center px-4">
 				<Link
 					href="/admin/dashboard"
 					className="flex items-center justify-center"

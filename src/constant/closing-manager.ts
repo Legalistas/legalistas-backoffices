@@ -66,18 +66,22 @@ export const statusCapitalColor: Record<string, string> = {
 export const statusData: Record<string, string> = {
 	EARRINGS: "PENDIENTES",
 	REQUESTED: "SOLICITADOS",
+	PARTIAL: "PARCIAL",
 	CHARGED: "COBRADOS",
 	earrings: "PENDIENTES",
 	requested: "SOLICITADOS",
+	partial: "PARCIAL",
 	charged: "COBRADOS",
 };
 
 export const statusColors: Record<string, string> = {
 	EARRINGS: "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300",
 	REQUESTED: "bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300",
+	PARTIAL: "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300",
 	CHARGED: "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300",
 	earrings: "bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300",
 	requested: "bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300",
+	partial: "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300",
 	charged: "bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300",
 };
 

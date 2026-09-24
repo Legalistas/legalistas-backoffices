@@ -133,13 +133,13 @@ export const SalesReportsContent: React.FC<SalesReportsContentProps> = ({
 				defaultCollapsed={false}
 			/>
 
-			{/* Ventas por Localidad */}
+			{/* Ventas por Provincia */}
 			<div>
 				<div className="flex items-center justify-between mb-4">
 					<div>
 						<h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
 							<MapPin className="h-5 w-5" />
-							Ventas por Localidad
+							Ventas por Provincia
 						</h2>
 						<p className="text-sm text-muted-foreground">
 							Top ubicaciones para {getMonthLabel(monthFilter)} {yearFilter}
@@ -199,7 +199,7 @@ export const SalesReportsContent: React.FC<SalesReportsContentProps> = ({
 					<div className="flex items-center justify-center py-12 rounded-xl border border-dashed">
 						<div className="text-center">
 							<BarChart3 className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-							<p className="font-medium text-foreground">No hay datos de ventas por localidad</p>
+							<p className="font-medium text-foreground">No hay datos de ventas por provincia</p>
 							<p className="text-sm text-muted-foreground mt-1">para el período seleccionado</p>
 						</div>
 					</div>

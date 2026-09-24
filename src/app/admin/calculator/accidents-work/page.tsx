@@ -24,6 +24,7 @@ import {
 	API_BASE_URL,
 	CALCULATOR_CAUSES_LIST_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -1073,10 +1074,11 @@ export default function AccidentsWorkPage() {
 			};
 
 			// Llamar al endpoint para generar PDF
-			const response = await fetch("/api/generate-lrt-pdf", {
+			const response = await fetch(`${API_BASE_URL}/lrt/generate-pdf`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
 				body: JSON.stringify(pdfData),
 			});
@@ -1188,16 +1190,22 @@ export default function AccidentsWorkPage() {
 				body: JSON.stringify(requestBody),
 			});
 
-			if (!response.ok) throw new Error("Error al guardar liquidación");
+			if (!response.ok)
+				throw new Error(
+					await apiErrorMessage(response, "Error al guardar la liquidación"),
+				);
 
 			const result = await response.json();
 
 			// Generar y subir PDF al caso
 			try {
 				toast.info("Generando PDF de la liquidación...");
-				const pdfResponse = await fetch("/api/generate-lrt-pdf", {
+				const pdfResponse = await fetch(`${API_BASE_URL}/lrt/generate-pdf`, {
 					method: "POST",
-					headers: { "Content-Type": "application/json" },
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.user.accessToken}`,
+					},
 					body: JSON.stringify(calculationData),
 				});
 
@@ -1207,6 +1215,8 @@ export default function AccidentsWorkPage() {
 					const formData = new FormData();
 					formData.append("file", pdfBlob, pdfFileName);
 					formData.append("caseId", String(selectedFile.caseId));
+					// Va a la carpeta del expediente (1_ESCRITOS/), no a 0_DOCUMENTOS.
+					formData.append("fileId", String(selectedFile.id));
 					formData.append("category", "LIQUIDACION_LRT");
 					formData.append("description", `Liquidación LRT PDF - ${selectedCause.customer.name}`);
 
@@ -1242,7 +1252,11 @@ export default function AccidentsWorkPage() {
 			}
 		} catch (error) {
 			console.error("Error al guardar liquidación:", error);
-			toast.error("Error al guardar la liquidación");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Error al guardar la liquidación",
+			);
 		} finally {
 			setIsSaving(false);
 		}

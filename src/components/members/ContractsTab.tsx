@@ -19,6 +19,7 @@ import {
 	CONTRACT_BY_ID_ENDPOINT,
 	CONTRACTS_BY_USER_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type ContractType = "FIXED_TERM" | "INDEFINITE" | "INTERNSHIP" | "FREELANCE";
 type ContractStatus = "ACTIVE" | "EXPIRED" | "TERMINATED" | "DRAFT";
@@ -169,12 +170,12 @@ export default function ContractsTab({ userId }: ContractsTabProps) {
 				},
 				body: JSON.stringify(payload),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar el contrato"));
 			toast.success(editingId ? "Contrato actualizado" : "Contrato creado");
 			closeForm();
 			loadContracts();
-		} catch {
-			toast.error("Error al guardar el contrato");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar el contrato");
 		} finally {
 			setIsSaving(false);
 		}
@@ -188,11 +189,11 @@ export default function ContractsTab({ userId }: ContractsTabProps) {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Contrato eliminado");
 			loadContracts();
-		} catch {
-			toast.error("Error al eliminar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		}
 	};
 

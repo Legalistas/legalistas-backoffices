@@ -17,6 +17,12 @@ const nextConfig = {
 				port: "",
 				pathname: "/**",
 			},
+			// Avatares en MinIO (desde 24/09/2026; antes en el disco del backend).
+			{
+				protocol: "https" as const,
+				hostname: "static.legalistas.com.ar",
+				pathname: "/legalistas/avatars/**",
+			},
 			{
 				protocol: "https" as const,
 				hostname: "backend.legalistas.ar",

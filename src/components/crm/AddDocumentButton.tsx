@@ -20,7 +20,7 @@ export default function AddDocumentButton({
 		<>
 			<Button
 				variant="outline"
-				className="w-full"
+				size="sm"
 				onClick={() => setIsOpen(true)}
 			>
 				<Tag className="h-4 w-4 mr-2" />

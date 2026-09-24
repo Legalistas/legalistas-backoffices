@@ -30,6 +30,8 @@ export interface CasesFiles {
 	filesParts: any[]; // Assuming filesParts is an array of any type
 	fileMovements?: CasesFilesMovement[];
 	accidentDate?: string;
+	// Tipo de lesión de este expediente (se copia del caso al crearlo).
+	injury?: string | null;
 	instanceExpiration?: string;
 }
 
@@ -37,25 +39,39 @@ export interface CasePart {
 	id: number;
 	caseId: number;
 	fileId?: number | null;
+	/** Entrada del catálogo reutilizable de la que salió esta parte. */
+	partyId?: number | null;
 	partyType: string;
 	name: string;
-	personType: string;
-	documentType: string;
 	documentNumber?: string | null;
-	countryId?: number | null;
 	stateId?: number | null;
 	city?: string | null;
 	postalCode?: string | null;
 	address?: string | null;
 	phone?: string | null;
-	email?: string | null;
-	sponsoringLawyer?: string | null;
 	metadata?: Record<string, unknown> | null;
 	createdAt: string;
 	updatedAt: string;
-	country?: { id: number; name: string } | null;
 	state?: { id: number; name: string } | null;
 	file?: { id: number; title: string } | null;
+	party?: { id: number; name: string; partyType: string; isActive: boolean } | null;
+	/**
+	 * Campos que el relevamiento 5.1 eliminó del formulario. Siguen llegando en
+	 * las filas viejas, así que el tipo los contempla como opcionales, pero
+	 * ninguna pantalla los edita ni los envía.
+	 * @deprecated
+	 */
+	personType?: string | null;
+	/** @deprecated Ver personType. */
+	documentType?: string | null;
+	/** @deprecated El país queda fijo en Argentina. */
+	countryId?: number | null;
+	/** @deprecated */
+	email?: string | null;
+	/** @deprecated */
+	sponsoringLawyer?: string | null;
+	/** @deprecated */
+	country?: { id: number; name: string } | null;
 }
 
 export interface CaseExpense {
@@ -202,6 +218,9 @@ export interface Cases {
 	estadoActual?: string | null;
 	informeSavedAt?: string | null;
 	informeSentWhatsappAt?: string | null;
+	informeSentEmailAt?: string | null;
+	informeSentPushAt?: string | null;
+	googleReviewLeft?: boolean | null;
 	folderName?: string | null;
 	createdAt: Date;
 	updatedAt: Date;
@@ -214,6 +233,7 @@ export interface Cases {
 	logs: CaseLogs[];
 	customer: User;
 	consultation: CaseConsultations[];
+	_count?: { caseEvents: number };
 }
 
 interface Jurisdiction {

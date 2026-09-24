@@ -1,30 +1,40 @@
 "use client";
 
-import { Loader2, Pencil, Plus, RefreshCw, Search, X } from "lucide-react";
+import {
+	Briefcase,
+	CalendarDays,
+	ChevronDown,
+	ChevronUp,
+	Folder,
+	Gavel,
+	HardHat,
+	Loader2,
+	type LucideIcon,
+	Megaphone,
+	Pencil,
+	Phone,
+	Plus,
+	RefreshCw,
+	Scale,
+	Search,
+	ShieldCheck,
+	Stethoscope,
+	Tag,
+	Umbrella,
+	UserCog,
+	UserPlus,
+	Users,
+	X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-	CUSTOMERS_ENDPOINT,
-	LAWYERS_ENDPOINT,
-	LEADS_ENDPOINT,
-	SELLERS_ENDPOINT,
-} from "@/constant/api-endpoints";
-import { ART_COMPANIES, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
-import { getCrmStoragePrefix } from "@/constant/storage-structure";
-import { Role } from "@/constant/user";
-import {
-	sendStageEmail,
-	shouldBlockAutomaticEmail,
-} from "@/lib/send-stage-email";
-import type { Lead } from "@/types/crm";
-import type { User } from "@/types/users";
-import CustomerRegistrationModal from "../customers/CustomerRegistrationModal";
+import InjuryAutocomplete from "@/components/common/InjuryAutocomplete";
+import ProvinceCitySelect from "@/components/common/ProvinceCitySelect";
+import FilterCombobox from "@/components/crm/FilterCombobox";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
 	Dialog,
 	DialogContent,
@@ -33,6 +43,8 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
 	Select,
 	SelectContent,
@@ -41,12 +53,53 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import {
+	CUSTOMERS_ENDPOINT,
+	LAWYERS_ENDPOINT,
+	LEADS_ENDPOINT,
+	SELLERS_ENDPOINT,
+	USER_PROFILE_ENDPOINT,
+	USERS_ENDPOINT,
+} from "@/constant/api-endpoints";
+import { ART_COMPANIES, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
+import { getCrmStoragePrefix } from "@/constant/storage-structure";
+import { Role } from "@/constant/user";
+import { apiErrorMessage } from "@/lib/api-error";
+import {
+	sendStageEmail,
+	shouldBlockAutomaticEmail,
+} from "@/lib/send-stage-email";
+import { cn } from "@/lib/utils";
+import type { Lead } from "@/types/crm";
+import type { User } from "@/types/users";
+import CustomerRegistrationModal from "../customers/CustomerRegistrationModal";
 
+
+export interface WebContactPrefill {
+	firstName?: string | null;
+	lastName?: string | null;
+	email?: string | null;
+	phone?: string | null;
+	injury?: string | null;
+	notes?: string | null;
+	sourceChannelId?: number | null;
+	utmSource?: string | null;
+	utmMedium?: string | null;
+	utmCampaign?: string | null;
+	utmContent?: string | null;
+	utmTerm?: string | null;
+	gclid?: string | null;
+	landingPage?: string | null;
+}
 
 interface LeadFormDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	lead: Lead | null;
+	/** Precarga cliente/notas/UTM desde un WebContactSubmission (bandeja de Contacto Web). */
+	prefill?: WebContactPrefill | null;
+	/** Se llama con el id del lead recién creado, antes del reload. */
+	onLeadCreated?: (leadId: number) => void | Promise<void>;
 }
 
 interface Seller {
@@ -63,6 +116,9 @@ interface Customer {
 	};
 	userAddresses: {
 		city: string;
+		stateId?: number | null;
+		cityId?: number | null;
+		isDefault?: boolean;
 		state: {
 			name: string;
 		};
@@ -70,10 +126,51 @@ interface Customer {
 	roleUser: any[];
 }
 
+// Debe coincidir con CUSTOMER_ROLE_ID de CustomerRegistrationModal.tsx.
+const CUSTOMER_ROLE_ID = 34;
+
+const emptyNewClientForm = { fullName: "", email: "", phone: "" };
+
+function FieldLabel({
+	icon: Icon,
+	htmlFor,
+	children,
+}: {
+	icon: LucideIcon;
+	htmlFor?: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<Label htmlFor={htmlFor} className="flex items-center gap-1.5">
+			<Icon className="h-3.5 w-3.5 text-primary" />
+			{children}
+		</Label>
+	);
+}
+
+function SectionHeading({
+	icon: Icon,
+	children,
+}: {
+	icon: LucideIcon;
+	children: React.ReactNode;
+}) {
+	return (
+		<h3 className="flex items-center gap-2 text-sm font-semibold text-foreground mb-2.5 pb-1.5 border-b">
+			<span className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10">
+				<Icon className="h-3 w-3 text-primary" />
+			</span>
+			{children}
+		</h3>
+	);
+}
+
 export default function LeadFormDialog({
 	open,
 	onOpenChange,
 	lead,
+	prefill,
+	onLeadCreated,
 }: LeadFormDialogProps) {
 	const { data: session } = useSession();
 	const [formData, setFormData] = useState({
@@ -92,8 +189,13 @@ export default function LeadFormDialog({
 		artId: null as number | null,
 		insuranceId: null as number | null,
 		injury: "",
+		// Provincia / localidad de la oportunidad (KPIs v1.1, punto 7).
+		// Propias del lead: antes se derivaban de la dirección del cliente,
+		// que la mayoría de las oportunidades abiertas no tiene cargada.
+		stateId: null as number | null,
+		cityId: null as number | null,
 	});
-	const router = useRouter();
+	const _router = useRouter();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [customers, setCustomers] = useState<Customer[]>([]);
 	const [filteredCustomers, setFilteredCustomers] = useState<Customer[]>([]);
@@ -109,10 +211,19 @@ export default function LeadFormDialog({
 	const [hasSelectedCustomer, setHasSelectedCustomer] = useState(false);
 	const [skipWelcomeEmail, setSkipWelcomeEmail] = useState(false);
 	const [isRefreshingCustomers, setIsRefreshingCustomers] = useState(false);
-	const [selectedCustomerName, setSelectedCustomerName] = useState("");
+	const [_selectedCustomerName, setSelectedCustomerName] = useState("");
 	const [customerModalOpen, setCustomerModalOpen] = useState(false);
 	const [editingCustomer, setEditingCustomer] = useState<User | null>(null);
 	const [modalMode, setModalMode] = useState<"create" | "edit">("create");
+	const [isNewClientOpen, setIsNewClientOpen] = useState(false);
+	const [newClientForm, setNewClientForm] = useState(emptyNewClientForm);
+	const [isCreatingClient, setIsCreatingClient] = useState(false);
+	// Cliente creado inline en este mismo formulario (no uno ya existente que
+	// se buscó y seleccionó). Se usa para backfillear su dirección con la
+	// provincia/ciudad de la oportunidad — ver handleSubmit.
+	const [inlineCreatedUserId, setInlineCreatedUserId] = useState<
+		number | null
+	>(null);
 
 	const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,13 +248,13 @@ export default function LeadFormDialog({
 
 				const uniqueCustomers = Array.isArray(data.data)
 					? data.data
-							.filter((c: Customer) =>
-								c.roleUser?.some((ru: any) => ru.role?.name === Role.CUSTOMER),
-							)
-							.filter(
-								(c: Customer, i: number, self: Customer[]) =>
-									i === self.findIndex((x) => x.id === c.id),
-							)
+						.filter((c: Customer) =>
+							c.roleUser?.some((ru: any) => ru.role?.name === Role.CUSTOMER),
+						)
+						.filter(
+							(c: Customer, i: number, self: Customer[]) =>
+								i === self.findIndex((x) => x.id === c.id),
+						)
 					: [];
 				setCustomers(uniqueCustomers);
 				setFilteredCustomers(uniqueCustomers);
@@ -165,7 +276,8 @@ export default function LeadFormDialog({
 	const fetchSellers = useCallback(async () => {
 		setIsSellerLoading(true);
 		try {
-			const response = await fetch(SELLERS_ENDPOINT, {
+			// Sin limit el backend devuelve 10 (default de paginación).
+			const response = await fetch(`${SELLERS_ENDPOINT}?limit=100000`, {
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${session?.user?.accessToken}`,
@@ -246,6 +358,8 @@ export default function LeadFormDialog({
 				artId: lead.artId ?? null,
 				insuranceId: lead.insuranceId ?? null,
 				injury: lead.injury || "",
+				stateId: lead.stateId ?? null,
+				cityId: lead.cityId ?? null,
 			});
 			if (lead.user) {
 				setSearchQuery(lead.user.name);
@@ -269,22 +383,64 @@ export default function LeadFormDialog({
 				artId: null,
 				insuranceId: null,
 				injury: "",
+				stateId: null,
+				cityId: null,
 			});
 			setSearchQuery("");
 			setSelectedCustomerName("");
 			setHasSelectedCustomer(false);
 		}
-	}, [lead, open]);
+	}, [lead]);
+
+	// Precarga desde la bandeja de Contacto Web: abre el panel de "Nuevo
+	// cliente" con nombre/email/teléfono ya cargados y arranca desde cero el
+	// resto de la asignación (evita arrastrar datos de un intento anterior).
+	useEffect(() => {
+		if (!open || lead || !prefill) return;
+		setFormData({
+			userId: 0,
+			sellerId: 0,
+			internalLawyerId: 0,
+			responsibleLawyerId: 0,
+			servicesId: 0,
+			sourceChannelId: prefill.sourceChannelId || 1,
+			status: "IN_PROGRESS",
+			columnId: 1,
+			notes: prefill.notes || "",
+			documentationComplete: false,
+			referentId: null,
+			accidentDate: "",
+			artId: null,
+			insuranceId: null,
+			injury: prefill.injury || "",
+			stateId: null,
+			cityId: null,
+		});
+		setNewClientForm({
+			fullName: [prefill.firstName, prefill.lastName]
+				.filter(Boolean)
+				.join(" ")
+				.trim(),
+			email: prefill.email || "",
+			phone: prefill.phone || "",
+		});
+		setIsNewClientOpen(true);
+		setSearchQuery("");
+		setSelectedCustomerName("");
+		setHasSelectedCustomer(false);
+	}, [open, lead, prefill]);
 
 	useEffect(() => {
 		if (searchQuery) {
-			const filtered = customers.filter(
-				(c) =>
-					c.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-					c.email?.toLowerCase().includes(searchQuery.toLowerCase()),
-			);
+			// `customers` ya viene deduplicado por id desde fetchCustomers — no hace
+			// falta un segundo paso de dedup (O(n²)) en cada tecla que se escribe.
+			const query = searchQuery.toLowerCase();
 			setFilteredCustomers(
-				filtered.filter((c, i, self) => i === self.findIndex((x) => x.id === c.id)),
+				customers.filter(
+					(c) =>
+						c.name?.toLowerCase().includes(query) ||
+						c.email?.toLowerCase().includes(query),
+				),
 			);
 		} else {
 			setFilteredCustomers(customers);
@@ -305,11 +461,22 @@ export default function LeadFormDialog({
 	}, []);
 
 	const handleSelectChange = (name: string, value: string) => {
-		setFormData((prev) => ({ ...prev, [name]: Number.parseInt(value) }));
+		setFormData((prev) => ({ ...prev, [name]: Number.parseInt(value, 10) }));
 	};
 
 	const handleCustomerSelect = (customer: Customer) => {
-		setFormData((prev) => ({ ...prev, userId: customer.id }));
+		// La provincia/localidad de la oportunidad arranca desde la dirección
+		// del cliente — el dato ya está en la ficha y antes había que volver a
+		// cargarlo a mano. Lo que ya se eligió en el formulario no se pisa.
+		const addr =
+			customer.userAddresses?.find((a) => a.isDefault) ??
+			customer.userAddresses?.[0];
+		setFormData((prev) => ({
+			...prev,
+			userId: customer.id,
+			stateId: prev.stateId ?? addr?.stateId ?? null,
+			cityId: prev.cityId ?? addr?.cityId ?? null,
+		}));
 		setSearchQuery(customer.name);
 		setSelectedCustomerName(customer.name);
 		setHasSelectedCustomer(true);
@@ -344,6 +511,80 @@ export default function LeadFormDialog({
 		setSearchQuery("");
 		resetCustomerSelection();
 		setTimeout(() => setShowResults(true), 0);
+	};
+
+	const handleOpenNewClient = () => {
+		setShowResults(false);
+		setIsNewClientOpen(true);
+	};
+
+	// Colapsa el panel sin descartar lo ya tipeado (chevron del panel).
+	const handleCollapseNewClient = () => setIsNewClientOpen(false);
+
+	// Cancela y descarta lo tipeado (botón "Cancelar" del panel).
+	const handleCancelNewClient = () => {
+		setIsNewClientOpen(false);
+		setNewClientForm(emptyNewClientForm);
+	};
+
+	const handleCreateInlineClient = async () => {
+		const { fullName, email, phone } = newClientForm;
+		if (!fullName.trim() || !email.trim() || !phone.trim()) {
+			toast.error("Completá todos los datos del nuevo cliente");
+			return;
+		}
+
+		setIsCreatingClient(true);
+		try {
+			const response = await fetch(USERS_ENDPOINT, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
+				body: JSON.stringify({
+					name: fullName.trim(),
+					email: email.trim(),
+					image: "",
+					role: CUSTOMER_ROLE_ID,
+					userProfile: {
+						docType: null,
+						docNumber: null,
+						gender: null,
+						birthDate: null,
+						phone: phone.trim(),
+					},
+					userAddresses: [],
+				}),
+			});
+
+			if (!response.ok) {
+				const err = await response.json().catch(() => null);
+				throw new Error(err?.message || "Error al crear el cliente");
+			}
+
+			const result = await response.json();
+			const created = result?.user;
+			if (created?.id) {
+				handleCustomerSelect({
+					id: created.id,
+					name: created.name,
+					email: created.email,
+					userProfile: created.userProfile ?? { phone: phone.trim() },
+					userAddresses: created.userAddresses ?? [],
+					roleUser: created.roleUser ?? [],
+				});
+				setInlineCreatedUserId(created.id);
+			}
+			fetchCustomers();
+			toast.success("Cliente creado correctamente");
+			setIsNewClientOpen(false);
+			setNewClientForm(emptyNewClientForm);
+		} catch (error: any) {
+			toast.error(error?.message || "Error al crear el cliente");
+		} finally {
+			setIsCreatingClient(false);
+		}
 	};
 
 	const handleCustomerCreated = () => {
@@ -387,6 +628,17 @@ export default function LeadFormDialog({
 				artId: formData.artId || null,
 				insuranceId: formData.insuranceId || null,
 				injury: formData.injury || null,
+				stateId: formData.stateId ?? null,
+				cityId: formData.cityId ?? null,
+				// Atribución de origen — solo presente cuando el lead viene
+				// precargado desde la bandeja de Contacto Web.
+				utmSource: prefill?.utmSource || null,
+				utmMedium: prefill?.utmMedium || null,
+				utmCampaign: prefill?.utmCampaign || null,
+				utmContent: prefill?.utmContent || null,
+				utmTerm: prefill?.utmTerm || null,
+				gclid: prefill?.gclid || null,
+				landingPage: prefill?.landingPage || null,
 			};
 
 			const isCreating = !lead?.id;
@@ -404,13 +656,57 @@ export default function LeadFormDialog({
 				body: JSON.stringify(dataToSend),
 			});
 
-			if (!response.ok) throw new Error(`Error: ${response.status}`);
+			if (!response.ok) {
+				throw new Error(
+					await apiErrorMessage(
+						response,
+						isCreating
+							? "Error al crear la oportunidad"
+							: "Error al actualizar la oportunidad",
+					),
+				);
+			}
 
 			if (isCreating) {
 				const responseData = await response.json().catch(() => null);
 				const createdLead =
 					responseData?.lead ?? responseData?.data ?? responseData;
 				const newLeadId = Number(createdLead?.id ?? 0);
+				if (newLeadId && onLeadCreated) {
+					await onLeadCreated(newLeadId);
+				}
+
+				// El cliente recién creado inline no tiene dirección propia
+				// (se crea sin userAddresses). Le pasamos la provincia/ciudad
+				// que se cargó para la oportunidad, para que no quede en blanco.
+				if (
+					inlineCreatedUserId &&
+					inlineCreatedUserId === formData.userId &&
+					formData.stateId
+				) {
+					try {
+						await fetch(`${USER_PROFILE_ENDPOINT}/${formData.userId}`, {
+							method: "PUT",
+							headers: {
+								"Content-Type": "application/json",
+								Authorization: `Bearer ${session?.user?.accessToken}`,
+							},
+							body: JSON.stringify({
+								address: {
+									countryId: 1, // Argentina — único país soportado hoy.
+									stateId: formData.stateId,
+									cityId: formData.cityId,
+									isDefault: true,
+								},
+							}),
+						});
+					} catch (err) {
+						console.error(
+							"[LeadFormDialog] Error guardando dirección del cliente nuevo:",
+							err,
+						);
+					}
+				}
 				const folderName = createdLead?.folderName as string | undefined;
 				const selectedCustomer = customers.find(
 					(c) => c.id === formData.userId,
@@ -459,8 +755,12 @@ export default function LeadFormDialog({
 			toast.success(`Lead ${lead ? "actualizado" : "creado"} correctamente`);
 			onOpenChange(false);
 			window.location.reload();
-		} catch {
-			toast.error("Error al guardar el lead. Inténtalo de nuevo.");
+		} catch (err) {
+			toast.error(
+				err instanceof Error
+					? err.message
+					: "Error al guardar el lead. Inténtalo de nuevo.",
+			);
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -470,126 +770,253 @@ export default function LeadFormDialog({
 		<Dialog open={open} onOpenChange={onOpenChange}>
 			<DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
 				<DialogHeader>
-					<DialogTitle>{lead ? "Editar Lead" : "Crear Lead"}</DialogTitle>
-					<DialogDescription>
-						{lead
-							? "Modificá los datos del lead y guardá los cambios."
-							: "Completá los datos para registrar un nuevo lead."}
-					</DialogDescription>
+					<div className="flex items-center gap-3">
+						<div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary/10">
+							<UserPlus className="size-5 text-primary" />
+						</div>
+						<div>
+							<DialogTitle>{lead ? "Editar Lead" : "Crear Lead"}</DialogTitle>
+							<DialogDescription>
+								{lead
+									? "Modificá los datos del lead y guardá los cambios."
+									: prefill
+										? "Datos precargados desde el formulario de contacto web. Revisá y completá la asignación."
+										: "Completá los datos para registrar un nuevo lead."}
+							</DialogDescription>
+						</div>
+					</div>
 				</DialogHeader>
 
-				<div className="space-y-6 py-2">
+				<div className="space-y-5 py-2">
 					{/* Cliente */}
 					<section>
-						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
+						<SectionHeading icon={Users}>
 							<span className="text-destructive mr-1">*</span> Cliente
-						</h3>
+						</SectionHeading>
 						<div className="relative">
-							<div className="relative flex-1" ref={searchInputRef}>
-								<Input
-									id="customerSearch"
-									placeholder="Buscar cliente por nombre o email..."
-									value={searchQuery}
-									onChange={handleSearchChange}
-									onFocus={() => setShowResults(true)}
-									onClick={() => setShowResults(true)}
-									className="pl-10 pr-12"
-									disabled={isLoadingCustomers}
-								/>
-								{searchQuery ? (
-									<button
-										type="button"
-										onClick={handleClearSearch}
-										className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-									>
-										<X className="h-5 w-5" />
-									</button>
-								) : (
-									<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+							{/* Buscador — se oculta con animación al abrir "Nuevo cliente" */}
+							<div
+								className={cn(
+									"grid transition-all duration-300 ease-in-out",
+									isNewClientOpen
+										? "grid-rows-[0fr] opacity-0"
+										: "grid-rows-[1fr] opacity-100",
 								)}
-
-								{hasSelectedCustomer && formData.userId > 0 && (
-									<div className="absolute right-0 top-0 flex items-center h-full gap-1 pr-1">
-										<Button
-											size="sm"
-											onClick={() => {
-												const selected = customers.find(
-													(c) => c.id === formData.userId,
-												);
-												if (selected) handleEdit(selected);
-											}}
-											variant="outline"
-										>
-											<Pencil className="h-3.5 w-3.5" />
-										</Button>
-										<Button
-											size="sm"
-											variant="ghost"
-											onClick={refreshCustomers}
-											disabled={isRefreshingCustomers}
-										>
-											<RefreshCw
-												className={`h-3.5 w-3.5 ${isRefreshingCustomers ? "animate-spin" : ""}`}
-											/>
-										</Button>
-									</div>
-								)}
-
-								{!searchQuery && !hasSelectedCustomer && (
-									<div className="absolute right-0 top-0 flex items-center h-full gap-1 pr-1">
-										<Button
-											size="sm"
-											onClick={() => setCustomerModalOpen(true)}
-										>
-											<Plus className="h-3.5 w-3.5 mr-1" />
-											Nuevo
-										</Button>
-										<Button
-											size="sm"
-											variant="ghost"
-											onClick={refreshCustomers}
-											disabled={isRefreshingCustomers}
-										>
-											<RefreshCw
-												className={`h-3.5 w-3.5 ${isRefreshingCustomers ? "animate-spin" : ""}`}
-											/>
-										</Button>
-									</div>
-								)}
-
-								{showResults && (
-									<div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
-										{isLoadingCustomers ? (
-											<div className="p-3 text-sm text-muted-foreground">
-												Cargando clientes...
-											</div>
-										) : customersError ? (
-											<div className="p-3 text-sm text-red-500">{customersError}</div>
-										) : filteredCustomers.length > 0 ? (
-											filteredCustomers.map((customer) => (
-												<div
-													key={customer.id}
-													className={`px-3 py-2 hover:bg-muted cursor-pointer transition-colors ${
-														formData.userId === customer.id ? "bg-primary/5" : ""
-													}`}
-													onClick={() => handleCustomerSelect(customer)}
-												>
-													<div className="font-medium text-sm">{customer.name}</div>
-													<div className="text-xs text-muted-foreground">
-														{customer.email && `${customer.email} - `}
-														{customer.userAddresses?.[0]?.state?.name &&
-															`${customer.userAddresses[0].state.name}, `}
-														{customer.userAddresses?.[0]?.city}
-													</div>
-												</div>
-											))
+							>
+								{/* overflow-visible una vez expandido: si no, recorta el
+								    desplegable de resultados que sobresale del input. */}
+								<div className={cn("overflow-hidden", !isNewClientOpen && "overflow-visible")}>
+									<div className="relative flex-1" ref={searchInputRef}>
+										<Input
+											id="customerSearch"
+											placeholder="Buscar cliente por nombre o email..."
+											value={searchQuery}
+											onChange={handleSearchChange}
+											onFocus={() => setShowResults(true)}
+											onClick={() => setShowResults(true)}
+											className="pl-10 pr-42 h-12"
+											disabled={isLoadingCustomers}
+											autoComplete="off"
+										/>
+										{searchQuery ? (
+											<button
+												type="button"
+												onClick={handleClearSearch}
+												className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+											>
+												<X className="h-5 w-5" />
+											</button>
 										) : (
-											<div className="p-3 text-sm text-muted-foreground">
-												No se encontraron clientes
+											<Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+										)}
+
+										{hasSelectedCustomer && formData.userId > 0 && (
+											<div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+												<Button
+													size="sm"
+													onClick={() => {
+														const selected = customers.find(
+															(c) => c.id === formData.userId,
+														);
+														if (selected) handleEdit(selected);
+													}}
+													variant="outline"
+												>
+													<Pencil className="h-3.5 w-3.5" />
+												</Button>
+												<Button
+													size="sm"
+													variant="ghost"
+													onClick={refreshCustomers}
+													disabled={isRefreshingCustomers}
+												>
+													<RefreshCw
+														className={`h-3.5 w-3.5 ${isRefreshingCustomers ? "animate-spin" : ""}`}
+													/>
+												</Button>
+											</div>
+										)}
+
+										{!searchQuery && !hasSelectedCustomer && (
+											<div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+												<Button size="sm" onClick={handleOpenNewClient}>
+													<Plus className="h-3.5 w-3.5 mr-1" />
+													Nuevo cliente
+													<ChevronDown className="h-3.5 w-3.5 ml-1" />
+												</Button>
+												<Button
+													size="sm"
+													variant="ghost"
+													onClick={refreshCustomers}
+													disabled={isRefreshingCustomers}
+												>
+													<RefreshCw
+														className={`h-3.5 w-3.5 ${isRefreshingCustomers ? "animate-spin" : ""}`}
+													/>
+												</Button>
+											</div>
+										)}
+
+										{showResults && (
+											<div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+												{isLoadingCustomers ? (
+													<div className="p-3 text-sm text-muted-foreground">
+														Cargando clientes...
+													</div>
+												) : customersError ? (
+													<div className="p-3 text-sm text-red-500">{customersError}</div>
+												) : filteredCustomers.length > 0 ? (
+													filteredCustomers.map((customer) => (
+														<button
+															type="button"
+															key={customer.id}
+															className={`block w-full px-3 py-2 text-left hover:bg-muted transition-colors ${formData.userId === customer.id ? "bg-primary/5" : ""
+																}`}
+															onClick={() => handleCustomerSelect(customer)}
+														>
+															<div className="font-medium text-sm">{customer.name}</div>
+															<div className="text-xs text-muted-foreground">
+																{customer.email && `${customer.email} - `}
+																{customer.userAddresses?.[0]?.state?.name &&
+																	`${customer.userAddresses[0].state.name}, `}
+																{customer.userAddresses?.[0]?.city}
+															</div>
+														</button>
+													))
+												) : (
+													<div className="p-3 text-sm text-muted-foreground">
+														No se encontraron clientes
+													</div>
+												)}
 											</div>
 										)}
 									</div>
+								</div>
+							</div>
+
+							{/* Panel inline "Nuevo cliente" — reemplaza al buscador con animación */}
+							<div
+								className={cn(
+									"grid transition-all duration-300 ease-in-out",
+									isNewClientOpen
+										? "grid-rows-[1fr] opacity-100"
+										: "grid-rows-[0fr] opacity-0",
 								)}
+							>
+								<div className="overflow-hidden">
+									<div className="rounded-lg border bg-muted/30 p-4 space-y-4">
+										<div className="flex items-center justify-between">
+											<div>
+												<p className="text-sm font-semibold flex items-center gap-1.5">
+													<UserPlus className="h-4 w-4 text-primary" />
+													Nuevo cliente
+												</p>
+												<p className="text-xs text-muted-foreground">
+													Completá los datos del nuevo cliente.
+												</p>
+											</div>
+											<button
+												type="button"
+												onClick={handleCollapseNewClient}
+												className="text-muted-foreground hover:text-foreground"
+												aria-label="Colapsar"
+											>
+												<ChevronUp className="h-4 w-4" />
+											</button>
+										</div>
+
+										<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+											<div className="space-y-2">
+												<Label htmlFor="newClientFullName">
+													<span className="text-destructive mr-1">*</span>Apellido y Nombre
+												</Label>
+												<Input
+													id="newClientFullName"
+													placeholder="Apellido y nombre del cliente"
+													value={newClientForm.fullName}
+													onChange={(e) =>
+														setNewClientForm((prev) => ({ ...prev, fullName: e.target.value }))
+													}
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="newClientEmail">
+													<span className="text-destructive mr-1">*</span>Correo
+												</Label>
+												<Input
+													id="newClientEmail"
+													type="email"
+													placeholder="ejemplo@correo.com"
+													value={newClientForm.email}
+													onChange={(e) =>
+														setNewClientForm((prev) => ({ ...prev, email: e.target.value }))
+													}
+												/>
+											</div>
+											<div className="space-y-2">
+												<Label htmlFor="newClientPhone">
+													<span className="text-destructive mr-1">*</span>Teléfono
+												</Label>
+												<div className="relative">
+													<Input
+														id="newClientPhone"
+														type="tel"
+														placeholder="11 1234 5678"
+														className="pr-9"
+														value={newClientForm.phone}
+														onChange={(e) =>
+															setNewClientForm((prev) => ({ ...prev, phone: e.target.value }))
+														}
+													/>
+													<Phone className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+												</div>
+											</div>
+										</div>
+
+										<div className="flex justify-end gap-2 pt-2 border-t">
+											<Button
+												type="button"
+												variant="outline"
+												size="sm"
+												onClick={handleCancelNewClient}
+												disabled={isCreatingClient}
+											>
+												Cancelar
+											</Button>
+											<Button
+												type="button"
+												size="sm"
+												onClick={handleCreateInlineClient}
+												disabled={isCreatingClient}
+											>
+												{isCreatingClient && (
+													<Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+												)}
+												Guardar cliente
+											</Button>
+										</div>
+									</div>
+								</div>
 							</div>
 
 							<CustomerRegistrationModal
@@ -610,12 +1037,11 @@ export default function LeadFormDialog({
 
 					{/* Asignación */}
 					<section>
-						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
-							Asignación
-						</h3>
+						<SectionHeading icon={UserCog}>Asignación</SectionHeading>
 						<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<FormSelect
 								label="Vendedor"
+								icon={Briefcase}
 								value={formData.sellerId}
 								onChange={(v) => handleSelectChange("sellerId", v)}
 								placeholder="Seleccionar"
@@ -624,45 +1050,54 @@ export default function LeadFormDialog({
 							/>
 							<FormSelect
 								label="Abogado Interno"
+								icon={Scale}
 								value={formData.internalLawyerId}
 								onChange={(v) => handleSelectChange("internalLawyerId", v)}
 								placeholder="Seleccionar"
 								options={internalLawyers}
 								disabled={isLoading}
 							/>
-							<FormSelect
-								label="Abogado Responsable"
-								value={formData.responsibleLawyerId}
-								onChange={(v) => handleSelectChange("responsibleLawyerId", v)}
-								placeholder="Seleccionar"
-								options={responsibleLawyers}
-								disabled={isLoading}
-							/>
+							<div className="space-y-2">
+								<FieldLabel icon={Gavel}>Abogado Responsable</FieldLabel>
+								<FilterCombobox
+									placeholder="Seleccionar"
+									searchPlaceholder="Buscar abogado..."
+									options={responsibleLawyers.map((l) => ({ value: l.id, label: l.name }))}
+									value={formData.responsibleLawyerId || undefined}
+									onSelect={(v) =>
+										setFormData((prev) => ({
+											...prev,
+											responsibleLawyerId: v ? Number(v) : 0,
+										}))
+									}
+									loading={isLoading}
+									className="w-full"
+								/>
+							</div>
 						</div>
 					</section>
 
 					{/* Detalle del Caso */}
 					<section>
-						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
-							Detalle del Caso
-						</h3>
-						<div className="space-y-2 mb-4">
-							<Label htmlFor="injury">Lesión</Label>
-							<Input
-								id="injury"
-								placeholder="Ej: Fractura de muñeca, lumbalgia, etc."
-								value={formData.injury}
-								onChange={(e) =>
-									setFormData((prev) => ({
-										...prev,
-										injury: e.target.value,
-									}))
-								}
-							/>
-						</div>
+						<SectionHeading icon={Folder}>Detalle del Caso</SectionHeading>
 						<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 							<div className="space-y-2">
-								<Label>Servicios</Label>
+								<FieldLabel icon={Stethoscope} htmlFor="injury">Lesión</FieldLabel>
+								<InjuryAutocomplete
+									id="injury"
+									placeholder="Ej: Fractura de muñeca, lumbalgia, etc."
+									value={formData.injury}
+									onChange={(v) =>
+										setFormData((prev) => ({
+											...prev,
+											injury: v,
+										}))
+									}
+								/>
+							</div>
+
+							<div className="space-y-2">
+								<FieldLabel icon={Tag}>Servicios</FieldLabel>
 								<Select
 									value={formData.servicesId ? String(formData.servicesId) : ""}
 									onValueChange={(v) => handleSelectChange("servicesId", v)}
@@ -681,7 +1116,7 @@ export default function LeadFormDialog({
 							</div>
 
 							<div className="space-y-2">
-								<Label>Canal de Ingreso</Label>
+								<FieldLabel icon={Megaphone}>Canal de Ingreso</FieldLabel>
 								<Select
 									value={formData.sourceChannelId ? String(formData.sourceChannelId) : ""}
 									onValueChange={(v) => handleSelectChange("sourceChannelId", v)}
@@ -690,7 +1125,10 @@ export default function LeadFormDialog({
 										<SelectValue placeholder="Seleccionar canal" />
 									</SelectTrigger>
 									<SelectContent>
-										{SOURCE_CHANNEL.map((c) => (
+										{/* Solo canales activos: los discontinuados siguen
+										    resolviendo nombre en leads viejos, pero no se
+										    ofrecen para cargar uno nuevo. */}
+										{SOURCE_CHANNEL.filter((c) => c.active).map((c) => (
 											<SelectItem key={c.id} value={String(c.id)}>
 												{c.name}
 											</SelectItem>
@@ -699,8 +1137,20 @@ export default function LeadFormDialog({
 								</Select>
 							</div>
 
+							{/* Provincia y localidad de la oportunidad. Alimentan las
+							    métricas por provincia del módulo de KPIs. */}
+							<div className="sm:col-span-2">
+								<ProvinceCitySelect
+									stateId={formData.stateId}
+									cityId={formData.cityId}
+									onChange={({ stateId, cityId }) =>
+										setFormData((prev) => ({ ...prev, stateId, cityId }))
+									}
+								/>
+							</div>
+
 							<div className="space-y-2">
-								<Label>Fecha de accidente</Label>
+								<FieldLabel icon={CalendarDays}>Fecha de accidente</FieldLabel>
 								<Input
 									type="datetime-local"
 									value={formData.accidentDate || ""}
@@ -717,12 +1167,10 @@ export default function LeadFormDialog({
 
 					{/* Seguros */}
 					<section>
-						<h3 className="text-sm font-semibold text-foreground mb-3 pb-2 border-b">
-							Seguros
-						</h3>
+						<SectionHeading icon={ShieldCheck}>Seguros</SectionHeading>
 						<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 							<div className="space-y-2">
-								<Label>ART (opcional)</Label>
+								<FieldLabel icon={HardHat}>ART (opcional)</FieldLabel>
 								<Select
 									value={formData.artId ? String(formData.artId) : ""}
 									onValueChange={(v) =>
@@ -746,7 +1194,7 @@ export default function LeadFormDialog({
 							</div>
 
 							<div className="space-y-2">
-								<Label>Seguro (opcional)</Label>
+								<FieldLabel icon={Umbrella}>Seguro (opcional)</FieldLabel>
 								<Select
 									value={formData.insuranceId ? String(formData.insuranceId) : ""}
 									onValueChange={(v) =>
@@ -821,6 +1269,7 @@ export default function LeadFormDialog({
 
 function FormSelect({
 	label,
+	icon,
 	value,
 	onChange,
 	placeholder,
@@ -829,6 +1278,7 @@ function FormSelect({
 	allowEmpty,
 }: {
 	label: string;
+	icon: LucideIcon;
 	value: number;
 	onChange: (value: string) => void;
 	placeholder: string;
@@ -838,7 +1288,7 @@ function FormSelect({
 }) {
 	return (
 		<div className="space-y-2">
-			<Label>{label}</Label>
+			<FieldLabel icon={icon}>{label}</FieldLabel>
 			<Select
 				value={value ? String(value) : ""}
 				onValueChange={onChange}

@@ -19,10 +19,19 @@ import {
 	statusCapital,
 	statusData,
 } from "@/constant/closing-manager";
-import type { ClosingManagerEntry } from "@/types/closing-manager";
+import { cn } from "@/lib/utils";
+import type {
+	ChargeCollector,
+	ClosingManagerEntry,
+} from "@/types/closing-manager";
 
 const inputClass =
 	"w-full h-11 px-3 rounded-lg border border-input bg-background text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all";
+
+// Estado COBRADOS en verde, para que se vea de un vistazo qué ya entró.
+// Mismo criterio de color que el badge de la tabla (statusColors.CHARGED).
+const chargedTriggerClass =
+	"border-green-500 bg-green-50 text-green-800 font-medium dark:border-green-700 dark:bg-green-900/20 dark:text-green-300";
 
 const readOnlyClass =
 	"w-full h-11 px-3 rounded-lg border border-border bg-muted text-sm outline-none cursor-default";
@@ -52,14 +61,20 @@ export default function EditClosingPage() {
 	const [capitalAmount, setCapitalAmount] = useState("");
 	const [capitalState, setCapitalState] = useState("AGREEMENT_IN_MANAGEMENT");
 	const [feeStatus, setFeeStatus] = useState("EARRINGS");
+	const [hpChargedAt, setHpChargedAt] = useState(""); // YYYY-MM-DD
+	const [hpChargedById, setHpChargedById] = useState<string>(""); // "" o number string
 	const [hpAgreed, setHpAgreed] = useState("20");
 	const [hpTotal, setHpTotal] = useState("0");
 	const [withRepresentante, setWithRepresentante] = useState(true);
 	const [pclAgreed, setPclAgreed] = useState("20");
 	const [pclTotal, setPclTotal] = useState("0");
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
+	const [pclChargedAt, setPclChargedAt] = useState("");
+	const [pclChargedById, setPclChargedById] = useState<string>("");
 	const [contributionsAmount, setContributionsAmount] = useState("0");
 	const [applyContributions, setApplyContributions] = useState(true);
+	const [aportesRepresentantePercent, setAportesRepresentantePercent] =
+		useState("25");
 	const [detail, setDetail] = useState("");
 
 	// Auto-calculate HP Total and PCL Total
@@ -75,21 +90,77 @@ export default function EditClosingPage() {
 		setPclTotal(((capital * pclPercent) / 100).toFixed(2));
 	}, [capitalAmount, pclAgreed]);
 
+	// Auto-set/clear de fecha de cobro al cambiar el estado.
+	// Cuando un estado pasa a CHARGED y no hay fecha → setear hoy.
+	// Cuando deja de ser CHARGED → limpiar fecha y "cobrado por".
+	useEffect(() => {
+		if (feeStatus === "CHARGED" && !hpChargedAt) {
+			setHpChargedAt(new Date().toISOString().slice(0, 10));
+		} else if (feeStatus !== "CHARGED" && (hpChargedAt || hpChargedById)) {
+			setHpChargedAt("");
+			setHpChargedById("");
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [feeStatus]);
+
+	useEffect(() => {
+		if (pclStatus === "CHARGED" && !pclChargedAt) {
+			setPclChargedAt(new Date().toISOString().slice(0, 10));
+		} else if (pclStatus !== "CHARGED" && (pclChargedAt || pclChargedById)) {
+			setPclChargedAt("");
+			setPclChargedById("");
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [pclStatus]);
+
+	// Cobradores eligibles: los dos abogados del caso (responsable e interno),
+	// que ya vienen en la respuesta del cierre — no hace falta pedir nada más.
+	// Se suman los que ya figuran cargados en el cierre para no perder valores
+	// históricos si el cobro lo registró alguien que hoy no es ninguno de los dos.
+	const chargeCollectors = useMemo<ChargeCollector[]>(() => {
+		if (!closing) return [];
+		const byId = new Map<number, ChargeCollector>();
+		const add = (
+			person: ChargeCollector | null | undefined,
+			role?: string,
+		) => {
+			if (!person?.id || byId.has(person.id)) return;
+			byId.set(person.id, {
+				...person,
+				name: role ? `${person.name} (${role})` : person.name,
+			});
+		};
+		add(closing.case?.responsibleLawyer, "Responsable");
+		add(closing.case?.internalLawyer, "Interno");
+		add(closing.hpChargedBy);
+		add(closing.pclChargedBy);
+		return [...byId.values()];
+	}, [closing]);
+
 	// Calculated fields
 	const calc = useMemo(() => {
 		const hp = Number(hpTotal) || 0;
 		const pcl = Number(pclTotal) || 0;
 		const aportes = applyContributions ? Number(contributionsAmount) || 0 : 0;
+		const aportesRepPctClamped = Math.max(
+			0,
+			Math.min(100, Number(aportesRepresentantePercent) || 0),
+		);
+		const aportesRepRatio = withRepresentante ? aportesRepPctClamped / 100 : 0;
+
 		const hpRep = withRepresentante ? hp * 0.25 : 0;
 		const hpLeg = hp - hpRep;
 		const pclRep = withRepresentante ? pcl * 0.25 : 0;
 		const pclLeg = pcl - pclRep;
-		const aportesRep = withRepresentante ? aportes * 0.25 : 0;
-		const aportesLeg = withRepresentante ? aportes * 0.75 : aportes;
-		const montoTransferir = hpLeg + pclLeg - aportesLeg;
+		const aportesRep = aportes * aportesRepRatio;
+		const aportesLeg = aportes - aportesRep;
+		// Aportes Legalistas se descuentan de HP (NO de PCL).
+		const hpLegNeto = hpLeg - aportesLeg;
+		const montoTransferir = hpLegNeto + pclLeg;
 		return {
 			hpRep,
 			hpLeg,
+			hpLegNeto,
 			pclRep,
 			pclLeg,
 			aportesRep,
@@ -102,6 +173,7 @@ export default function EditClosingPage() {
 		pclTotal,
 		contributionsAmount,
 		applyContributions,
+		aportesRepresentantePercent,
 	]);
 
 	// Fetch closing
@@ -128,14 +200,29 @@ export default function EditClosingPage() {
 				setCapitalAmount(String(data.capitalAmount ?? 0));
 				setCapitalState(data.capitalState || "AGREEMENT_IN_MANAGEMENT");
 				setFeeStatus(data.feeStatus || "EARRINGS");
+				setHpChargedAt(
+					data.hpChargedAt ? String(data.hpChargedAt).slice(0, 10) : "",
+				);
+				setHpChargedById(
+					data.hpChargedById != null ? String(data.hpChargedById) : "",
+				);
 				setHpAgreed(String(data.hpAgreed ?? 20));
 				setHpTotal(String(data.hpTotal ?? 0));
 				setWithRepresentante(data.hpDistribution ?? true);
 				setPclAgreed(String(data.pclAgreed ?? 20));
 				setPclTotal(String(data.pclTotal ?? 0));
 				setPclStatus(data.pclStatus || "EARRINGS");
+				setPclChargedAt(
+					data.pclChargedAt ? String(data.pclChargedAt).slice(0, 10) : "",
+				);
+				setPclChargedById(
+					data.pclChargedById != null ? String(data.pclChargedById) : "",
+				);
 				setContributionsAmount(String(data.contributionsAmount ?? 0));
 				setApplyContributions(data.applyContributions ?? true);
+				setAportesRepresentantePercent(
+					String(data.aportesRepresentantePercent ?? 25),
+				);
 				setDetail(data.detail || "");
 			} catch (err) {
 				setError(err instanceof Error ? err.message : "Error desconocido");
@@ -163,6 +250,12 @@ export default function EditClosingPage() {
 					capitalAmount: parseFloat(capitalAmount) || 0,
 					capitalState,
 					feeStatus,
+					hpChargedAt:
+						feeStatus === "CHARGED" && hpChargedAt ? hpChargedAt : null,
+					hpChargedById:
+						feeStatus === "CHARGED" && hpChargedById
+							? Number(hpChargedById)
+							: null,
 					hpAgreed: parseFloat(hpAgreed) || 20,
 					hpTotal: parseFloat(hpTotal) || 0,
 					hpDistribution: withRepresentante,
@@ -170,8 +263,16 @@ export default function EditClosingPage() {
 					pclTotal: parseFloat(pclTotal) || 0,
 					pclDistribution: withRepresentante,
 					pclStatus,
+					pclChargedAt:
+						pclStatus === "CHARGED" && pclChargedAt ? pclChargedAt : null,
+					pclChargedById:
+						pclStatus === "CHARGED" && pclChargedById
+							? Number(pclChargedById)
+							: null,
 					contributionsAmount: parseFloat(contributionsAmount) || 0,
 					applyContributions,
+					aportesRepresentantePercent:
+						parseFloat(aportesRepresentantePercent) || 25,
 					detail: detail || null,
 				}),
 			});
@@ -354,7 +455,12 @@ export default function EditClosingPage() {
 								Estado Honorarios <span className="text-destructive">*</span>
 							</label>
 							<Select value={feeStatus} onValueChange={setFeeStatus}>
-								<SelectTrigger className="h-11">
+								<SelectTrigger
+									className={cn(
+										"h-11",
+										feeStatus === "CHARGED" && chargedTriggerClass,
+									)}
+								>
 									<span className="truncate">
 										{statusData[feeStatus as keyof typeof statusData] ||
 											"Seleccione"}
@@ -372,6 +478,57 @@ export default function EditClosingPage() {
 							</Select>
 						</div>
 					</div>
+
+					{/* Datos de cobro HP — solo cuando el estado está CHARGED */}
+					{feeStatus === "CHARGED" && (
+						<div className="rounded-xl border border-green-200 dark:border-green-900/40 bg-green-50/40 dark:bg-green-900/10 p-4 space-y-3">
+							<p className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300">
+								Cobro de Honorarios
+							</p>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								<div className="space-y-1">
+									<label className="text-xs text-muted-foreground">
+										Fecha de cobro
+									</label>
+									<input
+										type="date"
+										value={hpChargedAt}
+										onChange={(e) => setHpChargedAt(e.target.value)}
+										className={inputClass}
+									/>
+								</div>
+								<div className="space-y-1">
+									<label className="text-xs text-muted-foreground">
+										Cobrado por
+									</label>
+									<Select
+										value={hpChargedById || "_"}
+										onValueChange={(v) =>
+											setHpChargedById(v === "_" ? "" : v)
+										}
+									>
+										<SelectTrigger className="h-11">
+											<span className="truncate">
+												{hpChargedById
+													? chargeCollectors.find(
+															(c) => String(c.id) === hpChargedById,
+														)?.name ?? "Sin especificar"
+													: "Sin especificar"}
+											</span>
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="_">Sin especificar</SelectItem>
+											{chargeCollectors.map((c) => (
+												<SelectItem key={c.id} value={String(c.id)}>
+													{c.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</div>
+					)}
 
 					{/* Distribución con representante */}
 					<div className="flex items-center justify-between rounded-xl border border-border px-5 py-3.5">
@@ -435,10 +592,17 @@ export default function EditClosingPage() {
 							</div>
 							<div className="space-y-1">
 								<label className="text-xs text-muted-foreground">
-									HP Legalistas ($)
+									HP Legalistas{calc.aportesLeg > 0 ? " (neto)" : ""} ($)
 								</label>
-								<div className={`${displayClass} font-semibold text-foreground`}>
-									{formatARS(calc.hpLeg)}
+								<div
+									className={`${displayClass} font-semibold text-foreground`}
+									title={
+										calc.aportesLeg > 0
+											? `${formatARS(calc.hpLeg)} − aportes ${formatARS(calc.aportesLeg)}`
+											: undefined
+									}
+								>
+									{formatARS(calc.hpLegNeto)}
 								</div>
 							</div>
 						</div>
@@ -515,7 +679,7 @@ export default function EditClosingPage() {
 								<Switch checked={applyContributions} onCheckedChange={setApplyContributions} />
 							</div>
 						</div>
-						<div className="grid grid-cols-3 gap-4">
+						<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
 							<div className="space-y-1">
 								<label className="text-xs text-muted-foreground">
 									Aportes Totales ($)
@@ -533,6 +697,28 @@ export default function EditClosingPage() {
 										disabled={!applyContributions}
 										className={`${inputClass} pl-7 disabled:bg-muted disabled:text-muted-foreground`}
 									/>
+								</div>
+							</div>
+							<div className="space-y-1">
+								<label className="text-xs text-muted-foreground">
+									% Representante
+								</label>
+								<div className="relative">
+									<input
+										type="number"
+										step="0.01"
+										min="0"
+										max="100"
+										value={aportesRepresentantePercent}
+										onChange={(e) =>
+											setAportesRepresentantePercent(e.target.value)
+										}
+										disabled={!applyContributions || !withRepresentante}
+										className={`${inputClass} pr-8 disabled:bg-muted disabled:text-muted-foreground`}
+									/>
+									<span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
+										%
+									</span>
 								</div>
 							</div>
 							<div className="space-y-1">
@@ -557,12 +743,15 @@ export default function EditClosingPage() {
 							</div>
 						</div>
 						<p className="text-xs text-muted-foreground">
-							Monto manual ingresado por la contadora.{" "}
-							{withRepresentante ? "Distribución: 75% Legalistas / 25% Representante." : "Distribución: 100% Legalistas."}
+							Los aportes Legalistas se descuentan de Honorarios (HP), no de
+							PCL.{" "}
+							{withRepresentante
+								? `Distribución: ${100 - (parseFloat(aportesRepresentantePercent) || 0)}% Legalistas / ${parseFloat(aportesRepresentantePercent) || 0}% Representante.`
+								: "Distribución: 100% Legalistas."}
 						</p>
 					</div>
 
-					{/* Monto a Transferir + Gastos de la Causa */}
+					{/* Monto a Cobrar + Gastos de la Causa */}
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 						<div
 							className={`rounded-xl p-5 border-2 lg:col-span-2 ${calc.montoTransferir < 0 ? "border-destructive/30 bg-destructive/5" : "border-primary/30 bg-primary/5"}`}
@@ -570,10 +759,10 @@ export default function EditClosingPage() {
 							<div className="flex items-center justify-between">
 								<div>
 									<h4 className="font-semibold text-sm text-foreground">
-										Monto a Transferir a Legalistas
+										Monto a Cobrar por Legalistas
 									</h4>
 									<p className="text-xs text-muted-foreground mt-0.5">
-										HP Legalistas + PCL Legalistas - Aportes Legalistas
+										HP Legalistas (neto de aportes) + PCL Legalistas
 									</p>
 								</div>
 								<span
@@ -607,7 +796,12 @@ export default function EditClosingPage() {
 								Estado PCL
 							</label>
 							<Select value={pclStatus} onValueChange={setPclStatus}>
-								<SelectTrigger className="h-11">
+								<SelectTrigger
+									className={cn(
+										"h-11",
+										pclStatus === "CHARGED" && chargedTriggerClass,
+									)}
+								>
 									<span className="truncate">
 										{statusData[pclStatus as keyof typeof statusData] ||
 											"Seleccione"}
@@ -625,6 +819,57 @@ export default function EditClosingPage() {
 							</Select>
 						</div>
 					</div>
+
+					{/* Datos de cobro PCL — solo cuando el estado está CHARGED */}
+					{pclStatus === "CHARGED" && (
+						<div className="rounded-xl border border-green-200 dark:border-green-900/40 bg-green-50/40 dark:bg-green-900/10 p-4 space-y-3">
+							<p className="text-xs font-semibold uppercase tracking-wider text-green-800 dark:text-green-300">
+								Cobro de PCL
+							</p>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								<div className="space-y-1">
+									<label className="text-xs text-muted-foreground">
+										Fecha de cobro
+									</label>
+									<input
+										type="date"
+										value={pclChargedAt}
+										onChange={(e) => setPclChargedAt(e.target.value)}
+										className={inputClass}
+									/>
+								</div>
+								<div className="space-y-1">
+									<label className="text-xs text-muted-foreground">
+										Cobrado por
+									</label>
+									<Select
+										value={pclChargedById || "_"}
+										onValueChange={(v) =>
+											setPclChargedById(v === "_" ? "" : v)
+										}
+									>
+										<SelectTrigger className="h-11">
+											<span className="truncate">
+												{pclChargedById
+													? chargeCollectors.find(
+															(c) => String(c.id) === pclChargedById,
+														)?.name ?? "Sin especificar"
+													: "Sin especificar"}
+											</span>
+										</SelectTrigger>
+										<SelectContent>
+											<SelectItem value="_">Sin especificar</SelectItem>
+											{chargeCollectors.map((c) => (
+												<SelectItem key={c.id} value={String(c.id)}>
+													{c.name}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+							</div>
+						</div>
+					)}
 
 					{/* Detalle */}
 					<div className="space-y-1.5">

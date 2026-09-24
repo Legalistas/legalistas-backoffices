@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CASE_PARTS_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 interface Props {
 	open: boolean;
@@ -69,7 +70,7 @@ export default function CreateCounterpartyLawyerModal({
 			});
 
 			if (!res.ok) {
-				throw new Error(await res.text());
+				throw new Error(await apiErrorMessage(res, "No se pudo crear el abogado"));
 			}
 
 			const json = await res.json();
@@ -81,7 +82,9 @@ export default function CreateCounterpartyLawyerModal({
 			onOpenChange(false);
 		} catch (err) {
 			console.error("Error creating counterparty lawyer:", err);
-			toast.error("No se pudo crear el abogado");
+			toast.error(
+				err instanceof Error ? err.message : "No se pudo crear el abogado",
+			);
 		} finally {
 			setIsSubmitting(false);
 		}

@@ -66,14 +66,18 @@
       "Bash(rm -f check_reg.ps1)",
       "Bash(cmd //c \"taskkill /IM legalistas-drive.exe /F\")",
       "Bash(bunx tsc *)",
-      "Bash(rm -f tsc.log)"
+      "Bash(rm -f tsc.log)",
+      "Bash(grep -n \"^\t\\);\\\\|^\t\\)\\\\;$\\\\|^\\);\\\\|^}\" \"c:/Proyect/LexiasTech/Legalistas/frontend/src/components/case-details/InformeTrimestralView.tsx\")"
     ],
     "additionalDirectories": [
       "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\confirmacion-reunion",
       "c:\\Proyect\\LexiasTech\\Legalistas\\backend\\prisma",
       "c:\\Proyect\\LexiasTech\\Legalistas\\frontend\\src\\app\\informes",
       "c:\\Proyect\\LexiasTech\\Legalistas_Landing_Page\\src\\app\\(main)\\informes",
-      "c:\\Proyect\\LexiasTech\\Legalistas\\backend"
+      "c:\\Proyect\\LexiasTech\\Legalistas\\backend",
+      "c:\\Proyect\\LexiasTech\\legalistas_backend\\prisma",
+      "c:\\Proyect\\LexiasTech\\legalistas_backend\\src\\controllers",
+      "c:\\Proyect\\LexiasTech\\legalistas_backend\\src\\routes"
     ]
   }
 }

@@ -23,6 +23,7 @@ import {
 	UploadCloud,
 	X,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -44,13 +45,30 @@ import {
 	SheetHeader,
 	SheetTitle,
 } from "@/components/ui/sheet";
-import { useConfirm } from "@/hooks/useConfirm";
+import { API_BASE_URL } from "@/constant/api-endpoints";
 import {
 	SECTION_CASES,
 	SECTION_CRM,
 	STAGES_CASES,
 	STAGES_CRM,
 } from "@/constant/storage-structure";
+import { useConfirm } from "@/hooks/useConfirm";
+import { apiErrorMessage } from "@/lib/api-error";
+
+const STORAGE_BASE = `${API_BASE_URL}/storage`;
+
+/** fetch con la Authorization del file manager — antes el original pegaba
+ * a /api/storage/* (mismo origen, cookie de sesión); ahora es el backend
+ * Express, así que hace falta el Bearer explícito. */
+function storageFetch(path: string, token: string | undefined, init?: RequestInit): Promise<Response> {
+	return fetch(`${STORAGE_BASE}${path}`, {
+		...init,
+		headers: {
+			...(init?.headers ?? {}),
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
+		},
+	});
+}
 
 interface FolderItem {
 	key: string;
@@ -230,6 +248,7 @@ function createPreview(file: File): Promise<string | null> {
 function uploadOne(
 	file: File,
 	prefix: string,
+	token: string | undefined,
 	onProgress: (pct: number) => void,
 ): Promise<void> {
 	return new Promise((resolve, reject) => {
@@ -247,12 +266,15 @@ function uploadOne(
 			else reject(new Error(`HTTP ${xhr.status}`));
 		};
 		xhr.onerror = () => reject(new Error("Network error"));
-		xhr.open("POST", "/api/storage/upload");
+		xhr.open("POST", `${STORAGE_BASE}/upload`);
+		if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
 		xhr.send(fd);
 	});
 }
 
 export default function FileManagerPage() {
+	const { data: session } = useSession();
+	const accessToken = session?.user?.accessToken;
 	const { confirm, ConfirmationDialog } = useConfirm();
 	const [prefix, setPrefix] = useState("");
 	const [data, setData] = useState<ListResponse | null>(null);
@@ -298,8 +320,9 @@ export default function FileManagerPage() {
 		setLoading(true);
 		setError(null);
 		try {
-			const res = await fetch(
-				`/api/storage/list?prefix=${encodeURIComponent(targetPrefix)}`,
+			const res = await storageFetch(
+				`/list?prefix=${encodeURIComponent(targetPrefix)}`,
+				accessToken,
 			);
 			if (!res.ok) throw new Error("Error al listar el bucket");
 			const json = (await res.json()) as ListResponse;
@@ -310,7 +333,7 @@ export default function FileManagerPage() {
 		} finally {
 			setLoading(false);
 		}
-	}, []);
+	}, [accessToken]);
 
 	useEffect(() => {
 		fetchList(prefix);
@@ -356,8 +379,9 @@ export default function FileManagerPage() {
 		// Si es previsualizable, generar presigned URL
 		if (getPreviewType(file.name)) {
 			try {
-				const res = await fetch(
-					`/api/storage/object?key=${encodeURIComponent(file.key)}`,
+				const res = await storageFetch(
+					`/object?key=${encodeURIComponent(file.key)}`,
+					accessToken,
 				);
 				if (res.ok) {
 					const { url } = await res.json();
@@ -400,8 +424,9 @@ export default function FileManagerPage() {
 		await Promise.all([
 			...files.map(async (key) => {
 				try {
-					const res = await fetch(
-						`/api/storage/object?key=${encodeURIComponent(key)}`,
+					const res = await storageFetch(
+						`/object?key=${encodeURIComponent(key)}`,
+						accessToken,
 						{ method: "DELETE" },
 					);
 					if (res.ok) success++;
@@ -412,8 +437,9 @@ export default function FileManagerPage() {
 			}),
 			...folders.map(async (folderPrefix) => {
 				try {
-					const res = await fetch(
-						`/api/storage/folder?prefix=${encodeURIComponent(folderPrefix)}`,
+					const res = await storageFetch(
+						`/folder?prefix=${encodeURIComponent(folderPrefix)}`,
+						accessToken,
 						{ method: "DELETE" },
 					);
 					if (res.ok) success++;
@@ -486,7 +512,7 @@ export default function FileManagerPage() {
 		await Promise.all(
 			pendingIndices.map(async (idx) => {
 				try {
-					await uploadOne(uploadItems[idx].file, prefix, (p) => {
+					await uploadOne(uploadItems[idx].file, prefix, accessToken, (p) => {
 						setUploadItems((prev) =>
 							prev.map((it, i) => (i === idx ? { ...it, progress: p } : it)),
 						);
@@ -548,14 +574,13 @@ export default function FileManagerPage() {
 		}
 		setIsCreatingFolder(true);
 		try {
-			const res = await fetch("/api/storage/folder", {
+			const res = await storageFetch("/folder", accessToken, {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ prefix, name }),
 			});
 			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(err.error || "Error al crear");
+				throw new Error(await apiErrorMessage(res, "Error al crear"));
 			}
 			toast.success("Carpeta creada");
 			setCreateFolderOpen(false);
@@ -578,11 +603,12 @@ export default function FileManagerPage() {
 		)
 			return;
 		try {
-			const res = await fetch(
-				`/api/storage/object?key=${encodeURIComponent(key)}`,
+			const res = await storageFetch(
+				`/object?key=${encodeURIComponent(key)}`,
+				accessToken,
 				{ method: "DELETE" },
 			);
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Archivo eliminado");
 			fetchList(prefix);
 		} catch (err) {
@@ -600,11 +626,12 @@ export default function FileManagerPage() {
 		)
 			return;
 		try {
-			const res = await fetch(
-				`/api/storage/folder?prefix=${encodeURIComponent(folderPrefix)}`,
+			const res = await storageFetch(
+				`/folder?prefix=${encodeURIComponent(folderPrefix)}`,
+				accessToken,
 				{ method: "DELETE" },
 			);
-			if (!res.ok) throw new Error("Error al eliminar");
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			const json = await res.json();
 			toast.success(
 				`Carpeta eliminada${json.deleted ? ` (${json.deleted} objetos)` : ""}`,
@@ -617,8 +644,9 @@ export default function FileManagerPage() {
 
 	const handleDownload = async (key: string) => {
 		try {
-			const res = await fetch(
-				`/api/storage/object?key=${encodeURIComponent(key)}&download=1`,
+			const res = await storageFetch(
+				`/object?key=${encodeURIComponent(key)}&download=1`,
+				accessToken,
 			);
 			if (!res.ok) throw new Error("Error al obtener URL");
 			const { url } = await res.json();
@@ -1570,8 +1598,9 @@ export default function FileManagerPage() {
 											<button
 												onClick={async () => {
 													try {
-														const res = await fetch(
-															`/api/storage/object?key=${encodeURIComponent(detailFile.key)}`,
+														const res = await storageFetch(
+															`/object?key=${encodeURIComponent(detailFile.key)}`,
+															accessToken,
 														);
 														if (!res.ok) throw new Error();
 														const { url } = await res.json();

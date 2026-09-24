@@ -2,6 +2,7 @@
  * Hook personalizado para consumir la API de estadísticas mensuales
  */
 
+import { getSession, useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { API_BASE_URL } from "@/constant/api-endpoints";
 
@@ -44,11 +45,13 @@ export function useMonthlyStatistics(options: UseStatisticsOptions = {}) {
 		autoFetch = true,
 	} = options;
 
+	const { data: session } = useSession();
 	const [data, setData] = useState<MonthlyStatistic[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
 	const fetchStatistics = async () => {
+		if (!session?.user?.accessToken) return;
 		setLoading(true);
 		setError(null);
 
@@ -60,6 +63,7 @@ export function useMonthlyStatistics(options: UseStatisticsOptions = {}) {
 
 			const response = await fetch(
 				`${API_BASE_URL}/statistics/monthly?${params.toString()}`,
+				{ headers: { Authorization: `Bearer ${session.user.accessToken}` } },
 			);
 			const result = await response.json();
 
@@ -80,23 +84,26 @@ export function useMonthlyStatistics(options: UseStatisticsOptions = {}) {
 		if (autoFetch) {
 			fetchStatistics();
 		}
-	}, [type, year, startYear, endYear, autoFetch]);
+	}, [type, year, startYear, endYear, autoFetch, session?.user?.accessToken]);
 
 	return { data, loading, error, refetch: fetchStatistics };
 }
 
 export function useYearsSummary(type = "estadistica_general") {
+	const { data: session } = useSession();
 	const [data, setData] = useState<YearSummary[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
 	const fetchSummary = async () => {
+		if (!session?.user?.accessToken) return;
 		setLoading(true);
 		setError(null);
 
 		try {
 			const response = await fetch(
 				`${API_BASE_URL}/statistics/monthly/summary?type=${type}`,
+				{ headers: { Authorization: `Bearer ${session.user.accessToken}` } },
 			);
 			const result = await response.json();
 
@@ -115,23 +122,26 @@ export function useYearsSummary(type = "estadistica_general") {
 
 	useEffect(() => {
 		fetchSummary();
-	}, [type]);
+	}, [type, session?.user?.accessToken]);
 
 	return { data, loading, error, refetch: fetchSummary };
 }
 
 export function useAvailableYears(type = "estadistica_general") {
+	const { data: session } = useSession();
 	const [years, setYears] = useState<number[]>([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
 	const fetchYears = async () => {
+		if (!session?.user?.accessToken) return;
 		setLoading(true);
 		setError(null);
 
 		try {
 			const response = await fetch(
 				`${API_BASE_URL}/statistics/monthly/years?type=${type}`,
+				{ headers: { Authorization: `Bearer ${session.user.accessToken}` } },
 			);
 			const result = await response.json();
 
@@ -150,7 +160,7 @@ export function useAvailableYears(type = "estadistica_general") {
 
 	useEffect(() => {
 		fetchYears();
-	}, [type]);
+	}, [type, session?.user?.accessToken]);
 
 	return { years, loading, error, refetch: fetchYears };
 }
@@ -165,10 +175,14 @@ export async function createOrUpdateStatistic(data: {
 	type?: string;
 }) {
 	try {
+		const session = await getSession();
 		const response = await fetch(`${API_BASE_URL}/statistics/monthly`, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
+				...(session?.user?.accessToken
+					? { Authorization: `Bearer ${session.user.accessToken}` }
+					: {}),
 			},
 			body: JSON.stringify(data),
 		});
@@ -188,8 +202,12 @@ export async function createOrUpdateStatistic(data: {
 
 export async function deleteStatistic(id: number) {
 	try {
+		const session = await getSession();
 		const response = await fetch(`${API_BASE_URL}/statistics/monthly/${id}`, {
 			method: "DELETE",
+			headers: session?.user?.accessToken
+				? { Authorization: `Bearer ${session.user.accessToken}` }
+				: undefined,
 		});
 
 		const result = await response.json();

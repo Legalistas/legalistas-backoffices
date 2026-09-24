@@ -47,6 +47,7 @@ import {
 } from "@/constant/api-endpoints";
 import { ART_COMPANIES, CRM_COLUMNS, INSURANCE_COMPANIES, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
 import { Role } from "@/constant/user";
+import { apiErrorMessage } from "@/lib/api-error";
 import { servicesType, stageCases } from "@/lib/constant";
 import { sendCaseEmail } from "@/lib/send-case-email";
 import { Badge } from "../ui/badge";
@@ -385,8 +386,8 @@ export default function AddNewCase() {
 		if (leadToUse) {
 			setFormData((prev) => ({
 				...prev,
-				internalLawyerId: leadToUse.internalLawyerId.toString(),
-				responsibleLawyerId: leadToUse.responsibleLawyerId.toString(),
+				internalLawyerId: leadToUse.internalLawyerId?.toString() ?? "",
+				responsibleLawyerId: leadToUse.responsibleLawyerId?.toString() ?? "",
 				servicesId: leadToUse.servicesId,
 				customerId: customer.id,
 				leadId: leadToUse.id,
@@ -413,8 +414,8 @@ export default function AddNewCase() {
 	const handleSelectLead = (lead: any) => {
 		setFormData((prev) => ({
 			...prev,
-			internalLawyerId: lead.internalLawyerId.toString(),
-			responsibleLawyerId: lead.responsibleLawyerId.toString(),
+			internalLawyerId: lead.internalLawyerId?.toString() ?? "",
+			responsibleLawyerId: lead.responsibleLawyerId?.toString() ?? "",
 			servicesId: lead.servicesId,
 			leadId: lead.id,
 			injury: lead.injury || "",
@@ -550,8 +551,7 @@ export default function AddNewCase() {
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.message || "Failed to create case");
+				throw new Error(await apiErrorMessage(response, "Error al crear el caso"));
 			}
 
 			const data = await response.json();
@@ -577,6 +577,7 @@ export default function AddNewCase() {
 						? new Date(formData.accidentDate).toLocaleDateString("es-AR")
 						: undefined,
 					responsibleLawyerName: lawyerName,
+					accessToken: session?.user?.accessToken,
 				});
 			}
 
@@ -585,7 +586,7 @@ export default function AddNewCase() {
 		} catch (err) {
 			console.error("Error creating case:", err);
 			setError(
-				`Failed to create case: ${err instanceof Error ? err.message : "Unknown error"}`,
+				`Error al crear el caso: ${err instanceof Error ? err.message : "Error desconocido"}`,
 			);
 		} finally {
 			setIsSubmitting(false);

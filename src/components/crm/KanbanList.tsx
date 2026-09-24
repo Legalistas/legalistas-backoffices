@@ -126,8 +126,19 @@ export default function KanbanList({
 								<TableRow key={lead.id}>
 									<TableCell className="font-medium">{lead.id}</TableCell>
 									<TableCell>{lead.user?.name}</TableCell>
-									<TableCell>{lead.user?.userAddresses[0]?.state?.name}</TableCell>
-									<TableCell>{lead.user?.userAddresses[0]?.city}</TableCell>
+									{/* Provincia/ciudad del lead primero; la dirección del
+									    cliente es solo el fallback (ver BUG-01). */}
+									<TableCell>
+										{lead.state?.name ??
+											lead.user?.userAddresses?.[0]?.state?.name ??
+											"—"}
+									</TableCell>
+									<TableCell>
+										{lead.city?.name ??
+											lead.user?.userAddresses?.[0]?.locality?.name ??
+											lead.user?.userAddresses?.[0]?.city ??
+											"—"}
+									</TableCell>
 									<TableCell>
 										{lead.services && (
 											<Badge variant="secondary" className="text-xs">

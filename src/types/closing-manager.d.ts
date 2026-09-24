@@ -23,6 +23,12 @@ export interface Case {
 	internalLawyer?: Lawyer;
 }
 
+export interface ChargeCollector {
+	id: number;
+	name: string;
+	image: string | null;
+}
+
 export interface ClosingManagerEntry {
 	id: number;
 	caseId: number;
@@ -39,16 +45,24 @@ export interface ClosingManagerEntry {
 	hpTotal: number;
 	hpDistribution: boolean;
 	feeStatus: string;
+	hpChargedAt?: string | null;
+	hpChargedById?: number | null;
+	hpChargedBy?: ChargeCollector | null;
 
 	// PCL (Pacto de Cuota Litis)
 	pclAgreed: number | null;
 	pclTotal: number | null;
 	pclDistribution: boolean;
 	pclStatus: string | null;
+	pclChargedAt?: string | null;
+	pclChargedById?: number | null;
+	pclChargedBy?: ChargeCollector | null;
 
 	// Aportes
 	contributionsAmount: number;
 	applyContributions: boolean;
+	// % que se asigna al representante sobre los aportes (default 25 si no viene del backend)
+	aportesRepresentantePercent?: number | null;
 
 	// Detalle
 	detail: string | null;
@@ -72,8 +86,28 @@ export interface ClosingManagerEntry {
 	aportesLegalistas: number;
 	montoTransferir: number;
 
+	// Progreso de cobro (pagos parciales HP/PCL vinculados desde Caja)
+	hpPaid: number;
+	hpRemaining: number;
+	pclPaid: number;
+	pclRemaining: number;
+
 	// Gastos de la causa (solo lectura, desde CasesExpenses)
 	totalCaseExpenses: number;
+}
+
+export interface ClosingPayment {
+	id: number;
+	amount: number;
+	date: string;
+	description: string | null;
+	createdAt: string;
+	user: ChargeCollector | null;
+}
+
+export interface ClosingPaymentsApiResponse {
+	data: ClosingPayment[];
+	total: number;
 }
 
 export interface Pagination {

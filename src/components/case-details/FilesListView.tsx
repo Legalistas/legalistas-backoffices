@@ -1,9 +1,7 @@
 "use client";
 
 import {
-	Check,
 	ChevronDown,
-	Eye,
 	FolderOpen,
 	Link2,
 	Pencil,
@@ -12,20 +10,18 @@ import {
 	Trash2,
 	X,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { CASES_FILES_DELETE_BY_CASE_ID_ENDPOINT } from "@/constant/api-endpoints";
-import { FILES_TYPE, STATUS_PROCESS } from "@/constant/causes";
+import { FILES_TYPE } from "@/constant/causes";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	getFileTypeLabel,
 	getProceduralStageLabel,
 	getProcessTypeLabel,
-	getStatusProcessLabel,
 } from "@/lib/functions";
 import type { CasesFiles } from "@/types/cases";
 import {
@@ -57,7 +53,6 @@ export const FilesListView = ({
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [fileToEdit, setFileToEdit] = useState<CasesFiles | null>(null);
 	const [fileTypeFilter, setFileTypeFilter] = useState<number>(0);
-	const [statusFilter, setStatusFilter] = useState<number>(0);
 
 	const handleDelete = async (fileId: string) => {
 		try {
@@ -72,7 +67,9 @@ export const FilesListView = ({
 				},
 			);
 			if (!response.ok) {
-				throw new Error("Failed to delete file");
+				throw new Error(
+					await apiErrorMessage(response, "Error al eliminar el archivo"),
+				);
 			}
 
 			console.log(`Deleting file with ID: ${fileId}`);
@@ -80,75 +77,20 @@ export const FilesListView = ({
 			router.push(`/admin/legal-cases/${caseId}`);
 		} catch (error) {
 			console.error("Error al eliminar el archivo:", error);
-			toast.error("Error al eliminar el archivo");
+			toast.error(
+				error instanceof Error ? error.message : "Error al eliminar el archivo",
+			);
 		}
 	};
-
-	const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
-	const [statusSearch, setStatusSearch] = useState("");
-	const statusBtnRef = useRef<HTMLButtonElement>(null);
-	const statusDropdownRef = useRef<HTMLDivElement>(null);
-	const statusSearchRef = useRef<HTMLInputElement>(null);
-	const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 });
-
-	const filteredStatuses = useMemo(() => {
-		if (!statusSearch) return STATUS_PROCESS;
-		const q = statusSearch.toLowerCase();
-		return STATUS_PROCESS.filter((s) => s.value.toLowerCase().includes(q));
-	}, [statusSearch]);
-
-	const selectedStatusLabel = useMemo(() => {
-		if (statusFilter === 0) return "Todos los estados";
-		return STATUS_PROCESS.find((s) => s.id === statusFilter)?.value || "Estado";
-	}, [statusFilter]);
-
-	const toggleStatusDropdown = useCallback(() => {
-		if (!statusDropdownOpen && statusBtnRef.current) {
-			const rect = statusBtnRef.current.getBoundingClientRect();
-			setDropdownPos({
-				top: rect.bottom + 4,
-				left: rect.left,
-				width: Math.max(rect.width, 220),
-			});
-		}
-		setStatusDropdownOpen((prev) => !prev);
-		setStatusSearch("");
-	}, [statusDropdownOpen]);
-
-	// Cerrar dropdown al hacer click fuera
-	useEffect(() => {
-		if (!statusDropdownOpen) return;
-		const handle = (e: MouseEvent) => {
-			if (
-				statusDropdownRef.current?.contains(e.target as Node) ||
-				statusBtnRef.current?.contains(e.target as Node)
-			)
-				return;
-			setStatusDropdownOpen(false);
-		};
-		document.addEventListener("mousedown", handle);
-		return () => document.removeEventListener("mousedown", handle);
-	}, [statusDropdownOpen]);
-
-	// Focus en el input de búsqueda al abrir
-	useEffect(() => {
-		if (statusDropdownOpen) {
-			setTimeout(() => statusSearchRef.current?.focus(), 0);
-		}
-	}, [statusDropdownOpen]);
 
 	// Filtrar expedientes
 	const filteredFiles = useMemo(() => {
 		return files.filter((file) => {
-			const matchesType =
-				fileTypeFilter === 0 || file.filetype === fileTypeFilter;
-			const matchesStatus =
-				statusFilter === 0 || file.statusProcessId === statusFilter;
-			return matchesType && matchesStatus;
+			return fileTypeFilter === 0 || file.filetype === fileTypeFilter;
 		});
-	}, [files, fileTypeFilter, statusFilter]);
+	}, [files, fileTypeFilter]);
 
-	const hasActiveFilters = fileTypeFilter !== 0 || statusFilter !== 0;
+	const hasActiveFilters = fileTypeFilter !== 0;
 
 	return (
 		<div className="rounded-xl border border-border bg-card shadow-sm">
@@ -177,82 +119,10 @@ export const FilesListView = ({
 								</select>
 								<ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
 							</div>
-							<div className="relative">
-								<button
-									ref={statusBtnRef}
-									onClick={toggleStatusDropdown}
-									className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-card border border-border rounded-md pl-3 pr-2 py-2 hover:border-input focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors cursor-pointer max-w-45"
-								>
-									<span className="truncate">{selectedStatusLabel}</span>
-									<ChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
-								</button>
-								{statusDropdownOpen &&
-									createPortal(
-										<div
-											ref={statusDropdownRef}
-											className="fixed z-9999 bg-card border border-border rounded-lg shadow-lg overflow-hidden"
-											style={{
-												top: dropdownPos.top,
-												left: dropdownPos.left,
-												width: dropdownPos.width,
-											}}
-										>
-											<div className="p-2 border-b border-border">
-												<div className="relative">
-													<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-													<input
-														ref={statusSearchRef}
-														type="text"
-														value={statusSearch}
-														onChange={(e) => setStatusSearch(e.target.value)}
-														placeholder="Buscar estado..."
-														className="w-full text-xs bg-muted border border-border rounded-md pl-7 pr-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-													/>
-												</div>
-											</div>
-											<div className="max-h-48 overflow-y-auto">
-												<button
-													onClick={() => {
-														setStatusFilter(0);
-														setStatusDropdownOpen(false);
-													}}
-													className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left hover:bg-muted transition-colors ${statusFilter === 0 ? "text-blue-600 font-semibold bg-blue-50/50" : "text-foreground"}`}
-												>
-													Todos los estados
-													{statusFilter === 0 && (
-														<Check className="h-3.5 w-3.5 text-blue-600" />
-													)}
-												</button>
-												{filteredStatuses.map((status) => (
-													<button
-														key={status.id}
-														onClick={() => {
-															setStatusFilter(status.id);
-															setStatusDropdownOpen(false);
-														}}
-														className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left hover:bg-muted transition-colors ${statusFilter === status.id ? "text-blue-600 font-semibold bg-blue-50/50" : "text-foreground"}`}
-													>
-														{status.value}
-														{statusFilter === status.id && (
-															<Check className="h-3.5 w-3.5 text-blue-600" />
-														)}
-													</button>
-												))}
-												{filteredStatuses.length === 0 && (
-													<p className="px-3 py-2 text-xs text-muted-foreground text-center">
-														Sin resultados
-													</p>
-												)}
-											</div>
-										</div>,
-										document.body,
-									)}
-							</div>
 							{hasActiveFilters && (
 								<button
 									onClick={() => {
 										setFileTypeFilter(0);
-										setStatusFilter(0);
 									}}
 									className="text-xs text-blue-600 hover:text-blue-700 font-medium transition-colors"
 								>
@@ -328,7 +198,7 @@ export const FilesListView = ({
 								<TableCell
 									className="px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wide text-left whitespace-nowrap"
 								>
-									Estado
+									Lesión
 								</TableCell>
 								<TableCell
 									className="px-4 py-2.5 text-xs font-medium text-muted-foreground uppercase tracking-wide text-right whitespace-nowrap"
@@ -354,7 +224,6 @@ export const FilesListView = ({
 											<button
 												onClick={() => {
 													setFileTypeFilter(0);
-													setStatusFilter(0);
 												}}
 												className="text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors"
 											>
@@ -370,11 +239,9 @@ export const FilesListView = ({
 											{file.id}
 										</TableCell>
 										<TableCell className="px-4 py-3 text-sm text-foreground">
-											{customer?.name}{" "}
-											{file.filesParts?.[0]?.name
-												? `C/ ${file.filesParts[0].name}`
-												: ""}{" "}
-											S/ {getProcessTypeLabel(file.typeProcessId)}
+											{/* Se arma sola con partes + tipo de proceso (backend). */}
+											{file.title ||
+												`${customer?.name ?? ""} S/ ${getProcessTypeLabel(file.typeProcessId)}`}
 										</TableCell>
 										<TableCell className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
 											{file.cuij || "—"}
@@ -395,8 +262,12 @@ export const FilesListView = ({
 												</span>
 											)}
 										</TableCell>
-										<TableCell className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-											{getStatusProcessLabel(file.statusProcessId)}
+										<TableCell className="px-4 py-3 text-sm text-foreground">
+											{file.injury?.trim() || (
+												<span className="text-muted-foreground italic">
+													Sin cargar
+												</span>
+											)}
 										</TableCell>
 										<TableCell className="px-4 py-3">
 											<div className="flex items-center justify-end gap-1">

@@ -1,7 +1,6 @@
 "use client";
 import {
 	Activity,
-	AlertTriangle,
 	ArrowRight,
 	CalendarDays,
 	CheckCircle2,
@@ -24,6 +23,7 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import MiCajaWidget from "@/components/caja/MiCajaWidget";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DASHBOARD_LEGAL_STATS_ENDPOINT } from "@/constant/api-endpoints";
 import { SUPERADMIN } from "@/constant/menu";
@@ -69,52 +69,6 @@ const salesRoles: string[] = [
 	Role.ANALISTA_VENTAS,
 ];
 
-// ── Tipos de alerta ─────────────────────────────────────────────────
-
-interface DashboardAlert {
-	id: number;
-	title: string;
-	assignedTo: string;
-}
-
-const MOCK_ALERTS: DashboardAlert[] = [
-	{ id: 1, title: "test", assignedTo: "Jonatan" },
-];
-
-// ── Alertas urgentes ────────────────────────────────────────────────
-
-function UrgentAlerts() {
-	const alerts = MOCK_ALERTS;
-	if (alerts.length === 0) return null;
-
-	return (
-		<Card className="border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30">
-			<CardContent className="p-4">
-				<div className="flex items-center gap-2 mb-2">
-					<AlertTriangle className="size-4 text-red-500" />
-					<span className="text-sm font-semibold text-red-600 dark:text-red-400">
-						{alerts.length}{" "}
-						{alerts.length === 1 ? "alerta urgente" : "alertas urgentes"}
-					</span>
-				</div>
-				<ul className="space-y-1">
-					{alerts.map((alert) => (
-						<li
-							key={alert.id}
-							className="flex items-center gap-2 text-sm text-red-700 dark:text-red-300"
-						>
-							<span className="font-medium">{alert.title}</span>
-							<span className="text-red-400 dark:text-red-500">
-								· {alert.assignedTo}
-							</span>
-						</li>
-					))}
-				</ul>
-			</CardContent>
-		</Card>
-	);
-}
-
 // ── Component ──────────────────────────────────────────────────────
 
 const accountingPanelRoles: string[] = [
@@ -133,8 +87,14 @@ export default function DashboardComponent() {
 		return "default";
 	}, [userRole]);
 
-	const baseDashboard =
-		dashboardType === "sales" ? <SalesDashboard /> : <LegalDashboard />;
+	// MiCajaWidget solo se ve si el usuario es dueño de una caja (Agustín,
+	// monotributos); para el resto no renderiza nada.
+	const baseDashboard = (
+		<div className="space-y-6">
+			<MiCajaWidget />
+			{dashboardType === "sales" ? <SalesDashboard /> : <LegalDashboard />}
+		</div>
+	);
 
 	const showAccountingTab =
 		userRole !== undefined && accountingPanelRoles.includes(userRole);
@@ -462,8 +422,6 @@ function LegalDashboard() {
 				lastUpdated={lastUpdated}
 			/>
 
-			<UrgentAlerts />
-
 			{/* Mi Día + Stats */}
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
 				<Card className="lg:col-span-2">
@@ -562,7 +520,7 @@ function LegalDashboard() {
 											<p className="font-medium truncate">{ce.title}</p>
 											<p className="text-xs text-muted-foreground">
 												{!ce.allDay && ce.start
-													? new Date(ce.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+													? new Date(ce.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
 													: ""}
 												{ce.responsiblePerson ? `${!ce.allDay ? " · " : ""}${ce.responsiblePerson.name}` : ""}
 											</p>
@@ -774,7 +732,7 @@ function LegalDashboard() {
 												</p>
 												<p className="text-xs text-muted-foreground">
 													{d.case?.title ?? "Sin causa"} ·{" "}
-													{d.dueDate ? new Date(d.dueDate).toLocaleDateString("es-AR") : "Sin fecha"}
+													{d.dueDate ? new Date(d.dueDate).toLocaleDateString("es-AR", { timeZone: "UTC" }) : "Sin fecha"}
 												</p>
 											</div>
 										</li>
@@ -816,7 +774,7 @@ function LegalDashboard() {
 												</p>
 												<p className="text-xs text-muted-foreground">
 													{e.case?.title ?? "Sin causa"} ·{" "}
-													{e.date ? new Date(e.date).toLocaleDateString("es-AR") : "Sin fecha"}
+													{e.date ? new Date(e.date).toLocaleDateString("es-AR", { timeZone: "UTC" }) : "Sin fecha"}
 													{e.time ? ` · ${e.time}` : ""}
 												</p>
 												{e.location && (
@@ -843,7 +801,6 @@ function SalesDashboard() {
 	return (
 		<div className="flex flex-col gap-6">
 			<DashboardGreetingHeader />
-			<UrgentAlerts />
 			<SalesOverview />
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
 				<SalesPerformance />

@@ -2,7 +2,6 @@
 
 import { RefreshCw } from "lucide-react";
 import type { ReactNode } from "react";
-import AttendanceHeaderIndicator from "@/components/attendance/AttendanceHeaderIndicator";
 import { Button } from "@/components/ui/button";
 
 function getGreeting(): string {
@@ -44,9 +43,6 @@ export default function DashboardGreetingHeader({
 				{subtitle && (
 					<p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
 				)}
-				<div className="mt-3">
-					<AttendanceHeaderIndicator />
-				</div>
 			</div>
 			{onRefresh && (
 				<div className="flex flex-col items-end gap-1 shrink-0">

@@ -32,6 +32,7 @@ import {
 	REVIEW_SUBMIT_ENDPOINT,
 	REVIEWS_BY_USER_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type ReviewType = "SELF" | "MANAGER" | "PEER";
 type ReviewStatus = "DRAFT" | "SUBMITTED" | "ACKNOWLEDGED";
@@ -271,12 +272,12 @@ export default function PerformanceTab({ userId }: PerformanceTabProps) {
 				},
 				body: JSON.stringify(payload),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar"));
 			toast.success(editingId ? "Evaluación actualizada" : "Evaluación creada");
 			closeForm();
 			loadReviews();
-		} catch {
-			toast.error("Error al guardar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar");
 		} finally {
 			setIsSaving(false);
 		}
@@ -294,11 +295,11 @@ export default function PerformanceTab({ userId }: PerformanceTabProps) {
 				method: "POST",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al ejecutar la acción"));
 			toast.success(successMsg);
 			loadReviews();
-		} catch {
-			toast.error("Error al ejecutar la acción");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al ejecutar la acción");
 		}
 	};
 
@@ -324,11 +325,11 @@ export default function PerformanceTab({ userId }: PerformanceTabProps) {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Evaluación eliminada");
 			loadReviews();
-		} catch {
-			toast.error("Error al eliminar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		}
 	};
 

@@ -18,6 +18,13 @@ export const TYPES_PROCCESS = [
   { id: 17, value: "Reajuste de Haberes" },
 ];
 
+// Expedientes administrativos (SRT, AGEM, reclamo extrajudicial): no llevan
+// cédulas. Espeja backend/src/constants/process-types.ts.
+export const ADMINISTRATIVE_PROCESS_TYPE_IDS = [1, 2, 3, 4, 5, 8, 9];
+
+export const isAdministrativeProcessType = (id?: number | null) =>
+  id != null && ADMINISTRATIVE_PROCESS_TYPE_IDS.includes(id);
+
 export const STATUS_PROCESS = [
   { id: 1, value: "Asunto extrajudicial" },
   { id: 2, value: "Asunto con prioridad" },
@@ -147,6 +154,16 @@ export const CASE_EVENTS_TYPE = [
       { id: 3, value: 3, label: "Pericia Oficial (Judicial)" },
       { id: 4, value: 4, label: "Pericia Psicológica" },
       { id: 5, value: 5, label: "Otras Pericias" },
+    ],
+  },
+  {
+    id: 3,
+    value: 3,
+    label: "Reunión",
+    subType: [
+      { id: 1, value: 1, label: "Con el cliente" },
+      { id: 2, value: 2, label: "Con la contraparte" },
+      { id: 3, value: 3, label: "Interna del equipo" },
     ],
   },
 ];

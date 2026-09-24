@@ -1,3 +1,5 @@
+import { MAILER_SEND_ENDPOINT } from "@/constant/api-endpoints";
+
 const CRM_COLUMNS_WITH_EMAIL = [1, 4, 8, 9];
 
 /**
@@ -69,15 +71,17 @@ export async function sendStageEmail({
   }
 
   try {
-    await fetch("/api/notifications/email", {
+    await fetch(MAILER_SEND_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify({
         to: email,
         leadId,
         columnId,
         isResend,
-        accessToken,
         variables: {
           leadName,
           meetingType,

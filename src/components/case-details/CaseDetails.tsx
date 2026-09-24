@@ -8,11 +8,12 @@ import type React from "react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { LawyerSelectDropdown } from "@/components/cases/LawyerSelectDropdown";
-import { ResultSelectDropdown } from "@/components/cases/ResultSelectDropdown";
 import { StageSelectDropdown } from "@/components/cases/StageSelectDropdown";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { CASES_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	STUDIO_NAME,
 	STUDIO_PHONE,
@@ -39,7 +40,10 @@ export const CaseDetails = ({
 	const { data: session } = useSession();
 
 	const [isUpdatingStage, setIsUpdatingStage] = useState(false);
-	const [isUpdatingResult, setIsUpdatingResult] = useState(false);
+	const [isUpdatingGoogleReview, setIsUpdatingGoogleReview] = useState(false);
+	const [googleReviewLeft, setGoogleReviewLeft] = useState(
+		!!caseData.googleReviewLeft,
+	);
 
 	const fillMessageVariables = (template: string) => {
 		return template
@@ -88,9 +92,8 @@ export const CaseDetails = ({
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json();
 				throw new Error(
-					errorData.message || "Error al actualizar la etapa del caso",
+					await apiErrorMessage(response, "No se pudo actualizar la etapa del caso."),
 				);
 			}
 
@@ -107,7 +110,11 @@ export const CaseDetails = ({
 			onCaseUpdated?.();
 		} catch (error) {
 			console.error("Error updating case stage:", error);
-			toast.error("No se pudo actualizar la etapa del caso.");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "No se pudo actualizar la etapa del caso.",
+			);
 		} finally {
 			setIsUpdatingStage(false);
 		}
@@ -149,8 +156,9 @@ export const CaseDetails = ({
 				body: JSON.stringify({ [field]: lawyerId }),
 			});
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.message || "Error al actualizar abogado");
+				throw new Error(
+					await apiErrorMessage(response, "No se pudo actualizar el abogado."),
+				);
 			}
 			toast.success(
 				field === "responsibleLawyerId"
@@ -160,12 +168,17 @@ export const CaseDetails = ({
 			onCaseUpdated?.();
 		} catch (error) {
 			console.error("Error updating lawyer:", error);
-			toast.error("No se pudo actualizar el abogado.");
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "No se pudo actualizar el abogado.",
+			);
 		}
 	};
 
-	const handleResultChange = async (newResult: string) => {
-		setIsUpdatingResult(true);
+	const handleGoogleReviewToggle = async (checked: boolean) => {
+		setIsUpdatingGoogleReview(true);
+		setGoogleReviewLeft(checked);
 		try {
 			const response = await fetch(`${CASES_ENDPOINT}/${caseData.id}`, {
 				method: "PUT",
@@ -173,21 +186,27 @@ export const CaseDetails = ({
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
-				body: JSON.stringify({ status: newResult }),
+				body: JSON.stringify({ googleReviewLeft: checked }),
 			});
 			if (!response.ok) {
-				const errorData = await response.json();
 				throw new Error(
-					errorData.message || "Error al actualizar el resultado",
+					await apiErrorMessage(
+						response,
+						"No se pudo actualizar el estado de la reseña.",
+					),
 				);
 			}
-			toast.success("Resultado actualizado");
 			onCaseUpdated?.();
 		} catch (error) {
-			console.error("Error updating case result:", error);
-			toast.error("No se pudo actualizar el resultado del caso.");
+			console.error("Error updating google review flag:", error);
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "No se pudo actualizar el estado de la reseña.",
+			);
+			setGoogleReviewLeft(!checked);
 		} finally {
-			setIsUpdatingResult(false);
+			setIsUpdatingGoogleReview(false);
 		}
 	};
 
@@ -217,10 +236,13 @@ export const CaseDetails = ({
 	const handleDownloadPdf = async () => {
 		toast.info("Generando PDF del resumen del caso...");
 		try {
-			const response = await fetch("/api/generate-case-pdf", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(caseData),
+			// Antes generaba el PDF client-side con jsPDF (/api/generate-case-pdf,
+			// ruta propia del frontend); el backend ya expone el mismo documento
+			// (mismo nombre de archivo, mismas secciones) vía Puppeteer, así que
+			// se saca la duplicación y se pide directo ahí.
+			const response = await fetch(`${CASES_ENDPOINT}/${caseData.id}/pdf`, {
+				method: "GET",
+				headers: { Authorization: `Bearer ${session?.user?.accessToken}` },
 			});
 
 			if (!response.ok) throw new Error("Error al generar el PDF");
@@ -370,25 +392,28 @@ export const CaseDetails = ({
 							</div>
 						</div>
 
-						<div className="h-5 w-px bg-border" />
+						{Number(caseData.stageId) === 6 && (
+							<>
+								<div className="h-5 w-px bg-border" />
 
-						{/* Resultado (En Progreso / Ganado / Perdido) */}
-						<div className="flex items-center gap-2">
-							<span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-								Resultado
-							</span>
-							<div className="relative">
-								<ResultSelectDropdown
-									currentResult={caseData.status || "IN_PROGRESS"}
-									onResultChange={handleResultChange}
-								/>
-								{isUpdatingResult && (
-									<div className="absolute -right-5 top-1/2 -translate-y-1/2">
+								{/* Reseña en Google — visible en etapa Experiencia */}
+								<label className="flex items-center gap-2 cursor-pointer select-none">
+									<Checkbox
+										checked={googleReviewLeft}
+										disabled={isUpdatingGoogleReview}
+										onCheckedChange={(v) =>
+											handleGoogleReviewToggle(v === true)
+										}
+									/>
+									<span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+										Reseña en Google
+									</span>
+									{isUpdatingGoogleReview && (
 										<Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-									</div>
-								)}
-							</div>
-						</div>
+									)}
+								</label>
+							</>
+						)}
 					</div>
 				</div>
 			</div>

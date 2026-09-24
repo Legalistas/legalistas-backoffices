@@ -12,10 +12,16 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { LEADS_ENDPOINT } from "@/constant/api-endpoints";
-import { CRM_COLUMNS } from "@/constant/crm";
+import { CRM_COLUMNS, type LostReasonValue } from "@/constant/crm";
 import { sendStageEmail } from "@/lib/send-stage-email";
 import { moveLeadFolderOnColumnChange } from "@/lib/storage-move";
 import type { Lead } from "@/types/crm";
+import LostReasonDialog from "./LostReasonDialog";
+
+/** Columna "Perdida" — el backend exige lostReason para este id. */
+const LOST_COLUMN_ID = 10;
+/** Columna "Ganado - Trajo Poder". */
+const WON_COLUMN_ID = 9;
 
 interface ChangeStageDropdownProps {
 	lead: Lead;
@@ -28,13 +34,17 @@ export default function ChangeStageDropdown({
 }: ChangeStageDropdownProps) {
 	const { data: session } = useSession();
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	// Perdida requiere motivo — no se commitea hasta que se confirma el diálogo.
+	const [pendingLoss, setPendingLoss] = useState(false);
 
 	const currentValue = lead.columnId ? String(lead.columnId) : undefined;
 
-	const handleChange = async (value: string) => {
-		const newColumnId = Number(value);
-		if (!newColumnId || newColumnId === lead.columnId) return;
-
+	const commitColumnChange = async (
+		newColumnId: number,
+		status: "WON" | "LOST" | "IN_PROGRESS",
+		lostReason?: LostReasonValue,
+		lostReasonNotes?: string,
+	) => {
 		setIsSubmitting(true);
 
 		try {
@@ -46,13 +56,19 @@ export default function ChangeStageDropdown({
 				},
 				body: JSON.stringify({
 					columnId: newColumnId,
-					status: "IN_PROGRESS",
+					status,
 					userId: session?.user?.id,
+					...(lostReason && { lostReason, lostReasonNotes }),
 				}),
 			});
 
+			const payload = await response.json().catch(() => null);
+
 			if (!response.ok) {
-				throw new Error(`Error: ${response.status} ${response.statusText}`);
+				toast.error(
+					payload?.message || payload?.error || "No se pudo actualizar la etapa",
+				);
+				return;
 			}
 
 			// Email de notificación al cliente (no bloquea el flujo)
@@ -73,42 +89,71 @@ export default function ChangeStageDropdown({
 				toColumnId: newColumnId,
 			});
 
-			onLeadUpdate({ ...lead, columnId: newColumnId, status: "IN_PROGRESS" });
+			onLeadUpdate({ ...lead, columnId: newColumnId, status });
 			toast.success("Etapa actualizada");
 		} catch (error) {
 			console.error("Error updating lead stage:", error);
-			toast.error("Error al actualizar la etapa");
+			toast.error("Error de conexión al actualizar la etapa");
 		} finally {
 			setIsSubmitting(false);
 		}
 	};
 
+	const handleChange = (value: string) => {
+		const newColumnId = Number(value);
+		if (!newColumnId || newColumnId === lead.columnId) return;
+
+		if (newColumnId === LOST_COLUMN_ID) {
+			setPendingLoss(true);
+			return;
+		}
+
+		commitColumnChange(
+			newColumnId,
+			newColumnId === WON_COLUMN_ID ? "WON" : "IN_PROGRESS",
+		);
+	};
+
+	const handleConfirmLoss = async (reason: LostReasonValue, notes: string) => {
+		await commitColumnChange(LOST_COLUMN_ID, "LOST", reason, notes);
+		setPendingLoss(false);
+	};
+
 	return (
-		<Select
-			value={currentValue}
-			onValueChange={handleChange}
-			disabled={isSubmitting}
-		>
-			<SelectTrigger className="h-9 min-w-50">
-				{isSubmitting ? (
-					<span className="flex items-center gap-2 text-sm">
-						<Loader2 className="h-4 w-4 animate-spin" />
-						Actualizando...
-					</span>
-				) : (
-					<span className="flex items-center gap-2 text-sm">
-						<Tag className="h-4 w-4 text-muted-foreground" />
-						<SelectValue placeholder="Cambiar etapa" />
-					</span>
-				)}
-			</SelectTrigger>
-			<SelectContent>
-				{CRM_COLUMNS.map((column) => (
-					<SelectItem key={column.id} value={column.id}>
-						{column.title}
-					</SelectItem>
-				))}
-			</SelectContent>
-		</Select>
+		<>
+			<Select
+				value={currentValue}
+				onValueChange={handleChange}
+				disabled={isSubmitting}
+			>
+				<SelectTrigger className="w-auto min-w-44 shrink-0 rounded-md shadow-sm">
+					{isSubmitting ? (
+						<span className="flex items-center gap-2 text-sm">
+							<Loader2 className="h-4 w-4 animate-spin" />
+							Actualizando...
+						</span>
+					) : (
+						<span className="flex items-center gap-2 text-sm">
+							<Tag className="h-4 w-4 text-muted-foreground" />
+							<SelectValue placeholder="Cambiar etapa" />
+						</span>
+					)}
+				</SelectTrigger>
+				<SelectContent>
+					{CRM_COLUMNS.map((column) => (
+						<SelectItem key={column.id} value={column.id}>
+							{column.title}
+						</SelectItem>
+					))}
+				</SelectContent>
+			</Select>
+
+			<LostReasonDialog
+				open={pendingLoss}
+				leadName={lead.name || lead.user?.name}
+				onCancel={() => setPendingLoss(false)}
+				onConfirm={handleConfirmLoss}
+			/>
+		</>
 	);
 }

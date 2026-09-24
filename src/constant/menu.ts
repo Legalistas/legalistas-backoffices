@@ -1,25 +1,30 @@
 import {
   ArrowRightLeft,
   BarChart3,
+  Bell,
   CalendarDays,
   ChartArea,
+  FileText,
+  FolderCog,
   HardDrive,
   Handshake,
   Landmark,
   LayoutDashboard,
   Medal,
   MessageCircle,
+  MessageSquare,
   Pencil,
   PieChart,
   Receipt,
   Scale,
-  Settings,
   SquareKanban,
   User,
   Users2,
+  Vault,
   Wallet,
   Wrench,
 } from "lucide-react";
+import { CAJA_ADMIN_ROLES } from "@/constant/caja";
 import { Role } from "@/constant/user";
 import type { MenuSection, NavItem } from "@/types/navigation";
 
@@ -82,6 +87,15 @@ const REPRESENTANTES_ACCESS = [
   GERENTE_GENERAL_COO,
   DIRECTORA_AREA_LEGAL,
   COORDINADOR_LEGAL,
+  ASISTENTE_LEGAL,
+];
+
+
+const RRHH_REPORTS_ACCESS = [
+  ...SUPERADMIN,
+  DIRECTORA_AREA_LEGAL,
+  COORDINADOR_LEGAL,
+  ASISTENTE_LEGAL,
 ];
 
 // ── Menú agrupado por área funcional ───────────────────────────────
@@ -101,16 +115,15 @@ export const MENU_SECTIONS: MenuSection[] = [
         roles: [...LEGAL, ...VENTAS],
       },
       {
-        icon: SquareKanban,
-        name: "Embudo",
-        path: "/admin/crm",
-        roles: [...LEGAL, ...VENTAS],
-      },
-      {
         icon: CalendarDays,
         name: "Calendario",
         path: "/admin/calendar",
-        roles: [...LEGAL, ...VENTAS],
+        roles: [...LEGAL, ...VENTAS, ...MARKETING],
+      },
+      {
+        icon: Bell,
+        name: "Monitor de Gestión",
+        path: "/admin/crm-monitor",
       },
       {
         icon: ChartArea,
@@ -126,6 +139,18 @@ export const MENU_SECTIONS: MenuSection[] = [
     type: "menu",
     items: [
       {
+        icon: SquareKanban,
+        name: "Embudo",
+        path: "/admin/crm",
+        roles: [...LEGAL, ...VENTAS, ...MARKETING],
+      },
+      {
+        icon: MessageSquare,
+        name: "Contacto Web",
+        path: "/admin/web-contact",
+        roles: [...LEGAL, ...VENTAS, ...MARKETING],
+      },
+      {
         icon: Users2,
         name: "Clientes",
         path: "/admin/customers",
@@ -133,9 +158,21 @@ export const MENU_SECTIONS: MenuSection[] = [
       },
       {
         icon: BarChart3,
-        name: "Estadísticas Ventas",
+        name: "Reporte de Ventas",
         path: "/admin/reports/sales",
         roles: VENTAS,
+      },
+    ],
+  },
+  {
+    label: "Coordinación",
+    type: "menu",
+    items: [
+      {
+        icon: LayoutDashboard,
+        name: "KPIs",
+        path: "/admin/kpis",
+        roles: [...LEGAL_INTERNO, ...VENTAS, ...CONTABLE, ...MARKETING],
       },
     ],
   },
@@ -148,6 +185,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Casos",
         path: "/admin/legal-cases",
         roles: LEGAL,
+      },
+      {
+        icon: FileText,
+        name: "Plantillas de escritos",
+        path: "/admin/escritos/plantillas",
+        roles: LEGAL_INTERNO,
       },
       {
         icon: Wrench,
@@ -185,12 +228,6 @@ export const MENU_SECTIONS: MenuSection[] = [
         roles: LEGAL,
       },
       {
-        icon: ChartArea,
-        name: "Estadísticas Legal",
-        path: "/admin/reports/legal",
-        roles: LEGAL_INTERNO,
-      },
-      {
         icon: MessageCircle,
         name: "Consultas",
         path: "/admin/consultations",
@@ -220,6 +257,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: "/admin/accounting",
         roles: CONTABLE,
       },
+      {
+        icon: Vault,
+        name: "Caja Contable",
+        path: "/admin/caja",
+        roles: CAJA_ADMIN_ROLES,
+      },
     ],
   },
   {
@@ -242,13 +285,19 @@ export const MENU_SECTIONS: MenuSection[] = [
         icon: PieChart,
         name: "Reportes RRHH",
         path: "/admin/rrhh/reports",
-        roles: SUPERADMIN,
+        roles: RRHH_REPORTS_ACCESS,
       },
       {
         icon: Users2,
         name: "Reclutamiento",
         path: "/admin/rrhh/recruitment",
         roles: SUPERADMIN,
+      },
+      {
+        icon: Scale,
+        name: "Abogados SRT",
+        path: "/admin/lawyers",
+        roles: LEGAL_INTERNO,
       },
     ],
   },
@@ -262,12 +311,21 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: "/admin/file-manager",
         roles: SUPERADMIN,
       },
-      // {
-      //   icon: Pencil,
-      //   name: "Blog",
-      //   path: "/admin/posts",
-      //   roles: MARKETING,
-      // },
+      {
+        // Panel de mantenimiento del árbol de carpetas: health, bootstrap
+        // de representantes, backfill de casos sin carpeta y resync
+        // individual. La pantalla existía pero no estaba enlazada.
+        icon: FolderCog,
+        name: "Carpetas MinIO",
+        path: "/admin/minio",
+        roles: SUPERADMIN,
+      },
+      {
+        icon: Pencil,
+        name: "Blog",
+        path: "/admin/blog",
+        roles: MARKETING,
+      },
     ],
   },
 ];

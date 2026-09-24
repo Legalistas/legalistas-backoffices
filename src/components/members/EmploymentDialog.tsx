@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EMPLOYMENT_BY_USER_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import AttendanceTab from "./AttendanceTab";
 import ContractsTab from "./ContractsTab";
 import LeavesTab from "./LeavesTab";
@@ -136,12 +137,12 @@ export default function EmploymentDialog({
 					baseSalary: data.baseSalary || null,
 				}),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar datos laborales"));
 			toast.success("Datos laborales guardados");
 			onSaved?.();
 			onClose();
-		} catch {
-			toast.error("Error al guardar datos laborales");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar datos laborales");
 		} finally {
 			setIsSaving(false);
 		}
@@ -156,12 +157,12 @@ export default function EmploymentDialog({
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${session.user.accessToken}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Ficha laboral eliminada");
 			onSaved?.();
 			onClose();
-		} catch {
-			toast.error("Error al eliminar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		} finally {
 			setIsDeleting(false);
 		}

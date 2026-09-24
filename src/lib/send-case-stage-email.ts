@@ -1,3 +1,4 @@
+import { MAILER_SEND_ENDPOINT } from "@/constant/api-endpoints";
 import { shouldBlockAutomaticEmail } from "./send-stage-email";
 
 const CASE_STAGES_WITH_EMAIL = [1, 2, 3, 4, 5, 6, 7];
@@ -44,15 +45,17 @@ export async function sendCaseStageEmail({
   }
 
   try {
-    await fetch("/api/notifications/email", {
+    await fetch(MAILER_SEND_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
       body: JSON.stringify({
         to: email,
         caseId,
         stageId,
         isResend,
-        accessToken,
         variables: {
           customerName,
           caseNumber,

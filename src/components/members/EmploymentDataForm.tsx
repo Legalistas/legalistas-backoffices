@@ -18,6 +18,7 @@ import {
 	EMPLOYMENT_BY_USER_ENDPOINT,
 	SETTINGS_ROLES_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 type EmploymentStatus = "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "TERMINATED";
 
@@ -183,12 +184,12 @@ export default function EmploymentDataForm({
 					baseSalary: data.baseSalary || null,
 				}),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar datos laborales"));
 			toast.success("Datos laborales guardados");
 			setExists(true);
 			onSaved?.();
-		} catch {
-			toast.error("Error al guardar datos laborales");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar datos laborales");
 		} finally {
 			setIsSaving(false);
 		}
@@ -203,11 +204,11 @@ export default function EmploymentDataForm({
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Ficha laboral eliminada");
 			onRemoved?.();
-		} catch {
-			toast.error("Error al eliminar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		} finally {
 			setIsDeleting(false);
 		}

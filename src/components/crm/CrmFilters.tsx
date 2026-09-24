@@ -1,11 +1,14 @@
 "use client";
 
 import {
+	ArrowUpDown,
 	CalendarIcon,
 	Check,
 	ChevronDown,
 	Filter,
+	Globe2,
 	ListFilterIcon as ListFilterPlus,
+	MapPin,
 	Search,
 	UserCheck,
 	Users,
@@ -15,6 +18,7 @@ import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { useSession } from "next-auth/react";
 import { type DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -24,7 +28,113 @@ import {
 	PopoverContent,
 	PopoverTrigger,
 } from "@/components/ui/popover";
-import { SERVICES_TYPE } from "@/constant/crm";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { SETTINGS_COUNTRIES_ENDPOINT } from "@/constant/api-endpoints";
+import { CRM_COLUMNS, SERVICES_TYPE, SOURCE_CHANNEL } from "@/constant/crm";
+
+const SORT_OPTIONS = [
+	{ value: "recent", label: "Más reciente" },
+	{ value: "oldest", label: "Más antigua" },
+	{ value: "name_asc", label: "Nombre A-Z" },
+	{ value: "name_desc", label: "Nombre Z-A" },
+];
+
+interface SimpleOption {
+	id: string;
+	label: string;
+}
+
+// Dropdown simple reutilizable para los filtros nuevos (etapa, canal, provincia):
+// botón + lista con click-outside propio, mismo look que "Tipo de servicio".
+function SimpleFilterDropdown({
+	label,
+	icon: Icon,
+	placeholder,
+	value,
+	options,
+	onSelect,
+}: {
+	label: string;
+	icon: React.ComponentType<{ className?: string }>;
+	placeholder: string;
+	value: string;
+	options: SimpleOption[];
+	onSelect: (value: string) => void;
+}) {
+	const [open, setOpen] = useState(false);
+	const ref = useRef<HTMLDivElement>(null);
+
+	useEffect(() => {
+		function handleClickOutside(e: MouseEvent) {
+			if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+		}
+		document.addEventListener("mousedown", handleClickOutside);
+		return () => document.removeEventListener("mousedown", handleClickOutside);
+	}, []);
+
+	const selectedLabel = options.find((o) => o.id === value)?.label;
+	const triggerId = `filter-dropdown-${label.replace(/\s+/g, "-").toLowerCase()}`;
+
+	return (
+		<div className="relative" ref={ref}>
+			<label
+				htmlFor={triggerId}
+				className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5"
+			>
+				{label}
+			</label>
+			<button
+				id={triggerId}
+				type="button"
+				onClick={() => setOpen(!open)}
+				className="flex h-9 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
+			>
+				<span className="flex items-center gap-2 text-gray-700 dark:text-gray-300 truncate">
+					<Icon className="h-4 w-4 text-gray-500" />
+					{selectedLabel || placeholder}
+				</span>
+				<ChevronDown
+					className={`h-4 w-4 text-gray-500 transition-transform ${open ? "rotate-180" : ""}`}
+				/>
+			</button>
+			{open && (
+				<div className="absolute z-10 mt-1 w-full rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 py-1 shadow-lg max-h-60 overflow-y-auto">
+					<button
+						type="button"
+						className="block w-full cursor-pointer px-3 py-1.5 text-left text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5"
+						onClick={() => {
+							onSelect("");
+							setOpen(false);
+						}}
+					>
+						Todas
+					</button>
+					{options.map((opt) => (
+						<button
+							type="button"
+							key={opt.id}
+							className={`block w-full cursor-pointer px-3 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-white/5 ${
+								value === opt.id ? "bg-gray-100 dark:bg-white/5 font-medium" : ""
+							}`}
+							onClick={() => {
+								onSelect(opt.id);
+								setOpen(false);
+							}}
+						>
+							{opt.label}
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	);
+}
 
 interface LawyerOption {
 	id: string;
@@ -49,6 +159,14 @@ interface CrmFiltersProps {
 	setMonthFilter: (month: string) => void;
 	yearFilter: string;
 	setYearFilter: (year: string) => void;
+	selectedStage: string;
+	setSelectedStage: (stage: string) => void;
+	selectedChannel: string;
+	setSelectedChannel: (channel: string) => void;
+	selectedProvince: string;
+	setSelectedProvince: (province: string) => void;
+	sortBy: string;
+	setSortBy: (sort: string) => void;
 	hasActiveFilters: boolean;
 	handleClearFilters: () => void;
 	responsibleLawyerTypes?: LawyerOption[];
@@ -72,17 +190,48 @@ export const CrmFilters = ({
 	setMonthFilter,
 	yearFilter,
 	setYearFilter,
+	selectedStage,
+	setSelectedStage,
+	selectedChannel,
+	setSelectedChannel,
+	selectedProvince,
+	setSelectedProvince,
+	sortBy,
+	setSortBy,
 	hasActiveFilters,
 	handleClearFilters,
 	responsibleLawyerTypes,
 	lawyerInternalTypes,
 }: CrmFiltersProps) => {
+	const { data: session } = useSession();
 	const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 	const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
 	const [isRepresentativeLawyerDropdownOpen, setIsRepresentativeLawyerDropdownOpen] = useState(false);
 	const [isInternalLawyerDropdownOpen, setIsInternalLawyerDropdownOpen] = useState(false);
 	const [repLawyerSearch, setRepLawyerSearch] = useState("");
 	const [intLawyerSearch, setIntLawyerSearch] = useState("");
+	const [provinces, setProvinces] = useState<SimpleOption[]>([]);
+
+	useEffect(() => {
+		const token = session?.user?.accessToken;
+		if (!token) return;
+		fetch(`${SETTINGS_COUNTRIES_ENDPOINT}/1/states?limit=200`, {
+			headers: { Authorization: `Bearer ${token}` },
+		})
+			.then((res) => res.json())
+			.then((json) => {
+				const list = (json.data ?? []) as { id: number; name: string }[];
+				const sorted = [...list].sort((a, b) => a.name.localeCompare(b.name, "es"));
+				setProvinces(sorted.map((s) => ({ id: String(s.id), label: s.name })));
+			})
+			.catch(() => setProvinces([]));
+	}, [session?.user?.accessToken]);
+
+	const stageOptions: SimpleOption[] = CRM_COLUMNS.map((c) => ({ id: c.id, label: c.title }));
+	const channelOptions: SimpleOption[] = SOURCE_CHANNEL.filter((c) => c.active).map((c) => ({
+		id: String(c.id),
+		label: c.name,
+	}));
 
 	const searchInputRef = useRef<HTMLInputElement>(null);
 	const filtersContainerRef = useRef<HTMLDivElement>(null);
@@ -94,11 +243,11 @@ export const CrmFilters = ({
 	const [dateMode, setDateMode] = useState<"month" | "range">(
 		dateFrom || dateTo ? "range" : "month",
 	);
-	const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+	// Único popover del filtro de fecha — vive junto al selector de orden.
+	const [dateFieldOpen, setDateFieldOpen] = useState(false);
 	const [monthPickerYear, setMonthPickerYear] = useState(
 		yearFilter ? parseInt(yearFilter) : new Date().getFullYear(),
 	);
-	const [rangePickerOpen, setRangePickerOpen] = useState(false);
 
 	const handleSearchChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,8 +333,22 @@ export const CrmFilters = ({
 		if (selectedInternalLawyer && selectedInternalLawyer.length > 0) count++;
 		if (dateFrom || dateTo) count++;
 		if (monthFilter && yearFilter) count++;
+		if (selectedStage) count++;
+		if (selectedChannel) count++;
+		if (selectedProvince) count++;
 		return count;
-	}, [selectedService, selectedResponsibleLawyer, selectedInternalLawyer, dateFrom, dateTo, monthFilter, yearFilter]);
+	}, [
+		selectedService,
+		selectedResponsibleLawyer,
+		selectedInternalLawyer,
+		dateFrom,
+		dateTo,
+		monthFilter,
+		yearFilter,
+		selectedStage,
+		selectedChannel,
+		selectedProvince,
+	]);
 
 	// Handle month/year selection
 	const handleMonthSelect = useCallback(
@@ -280,7 +443,7 @@ export const CrmFilters = ({
 	const activeFiltersCount = getActiveFiltersCount();
 
 	return (
-		<div className="space-y-4">
+		<div className="space-y-4" ref={filtersContainerRef}>
 			{/* Search and main controls */}
 			<div className="flex flex-wrap items-center gap-3">
 				{/* Search Input */}
@@ -309,36 +472,208 @@ export const CrmFilters = ({
 					</div>
 				</div>
 
+				{/* Sort selector — al lado del botón de filtros */}
+				<Select value={sortBy} onValueChange={setSortBy}>
+					<SelectTrigger className="h-9 w-auto gap-2 px-3">
+						<ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						{SORT_OPTIONS.map((opt) => (
+							<SelectItem key={opt.value} value={opt.value}>
+								{opt.label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+
+				{/* Fecha — popover compacto, al lado del selector de orden */}
+				<Popover open={dateFieldOpen} onOpenChange={setDateFieldOpen}>
+					<PopoverTrigger asChild>
+						<Button
+							variant="outline"
+							className="h-9 gap-2 px-3 text-sm font-normal capitalize text-gray-700 dark:text-gray-300"
+						>
+							<CalendarIcon className="h-4 w-4 text-muted-foreground" />
+							{dateMode === "month"
+								? monthFilter && yearFilter
+									? monthLabel
+									: "Seleccionar mes"
+								: dateFrom && dateTo
+									? `${format(new Date(dateFrom), "dd MMM", { locale: es })} - ${format(new Date(dateTo), "dd MMM yy", { locale: es })}`
+									: dateFrom
+										? `Desde ${format(new Date(dateFrom), "dd MMM yyyy", { locale: es })}`
+										: dateTo
+											? `Hasta ${format(new Date(dateTo), "dd MMM yyyy", { locale: es })}`
+											: "Rango de fechas"}
+							<ChevronDown
+								className={`h-4 w-4 transition-transform ${dateFieldOpen ? "rotate-180" : ""}`}
+							/>
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent className="w-80 p-4" align="start">
+						{/* Mode toggle */}
+						<div className="flex items-center rounded-lg border border-input bg-background p-1 gap-1 mb-3">
+							<Button
+								type="button"
+								variant={dateMode === "month" ? "default" : "ghost"}
+								size="sm"
+								onClick={() => {
+									setDateMode("month");
+									setDateFrom("");
+									setDateTo("");
+								}}
+								className="h-7 flex-1 px-3 text-xs"
+							>
+								Por mes
+							</Button>
+							<Button
+								type="button"
+								variant={dateMode === "range" ? "default" : "ghost"}
+								size="sm"
+								onClick={() => {
+									setDateMode("range");
+									setMonthFilter("");
+									setYearFilter("");
+								}}
+								className="h-7 flex-1 px-3 text-xs"
+							>
+								Rango de fechas
+							</Button>
+						</div>
+
+						{dateMode === "month" ? (
+							<>
+								{/* Year navigation */}
+								<div className="flex items-center justify-between mb-3">
+									<button
+										type="button"
+										onClick={() => setMonthPickerYear((y) => y - 1)}
+										className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/10"
+									>
+										<ChevronDown className="h-4 w-4 rotate-90" />
+									</button>
+									<span className="text-sm font-semibold">{monthPickerYear}</span>
+									<button
+										type="button"
+										onClick={() => setMonthPickerYear((y) => y + 1)}
+										className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/10"
+									>
+										<ChevronDown className="h-4 w-4 -rotate-90" />
+									</button>
+								</div>
+								{/* Month grid */}
+								<div className="grid grid-cols-3 gap-2">
+									{Array.from({ length: 12 }, (_, i) => {
+										const m = String(i + 1).padStart(2, "0");
+										const isSelected = monthFilter === m && yearFilter === String(monthPickerYear);
+										const label = format(new Date(monthPickerYear, i, 1), "MMM", { locale: es });
+										return (
+											<button
+												key={m}
+												type="button"
+												onClick={() => {
+													setMonthFilter(m);
+													setYearFilter(String(monthPickerYear));
+													setDateFrom("");
+													setDateTo("");
+													setDateFieldOpen(false);
+												}}
+												className={`rounded-md px-2 py-2 text-sm capitalize transition-colors ${
+													isSelected
+														? "bg-primary text-primary-foreground font-medium"
+														: "hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300"
+												}`}
+											>
+												{label}
+											</button>
+										);
+									})}
+								</div>
+							</>
+						) : (
+							<>
+								<Calendar
+									mode="range"
+									defaultMonth={dateFrom ? new Date(dateFrom) : undefined}
+									selected={{
+										from: dateFrom ? new Date(dateFrom) : undefined,
+										to: dateTo ? new Date(dateTo) : undefined,
+									} as DateRange}
+									onSelect={(range: DateRange | undefined) => {
+										setDateFrom(range?.from ? format(range.from, "yyyy-MM-dd") : "");
+										setDateTo(range?.to ? format(range.to, "yyyy-MM-dd") : "");
+										// Solo cierra cuando se eligieron ambas fechas
+										if (range?.from && range?.to) {
+											setDateFieldOpen(false);
+										}
+									}}
+									numberOfMonths={2}
+									locale={es}
+								/>
+								<div className="border-t px-3 py-2 flex justify-between">
+									{(dateFrom || dateTo) && (
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => {
+												setDateFrom("");
+												setDateTo("");
+											}}
+											className="text-xs"
+										>
+											Limpiar fechas
+										</Button>
+									)}
+									<Button
+										size="sm"
+										onClick={() => setDateFieldOpen(false)}
+										className="text-xs ml-auto"
+									>
+										Cerrar
+									</Button>
+								</div>
+							</>
+						)}
+					</PopoverContent>
+				</Popover>
+
 				{/* Filters Toggle Button */}
-				<div className="relative" ref={filtersContainerRef}>
-					<button
+				<div className="relative">
+					<Button
+						type="button"
+						variant="outline"
 						onClick={() => setIsFiltersOpen(!isFiltersOpen)}
-						className={`flex h-11 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors ${
-							activeFiltersCount > 0 || isFiltersOpen
-								? "border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-600 dark:bg-blue-950 dark:text-blue-300"
-								: "border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/10"
-						}`}
+						className="h-9 gap-2 px-3 text-sm font-normal text-gray-700 dark:text-gray-300"
 					>
-						<Filter className="h-4 w-4" />
-						<span>Filtros</span>
+						<Filter className="h-4 w-4 text-muted-foreground" />
+						Filtros
 						{activeFiltersCount > 0 && (
-							<span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-xs text-white">
+							<span className="flex h-5 w-5 items-center justify-center rounded-full bg-gray-200 dark:bg-gray-700 text-xs text-gray-700 dark:text-gray-300">
 								{activeFiltersCount}
 							</span>
 						)}
 						<ChevronDown
 							className={`h-4 w-4 transition-transform ${isFiltersOpen ? "rotate-180" : ""}`}
 						/>
-					</button>
+					</Button>
+				</div>
+			</div>
 
 					{/* Filters Dropdown */}
 					{isFiltersOpen && (
-						<div className="absolute right-0 z-20 mt-2 w-[700px] rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-6 shadow-lg">
-							<div className="mb-4 flex items-center justify-between">
-								<h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-									Filtros de búsqueda
-								</h3>
+					<div className="w-full origin-top animate-in fade-in-0 slide-in-from-top-2 duration-200 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-5 shadow-lg">
+							<div className="mb-3 flex items-center justify-between">
+								<div className="flex items-center gap-2">
+									<div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+										<Filter className="h-4 w-4 text-primary" />
+									</div>
+									<h3 className="text-base font-semibold text-gray-900 dark:text-white">
+										Filtros de búsqueda
+									</h3>
+								</div>
 								<button
+									type="button"
 									onClick={() => setIsFiltersOpen(false)}
 									className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
 								>
@@ -346,15 +681,15 @@ export const CrmFilters = ({
 								</button>
 							</div>
 
-							<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+							<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
 								{/* Service Type Filter */}
 								<div className="relative" ref={serviceDropdownRef}>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
 										Tipo de servicio
 									</label>
 									<button
 										onClick={() => setIsServiceDropdownOpen(!isServiceDropdownOpen)}
-										className="flex h-10 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
+										className="flex h-9 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
 									>
 										<span className="flex items-center gap-2 text-gray-700 dark:text-gray-300 truncate">
 											<ListFilterPlus className="h-4 w-4 text-gray-500" />
@@ -392,190 +727,24 @@ export const CrmFilters = ({
 									)}
 								</div>
 
-								{/* Date Mode Selector + Date Filter */}
-								<div className="md:col-span-2">
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-										Filtro de fecha
-									</label>
-									{/* Mode toggle */}
-									<div className="flex items-center rounded-lg border border-input bg-background p-1 gap-1 mb-2">
-										<Button
-											type="button"
-											variant={dateMode === "month" ? "default" : "ghost"}
-											size="sm"
-											onClick={() => {
-												setDateMode("month");
-												setDateFrom("");
-												setDateTo("");
-											}}
-											className="h-7 px-3 text-xs"
-										>
-											Por mes
-										</Button>
-										<Button
-											type="button"
-											variant={dateMode === "range" ? "default" : "ghost"}
-											size="sm"
-											onClick={() => {
-												setDateMode("range");
-												setMonthFilter("");
-												setYearFilter("");
-											}}
-											className="h-7 px-3 text-xs"
-										>
-											Rango de fechas
-										</Button>
-									</div>
-
-									{dateMode === "month" ? (
-										/* Month-only grid picker */
-										<Popover open={monthPickerOpen} onOpenChange={setMonthPickerOpen}>
-											<PopoverTrigger asChild>
-												<Button
-													variant="outline"
-													className="h-10 w-full justify-start gap-2 px-3 text-sm font-normal capitalize"
-												>
-													<CalendarIcon className="h-4 w-4 text-muted-foreground" />
-													{monthFilter && yearFilter ? monthLabel : "Seleccionar mes"}
-												</Button>
-											</PopoverTrigger>
-											<PopoverContent
-												className="w-70 p-4"
-												align="start"
-												onInteractOutside={(e) => {
-													if (isInsidePopoverPortal(e.target as Node)) e.preventDefault();
-												}}
-											>
-												{/* Year navigation */}
-												<div className="flex items-center justify-between mb-3">
-													<button
-														type="button"
-														onClick={() => setMonthPickerYear((y) => y - 1)}
-														className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/10"
-													>
-														<ChevronDown className="h-4 w-4 rotate-90" />
-													</button>
-													<span className="text-sm font-semibold">{monthPickerYear}</span>
-													<button
-														type="button"
-														onClick={() => setMonthPickerYear((y) => y + 1)}
-														className="p-1 rounded hover:bg-gray-100 dark:hover:bg-white/10"
-													>
-														<ChevronDown className="h-4 w-4 -rotate-90" />
-													</button>
-												</div>
-												{/* Month grid */}
-												<div className="grid grid-cols-3 gap-2">
-													{Array.from({ length: 12 }, (_, i) => {
-														const m = String(i + 1).padStart(2, "0");
-														const isSelected = monthFilter === m && yearFilter === String(monthPickerYear);
-														const label = format(new Date(monthPickerYear, i, 1), "MMM", { locale: es });
-														return (
-															<button
-																key={i}
-																type="button"
-																onClick={() => {
-																	setMonthFilter(m);
-																	setYearFilter(String(monthPickerYear));
-																	setDateFrom("");
-																	setDateTo("");
-																	setMonthPickerOpen(false);
-																}}
-																className={`rounded-md px-2 py-2 text-sm capitalize transition-colors ${
-																	isSelected
-																		? "bg-primary text-primary-foreground font-medium"
-																		: "hover:bg-gray-100 dark:hover:bg-white/10 text-gray-700 dark:text-gray-300"
-																}`}
-															>
-																{label}
-															</button>
-														);
-													})}
-												</div>
-											</PopoverContent>
-										</Popover>
-									) : (
-										/* Date range picker with controlled open state */
-										<Popover open={rangePickerOpen} onOpenChange={setRangePickerOpen}>
-											<PopoverTrigger asChild>
-												<Button
-													variant="outline"
-													className={`h-10 w-full justify-start gap-2 px-3 text-sm font-normal ${
-														dateFrom || dateTo
-															? "border-blue-300 text-blue-700 dark:border-blue-600 dark:text-blue-300"
-															: "border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
-													}`}
-												>
-													<CalendarIcon className="h-4 w-4" />
-													{dateFrom && dateTo
-														? `${format(new Date(dateFrom), "dd MMM yyyy", { locale: es })} - ${format(new Date(dateTo), "dd MMM yyyy", { locale: es })}`
-														: dateFrom
-															? `Desde ${format(new Date(dateFrom), "dd MMM yyyy", { locale: es })}`
-															: dateTo
-																? `Hasta ${format(new Date(dateTo), "dd MMM yyyy", { locale: es })}`
-																: "Seleccionar rango de fechas"}
-												</Button>
-											</PopoverTrigger>
-											<PopoverContent
-												className="w-auto p-0"
-												align="start"
-												onInteractOutside={(e) => {
-													if (isInsidePopoverPortal(e.target as Node)) e.preventDefault();
-												}}
-											>
-												<Calendar
-													mode="range"
-													defaultMonth={dateFrom ? new Date(dateFrom) : undefined}
-													selected={{
-														from: dateFrom ? new Date(dateFrom) : undefined,
-														to: dateTo ? new Date(dateTo) : undefined,
-													} as DateRange}
-													onSelect={(range: DateRange | undefined) => {
-														setDateFrom(range?.from ? format(range.from, "yyyy-MM-dd") : "");
-														setDateTo(range?.to ? format(range.to, "yyyy-MM-dd") : "");
-														// Only close when both dates are selected
-														if (range?.from && range?.to) {
-															setRangePickerOpen(false);
-														}
-													}}
-													numberOfMonths={2}
-													locale={es}
-												/>
-												<div className="border-t px-3 py-2 flex justify-between">
-													{(dateFrom || dateTo) && (
-														<Button
-															variant="ghost"
-															size="sm"
-															onClick={() => {
-																setDateFrom("");
-																setDateTo("");
-															}}
-															className="text-xs"
-														>
-															Limpiar fechas
-														</Button>
-													)}
-													<Button
-														size="sm"
-														onClick={() => setRangePickerOpen(false)}
-														className="text-xs ml-auto"
-													>
-														Cerrar
-													</Button>
-												</div>
-											</PopoverContent>
-										</Popover>
-									)}
-								</div>
+								{/* Etapa del embudo */}
+								<SimpleFilterDropdown
+									label="Estado / Etapa"
+									icon={Filter}
+									placeholder="Seleccionar etapa"
+									value={selectedStage}
+									options={stageOptions}
+									onSelect={setSelectedStage}
+								/>
 
 								{/* Responsible Lawyer Filter */}
 								<div className="relative" ref={representativeLawyerDropdownRef}>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
 										Abogado Responsable
 									</label>
 									<button
 										onClick={() => setIsRepresentativeLawyerDropdownOpen(!isRepresentativeLawyerDropdownOpen)}
-										className="flex h-10 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
+										className="flex h-9 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
 									>
 										<span className="flex items-center gap-2 text-gray-700 dark:text-gray-300 truncate">
 											<UserCheck className="h-4 w-4 text-gray-500" />
@@ -636,12 +805,12 @@ export const CrmFilters = ({
 
 								{/* Internal Lawyer Filter */}
 								<div className="relative" ref={internalLawyerDropdownRef}>
-									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
 										Abogado Interno
 									</label>
 									<button
 										onClick={() => setIsInternalLawyerDropdownOpen(!isInternalLawyerDropdownOpen)}
-										className="flex h-10 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
+										className="flex h-9 w-full items-center justify-between rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-white/5 px-3 text-sm"
 									>
 										<span className="flex items-center gap-2 text-gray-700 dark:text-gray-300 truncate">
 											<Users className="h-4 w-4 text-gray-500" />
@@ -699,27 +868,54 @@ export const CrmFilters = ({
 										</div>
 									)}
 								</div>
+								{/* Canal de Ingreso */}
+								<SimpleFilterDropdown
+									label="Canal de Ingreso"
+									icon={Globe2}
+									placeholder="Seleccionar canal"
+									value={selectedChannel}
+									options={channelOptions}
+									onSelect={setSelectedChannel}
+								/>
+
+								{/* Provincia */}
+								<SimpleFilterDropdown
+									label="Provincia"
+									icon={MapPin}
+									placeholder="Seleccionar provincia"
+									value={selectedProvince}
+									options={provinces}
+									onSelect={setSelectedProvince}
+								/>
 							</div>
 
 							{/* Filter Actions */}
-							<div className="mt-6 flex items-center justify-between">
-								<Button
-									variant="ghost"
-									onClick={handleClearFilters}
-									disabled={!hasActiveFilters}
-									className="flex items-center gap-2 text-gray-500 dark:text-gray-400 hover:text-red-500 dark:hover:text-red-400"
-								>
-									<X className="h-4 w-4" />
-									Limpiar todos
-								</Button>
-								<Button onClick={() => setIsFiltersOpen(false)}>
-									Aplicar filtros
-								</Button>
+							<div className="mt-4 flex items-center justify-between gap-3">
+								<div className="flex flex-wrap items-center gap-2">
+									{activeFiltersCount > 0 && (
+										<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
+											{activeFiltersCount} {activeFiltersCount === 1 ? "filtro activo" : "filtros activos"}
+										</span>
+									)}
+								</div>
+								<div className="flex items-center gap-2">
+									<Button
+										variant="outline"
+										onClick={handleClearFilters}
+										disabled={!hasActiveFilters}
+										className="flex items-center gap-2"
+									>
+										<X className="h-4 w-4" />
+										Limpiar filtros
+									</Button>
+									<Button onClick={() => setIsFiltersOpen(false)}>
+										<Filter className="h-4 w-4 mr-1.5" />
+										Aplicar filtros
+									</Button>
+								</div>
 							</div>
 						</div>
 					)}
-				</div>
-			</div>
 
 			{/* Active Filters Display */}
 			{hasActiveFilters && (
@@ -803,6 +999,45 @@ export const CrmFilters = ({
 									setYearFilter("");
 								}}
 								className="text-teal-600 hover:text-teal-800"
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</span>
+					)}
+
+					{selectedStage && (
+						<span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-1 text-xs text-indigo-800">
+							{stageOptions.find((o) => o.id === selectedStage)?.label ?? selectedStage}
+							<button
+								type="button"
+								onClick={() => setSelectedStage("")}
+								className="text-indigo-600 hover:text-indigo-800"
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</span>
+					)}
+
+					{selectedChannel && (
+						<span className="inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-1 text-xs text-pink-800">
+							{channelOptions.find((o) => o.id === selectedChannel)?.label ?? selectedChannel}
+							<button
+								type="button"
+								onClick={() => setSelectedChannel("")}
+								className="text-pink-600 hover:text-pink-800"
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</span>
+					)}
+
+					{selectedProvince && (
+						<span className="inline-flex items-center gap-1 rounded-full bg-cyan-100 px-2 py-1 text-xs text-cyan-800">
+							{provinces.find((o) => o.id === selectedProvince)?.label ?? selectedProvince}
+							<button
+								type="button"
+								onClick={() => setSelectedProvince("")}
+								className="text-cyan-600 hover:text-cyan-800"
 							>
 								<X className="h-3 w-3" />
 							</button>

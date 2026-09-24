@@ -34,6 +34,7 @@ import {
 	LEAVE_REJECT_ENDPOINT,
 	LEAVES_BY_USER_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 
 const APPROVER_ROLES = [
 	...SUPERADMIN,
@@ -248,12 +249,12 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 				},
 				body: JSON.stringify(payload),
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar"));
 			toast.success(editingId ? "Solicitud actualizada" : "Solicitud enviada");
 			closeForm();
 			loadLeaves();
-		} catch {
-			toast.error("Error al guardar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al guardar");
 		} finally {
 			setIsSaving(false);
 		}
@@ -274,11 +275,11 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 				},
 				body: body ? JSON.stringify(body) : undefined,
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al ejecutar la acción"));
 			toast.success(successMsg);
 			loadLeaves();
-		} catch {
-			toast.error("Error al ejecutar la acción");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al ejecutar la acción");
 		}
 	};
 
@@ -305,11 +306,11 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
-			if (!res.ok) throw new Error();
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al eliminar"));
 			toast.success("Solicitud eliminada");
 			loadLeaves();
-		} catch {
-			toast.error("Error al eliminar");
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "Error al eliminar");
 		}
 	};
 

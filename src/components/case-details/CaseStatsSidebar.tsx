@@ -61,9 +61,28 @@ export const CaseStatsSidebar = ({ caseData }: CaseStatsSidebarProps) => {
 							<Stethoscope className="h-4 w-4 text-muted-foreground" />
 							<span>Lesión</span>
 						</div>
-						<span className="text-sm font-semibold text-foreground break-words pl-6">
-							{caseData.injury?.trim() ? caseData.injury : "—"}
-						</span>
+						{/* Con varios expedientes, la lesión de cada uno: así se ve de
+						    un vistazo cuál es el de espalda y cuál el de hombro. */}
+						{(caseData.files?.length ?? 0) > 1 ? (
+							<ul className="space-y-1.5 pl-6">
+								{caseData.files?.map((f) => (
+									<li key={f.id} className="text-sm">
+										<span className="font-semibold text-foreground break-words">
+											{f.injury?.trim() || "Sin lesión cargada"}
+										</span>
+										<span className="block truncate text-xs text-muted-foreground">
+											{f.cuij || f.title || `Expediente #${f.id}`}
+										</span>
+									</li>
+								))}
+							</ul>
+						) : (
+							<span className="text-sm font-semibold text-foreground break-words pl-6">
+								{caseData.files?.[0]?.injury?.trim() ||
+									caseData.injury?.trim() ||
+									"—"}
+							</span>
+						)}
 					</div>
 					<div className="flex items-center justify-between">
 						<div className="flex items-center gap-2 text-sm text-muted-foreground">
