@@ -25,6 +25,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useConfirm } from "@/hooks/useConfirm";
 import {
 	CASE_DEADLINE_BY_ID_ENDPOINT,
+	CASE_DEADLINE_CALCULATE_ENDPOINT,
 	CASE_DEADLINES_ENDPOINT,
 	SETTINGS_DEADLINE_TYPES_ENDPOINT,
 	SETTINGS_JURISDICTIONS_ENDPOINT,
@@ -32,10 +33,66 @@ import {
 import { getExpedienteLabel } from "@/lib/expediente-label";
 import { apiErrorMessage } from "@/lib/api-error";
 import { getProcessTypeLabel } from "@/lib/functions";
-import type { CaseDeadline, CasesFiles } from "@/types/cases";
+import type {
+	CaseDeadline,
+	CasesFiles,
+	DeadlineCalculationDetail,
+} from "@/types/cases";
 
 // Carátula del expediente: helper compartido (usa la carátula automática).
 const getFileLabel = getExpedienteLabel;
+
+// ── Fechas ──────────────────────────────────────────────────────────
+// Las fechas de los plazos se guardan "literales" (00:00 UTC = el día en
+// Argentina). Se muestran leyendo en UTC: con la zona del navegador se
+// corrían un día para atrás (vencía el 01/10 y se veía 30/09).
+
+/** "2026-10-19" o ISO → "19/10/2026" (con `weekday`, "lunes 19/10/2026"). */
+function fmtDate(value: string | null | undefined, withWeekday = false): string {
+	if (!value) return "—";
+	const d = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+	return d.toLocaleDateString("es-AR", {
+		...(withWeekday && { weekday: "long" }),
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+		timeZone: "UTC",
+	});
+}
+
+function todayArgentina(): string {
+	return new Date().toLocaleDateString("en-CA", {
+		timeZone: "America/Argentina/Buenos_Aires",
+	});
+}
+
+/** Días de calendario entre hoy (Argentina) y el vencimiento. */
+function daysUntil(dueDate: string): number {
+	const due = Date.parse(`${dueDate.slice(0, 10)}T00:00:00Z`);
+	const today = Date.parse(`${todayArgentina()}T00:00:00Z`);
+	return Math.round((due - today) / 86_400_000);
+}
+
+/** El detalle viene como texto JSON (columna LongText). */
+function parseCalculationDetail(
+	raw: CaseDeadline["calculationDetail"],
+): DeadlineCalculationDetail | null {
+	if (!raw) return null;
+	if (typeof raw !== "string") return raw;
+	try {
+		return JSON.parse(raw) as DeadlineCalculationDetail;
+	} catch {
+		return null;
+	}
+}
+
+/** "Contestar agravios" → "Vencimiento contestar agravios" (título del calendario). */
+function tituloVencimiento(tipo: string): string {
+	const t = tipo.trim();
+	return t ? `Vencimiento ${t.charAt(0).toLowerCase()}${t.slice(1)}` : "";
+}
+
+const AVISO_OPCIONES = [0, 1, 2, 3, 5, 7, 10];
 
 interface DeadlineType {
 	id: number;
@@ -79,6 +136,10 @@ const STATUS_CONFIG: Record<
 	},
 };
 
+// La app de abogados marca "completado": es lo mismo que "cumplido".
+const normalizeStatus = (status: string) =>
+	status === "completado" ? "cumplido" : status;
+
 interface LawyerInfo {
 	id: number;
 	name: string;
@@ -112,6 +173,16 @@ export const PlazosView = ({
 		{ id: number; name: string }[]
 	>([]);
 	const [deadlineTypes, setDeadlineTypes] = useState<DeadlineType[]>([]);
+	// La circunscripción no tiene catálogo propio: se ofrecen los generales.
+	const [genericTypes, setGenericTypes] = useState(false);
+	// "Otro": sin tipo del catálogo, días editables.
+	const [isOtherType, setIsOtherType] = useState(false);
+	const [showJurisdictionPicker, setShowJurisdictionPicker] = useState(false);
+	const [preview, setPreview] = useState<{
+		dueDate: string;
+		detail: DeadlineCalculationDetail;
+	} | null>(null);
+	const [previewLoading, setPreviewLoading] = useState(false);
 
 	// ── Modal ──
 	const [isModalOpen, setIsModalOpen] = useState(false);
@@ -240,6 +311,7 @@ export const PlazosView = ({
 				if (res.ok) {
 					const data = await res.json();
 					setDeadlineTypes(data.deadlineTypes || []);
+					setGenericTypes(Boolean(data.generic));
 				}
 			} catch (err) {
 				console.error("Error fetching deadline types:", err);
@@ -338,25 +410,76 @@ export const PlazosView = ({
 		}
 	}, [responsibleLawyer]);
 
-	// ── Al cambiar tipo de plazo, actualizar days y daysType ──
+	// ── Al cambiar tipo de plazo: días del catálogo y título automático ──
 	const handleTypeChange = (typeId: number) => {
 		setSelectedDeadlineTypeId(typeId);
+		setIsOtherType(false);
 		const typeObj = deadlineTypes.find((t) => t.id === typeId);
 		if (typeObj) {
 			setForm((prev) => ({
 				...prev,
-				title: typeObj.name,
+				title: tituloVencimiento(typeObj.name),
 				daysCount: String(typeObj.daysCount),
 				daysType: typeObj.daysType || "business",
 			}));
 		}
 	};
 
+	const handleOtherType = () => {
+		setSelectedDeadlineTypeId(null);
+		setIsOtherType(true);
+		setForm((prev) => ({ ...prev, title: "", daysCount: "", daysType: "business" }));
+	};
+
+	// ── Vista previa del vencimiento (modo automático) ──
+	useEffect(() => {
+		if (!isModalOpen || mode !== "auto") {
+			setPreview(null);
+			return;
+		}
+		const days = Number(form.daysCount);
+		if (!form.notificationDate || !Number.isInteger(days) || days < 1) {
+			setPreview(null);
+			return;
+		}
+		setPreviewLoading(true);
+		const timer = setTimeout(async () => {
+			try {
+				const res = await fetch(CASE_DEADLINE_CALCULATE_ENDPOINT(Number(caseId)), {
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+					body: JSON.stringify({
+						notificationDate: form.notificationDate,
+						daysCount: days,
+						daysType: form.daysType,
+					}),
+				});
+				setPreview(res.ok ? await res.json() : null);
+			} catch {
+				setPreview(null);
+			} finally {
+				setPreviewLoading(false);
+			}
+		}, 300);
+		return () => clearTimeout(timer);
+	}, [
+		isModalOpen,
+		mode,
+		form.notificationDate,
+		form.daysCount,
+		form.daysType,
+		caseId,
+		session?.user?.accessToken,
+	]);
+
 	// ── Filtrar y ordenar ──
 	const filteredDeadlines = useMemo(() => {
 		let filtered = deadlines;
 		if (filterStatus !== "all") {
-			filtered = filtered.filter((d) => d.status === filterStatus);
+			filtered = filtered.filter((d) => normalizeStatus(d.status) === filterStatus);
 		}
 		return filtered.sort(
 			(a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime(),
@@ -364,17 +487,13 @@ export const PlazosView = ({
 	}, [deadlines, filterStatus]);
 
 	// ── Calcular días restantes ──
-	const getDaysLeft = (dueDate: string): number => {
-		const now = new Date();
-		now.setHours(0, 0, 0, 0);
-		const due = new Date(dueDate);
-		due.setHours(0, 0, 0, 0);
-		return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-	};
+	const getDaysLeft = daysUntil;
 
 	// ── Handlers ──
 	const handleOpenNew = useCallback(() => {
 		setSelectedDeadlineTypeId(null);
+		setIsOtherType(false);
+		setShowJurisdictionPicker(false);
 		setMode("auto");
 		const firstFile = files[0];
 		const jId = firstFile?.jurisdictionId || firstFile?.court?.jurisdiction?.id;
@@ -399,6 +518,8 @@ export const PlazosView = ({
 	const handleEditDeadline = (deadline: CaseDeadline) => {
 		setEditingId(deadline.id);
 		setSelectedDeadlineTypeId(deadline.deadlineTypeId || null);
+		setIsOtherType(!deadline.deadlineTypeId);
+		setShowJurisdictionPicker(false);
 		setMode(deadline.mode as "auto" | "manual");
 		setForm({
 			jurisdictionId: String(deadline.jurisdictionId),
@@ -420,11 +541,20 @@ export const PlazosView = ({
 	};
 
 	const handleSave = async () => {
-		if (!form.jurisdictionId) {
-			toast.error("Seleccioná una jurisdicción");
+		if (!form.fileId) {
+			toast.error("Seleccioná el expediente del plazo");
 			return;
 		}
-		if (!form.title) {
+		if (!form.jurisdictionId) {
+			toast.error("El expediente no tiene circunscripción: elegila");
+			setShowJurisdictionPicker(true);
+			return;
+		}
+		if (!selectedDeadlineTypeId && !isOtherType) {
+			toast.error("Elegí el tipo de plazo (u 'Otro')");
+			return;
+		}
+		if (!form.title.trim()) {
 			toast.error("Ingresá un título");
 			return;
 		}
@@ -455,9 +585,9 @@ export const PlazosView = ({
 					? deadlineTypes.find((t) => t.id === selectedDeadlineTypeId)?.code ||
 					null
 					: null,
-				title: form.title,
+				title: form.title.trim(),
 				description: form.description || null,
-				fileId: form.fileId ? Number(form.fileId) : null,
+				fileId: Number(form.fileId),
 				responsibleId: Number(form.responsibleId),
 				mode,
 				...(mode === "auto" && {
@@ -468,9 +598,7 @@ export const PlazosView = ({
 				...(mode === "manual" && {
 					dueDate: form.dueDate,
 				}),
-				dueTime: form.dueTime || null,
 				advanceNoticeDays: Number(form.advanceNoticeDays),
-				schedule: form.schedule,
 			};
 
 			const res = await fetch(url, {
@@ -534,7 +662,7 @@ export const PlazosView = ({
 
 	const handleOpenAdjust = (deadline: CaseDeadline) => {
 		setAdjustingDeadline(deadline);
-		setAdjustForm({ newDueDate: deadline.dueDate.split("T")[0], reason: "" });
+		setAdjustForm({ newDueDate: deadline.dueDate.slice(0, 10), reason: "" });
 		setIsAdjustModalOpen(true);
 	};
 
@@ -637,7 +765,9 @@ export const PlazosView = ({
 					)}
 					<button
 						onClick={handleOpenNew}
-						className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-foreground bg-card border border-border rounded-md hover:bg-muted transition-colors"
+						disabled={files.length === 0}
+						title={files.length === 0 ? "Creá primero un expediente en la tab Expedientes" : undefined}
+						className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-foreground bg-card border border-border rounded-md hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						<Plus className="h-3.5 w-3.5" />
 						Nuevo plazo
@@ -659,6 +789,8 @@ export const PlazosView = ({
 					</p>
 					<button
 						onClick={handleOpenNew}
+						disabled={files.length === 0}
+						title={files.length === 0 ? "Creá primero un expediente en la tab Expedientes" : undefined}
 						className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/85 transition-colors"
 					>
 						<Plus className="h-4 w-4" />
@@ -669,12 +801,12 @@ export const PlazosView = ({
 				<div className="p-4 space-y-3">
 					{filteredDeadlines.map((deadline) => {
 						const daysLeft = getDaysLeft(deadline.dueDate);
-						const isOverdue = deadline.status === "pendiente" && daysLeft < 0;
+						const isOverdue = normalizeStatus(deadline.status) === "pendiente" && daysLeft < 0;
 						const isNearDue =
-							deadline.status === "pendiente" && daysLeft >= 0 && daysLeft <= 2;
-						const isCumplido = deadline.status === "cumplido";
-						const config =
-							STATUS_CONFIG[deadline.status] || STATUS_CONFIG.pendiente;
+							normalizeStatus(deadline.status) === "pendiente" && daysLeft >= 0 && daysLeft <= 2;
+						const status = normalizeStatus(deadline.status);
+						const isCumplido = status === "cumplido";
+						const config = STATUS_CONFIG[status] || STATUS_CONFIG.pendiente;
 						const isExpanded = expandedIds.has(deadline.id);
 						const daysTypeLabel =
 							deadline.daysType === "business"
@@ -699,11 +831,11 @@ export const PlazosView = ({
 										{/* Checkbox de estado */}
 										<input
 											type="checkbox"
-											checked={deadline.status === "cumplido"}
+											checked={isCumplido}
 											onChange={() =>
 												handleUpdateStatus(
 													deadline.id,
-													deadline.status === "cumplido"
+													isCumplido
 														? "pendiente"
 														: "cumplido",
 												)
@@ -714,7 +846,7 @@ export const PlazosView = ({
 											{/* Título + badge estado */}
 											<div className="flex items-center gap-2.5 flex-wrap">
 												<span
-													className={`text-base font-semibold text-foreground ${deadline.status === "cumplido" ? "line-through opacity-60" : ""}`}
+													className={`text-base font-semibold text-foreground ${isCumplido ? "line-through opacity-60" : ""}`}
 												>
 													{deadline.title}
 												</span>
@@ -753,7 +885,7 @@ export const PlazosView = ({
 																				handleUpdateStatus(deadline.id, key);
 																				setOpenStatusId(null);
 																			}}
-																			className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors ${deadline.status === key ? "bg-muted font-medium" : ""}`}
+																			className={`w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors ${status === key ? "bg-muted font-medium" : ""}`}
 																		>
 																			<StatusIcon
 																				className={`h-4 w-4 ${key === "pendiente" ? "text-amber-500" : key === "cumplido" ? "text-green-500" : "text-red-500"}`}
@@ -761,7 +893,7 @@ export const PlazosView = ({
 																			<span className="text-foreground">
 																				{cfg.label}
 																			</span>
-																			{deadline.status === key && (
+																			{status === key && (
 																				<CheckCircle2 className="h-3.5 w-3.5 text-primary ml-auto" />
 																			)}
 																		</button>
@@ -777,23 +909,9 @@ export const PlazosView = ({
 											<div className="flex items-center gap-3 mt-1.5 text-sm text-muted-foreground flex-wrap">
 												<span className="inline-flex items-center gap-1">
 													<Calendar className="h-4 w-4" />
-													Vence:{" "}
-													{new Date(deadline.dueDate).toLocaleDateString(
-														"es-AR",
-														{
-															day: "2-digit",
-															month: "2-digit",
-															year: "numeric",
-														},
-													)}
+													Vence: {fmtDate(deadline.dueDate)}
 												</span>
-												{deadline.dueTime && (
-													<span className="inline-flex items-center gap-1">
-														<Clock className="h-4 w-4" />
-														{deadline.dueTime}
-													</span>
-												)}
-												{deadline.status !== "cumplido" && (
+												{!isCumplido && (
 													<span
 														className={`font-medium ${daysLeft < 0 ? "text-red-600" : daysLeft <= 3 ? "text-amber-600" : "text-muted-foreground"}`}
 													>
@@ -835,14 +953,7 @@ export const PlazosView = ({
 														{deadline.originalDueDate && (
 															<>
 																{" "}
-																— Original:{" "}
-																{new Date(
-																	deadline.originalDueDate,
-																).toLocaleDateString("es-AR", {
-																	day: "2-digit",
-																	month: "2-digit",
-																	year: "numeric",
-																})}
+																— Original: {fmtDate(deadline.originalDueDate)}
 															</>
 														)}
 														{deadline.adjustmentReason && (
@@ -902,13 +1013,7 @@ export const PlazosView = ({
 								{isExpanded &&
 									deadline.mode === "auto" &&
 									(() => {
-										const calc = deadline.calculationDetail;
-										const dateOpts: Intl.DateTimeFormatOptions = {
-											weekday: "long",
-											day: "numeric",
-											month: "long",
-											year: "numeric",
-										};
+										const calc = parseCalculationDetail(deadline.calculationDetail);
 										return (
 											<div className="mt-3 ml-7 rounded-lg border border-border bg-muted p-3">
 												<div className="flex items-center gap-1.5 mb-2">
@@ -921,15 +1026,7 @@ export const PlazosView = ({
 													<div>
 														<span className="text-muted-foreground">Notificación:</span>
 														<span className="ml-1 font-medium text-foreground">
-															{calc?.fecha_notificacion
-																? new Date(
-																	calc.fecha_notificacion + "T12:00:00",
-																).toLocaleDateString("es-AR", dateOpts)
-																: deadline.notificationDate
-																	? new Date(
-																		deadline.notificationDate,
-																	).toLocaleDateString("es-AR", dateOpts)
-																	: "—"}
+															{fmtDate(calc?.fecha_notificacion ?? deadline.notificationDate, true)}
 														</span>
 													</div>
 													<div>
@@ -937,11 +1034,7 @@ export const PlazosView = ({
 															Inicio cómputo:
 														</span>
 														<span className="ml-1 font-medium text-foreground">
-															{calc?.fecha_inicio_computo
-																? new Date(
-																	calc.fecha_inicio_computo + "T12:00:00",
-																).toLocaleDateString("es-AR", dateOpts)
-																: "—"}
+															{fmtDate(calc?.fecha_inicio_computo, true)}
 														</span>
 													</div>
 													<div>
@@ -951,24 +1044,11 @@ export const PlazosView = ({
 														</span>
 													</div>
 													<div>
-														<span className="text-muted-foreground">
-															Días hábiles contados:
-														</span>
+														<span className="text-muted-foreground">Vencimiento:</span>
 														<span className="ml-1 font-medium text-foreground">
-															{calc?.dias_habiles_contados ??
-																deadline.daysCount}
+															{fmtDate(deadline.dueDate, true)}
 														</span>
 													</div>
-													{deadline.dueTime && (
-														<div>
-															<span className="text-muted-foreground">
-																Hora de vencimiento:
-															</span>
-															<span className="ml-1 font-medium text-foreground">
-																{deadline.dueTime}hs
-															</span>
-														</div>
-													)}
 													{deadline.deadlineType?.article && (
 														<div>
 															<span className="text-muted-foreground">Artículo:</span>
@@ -1008,12 +1088,7 @@ export const PlazosView = ({
 																		<ul className="ml-4 text-[11px] text-muted-foreground">
 																			{calc.feriados_excluidos.map((f) => (
 																				<li key={f.fecha}>
-																					{new Date(
-																						f.fecha + "T12:00:00",
-																					).toLocaleDateString("es-AR", {
-																						day: "2-digit",
-																						month: "short",
-																					})}{" "}
+																					{fmtDate(f.fecha)}{" "}
 																					- {f.descripcion}
 																				</li>
 																			))}
@@ -1025,8 +1100,7 @@ export const PlazosView = ({
 													)}
 
 												{/* Prórroga por día inhábil */}
-												{calc?.prorrogado_por_inhabil &&
-													calc.fecha_original_vencimiento && (
+												{calc?.prorrogado_por_inhabil && (
 														<div className="mt-2 pt-2 border-t border-border">
 															<div className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
 																<p className="text-xs text-amber-800 dark:text-amber-300">
@@ -1034,18 +1108,8 @@ export const PlazosView = ({
 																		Prórroga por día inhábil
 																	</span>
 																	<br />
-																	El plazo vencía originalmente el{" "}
-																	{new Date(
-																		calc.fecha_original_vencimiento +
-																		"T12:00:00",
-																	).toLocaleDateString("es-AR", {
-																		weekday: "long",
-																		day: "2-digit",
-																		month: "long",
-																		year: "numeric",
-																	})}{" "}
-																	(día inhábil). Se prorrogó al siguiente día
-																	hábil
+																	El último día del plazo caía en un día inhábil: se
+																	prorrogó al siguiente día hábil
 																	{deadline.deadlineType?.article
 																		? ` conforme ${deadline.deadlineType.article}`
 																		: ""}
@@ -1105,181 +1169,19 @@ export const PlazosView = ({
 									{editingId ? "Editar plazo" : "Nuevo plazo procesal"}
 								</DialogTitle>
 								<DialogDescription>
-									Configurá los detalles del plazo procesal
+									Cargá la notificación y el sistema calcula el vencimiento
 								</DialogDescription>
 							</div>
 						</div>
 					</DialogHeader>
 
 					<div className="space-y-5 overflow-y-auto flex-1 pr-1">
-						{/* ── Sección: Información del plazo ── */}
+						{/* ── Expediente → circunscripción ── */}
 						<div className="space-y-3">
-							<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-								Información del plazo
-							</h3>
-
-							{/* Jurisdicción */}
 							<div>
 								<label className={labelClass}>
-									Jurisdicción <span className="text-red-500">*</span>
+									Expediente <span className="text-red-500">*</span>
 								</label>
-								<div ref={jurisdictionDropdownRef} className="relative">
-									<button
-										type="button"
-										onClick={() =>
-											setIsJurisdictionDropdownOpen(!isJurisdictionDropdownOpen)
-										}
-										className={`${inputClass} text-left flex items-center justify-between truncate`}
-									>
-										<span
-											className={`truncate ${form.jurisdictionId ? "text-foreground" : "text-muted-foreground"}`}
-										>
-											{selectedJurisdictionLabel}
-										</span>
-										<ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
-									</button>
-									{isJurisdictionDropdownOpen && (
-										<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-44 overflow-auto">
-											<div className="sticky top-0 bg-card p-1.5 border-b border-border">
-												<div className="relative">
-													<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-													<input
-														ref={jurisdictionSearchRef}
-														type="text"
-														value={jurisdictionSearch}
-														onChange={(e) =>
-															setJurisdictionSearch(e.target.value)
-														}
-														placeholder="Buscar jurisdicción..."
-														className="w-full pl-6 pr-2 py-1 text-xs border border-border rounded bg-muted text-foreground outline-none"
-													/>
-												</div>
-											</div>
-											{searchedJurisdictions.map((j) => (
-												<button
-													key={j.id}
-													type="button"
-													onClick={() => {
-														setForm({ ...form, jurisdictionId: String(j.id) });
-														setIsJurisdictionDropdownOpen(false);
-														setJurisdictionSearch("");
-													}}
-													className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted ${String(j.id) === form.jurisdictionId ? "bg-primary/5 dark:bg-primary/80/20 text-primary dark:text-primary font-medium" : "text-foreground"}`}
-												>
-													{j.name}
-												</button>
-											))}
-											{searchedJurisdictions.length === 0 && (
-												<p className="px-3 py-2 text-xs text-muted-foreground">
-													Sin resultados
-												</p>
-											)}
-										</div>
-									)}
-								</div>
-							</div>
-
-							{/* Tipo de plazo - solo visible si hay jurisdicción */}
-							{form.jurisdictionId && (
-								<div>
-									<label className={labelClass}>Tipo de plazo</label>
-									<div ref={typeDropdownRef} className="relative">
-										<button
-											type="button"
-											onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
-											className={`${inputClass} text-left flex items-center justify-between truncate`}
-										>
-											<span
-												className={`truncate ${selectedDeadlineTypeId ? "text-foreground" : "text-muted-foreground"}`}
-											>
-												{selectedTypeLabel}
-											</span>
-											<ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
-										</button>
-										{isTypeDropdownOpen && (
-											<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-44 overflow-auto">
-												<div className="sticky top-0 bg-card p-1.5 border-b border-border">
-													<div className="relative">
-														<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-														<input
-															ref={typeSearchRef}
-															type="text"
-															value={typeSearch}
-															onChange={(e) => setTypeSearch(e.target.value)}
-															placeholder="Buscar tipo de plazo..."
-															className="w-full pl-6 pr-2 py-1 text-xs border border-border rounded bg-muted text-foreground outline-none"
-														/>
-													</div>
-												</div>
-												{searchedTypes.map((t) => (
-													<button
-														key={t.id}
-														type="button"
-														onClick={() => {
-															handleTypeChange(t.id);
-															setIsTypeDropdownOpen(false);
-															setTypeSearch("");
-														}}
-														className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted ${t.id === selectedDeadlineTypeId ? "bg-primary/5 dark:bg-primary/80/20 text-primary dark:text-primary font-medium" : "text-foreground"}`}
-													>
-														{formatDeadlineTypeLabel(t)}
-													</button>
-												))}
-												{searchedTypes.length === 0 && (
-													<p className="px-3 py-2 text-xs text-muted-foreground">
-														Sin resultados
-													</p>
-												)}
-											</div>
-										)}
-									</div>
-									<p className="mt-0.5 text-xs text-muted-foreground">
-										Selecciona un tipo predefinido, busca o crea uno
-										personalizado
-									</p>
-								</div>
-							)}
-
-							{/* Título */}
-							<div>
-								<label className={labelClass}>
-									Título <span className="text-red-500">*</span>
-								</label>
-								<input
-									type="text"
-									value={form.title}
-									onChange={(e) => setForm({ ...form, title: e.target.value })}
-									placeholder="Ej: Contestar demanda"
-									className={inputClass}
-								/>
-							</div>
-
-							{/* Descripción */}
-							<div>
-								<label className={labelClass}>Descripción</label>
-								<textarea
-									value={form.description}
-									onChange={(e) =>
-										setForm({ ...form, description: e.target.value })
-									}
-									placeholder="Detalles adicionales..."
-									rows={2}
-									className={inputClass}
-								/>
-							</div>
-						</div>
-
-						<div className="border-t border-border" />
-
-						{/* ── Sección: Vinculación y responsable ── */}
-						<div className="space-y-3">
-							<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-								Vinculación y responsable
-							</h3>
-
-							{/* Vincular a caso */}
-							<div>
-								<label className={labelClass}>Vincular a caso</label>
 								<div ref={fileDropdownRef} className="relative">
 									<button
 										type="button"
@@ -1308,27 +1210,21 @@ export const PlazosView = ({
 													/>
 												</div>
 											</div>
-											<button
-												onClick={() => {
-													setForm({ ...form, fileId: "", jurisdictionId: "" });
-													setIsFileDropdownOpen(false);
-												}}
-												className="w-full text-left px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted"
-											>
-												Sin vincular
-											</button>
 											{searchedFiles.map((file) => (
 												<button
 													key={file.id}
+													type="button"
 													onClick={() => {
 														const jId =
-															file.jurisdictionId ||
-															file.court?.jurisdiction?.id;
+															file.jurisdictionId || file.court?.jurisdiction?.id;
 														setForm({
 															...form,
 															fileId: file.id,
 															jurisdictionId: jId ? String(jId) : "",
 														});
+														setShowJurisdictionPicker(!jId);
+														setSelectedDeadlineTypeId(null);
+														setIsOtherType(false);
 														setIsFileDropdownOpen(false);
 														setFileSearch("");
 													}}
@@ -1342,289 +1238,288 @@ export const PlazosView = ({
 								</div>
 							</div>
 
-							{/* Responsable */}
-							{(responsibleLawyer || internalLawyer) && (
+							{/* Circunscripción: sale del expediente; se elige solo si no tiene. */}
+							{form.fileId && !showJurisdictionPicker && form.jurisdictionId && (
+								<p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+									<MapPin className="h-3.5 w-3.5" />
+									Circunscripción:{" "}
+									<span className="font-medium text-foreground">{selectedJurisdictionLabel}</span>
+									<button
+										type="button"
+										onClick={() => setShowJurisdictionPicker(true)}
+										className="ml-1 text-primary hover:underline"
+									>
+										cambiar
+									</button>
+								</p>
+							)}
+							{form.fileId && (showJurisdictionPicker || !form.jurisdictionId) && (
 								<div>
-									<label className={labelClass}>Responsable</label>
-									<div className="grid grid-cols-2 gap-2">
-										{responsibleLawyer && (
-											<label
-												className={`flex items-center gap-2.5 px-3 py-2.5 border rounded-lg cursor-pointer transition-all ${form.responsibleId === String(responsibleLawyer.id)
-														? "border-primary bg-primary/5 ring-1 ring-primary/20"
-														: "border-border hover:border-input hover:bg-muted"
-													}`}
+									<label className={labelClass}>
+										Circunscripción <span className="text-red-500">*</span>
+									</label>
+									<div ref={jurisdictionDropdownRef} className="relative">
+										<button
+											type="button"
+											onClick={() => setIsJurisdictionDropdownOpen(!isJurisdictionDropdownOpen)}
+											className={`${inputClass} text-left flex items-center justify-between truncate`}
+										>
+											<span
+												className={`truncate ${form.jurisdictionId ? "text-foreground" : "text-muted-foreground"}`}
 											>
-												<input
-													type="radio"
-													name="deadline-responsible"
-													value={responsibleLawyer.id}
-													checked={
-														form.responsibleId === String(responsibleLawyer.id)
-													}
-													onChange={(e) =>
-														setForm({ ...form, responsibleId: e.target.value })
-													}
-													className="sr-only"
-												/>
-												<div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold shrink-0">
-													{responsibleLawyer.name.charAt(0).toUpperCase()}
+												{selectedJurisdictionLabel}
+											</span>
+											<ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+										</button>
+										{isJurisdictionDropdownOpen && (
+											<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-44 overflow-auto">
+												<div className="sticky top-0 bg-card p-1.5 border-b border-border">
+													<div className="relative">
+														<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+														<input
+															ref={jurisdictionSearchRef}
+															type="text"
+															value={jurisdictionSearch}
+															onChange={(e) => setJurisdictionSearch(e.target.value)}
+															placeholder="Buscar circunscripción..."
+															className="w-full pl-6 pr-2 py-1 text-xs border border-border rounded bg-muted text-foreground outline-none"
+														/>
+													</div>
 												</div>
-												<div className="min-w-0">
-													<p className="text-sm font-medium text-foreground truncate">
-														{responsibleLawyer.name}
-													</p>
-													<p className="text-[11px] text-muted-foreground">
-														Abogado responsable
-													</p>
-												</div>
-											</label>
+												{searchedJurisdictions.map((j) => (
+													<button
+														key={j.id}
+														type="button"
+														onClick={() => {
+															setForm({ ...form, jurisdictionId: String(j.id) });
+															setSelectedDeadlineTypeId(null);
+															setIsOtherType(false);
+															setIsJurisdictionDropdownOpen(false);
+															setJurisdictionSearch("");
+															setShowJurisdictionPicker(false);
+														}}
+														className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted ${String(j.id) === form.jurisdictionId ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
+													>
+														{j.name}
+													</button>
+												))}
+											</div>
 										)}
-										{internalLawyer &&
-											internalLawyer.id !== responsibleLawyer?.id && (
-												<label
-													className={`flex items-center gap-2.5 px-3 py-2.5 border rounded-lg cursor-pointer transition-all ${form.responsibleId === String(internalLawyer.id)
-															? "border-primary bg-primary/5 ring-1 ring-primary/20"
-															: "border-border hover:border-input hover:bg-muted"
-														}`}
-												>
-													<input
-														type="radio"
-														name="deadline-responsible"
-														value={internalLawyer.id}
-														checked={
-															form.responsibleId === String(internalLawyer.id)
-														}
-														onChange={(e) =>
-															setForm({
-																...form,
-																responsibleId: e.target.value,
-															})
-														}
-														className="sr-only"
-													/>
-													<div className="flex items-center justify-center w-7 h-7 rounded-full bg-purple-100 text-purple-700 text-xs font-bold shrink-0">
-														{internalLawyer.name.charAt(0).toUpperCase()}
-													</div>
-													<div className="min-w-0">
-														<p className="text-sm font-medium text-foreground truncate">
-															{internalLawyer.name}
-														</p>
-														<p className="text-[11px] text-muted-foreground">
-															Abogado interno
-														</p>
-													</div>
-												</label>
-											)}
 									</div>
 								</div>
 							)}
 						</div>
 
-						{/* Modo de vencimiento - aparece al seleccionar tipo de plazo */}
-						{selectedDeadlineTypeId && (
-							<>
-								<div className="border-t border-border" />
-
-								<div className="space-y-3">
-									<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-										Vencimiento
-									</h3>
-									<div>
-										<label className={labelClass}>Modo de vencimiento</label>
-										<div className="flex rounded-md border border-input overflow-hidden">
-											<button
-												type="button"
-												onClick={() => setMode("auto")}
-												className={`flex-1 px-2 py-1.5 text-xs font-medium transition-colors ${mode === "auto" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted"}`}
+						{/* ── Tipo de plazo y título ── */}
+						{form.jurisdictionId && (
+							<div className="space-y-3">
+								<div>
+									<label className={labelClass}>
+										Tipo de plazo <span className="text-red-500">*</span>
+									</label>
+									<div ref={typeDropdownRef} className="relative">
+										<button
+											type="button"
+											onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
+											className={`${inputClass} text-left flex items-center justify-between truncate`}
+										>
+											<span
+												className={`truncate ${selectedDeadlineTypeId || isOtherType ? "text-foreground" : "text-muted-foreground"}`}
 											>
-												Calcular automático
-											</button>
-											<button
-												type="button"
-												onClick={() => setMode("manual")}
-												className={`flex-1 px-2 py-1.5 text-xs font-medium transition-colors ${mode === "manual" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted"}`}
-											>
-												Fecha manual
-											</button>
-										</div>
+												{isOtherType ? "Otro (días a mano)" : selectedTypeLabel}
+											</span>
+											<ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
+										</button>
+										{isTypeDropdownOpen && (
+											<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-52 overflow-auto">
+												<div className="sticky top-0 bg-card p-1.5 border-b border-border">
+													<div className="relative">
+														<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+														<input
+															ref={typeSearchRef}
+															type="text"
+															value={typeSearch}
+															onChange={(e) => setTypeSearch(e.target.value)}
+															placeholder="Buscar tipo de plazo..."
+															className="w-full pl-6 pr-2 py-1 text-xs border border-border rounded bg-muted text-foreground outline-none"
+														/>
+													</div>
+												</div>
+												{searchedTypes.map((t) => (
+													<button
+														key={t.id}
+														type="button"
+														onClick={() => {
+															handleTypeChange(t.id);
+															setIsTypeDropdownOpen(false);
+															setTypeSearch("");
+														}}
+														className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted ${t.id === selectedDeadlineTypeId ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
+													>
+														{formatDeadlineTypeLabel(t)}
+													</button>
+												))}
+												<button
+													type="button"
+													onClick={() => {
+														handleOtherType();
+														setIsTypeDropdownOpen(false);
+														setTypeSearch("");
+													}}
+													className={`w-full text-left px-3 py-1.5 text-sm border-t border-border hover:bg-muted ${isOtherType ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
+												>
+													Otro (cargo los días a mano)
+												</button>
+											</div>
+										)}
 									</div>
+									{genericTypes && (
+										<p className="mt-0.5 text-xs text-muted-foreground">
+											Esta circunscripción no tiene catálogo propio: se muestran los tipos
+											generales.
+										</p>
+									)}
+								</div>
 
-									{/* Campos según modo */}
-									{mode === "auto" ? (
-										<div className="bg-muted rounded-lg p-3 space-y-2.5">
+								<div>
+									<label className={labelClass}>
+										Título <span className="text-red-500">*</span>
+										<span className="font-normal"> — es lo que se ve en el calendario</span>
+									</label>
+									<input
+										type="text"
+										value={form.title}
+										onChange={(e) => setForm({ ...form, title: e.target.value })}
+										placeholder="Ej: Vencimiento contestación de agravios"
+										className={inputClass}
+									/>
+								</div>
+							</div>
+						)}
+
+						{/* ── Vencimiento ── */}
+						{(selectedDeadlineTypeId || isOtherType) && (
+							<div className="space-y-3">
+								<div className="flex rounded-md border border-input overflow-hidden">
+									<button
+										type="button"
+										onClick={() => setMode("auto")}
+										className={`flex-1 px-2 py-1.5 text-xs font-medium transition-colors ${mode === "auto" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted"}`}
+									>
+										Calcular desde la notificación
+									</button>
+									<button
+										type="button"
+										onClick={() => setMode("manual")}
+										className={`flex-1 px-2 py-1.5 text-xs font-medium transition-colors ${mode === "manual" ? "bg-primary text-white" : "bg-card text-muted-foreground hover:bg-muted"}`}
+									>
+										Cargar el vencimiento
+									</button>
+								</div>
+
+								{mode === "auto" ? (
+									<div className="bg-muted rounded-lg p-3 space-y-2.5">
+										<div className="grid grid-cols-2 gap-2">
 											<div>
-												<label className={labelClass}>
-													Fecha de notificación
-												</label>
+												<label className={labelClass}>Fecha de notificación</label>
 												<input
 													type="date"
 													value={form.notificationDate}
-													onChange={(e) =>
-														setForm({
-															...form,
-															notificationDate: e.target.value,
-														})
-													}
+													onChange={(e) => setForm({ ...form, notificationDate: e.target.value })}
 													className={inputClass}
 												/>
 											</div>
-											<div className="grid grid-cols-2 gap-2">
-												<div>
-													<label className={labelClass}>Cantidad de días</label>
-													<input
-														type="number"
-														value={form.daysCount}
-														onChange={(e) =>
-															setForm({ ...form, daysCount: e.target.value })
-														}
-														placeholder="Ej: 10"
-														min="1"
-														className={inputClass}
-													/>
-												</div>
-												<div>
-													<label className={labelClass}>Tipo de días</label>
-													<select
-														value={form.daysType}
-														onChange={(e) =>
-															setForm({ ...form, daysType: e.target.value })
-														}
-														className={selectClass}
-													>
-														<option value="business">Hábiles</option>
-														<option value="calendar">Corridos</option>
-													</select>
-												</div>
+											<div>
+												<label className={labelClass}>
+													{form.daysType === "calendar" ? "Días corridos" : "Días hábiles"}
+												</label>
+												<input
+													type="number"
+													value={form.daysCount}
+													onChange={(e) => setForm({ ...form, daysCount: e.target.value })}
+													placeholder="Ej: 10"
+													min="1"
+													className={inputClass}
+												/>
 											</div>
 										</div>
-									) : (
-										<div className="bg-muted rounded-lg p-3">
-											<div className="grid grid-cols-2 gap-2">
-												<div>
-													<label className={labelClass}>
-														Fecha de vencimiento
-													</label>
-													<input
-														type="date"
-														value={form.dueDate}
-														onChange={(e) =>
-															setForm({ ...form, dueDate: e.target.value })
-														}
-														className={inputClass}
-													/>
-												</div>
-												<div>
-													<label className={labelClass}>Hora (opcional)</label>
-													<input
-														type="time"
-														value={form.dueTime}
-														onChange={(e) =>
-															setForm({ ...form, dueTime: e.target.value })
-														}
-														className={inputClass}
-													/>
-												</div>
+										<p className="text-[11px] text-muted-foreground">
+											Notificación: el día que llegó la cédula o la notificación electrónica.
+											El plazo empieza a correr el día hábil siguiente y se saltean fines de
+											semana, feriados y ferias judiciales.
+										</p>
+										{previewLoading ? (
+											<p className="text-xs text-muted-foreground">Calculando…</p>
+										) : preview ? (
+											<div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2">
+												<p className="text-sm text-foreground">
+													Vence el{" "}
+													<span className="font-semibold">{fmtDate(preview.dueDate, true)}</span>
+												</p>
+												<p className="text-[11px] text-muted-foreground">
+													Último día del plazo
+													{preview.detail.feriados_excluidos.length > 0 &&
+														` · se saltearon ${preview.detail.feriados_excluidos.length} días de feriado o feria`}
+												</p>
 											</div>
-										</div>
-									)}
-
-									{/* Días de aviso anticipado */}
-									<div>
-										<label className={labelClass}>
-											Días de aviso anticipado
-										</label>
+										) : null}
+									</div>
+								) : (
+									<div className="bg-muted rounded-lg p-3 space-y-1.5">
+										<label className={labelClass}>Fecha de vencimiento</label>
 										<input
-											type="number"
-											value={form.advanceNoticeDays}
-											onChange={(e) =>
-												setForm({ ...form, advanceNoticeDays: e.target.value })
-											}
-											min="0"
+											type="date"
+											value={form.dueDate}
+											onChange={(e) => setForm({ ...form, dueDate: e.target.value })}
 											className={inputClass}
 										/>
+										<p className="text-[11px] text-muted-foreground">
+											Vencimiento: el último día para presentar. Se guarda tal cual, sin cálculo.
+										</p>
+									</div>
+								)}
+
+								<div className="grid grid-cols-2 gap-2">
+									<div>
+										<label className={labelClass}>Avisar por mail</label>
+										<select
+											value={form.advanceNoticeDays}
+											onChange={(e) => setForm({ ...form, advanceNoticeDays: e.target.value })}
+											className={selectClass}
+										>
+											{AVISO_OPCIONES.map((n) => (
+												<option key={n} value={String(n)}>
+													{n === 0 ? "Solo el día que vence" : `${n} día${n > 1 ? "s" : ""} antes`}
+												</option>
+											))}
+										</select>
+									</div>
+									<div>
+										<label className={labelClass}>Responsable</label>
+										<select
+											value={form.responsibleId}
+											onChange={(e) => setForm({ ...form, responsibleId: e.target.value })}
+											className={selectClass}
+										>
+											{responsibleLawyer && (
+												<option value={String(responsibleLawyer.id)}>
+													{responsibleLawyer.name} (responsable)
+												</option>
+											)}
+											{internalLawyer && internalLawyer.id !== responsibleLawyer?.id && (
+												<option value={String(internalLawyer.id)}>
+													{internalLawyer.name} (interno)
+												</option>
+											)}
+										</select>
 									</div>
 								</div>
-							</>
+								<p className="text-[11px] text-muted-foreground">
+									El aviso llega a las 8:00 a los dos abogados del caso, y otra vez el día del
+									vencimiento. El vencimiento se agenda solo en el calendario.
+								</p>
+							</div>
 						)}
-
-						{/* ── Sección: Hora y calendario ── */}
-						<div className="border-t border-border" />
-						<div className="space-y-3">
-							<h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-								Hora y calendario
-							</h3>
-
-							{/* Hora de vencimiento */}
-							<div>
-								<label className={labelClass}>
-									Hora de vencimiento (opcional)
-								</label>
-								<div className="relative">
-									<input
-										type="time"
-										value={form.dueTime}
-										onChange={(e) =>
-											setForm({ ...form, dueTime: e.target.value })
-										}
-										className={inputClass}
-									/>
-									<Clock className="absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-								</div>
-								<p className="mt-0.5 text-xs text-muted-foreground">
-									Si se indica, el plazo aparecerá con hora en el calendario. Si
-									no, será un evento de día completo.
-								</p>
-							</div>
-
-							{/* Agendar en calendario */}
-							<div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-								<div>
-									<p className="text-sm font-medium text-foreground">
-										Agendar en calendario
-									</p>
-									<p className="text-xs text-muted-foreground">
-										Se creará un evento en el calendario del responsable
-									</p>
-								</div>
-								<button
-									type="button"
-									role="switch"
-									aria-checked={form.schedule === "si"}
-									onClick={() =>
-										setForm({
-											...form,
-											schedule: form.schedule === "si" ? "no" : "si",
-										})
-									}
-									className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors ${form.schedule === "si" ? "bg-primary" : "bg-muted-foreground"}`}
-								>
-									<span
-										className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${form.schedule === "si" ? "translate-x-4" : "translate-x-0"}`}
-									/>
-								</button>
-							</div>
-						</div>
-
-						{/* Avisos */}
-						<div className="border-t border-border" />
-						<div className="space-y-1.5">
-							<div className="rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-3 py-2">
-								<p className="text-xs text-blue-800 dark:text-blue-300">
-									<span className="font-semibold">Nota:</span> Legalistas
-									mantiene los plazos actualizados, pero recomendamos verificar
-									siempre con la normativa procesal vigente. Los plazos pueden
-									modificarse por reformas legislativas.
-								</p>
-							</div>
-							<div className="rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
-								<p className="text-xs text-amber-800 dark:text-amber-300">
-									<span className="font-semibold">Atención:</span> Los días
-									pueden variar según la materia del caso (civil, laboral,
-									penal, etc.). Verificá siempre con la normativa específica de
-									tu materia.
-								</p>
-							</div>
-						</div>
 					</div>
 
 					{/* Actions */}
@@ -1685,12 +1580,7 @@ export const PlazosView = ({
 											: "actual"}
 										:
 									</span>{" "}
-									{adjustingDeadline?.dueDate
-										? new Date(adjustingDeadline.dueDate).toLocaleDateString(
-											"es-AR",
-											{ day: "2-digit", month: "2-digit", year: "numeric" },
-										)
-										: "—"}
+									{fmtDate(adjustingDeadline?.dueDate)}
 								</p>
 							</div>
 						</div>

@@ -315,6 +315,9 @@ export const CASE_DEADLINE_BY_ID_ENDPOINT = (
 	caseId: number,
 	deadlineId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/deadlines/${deadlineId}`;
+// Vista previa del vencimiento (fecha de notificación + días), sin guardar.
+export const CASE_DEADLINE_CALCULATE_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/deadlines/calculate`;
 
 // Customers
 export const CUSTOMERS_ENDPOINT = `${API_BASE_URL}/customers`;

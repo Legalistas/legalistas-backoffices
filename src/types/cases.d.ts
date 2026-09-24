@@ -118,6 +118,21 @@ export interface CaseEvent {
 	};
 }
 
+/** Detalle del cómputo automático de un plazo (backend: case-deadlines.service). */
+export interface DeadlineCalculationDetail {
+	tipo_dias: "business" | "calendar";
+	cantidad_dias: number;
+	fecha_notificacion: string;
+	fecha_inicio_computo: string;
+	fecha_vencimiento?: string;
+	/** Cálculos viejos (antes del 24/09/2026). */
+	fecha_original_vencimiento?: string | null;
+	fines_semana_excluidos: number;
+	feriados_excluidos: { fecha: string; descripcion: string }[];
+	prorrogado_por_inhabil: boolean;
+	calculado_at: string;
+}
+
 export interface CaseDeadline {
 	id: number;
 	caseId: number;
@@ -136,18 +151,8 @@ export interface CaseDeadline {
 	dueTime?: string | null;
 	advanceNoticeDays: number;
 	schedule: number;
-	calculationDetail?: {
-		tipo_dias: string;
-		cantidad_dias: number;
-		fecha_notificacion: string;
-		fecha_inicio_computo: string;
-		fecha_original_vencimiento: string | null;
-		dias_habiles_contados: number;
-		fines_semana_excluidos: number;
-		feriados_excluidos: { fecha: string; descripcion: string }[];
-		prorrogado_por_inhabil: boolean;
-		calculado_at: string;
-	} | null;
+	/** JSON guardado como texto (LongText): usar parseCalculationDetail. */
+	calculationDetail?: string | DeadlineCalculationDetail | null;
 	adjustmentReason?: string | null;
 	adjustedAt?: string | null;
 	originalDueDate?: string | null;
