@@ -22,7 +22,7 @@ import {
 	CASE_EXPENSE_BY_ID_ENDPOINT,
 	CASE_EXPENSES_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { TYPES_PROCCESS } from "@/constant/causes";
+import { getExpedienteLabel } from "@/lib/expediente-label";
 import { apiErrorMessage } from "@/lib/api-error";
 import type { CaseExpense, CasesFiles } from "@/types/cases";
 
@@ -37,23 +37,8 @@ const CATEGORY_OPTIONS = [
 	{ value: "otros", label: "Otros" },
 ];
 
-const getFileLabel = (f: any, customerName?: string): string => {
-	const parts = f.parts || [];
-	const actor = parts.find(
-		(p: any) => p.partyType === "actor" || p.partyType === "demandante",
-	);
-	const demandado = parts.find((p: any) => p.partyType === "demandado");
-	const actorName = actor?.name || customerName || "";
-	const demandadoName = demandado?.name || (actorName ? "Sin partes" : "");
-	const partesLabel = actorName ? `${actorName} C/ ${demandadoName}` : "";
-	const processType = f.typeProcessId
-		? TYPES_PROCCESS.find((t: any) => t.id === f.typeProcessId)?.value
-		: "";
-	const caratula = partesLabel
-		? `${partesLabel}${processType ? ` S/ ${processType}` : ""}`
-		: f.title || `Expediente #${f.id}`;
-	return `${caratula}${f.cuij ? ` — ${f.cuij}` : ""}`;
-};
+// Carátula del expediente: helper compartido (usa la carátula automática).
+const getFileLabel = getExpedienteLabel;
 
 const EMPTY_FORM = {
 	fileId: "" as string | number,

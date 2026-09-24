@@ -1215,6 +1215,8 @@ export default function AccidentsWorkPage() {
 					const formData = new FormData();
 					formData.append("file", pdfBlob, pdfFileName);
 					formData.append("caseId", String(selectedFile.caseId));
+					// Va a la carpeta del expediente (1_ESCRITOS/), no a 0_DOCUMENTOS.
+					formData.append("fileId", String(selectedFile.id));
 					formData.append("category", "LIQUIDACION_LRT");
 					formData.append("description", `Liquidación LRT PDF - ${selectedCause.customer.name}`);
 

@@ -29,12 +29,9 @@ export async function renderPdfBlob(
 export function SrtPdfPreview({
 	doc,
 	fileName,
-	blobRef,
 }: {
 	doc: ReactElement<DocumentProps>;
 	fileName: string;
-	/** La página lo usa para obtener el PDF al guardar. */
-	blobRef?: { current: (() => Promise<Blob>) | null };
 }) {
 	const [url, setUrl] = useState<string | null>(null);
 	const [rendering, setRendering] = useState(true);
@@ -43,8 +40,6 @@ export function SrtPdfPreview({
 	const urlRef = useRef<string | null>(null);
 
 	useEffect(() => {
-		if (blobRef) blobRef.current = () => renderPdfBlob(doc);
-
 		let cancelled = false;
 		setRendering(true);
 
@@ -69,7 +64,7 @@ export function SrtPdfPreview({
 		return () => {
 			cancelled = true;
 		};
-	}, [doc, blobRef]);
+	}, [doc]);
 
 	// Al desmontar, soltar el último objeto URL.
 	useEffect(() => {

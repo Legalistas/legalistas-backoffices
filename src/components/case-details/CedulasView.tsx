@@ -28,7 +28,8 @@ import {
 	CASE_PARTS_ENDPOINT,
 	CASES_FILES_BY_CASE_ID_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { TYPES_PROCCESS } from "@/constant/causes";
+import { isAdministrativeProcessType } from "@/constant/causes";
+import { getExpedienteLabel } from "@/lib/expediente-label";
 import { CEDULA_TEMPLATES } from "@/constant/cedula-templates";
 import { useConfirm } from "@/hooks/useConfirm";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -36,19 +37,22 @@ import type { CasesFiles } from "@/types/cases";
 
 interface Cedula {
 	id: number;
-	caseFileId: number;
+	fileId: number | null;
 	cedulaType: string;
 	partId: number;
 	partName?: string;
 	content: string;
 	pdfPath?: string;
+	// PDF en MinIO: 1_ESCRITOS/{expediente}/CEDULAS/{destinatario}/
+	objectKey?: string | null;
 	juez?: string;
 	secretaria?: string;
 	generatedDate: string;
 	status: string;
 	createdAt: string;
 	updatedAt: string;
-	caseFile?: {
+	// El backend lo devuelve como `file` (antes se leía `caseFile` y nunca llegaba).
+	file?: {
 		id: number;
 		title: string;
 		cuij?: string;
@@ -99,24 +103,8 @@ const CEDULA_TYPE_OPTIONS = [
 	{ value: "comun_cualquiera", label: "Común a cualquiera" },
 ];
 
-// Armar label del expediente con carátula: "Actor C/ Demandado S/ TipoProceso — CUIJ"
-const getFileLabel = (f: any, customerName?: string): string => {
-	const parts = f.parts || [];
-	const actor = parts.find(
-		(p: any) => p.partyType === "actor" || p.partyType === "demandante",
-	);
-	const demandado = parts.find((p: any) => p.partyType === "demandado");
-	const actorName = actor?.name || customerName || "";
-	const demandadoName = demandado?.name || (actorName ? "Sin partes" : "");
-	const partesLabel = actorName ? `${actorName} C/ ${demandadoName}` : "";
-	const processType = f.typeProcessId
-		? TYPES_PROCCESS.find((t: any) => t.id === f.typeProcessId)?.value
-		: "";
-	const caratula = partesLabel
-		? `${partesLabel}${processType ? ` S/ ${processType}` : ""}`
-		: f.title || `Expediente #${f.id}`;
-	return `${caratula}${f.cuij ? ` — ${f.cuij}` : ""}`;
-};
+// Carátula del expediente: helper compartido (usa la carátula automática).
+const getFileLabel = getExpedienteLabel;
 
 interface CedulasViewProps {
 	caseId: string;
@@ -194,16 +182,47 @@ export const CedulasView = ({
 		return getFileLabel(f, customerName);
 	}, [selectedFileId, files, customerName]);
 
+	// Solo expedientes judiciales: los administrativos no tienen cédulas.
+	const judicialFiles = useMemo(
+		() => files.filter((f) => !isAdministrativeProcessType(f.typeProcessId)),
+		[files],
+	);
+
 	const searchedFiles = useMemo(() => {
-		if (!fileSearch) return files;
+		if (!fileSearch) return judicialFiles;
 		const q = fileSearch.toLowerCase();
-		return files.filter(
+		return judicialFiles.filter(
 			(f) =>
 				f.title?.toLowerCase().includes(q) ||
 				f.cuij?.toLowerCase().includes(q) ||
 				f.id.toString().includes(q),
 		);
-	}, [files, fileSearch]);
+	}, [judicialFiles, fileSearch]);
+
+	// Mismo criterio que la carpeta CEDULAS/ del expediente: agrupadas por
+	// destinatario y, dentro de cada uno, de la más antigua a la más reciente
+	// (el backend ya las devuelve en orden cronológico). Aplica igual a cédula
+	// judicial y carta certificada.
+	const grupos = useMemo(() => {
+		const map = new Map<string, { key: string; label: string; expediente: string; items: Cedula[] }>();
+		for (const c of cedulas) {
+			const destinatario = c.partName || "Parte no especificada";
+			const key = `${c.fileId ?? "sin"}|${destinatario}`;
+			if (!map.has(key)) {
+				map.set(key, {
+					key,
+					label: destinatario,
+					expediente: c.file ? getFileLabel(c.file, customerName) : "Sin expediente",
+					items: [],
+				});
+			}
+			map.get(key)?.items.push(c);
+		}
+		return [...map.values()].sort(
+			(a, b) =>
+				a.expediente.localeCompare(b.expediente) || a.label.localeCompare(b.label),
+		);
+	}, [cedulas, customerName]);
 
 	// Fetch all cedulas for the case
 	const fetchCedulas = useCallback(async () => {
@@ -691,14 +710,26 @@ export const CedulasView = ({
 		printWindow.onload = () => setTimeout(() => printWindow.print(), 250);
 	};
 
-	const handleDownload = (cedula: Cedula) => {
-		if (!cedula.pdfPath) {
-			toast.error("No se encontró el archivo de la cédula");
+	// El PDF guardado en la carpeta del expediente (MinIO), no el HTML de disco.
+	const handleDownload = async (cedula: Cedula) => {
+		if (!cedula.objectKey) {
+			toast.error("Esta cédula no tiene un PDF guardado");
 			return;
 		}
-		const apiUrl =
-			process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3001";
-		window.open(`${apiUrl}/upload/${cedula.pdfPath}`, "_blank");
+		try {
+			const res = await fetch(
+				`${CASE_CEDULA_BY_ID_ENDPOINT(Number(caseId), cedula.id)}/pdf`,
+				{ headers: { Authorization: `Bearer ${session?.user?.accessToken}` } },
+			);
+			if (!res.ok)
+				throw new Error(await apiErrorMessage(res, "Error al abrir la cédula"));
+			const { url } = (await res.json()) as { url: string };
+			window.open(url, "_blank", "noopener,noreferrer");
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Error al abrir la cédula",
+			);
+		}
 	};
 
 	const formatDate = (dateStr: string) =>
@@ -776,8 +807,20 @@ export const CedulasView = ({
 						</button>
 					</div>
 				) : (
-					<div className="p-4 space-y-3">
-						{cedulas.map((cedula) => {
+					<div className="p-4 space-y-5">
+						{grupos.map((grupo) => (
+						<div key={grupo.key} className="space-y-3">
+							<div className="flex items-baseline gap-2 border-b border-border pb-1">
+								<User className="h-3.5 w-3.5 shrink-0 self-center text-muted-foreground" />
+								<span className="text-sm font-semibold text-foreground">
+									{grupo.label}
+								</span>
+								<span className="truncate text-xs text-muted-foreground">
+									{grupo.expediente} · {grupo.items.length} cédula
+									{grupo.items.length === 1 ? "" : "s"}
+								</span>
+							</div>
+						{grupo.items.map((cedula) => {
 							const config =
 								estadoConfig[cedula.status] || estadoConfig.generada;
 							const Icon = config.icon;
@@ -817,13 +860,13 @@ export const CedulasView = ({
 															{cedula.partName || "Parte no especificada"}
 														</span>
 													</div>
-													{cedula.caseFile && (
+													{cedula.file && (
 														<>
 															<span>•</span>
 															<div className="flex items-center gap-1.5">
 																<FileText className="h-3.5 w-3.5 text-blue-400 shrink-0" />
 																<span>
-																	{getFileLabel(cedula.caseFile, customerName)}
+																	{getFileLabel(cedula.file, customerName)}
 																</span>
 															</div>
 														</>
@@ -869,6 +912,8 @@ export const CedulasView = ({
 								</div>
 							);
 						})}
+						</div>
+						))}
 					</div>
 				)}
 			</div>
@@ -943,7 +988,9 @@ export const CedulasView = ({
 											))}
 											{searchedFiles.length === 0 && (
 												<div className="px-2.5 py-2 text-xs text-muted-foreground">
-													No se encontraron expedientes
+													{judicialFiles.length === 0
+														? "El caso no tiene expedientes judiciales (los administrativos no llevan cédulas)"
+														: "No se encontraron expedientes"}
 												</div>
 											)}
 										</div>

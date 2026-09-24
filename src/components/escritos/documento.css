@@ -1,0 +1,32 @@
+/*
+ * Estilos del contenido de un escrito en el editor. Son las mismas reglas que
+ * usa el backend para el PDF (backend/src/modules/escritos/utils/documento.ts,
+ * cssDocumento) para que lo que se ve acá se parezca a lo que se genera.
+ * Si cambiás algo acá, cambialo allá.
+ *
+ * Fuente, tamaño e interlineado vienen del formato del escrito como variables
+ * CSS (--doc-fuente, --doc-tamano, --doc-interlineado).
+ */
+.escrito-documento {
+	color: #000;
+	font-family: var(--doc-fuente, "Times New Roman", Tinos, "Liberation Serif", serif);
+	font-size: var(--doc-tamano, 12pt);
+	line-height: var(--doc-interlineado, 1.5);
+	outline: none;
+}
+.escrito-documento p { margin: 0 0 0.5em; }
+.escrito-documento h1,
+.escrito-documento h2,
+.escrito-documento h3 { margin: 0 0 0.5em; line-height: 1.2; font-weight: bold; }
+.escrito-documento h1 { font-size: 1.5em; }
+.escrito-documento h2 { font-size: 1.25em; }
+.escrito-documento h3 { font-size: 1.1em; }
+.escrito-documento ul,
+.escrito-documento ol { margin: 0 0 0.5em; padding-left: 1.5em; }
+.escrito-documento ul { list-style: disc; }
+.escrito-documento ol { list-style: decimal; }
+.escrito-documento li p { margin: 0; }
+.escrito-documento blockquote { margin: 0 0 0.5em 2em; }
+.escrito-documento strong { font-weight: bold; }
+.escrito-documento em { font-style: italic; }
+.escrito-documento u { text-decoration: underline; }

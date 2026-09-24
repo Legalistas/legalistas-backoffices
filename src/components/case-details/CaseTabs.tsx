@@ -19,6 +19,7 @@ import { CaseAnalysisView } from "@/components/case-analyzer/CaseAnalysisView";
 import CaseFilesMinio from "./CaseFilesMinio";
 import CaseLogsComponent from "./CaseLogsComponent";
 import { CedulasView } from "./CedulasView";
+import { EscritosView } from "./EscritosView";
 import ConsultationsView from "./ConsultationsView";
 import { EventosView } from "./EventosView";
 import { FilesListView } from "./FilesListView";
@@ -106,6 +107,7 @@ export const CaseTabs = ({
 				<TabsTrigger value="eventos">Eventos</TabsTrigger>
 				<TabsTrigger value="plazos">Plazos</TabsTrigger>
 				<TabsTrigger value="documents">Documentos</TabsTrigger>
+				<TabsTrigger value="escritos">Escritos</TabsTrigger>
 				<TabsTrigger value="notes">Notas</TabsTrigger>
 				<TabsTrigger value="liquidacion">Liquidación</TabsTrigger>
 				<TabsTrigger value="partes">Partes</TabsTrigger>
@@ -153,12 +155,26 @@ export const CaseTabs = ({
 				/>
 			</TabsContent>
 
-			{/* 4. Documentos (árbol MinIO scopeado al caso) */}
+			{/* 4. Documentos (árbol MinIO scopeado al caso): Documentos del caso +
+			    Escritos por expediente */}
 			<TabsContent value="documents" className={tabContentClass}>
 				<div className="space-y-4 p-4">
+					<CaseFilesMinio
+						caseId={caseId}
+						files={filteredFiles}
+						customerName={customer?.name}
+					/>
 					<SrtFormsHistory caseId={caseId} />
-					<CaseFilesMinio caseId={caseId} />
 				</div>
+			</TabsContent>
+
+			{/* 4b. Escritos por expediente, en orden cronológico */}
+			<TabsContent value="escritos" className={tabContentClass}>
+				<EscritosView
+					caseId={caseId}
+					files={filteredFiles}
+					customerName={customer?.name}
+				/>
 			</TabsContent>
 
 			{/* 5. Notas */}

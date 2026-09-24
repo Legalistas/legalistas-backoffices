@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bell,
   CalendarDays,
+  FileText,
   FolderCog,
   HardDrive,
   Handshake,
@@ -176,6 +177,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Casos",
         path: "/admin/legal-cases",
         roles: LEGAL,
+      },
+      {
+        icon: FileText,
+        name: "Plantillas de escritos",
+        path: "/admin/escritos/plantillas",
+        roles: LEGAL_INTERNO,
       },
       {
         icon: Wrench,

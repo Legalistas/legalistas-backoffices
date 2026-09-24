@@ -30,6 +30,8 @@ export interface CasesFiles {
 	filesParts: any[]; // Assuming filesParts is an array of any type
 	fileMovements?: CasesFilesMovement[];
 	accidentDate?: string;
+	// Tipo de lesión de este expediente (se copia del caso al crearlo).
+	injury?: string | null;
 	instanceExpiration?: string;
 }
 

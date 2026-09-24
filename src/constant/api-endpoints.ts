@@ -109,6 +109,33 @@ export const ME_ATTENDANCE_ACTION_ENDPOINT = `${API_BASE_URL}/me/attendance/acti
 // LEGAL CASES
 export const CASES_ENDPOINT = `${API_BASE_URL}/cases`;
 export const CASES_EXPIRATION_ALERTS_ENDPOINT = `${API_BASE_URL}/cases/expiration-alerts`;
+// Expedientes del caso.
+export const CASE_FILES_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/files`;
+// Subida al caso: sin `fileId` va a Documentos; con `fileId`, a los Escritos
+// de ese expediente.
+export const CASE_DOCUMENTS_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/documents`;
+// Escritos y plantillas.
+export const ESCRITOS_ENDPOINT = `${API_BASE_URL}/escritos`;
+export const ESCRITO_ENDPOINT = (id: number) => `${API_BASE_URL}/escritos/${id}`;
+// Vista previa: PDF de lo último guardado, sin archivarlo.
+export const ESCRITO_PDF_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/escritos/${id}/pdf`;
+// Genera el PDF y lo guarda en la carpeta del expediente.
+export const ESCRITO_GUARDAR_PDF_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/escritos/${id}/guardar-pdf`;
+export const ESCRITO_PDF_GUARDADO_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/escritos/${id}/pdf-guardado`;
+export const ESCRITOS_VARIABLES_ENDPOINT = `${API_BASE_URL}/escritos/variables`;
+export const ESCRITOS_PLANTILLAS_ENDPOINT = `${API_BASE_URL}/escritos/plantillas`;
+export const ESCRITOS_PLANTILLA_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/escritos/plantillas/${id}`;
+// Subpath de la carpeta del expediente en 1_ESCRITOS/.
+export const CASE_EXPEDIENTE_FOLDER_ENDPOINT = (
+	caseId: number,
+	fileId: number,
+) => `${API_BASE_URL}/cases/${caseId}/minio/expediente/${fileId}`;
 
 // SRT — Formularios (maestro de abogados SRT + info del caso)
 export const CASE_SRT_INFO_ENDPOINT = (caseId: number) =>

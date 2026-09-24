@@ -1,7 +1,6 @@
 "use client";
 
-import { Download, FileText, Loader2, Plus } from "lucide-react";
-import Link from "next/link";
+import { Download, FileText, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -11,6 +10,7 @@ import {
 	CASE_SRT_FORM_DOWNLOAD_ENDPOINT,
 	CASE_SRT_FORMS_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { getExpedienteLabel } from "@/lib/expediente-label";
 import type { SrtFormListItem } from "@/types/srt";
 
 interface SrtFormsHistoryProps {
@@ -86,19 +86,18 @@ export default function SrtFormsHistory({ caseId }: SrtFormsHistoryProps) {
 		}
 	};
 
+	// Los formularios nuevos se guardan en los Escritos de su expediente (ver
+	// CaseFilesMinio). Esto queda como historial de los generados por el
+	// backend; si no hay ninguno no ocupa lugar.
+	if (!loading && forms.length === 0) return null;
+
 	return (
 		<Card>
 			<CardHeader className="flex flex-row items-center justify-between space-y-0">
 				<CardTitle className="text-base flex items-center gap-2">
 					<FileText className="h-4 w-4" />
-					Formularios SRT generados
+					Historial de formularios SRT
 				</CardTitle>
-				<Link href={`/admin/legal-cases/${caseIdNum}/srt-forms/new`}>
-					<Button size="sm">
-						<Plus className="h-4 w-4 mr-1" />
-						Generar formulario
-					</Button>
-				</Link>
 			</CardHeader>
 			<CardContent>
 				{loading ? (
@@ -122,6 +121,9 @@ export default function SrtFormsHistory({ caseId }: SrtFormsHistoryProps) {
 									</div>
 									<div className="text-xs text-muted-foreground">
 										{formatDate(f.createdAt)}
+										{f.expediente
+											? ` · ${getExpedienteLabel(f.expediente)}`
+											: " · Sin expediente"}
 										{f.lawyerName ? ` · Letrado: ${f.lawyerName}` : ""}
 										{f.generatedByName ? ` · Por: ${f.generatedByName}` : ""}
 									</div>

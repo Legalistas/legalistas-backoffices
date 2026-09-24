@@ -4,14 +4,18 @@ import {
 	ChevronRight,
 	Download,
 	File as FileIcon,
+	FileText,
 	Folder,
+	FolderOpen,
 	FolderPlus,
 	Home,
 	Loader2,
+	Plus,
 	RefreshCw,
 	Trash2,
 	UploadCloud,
 } from "lucide-react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -25,11 +29,26 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { API_BASE_URL } from "@/constant/api-endpoints";
+import {
+	API_BASE_URL,
+	CASE_EXPEDIENTE_FOLDER_ENDPOINT,
+} from "@/constant/api-endpoints";
 import { useConfirm } from "@/hooks/useConfirm";
+import { getExpedienteLabel } from "@/lib/expediente-label";
+
+// Árbol interno del caso (backend: services/minio-paths.ts):
+//   0_DOCUMENTOS/            lo que no depende de un expediente
+//   1_ESCRITOS/{id}_{CUIJ}/  lo generado o asociado a cada expediente
+const DOCUMENTS_FOLDER = "0_DOCUMENTOS";
+const ESCRITOS_FOLDER = "1_ESCRITOS";
+
+type Expediente = Parameters<typeof getExpedienteLabel>[0];
 
 interface CaseFilesMinioProps {
 	caseId: string | number;
+	/** Expedientes del caso: cada uno tiene su carpeta de Escritos. */
+	files?: Expediente[];
+	customerName?: string;
 }
 
 interface FolderEntry {
@@ -65,7 +84,11 @@ function formatBytes(bytes: number): string {
 	return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
-export default function CaseFilesMinio({ caseId }: CaseFilesMinioProps) {
+export default function CaseFilesMinio({
+	caseId,
+	files: expedientes = [],
+	customerName,
+}: CaseFilesMinioProps) {
 	const { data: session } = useSession();
 	const token = (session as any)?.user?.accessToken as string | undefined;
 	const { confirm, ConfirmationDialog } = useConfirm();
@@ -84,6 +107,19 @@ export default function CaseFilesMinio({ caseId }: CaseFilesMinioProps) {
 		() => (token ? { Authorization: `Bearer ${token}` } : ({} as Record<string, string>)),
 		[token],
 	);
+
+	// En la raíz no se sube nada suelto: hay que entrar a Documentos o a un
+	// expediente. `1_ESCRITOS/` a secas tampoco — es solo el contenedor.
+	const isRoot = subpath === "";
+	const canWriteHere = !isRoot && subpath !== `${ESCRITOS_FOLDER}/`;
+
+	const expedienteLabelById = useMemo(() => {
+		const map = new Map<number, string>();
+		for (const f of expedientes) {
+			map.set(Number(f.id), getExpedienteLabel(f, customerName));
+		}
+		return map;
+	}, [expedientes, customerName]);
 
 	const fetchList = useCallback(
 		async (nextSubpath: string) => {
@@ -113,22 +149,64 @@ export default function CaseFilesMinio({ caseId }: CaseFilesMinioProps) {
 		fetchList(subpath);
 	}, [subpath, fetchList]);
 
+	// Nombre legible de cada segmento: "Documentos", "Escritos" y la carátula
+	// del expediente en lugar de `45_21_12345678_9`.
+	const segmentLabel = useCallback(
+		(segment: string, parent: string) => {
+			if (parent === "" && segment === DOCUMENTS_FOLDER) return "Documentos";
+			if (parent === "" && segment === ESCRITOS_FOLDER) return "Escritos";
+			if (parent === `${ESCRITOS_FOLDER}/`) {
+				const id = Number(/^(\d+)_/.exec(segment)?.[1]);
+				return expedienteLabelById.get(id) ?? segment;
+			}
+			// Dentro de cada expediente, las cédulas van aparte de los escritos.
+			if (segment === "CEDULAS" && parent.startsWith(`${ESCRITOS_FOLDER}/`)) {
+				return "Cédulas";
+			}
+			return segment;
+		},
+		[expedienteLabelById],
+	);
+
 	const breadcrumbs = useMemo(() => {
 		const parts = subpath.split("/").filter(Boolean);
 		const acc: Array<{ label: string; subpath: string }> = [];
 		let running = "";
 		for (const p of parts) {
+			const label = segmentLabel(p, running);
 			running += `${p}/`;
-			acc.push({ label: p, subpath: running });
+			// "Escritos" vuelve a la raíz, donde están listados los expedientes.
+			acc.push({ label, subpath: running === `${ESCRITOS_FOLDER}/` ? "" : running });
 		}
 		return acc;
-	}, [subpath]);
+	}, [subpath, segmentLabel]);
 
 	const handleEnterFolder = (folder: FolderEntry) => {
 		if (!data) return;
 		// folder.key is absolute (rootKey + subpath + name + "/"); derive subpath relative to rootKey
 		const rel = folder.key.slice(data.rootKey.length);
 		setSubpath(rel);
+	};
+
+	// La carpeta del expediente la resuelve el backend (la crea si falta).
+	const handleOpenExpediente = async (fileId: number) => {
+		if (!token) return;
+		setBusyKey(`exp-${fileId}`);
+		try {
+			const res = await fetch(CASE_EXPEDIENTE_FOLDER_ENDPOINT(Number(caseId), fileId), {
+				headers: authHeaders,
+			});
+			if (!res.ok) {
+				const j = await res.json().catch(() => ({}));
+				throw new Error(j.error || `HTTP ${res.status}`);
+			}
+			const { subpath: expedienteSubpath } = (await res.json()) as { subpath: string };
+			setSubpath(expedienteSubpath);
+		} catch (e) {
+			toast.error(`Error: ${(e as Error).message}`);
+		} finally {
+			setBusyKey(null);
+		}
 	};
 
 	const handleUpload = async (files: FileList | File[] | null) => {
@@ -263,6 +341,179 @@ export default function CaseFilesMinio({ caseId }: CaseFilesMinioProps) {
 		}
 	};
 
+	// En la raíz, lo que no es Documentos ni Escritos es del árbol anterior.
+	const legacyFolders = isRoot
+		? (data?.folders ?? []).filter(
+				(f) => f.name !== DOCUMENTS_FOLDER && f.name !== ESCRITOS_FOLDER,
+			)
+		: [];
+
+	const renderTable = (folders: FolderEntry[], files: FileEntry[]) => (
+		<div className="rounded-md border overflow-hidden">
+			<table className="w-full text-sm">
+				<thead className="bg-muted/50">
+					<tr className="text-left">
+						<th className="px-3 py-2 font-medium">Nombre</th>
+						<th className="px-3 py-2 font-medium w-32">Tamaño</th>
+						<th className="px-3 py-2 font-medium w-44">Modificado</th>
+						<th className="px-3 py-2 font-medium w-32 text-right">Acciones</th>
+					</tr>
+				</thead>
+				<tbody>
+					{folders.map((folder) => (
+						<tr key={folder.key} className="border-t hover:bg-muted/30">
+							<td className="px-3 py-2">
+								<button
+									type="button"
+									className="flex items-center gap-2 hover:underline"
+									onClick={() => handleEnterFolder(folder)}
+								>
+									<Folder className="h-4 w-4 text-amber-500" />
+									<span>{segmentLabel(folder.name, subpath)}</span>
+								</button>
+							</td>
+							<td className="px-3 py-2 text-muted-foreground">—</td>
+							<td className="px-3 py-2 text-muted-foreground">—</td>
+							<td className="px-3 py-2 text-right">
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => handleDeleteFolder(folder)}
+									disabled={busyKey === folder.key}
+								>
+									{busyKey === folder.key ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : (
+										<Trash2 className="h-4 w-4 text-destructive" />
+									)}
+								</Button>
+							</td>
+						</tr>
+					))}
+					{files.map((file) => (
+						<tr key={file.key} className="border-t hover:bg-muted/30">
+							<td className="px-3 py-2">
+								<div className="flex items-center gap-2">
+									<FileIcon className="h-4 w-4 text-muted-foreground" />
+									<span>{file.name}</span>
+								</div>
+							</td>
+							<td className="px-3 py-2 text-muted-foreground">
+								{formatBytes(file.size)}
+							</td>
+							<td className="px-3 py-2 text-muted-foreground">
+								{file.lastModified
+									? new Date(file.lastModified).toLocaleString()
+									: "—"}
+							</td>
+							<td className="px-3 py-2 text-right space-x-1">
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => handleDownload(file)}
+									disabled={busyKey === file.key}
+								>
+									{busyKey === file.key ? (
+										<Loader2 className="h-4 w-4 animate-spin" />
+									) : (
+										<Download className="h-4 w-4" />
+									)}
+								</Button>
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => handleDeleteFile(file)}
+									disabled={busyKey === file.key}
+								>
+									<Trash2 className="h-4 w-4 text-destructive" />
+								</Button>
+							</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	);
+
+	const renderRoot = () => (
+		<div className="space-y-6">
+			{/* Documentos — a nivel caso */}
+			<section className="space-y-2">
+				<h3 className="text-sm font-semibold">Documentos</h3>
+				<button
+					type="button"
+					onClick={() => setSubpath(`${DOCUMENTS_FOLDER}/`)}
+					className="flex w-full items-center gap-3 rounded-md border px-4 py-3 text-left transition-colors hover:bg-muted/40"
+				>
+					<FolderOpen className="h-5 w-5 shrink-0 text-amber-500" />
+					<div className="min-w-0">
+						<div className="text-sm font-medium">Documentos del caso</div>
+						<div className="text-xs text-muted-foreground">
+							Poder, DNI, denuncia y lo cargado por Ventas/CRM. No dependen de
+							un expediente.
+						</div>
+					</div>
+				</button>
+			</section>
+
+			{/* Escritos — uno por expediente */}
+			<section className="space-y-2">
+				<div className="flex items-center justify-between gap-2">
+					<h3 className="text-sm font-semibold">Escritos por expediente</h3>
+					<Link href={`/admin/legal-cases/${caseId}/srt-forms/new`}>
+						<Button size="sm" variant="outline">
+							<Plus className="h-4 w-4 mr-1" />
+							Generar formulario
+						</Button>
+					</Link>
+				</div>
+				<p className="text-xs text-muted-foreground">
+					Demandas, formularios, RPU, anexos y cédulas de cada expediente.
+				</p>
+				{expedientes.length === 0 ? (
+					<div className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">
+						El caso no tiene expedientes. Creá uno en la tab Expedientes.
+					</div>
+				) : (
+					<div className="divide-y rounded-md border">
+						{expedientes.map((f) => {
+							const id = Number(f.id);
+							return (
+								<button
+									key={id}
+									type="button"
+									onClick={() => handleOpenExpediente(id)}
+									disabled={busyKey === `exp-${id}`}
+									className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
+								>
+									{busyKey === `exp-${id}` ? (
+										<Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+									) : (
+										<FileText className="h-4 w-4 shrink-0 text-primary" />
+									)}
+									<span className="truncate text-sm">
+										{expedienteLabelById.get(id)}
+									</span>
+									<ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
+								</button>
+							);
+						})}
+					</div>
+				)}
+			</section>
+
+			{/* Lo que quedó del árbol anterior (1_ADMINISTRATIVO, 2_JUDICIAL_…) */}
+			{data && (legacyFolders.length > 0 || data.files.length > 0) && (
+				<section className="space-y-2">
+					<h3 className="text-sm font-semibold text-muted-foreground">
+						Carpetas de la estructura anterior
+					</h3>
+					{renderTable(legacyFolders, data.files)}
+				</section>
+			)}
+		</div>
+	);
+
 	return (
 		<div className="p-4 space-y-4">
 			{/* Header: breadcrumbs + actions */}
@@ -276,8 +527,8 @@ export default function CaseFilesMinio({ caseId }: CaseFilesMinioProps) {
 						<Home className="h-4 w-4" />
 						<span>Raíz del caso</span>
 					</button>
-					{breadcrumbs.map((bc) => (
-						<span key={bc.subpath} className="flex items-center gap-1">
+					{breadcrumbs.map((bc, i) => (
+						<span key={`${i}-${bc.subpath}`} className="flex items-center gap-1">
 							<ChevronRight className="h-4 w-4" />
 							<button
 								type="button"
@@ -299,31 +550,35 @@ export default function CaseFilesMinio({ caseId }: CaseFilesMinioProps) {
 					>
 						<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
 					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						onClick={() => setCreateFolderOpen(true)}
-					>
-						<FolderPlus className="h-4 w-4 mr-1" />
-						Nueva carpeta
-					</Button>
-					<Button
-						size="sm"
-						onClick={() => fileInputRef.current?.click()}
-						disabled={uploadingCount > 0}
-					>
-						{uploadingCount > 0 ? (
-							<>
-								<Loader2 className="h-4 w-4 mr-1 animate-spin" />
-								Subiendo {uploadingCount}…
-							</>
-						) : (
-							<>
-								<UploadCloud className="h-4 w-4 mr-1" />
-								Subir archivos
-							</>
-						)}
-					</Button>
+					{canWriteHere && (
+						<>
+							<Button
+								variant="outline"
+								size="sm"
+								onClick={() => setCreateFolderOpen(true)}
+							>
+								<FolderPlus className="h-4 w-4 mr-1" />
+								Nueva carpeta
+							</Button>
+							<Button
+								size="sm"
+								onClick={() => fileInputRef.current?.click()}
+								disabled={uploadingCount > 0}
+							>
+								{uploadingCount > 0 ? (
+									<>
+										<Loader2 className="h-4 w-4 mr-1 animate-spin" />
+										Subiendo {uploadingCount}…
+									</>
+								) : (
+									<>
+										<UploadCloud className="h-4 w-4 mr-1" />
+										Subir archivos
+									</>
+								)}
+							</Button>
+						</>
+					)}
 					<input
 						ref={fileInputRef}
 						type="file"
@@ -341,103 +596,26 @@ export default function CaseFilesMinio({ caseId }: CaseFilesMinioProps) {
 				</div>
 			)}
 
-			{loading && !data && (
-				<div className="flex items-center justify-center py-12 text-muted-foreground">
-					<Loader2 className="h-5 w-5 animate-spin mr-2" /> Cargando…
-				</div>
-			)}
+			{isRoot ? (
+				renderRoot()
+			) : (
+				<>
+					{loading && !data && (
+						<div className="flex items-center justify-center py-12 text-muted-foreground">
+							<Loader2 className="h-5 w-5 animate-spin mr-2" /> Cargando…
+						</div>
+					)}
 
-			{data && !loading && data.folders.length === 0 && data.files.length === 0 && (
-				<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
-					Esta carpeta está vacía. Subí archivos o creá una subcarpeta.
-				</div>
-			)}
+					{data && !loading && data.folders.length === 0 && data.files.length === 0 && (
+						<div className="rounded-md border border-dashed p-8 text-center text-sm text-muted-foreground">
+							Esta carpeta está vacía. Subí archivos o creá una subcarpeta.
+						</div>
+					)}
 
-			{data && (data.folders.length > 0 || data.files.length > 0) && (
-				<div className="rounded-md border overflow-hidden">
-					<table className="w-full text-sm">
-						<thead className="bg-muted/50">
-							<tr className="text-left">
-								<th className="px-3 py-2 font-medium">Nombre</th>
-								<th className="px-3 py-2 font-medium w-32">Tamaño</th>
-								<th className="px-3 py-2 font-medium w-44">Modificado</th>
-								<th className="px-3 py-2 font-medium w-32 text-right">Acciones</th>
-							</tr>
-						</thead>
-						<tbody>
-							{data.folders.map((folder) => (
-								<tr key={folder.key} className="border-t hover:bg-muted/30">
-									<td className="px-3 py-2">
-										<button
-											type="button"
-											className="flex items-center gap-2 hover:underline"
-											onClick={() => handleEnterFolder(folder)}
-										>
-											<Folder className="h-4 w-4 text-amber-500" />
-											<span>{folder.name}</span>
-										</button>
-									</td>
-									<td className="px-3 py-2 text-muted-foreground">—</td>
-									<td className="px-3 py-2 text-muted-foreground">—</td>
-									<td className="px-3 py-2 text-right">
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={() => handleDeleteFolder(folder)}
-											disabled={busyKey === folder.key}
-										>
-											{busyKey === folder.key ? (
-												<Loader2 className="h-4 w-4 animate-spin" />
-											) : (
-												<Trash2 className="h-4 w-4 text-destructive" />
-											)}
-										</Button>
-									</td>
-								</tr>
-							))}
-							{data.files.map((file) => (
-								<tr key={file.key} className="border-t hover:bg-muted/30">
-									<td className="px-3 py-2">
-										<div className="flex items-center gap-2">
-											<FileIcon className="h-4 w-4 text-muted-foreground" />
-											<span>{file.name}</span>
-										</div>
-									</td>
-									<td className="px-3 py-2 text-muted-foreground">
-										{formatBytes(file.size)}
-									</td>
-									<td className="px-3 py-2 text-muted-foreground">
-										{file.lastModified
-											? new Date(file.lastModified).toLocaleString()
-											: "—"}
-									</td>
-									<td className="px-3 py-2 text-right space-x-1">
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={() => handleDownload(file)}
-											disabled={busyKey === file.key}
-										>
-											{busyKey === file.key ? (
-												<Loader2 className="h-4 w-4 animate-spin" />
-											) : (
-												<Download className="h-4 w-4" />
-											)}
-										</Button>
-										<Button
-											variant="ghost"
-											size="sm"
-											onClick={() => handleDeleteFile(file)}
-											disabled={busyKey === file.key}
-										>
-											<Trash2 className="h-4 w-4 text-destructive" />
-										</Button>
-									</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
-				</div>
+					{data &&
+						(data.folders.length > 0 || data.files.length > 0) &&
+						renderTable(data.folders, data.files)}
+				</>
 			)}
 
 			{ConfirmationDialog}

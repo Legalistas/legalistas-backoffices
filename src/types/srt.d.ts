@@ -28,6 +28,9 @@ export interface SrtFormListItem {
 	generatedByName: string | null;
 	pdfPath: string | null;
 	minioObjectKey: string | null;
+	/** Expediente del formulario. null en formularios previos a 09/2026. */
+	fileId: number | null;
+	expediente: { id: number; title: string | null; cuij: string | null } | null;
 	createdAt: string;
 }
 

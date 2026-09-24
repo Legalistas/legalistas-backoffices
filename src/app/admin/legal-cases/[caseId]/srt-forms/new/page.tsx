@@ -7,7 +7,7 @@ import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { buildSrtDocument } from "@/components/srt/pdf";
-import { SrtPdfPreview } from "@/components/srt/SrtPdfPreview";
+import { renderPdfBlob, SrtPdfPreview } from "@/components/srt/SrtPdfPreview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,7 +20,10 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { ExpedienteSelect } from "@/components/case-details/ExpedienteSelect";
 import {
+	CASE_DOCUMENTS_ENDPOINT,
+	CASE_FILES_ENDPOINT,
 	CASE_SRT_INFO_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { buildPreviewValues } from "@/lib/srt/preview-values";
@@ -37,8 +40,8 @@ import type {
 // La pantalla se organiza por documento, no por trámite: elegís el papel que
 // tenés que presentar y completás sus datos.
 //
-//  - `procedure` / `anexoKey` van solo en los anexos: son los que el backend
-//    sabe generar y los que guardan datos propios en CaseSrtInfo.
+//  - `procedure` / `anexoKey` van solo en los anexos: son los que guardan
+//    datos propios en CaseSrtInfo.
 //  - Opción de Competencia y Patrocinio acompañan a cualquier trámite y se
 //    completan con campos sueltos de CaseSrtInfo, sin anexo asociado.
 
@@ -132,20 +135,32 @@ export default function GenerateSrtFormPage() {
 	const [anexoData, setAnexoData] = useState<Record<string, unknown>>({});
 	const [loading, setLoading] = useState(true);
 	const [generating, setGenerating] = useState(false);
+	// Todo formulario es un escrito de un expediente: el PDF se guarda en su
+	// carpeta. Si el caso tiene varios, hay que elegir — no se asume ninguno.
+	const [expedientes, setExpedientes] = useState<
+		Array<{ id: number; title: string | null; cuij: string | null }>
+	>([]);
+	const [fileId, setFileId] = useState<number | null>(null);
 
 	const doc = DOCUMENTS.find((d) => d.key === docKey) ?? null;
 
-	// Carga info del caso al mount.
+	// Carga info del caso y sus expedientes al mount.
 	const loadInfo = useCallback(async () => {
 		if (!token) return;
 		try {
-			const res = await fetch(CASE_SRT_INFO_ENDPOINT(caseId), {
-				headers: { Authorization: `Bearer ${token}` },
-			});
+			const headers = { Authorization: `Bearer ${token}` };
+			const [res, filesRes] = await Promise.all([
+				fetch(CASE_SRT_INFO_ENDPOINT(caseId), { headers }),
+				fetch(CASE_FILES_ENDPOINT(caseId), { headers }),
+			]);
 			if (!res.ok) throw new Error("Error al cargar info del caso");
 			const data = await res.json();
 			setInfo(data.info);
 			setDefaults(data.defaults ?? null);
+			// 404 = el caso todavía no tiene expedientes.
+			if (filesRes.ok) setExpedientes(await filesRes.json());
+			else if (filesRes.status !== 404)
+				throw new Error("Error al cargar los expedientes");
 		} catch (err) {
 			toast.error((err as Error).message);
 		} finally {
@@ -180,21 +195,48 @@ export default function GenerateSrtFormPage() {
 	const setInfoField = (key: keyof CaseSrtInfo, value: unknown) =>
 		setInfo((i) => (i ? { ...i, [key]: value } : i));
 
-	// El PDF se arma con react-pdf: lo que ves en el visor y lo que se
-	// descarga salen del mismo componente, así que no pueden diferir.
-	const pdfBlobRef = useRef<(() => Promise<Blob>) | null>(null);
-
+	// El PDF se arma con react-pdf: lo que ves en el visor y lo que se guarda
+	// salen del mismo componente. Se guarda SIEMPRE lo que está cargado en este
+	// momento (`liveDocument`), no la versión con demora del visor: guardar
+	// justo después de tipear dejaba afuera lo último escrito.
 	const handleSaveAndPrint = async () => {
+		if (!fileId) {
+			toast.error("Seleccioná el expediente al que corresponde el formulario");
+			return;
+		}
 		await handleGenerate();
 
-		const makeBlob = pdfBlobRef.current;
-		if (!makeBlob) return;
+		if (!liveDocument || !token || !doc) return;
 
-		const blob = await makeBlob();
+		const blob = await renderPdfBlob(liveDocument);
+		// El backend le antepone fecha y hora: queda en orden en la carpeta.
+		const fileName = `${doc.label}.pdf`;
+
+		// Se guarda en los Escritos del expediente elegido.
+		try {
+			const fd = new FormData();
+			fd.append("file", blob, fileName);
+			fd.append("fileId", String(fileId));
+			fd.append("category", "FORMULARIO_SRT");
+			fd.append("description", doc.label);
+			const res = await fetch(CASE_DOCUMENTS_ENDPOINT(caseId), {
+				method: "POST",
+				headers: { Authorization: `Bearer ${token}` },
+				body: fd,
+			});
+			if (!res.ok) {
+				const e = await res.json().catch(() => ({}));
+				throw new Error(e.error || "Error al guardar el PDF");
+			}
+			toast.success("PDF guardado en los escritos del expediente");
+		} catch (err) {
+			toast.error((err as Error).message);
+		}
+
 		const url = URL.createObjectURL(blob);
 		const a = document.createElement("a");
 		a.href = url;
-		a.download = `${doc?.key ?? "documento"}-caso-${caseId}.pdf`;
+		a.download = fileName;
 		a.click();
 		URL.revokeObjectURL(url);
 	};
@@ -291,6 +333,21 @@ export default function GenerateSrtFormPage() {
 						</Card>
 					)}
 
+					<Card>
+						<CardHeader>
+							<CardTitle className="text-base">
+								1. Expediente <span className="text-destructive">*</span>
+							</CardTitle>
+						</CardHeader>
+						<CardContent>
+							<ExpedienteSelect
+								files={expedientes}
+								value={fileId}
+								onChange={setFileId}
+							/>
+						</CardContent>
+					</Card>
+
 					{/* Elegido el documento, el listado se colapsa: ocupa media
 					    pantalla y ya no hace falta hasta que quieras cambiarlo. */}
 					{doc ? (
@@ -315,7 +372,7 @@ export default function GenerateSrtFormPage() {
 					) : (
 						<Card>
 							<CardHeader>
-								<CardTitle className="text-base">1. Documento</CardTitle>
+								<CardTitle className="text-base">2. Documento</CardTitle>
 							</CardHeader>
 							<CardContent className="grid gap-1.5 sm:grid-cols-2">
 								{DOCUMENTS.map((d) => (
@@ -349,7 +406,7 @@ export default function GenerateSrtFormPage() {
 						<Card>
 							<CardHeader>
 								<CardTitle className="text-base">
-									2. Datos de {doc.label}
+									3. Datos de {doc.label}
 								</CardTitle>
 							</CardHeader>
 							<CardContent className="space-y-4">
@@ -403,7 +460,11 @@ export default function GenerateSrtFormPage() {
 								)}
 								Guardar datos
 							</Button>
-							<Button onClick={handleSaveAndPrint} disabled={generating}>
+							<Button
+								onClick={handleSaveAndPrint}
+								disabled={generating || !fileId}
+								title={fileId ? undefined : "Seleccioná el expediente"}
+							>
 								<FileText className="h-4 w-4 mr-2" />
 								Guardar y generar PDF
 							</Button>
@@ -419,7 +480,6 @@ export default function GenerateSrtFormPage() {
 							key={doc?.key}
 							doc={srtDocument}
 							fileName={`${doc?.key}-caso-${caseId}.pdf`}
-							blobRef={pdfBlobRef}
 						/>
 					) : (
 						<div className="flex h-full min-h-64 items-center justify-center rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">
