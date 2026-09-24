@@ -309,7 +309,9 @@ export const MENU_SECTIONS: MenuSection[] = [
         icon: HardDrive,
         name: "Archivos",
         path: "/admin/file-manager",
-        roles: SUPERADMIN,
+        // Cada rol ve su parte del bucket (lo resuelve el backend): abogado
+        // interno todo `representantes/`, cada representante su carpeta.
+        roles: [...SUPERADMIN, ASISTENTE_LEGAL, ABOGADO_REPRESENTANTE],
       },
       {
         // Panel de mantenimiento del árbol de carpetas: health, bootstrap

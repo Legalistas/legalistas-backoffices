@@ -18,13 +18,15 @@ import {
 	LayoutGrid,
 	List,
 	Loader2,
+	Search,
 	Trash2,
 	Upload,
 	UploadCloud,
 	X,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -73,6 +75,20 @@ function storageFetch(path: string, token: string | undefined, init?: RequestIni
 interface FolderItem {
 	key: string;
 	name: string;
+	/** Subcarpetas directas (ej. clientes en una columna del CRM). */
+	folderCount?: number;
+	/** Archivos en toda la rama. */
+	fileCount?: number;
+}
+
+/** "29 carpetas · 3 archivos" — null si el backend no mandó conteo. */
+function folderCountLabel(folder: FolderItem): string | null {
+	if (folder.folderCount === undefined && folder.fileCount === undefined) return null;
+	const n = (v: number, one: string, many: string) => `${v} ${v === 1 ? one : many}`;
+	return [
+		n(folder.folderCount ?? 0, "carpeta", "carpetas"),
+		n(folder.fileCount ?? 0, "archivo", "archivos"),
+	].join(" · ");
 }
 
 interface FileItem {
@@ -84,8 +100,18 @@ interface FileItem {
 
 interface ListResponse {
 	prefix: string;
+	/** Raíz del usuario según su rol ('' = todo el bucket). */
+	root?: string;
 	folders: FolderItem[];
 	files: FileItem[];
+}
+
+interface SearchResponse {
+	prefix: string;
+	folders: Array<{ key: string; name: string }>;
+	/** `path`: carpeta del archivo relativa a donde se buscó. */
+	files: Array<{ key: string; name: string; path: string }>;
+	truncated: boolean;
 }
 
 const IMAGE_EXT = /\.(jpe?g|png|gif|webp|heic|heif|avif|svg)$/i;
@@ -210,12 +236,13 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function buildBreadcrumb(prefix: string): { label: string; prefix: string }[] {
-	if (!prefix) return [];
-	const parts = prefix.replace(/\/$/, "").split("/");
+/** Migas desde la raíz del usuario ("Inicio"): lo de arriba de su raíz no se muestra. */
+function buildBreadcrumb(prefix: string, root: string): { label: string; prefix: string }[] {
+	if (!prefix || !prefix.startsWith(root) || prefix === root) return [];
+	const parts = prefix.slice(root.length).replace(/\/$/, "").split("/");
 	return parts.map((label, i) => ({
 		label,
-		prefix: `${parts.slice(0, i + 1).join("/")}/`,
+		prefix: `${root}${parts.slice(0, i + 1).join("/")}/`,
 	}));
 }
 
@@ -272,12 +299,35 @@ function uploadOne(
 	});
 }
 
-export default function FileManagerPage() {
+// useSearchParams necesita un Suspense arriba para el build de Next.
+export default function FileManagerPageWrapper() {
+	return (
+		<Suspense fallback={null}>
+			<FileManagerPage />
+		</Suspense>
+	);
+}
+
+function FileManagerPage() {
 	const { data: session } = useSession();
 	const accessToken = session?.user?.accessToken;
 	const { confirm, ConfirmationDialog } = useConfirm();
-	const [prefix, setPrefix] = useState("");
+	// La carpeta actual vive en la URL (?prefix=…): "atrás" del navegador
+	// vuelve a la carpeta anterior y al actualizar se queda en la misma.
+	const router = useRouter();
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+	const prefix = searchParams.get("prefix") ?? "";
+	const setPrefix = useCallback(
+		(next: string) => {
+			router.push(next ? `${pathname}?prefix=${encodeURIComponent(next)}` : pathname);
+		},
+		[router, pathname],
+	);
 	const [data, setData] = useState<ListResponse | null>(null);
+	const [search, setSearch] = useState("");
+	const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
+	const [searching, setSearching] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -314,7 +364,42 @@ export default function FileManagerPage() {
 		localStorage.setItem(VIEW_MODE_KEY, mode);
 	};
 
-	const breadcrumb = useMemo(() => buildBreadcrumb(prefix), [prefix]);
+	// Raíz según el rol (la resuelve el backend): '' todo el bucket,
+	// `representantes/` o la carpeta del representante.
+	const root = data?.root ?? "";
+	const currentPrefix = data?.prefix ?? prefix;
+	const breadcrumb = useMemo(() => buildBreadcrumb(currentPrefix, root), [currentPrefix, root]);
+
+	// Buscador: dentro de la carpeta actual y sus subcarpetas.
+	useEffect(() => {
+		setSearch("");
+		setSearchResult(null);
+	}, [prefix]);
+
+	useEffect(() => {
+		const q = search.trim();
+		if (q.length < 2) {
+			setSearchResult(null);
+			setSearching(false);
+			return;
+		}
+		setSearching(true);
+		const timer = setTimeout(async () => {
+			try {
+				const res = await storageFetch(
+					`/search?prefix=${encodeURIComponent(currentPrefix)}&q=${encodeURIComponent(q)}`,
+					accessToken,
+				);
+				if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al buscar"));
+				setSearchResult((await res.json()) as SearchResponse);
+			} catch (err) {
+				toast.error(err instanceof Error ? err.message : "Error al buscar");
+			} finally {
+				setSearching(false);
+			}
+		}, 350);
+		return () => clearTimeout(timer);
+	}, [search, currentPrefix, accessToken]);
 
 	const fetchList = useCallback(async (targetPrefix: string) => {
 		setLoading(true);
@@ -324,7 +409,7 @@ export default function FileManagerPage() {
 				`/list?prefix=${encodeURIComponent(targetPrefix)}`,
 				accessToken,
 			);
-			if (!res.ok) throw new Error("Error al listar el bucket");
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al listar el bucket"));
 			const json = (await res.json()) as ListResponse;
 			setData(json);
 		} catch (err) {
@@ -810,6 +895,31 @@ export default function FileManagerPage() {
 				})}
 			</div>
 
+			{/* Buscador — dentro de la carpeta actual */}
+			<div className="relative">
+				<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+				<Input
+					value={search}
+					onChange={(e) => setSearch(e.target.value)}
+					placeholder={
+						breadcrumb.length > 0
+							? `Buscar en ${breadcrumb[breadcrumb.length - 1].label}…`
+							: "Buscar carpetas y archivos…"
+					}
+					className="pl-9 pr-9"
+				/>
+				{search && (
+					<button
+						type="button"
+						onClick={() => setSearch("")}
+						className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+						title="Limpiar búsqueda"
+					>
+						<X className="h-4 w-4" />
+					</button>
+				)}
+			</div>
+
 			{/* Bulk action bar */}
 			{selectedKeys.size > 0 && (
 				<div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5">
@@ -849,7 +959,64 @@ export default function FileManagerPage() {
 
 			{/* Content */}
 			<div className="rounded-xl border border-border bg-card">
-				{loading ? (
+				{search.trim().length >= 2 ? (
+					searching && !searchResult ? (
+						<div className="flex items-center justify-center py-20">
+							<Loader2 className="h-6 w-6 animate-spin text-primary" />
+						</div>
+					) : searchResult &&
+						searchResult.folders.length === 0 &&
+						searchResult.files.length === 0 ? (
+						<div className="py-16 text-center text-sm text-muted-foreground">
+							No hay carpetas ni archivos que coincidan con “{search.trim()}”.
+						</div>
+					) : (
+						<div className="divide-y divide-border">
+							{searchResult?.folders.map((f) => (
+								<button
+									key={f.key}
+									type="button"
+									onClick={() => setPrefix(f.key)}
+									className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
+								>
+									<Folder className="h-4 w-4 shrink-0 text-primary" />
+									<div className="min-w-0">
+										<p className="truncate text-sm font-medium">{f.name}</p>
+										<p className="truncate text-xs text-muted-foreground">
+											{f.key.slice(root.length)}
+										</p>
+									</div>
+								</button>
+							))}
+							{searchResult?.files.map((f) => {
+								const Icon = fileIcon(f.name);
+								return (
+									<button
+										key={f.key}
+										type="button"
+										onClick={() =>
+											openFileDetail({ key: f.key, name: f.name, size: 0, lastModified: null })
+										}
+										className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/40"
+									>
+										<Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+										<div className="min-w-0">
+											<p className="truncate text-sm">{f.name}</p>
+											<p className="truncate text-xs text-muted-foreground">
+												{f.key.slice(root.length, f.key.length - f.name.length) || "/"}
+											</p>
+										</div>
+									</button>
+								);
+							})}
+							{searchResult?.truncated && (
+								<p className="px-4 py-2.5 text-xs text-muted-foreground">
+									Hay más resultados: escribí algo más específico.
+								</p>
+							)}
+						</div>
+					)
+				) : loading ? (
 					<div className="flex items-center justify-center py-20">
 						<Loader2 className="h-6 w-6 animate-spin text-primary" />
 					</div>
@@ -934,7 +1101,14 @@ export default function FileManagerPage() {
 														<Folder className={`h-4 w-4 ${meta.style.icon}`} />
 													</div>
 													<div className="min-w-0">
-														<p className="font-medium truncate">{meta.label}</p>
+														<p className="font-medium truncate">
+															{meta.label}
+															{folderCountLabel(folder) && (
+																<span className="ml-2 text-xs font-normal text-muted-foreground">
+																	({folderCountLabel(folder)})
+																</span>
+															)}
+														</p>
 														{meta.description && (
 															<p className="text-xs text-muted-foreground truncate">
 																{meta.description}
@@ -1080,6 +1254,11 @@ export default function FileManagerPage() {
 													>
 														{meta.label}
 													</p>
+													{folderCountLabel(folder) && (
+														<p className="text-[11px] text-muted-foreground mt-0.5">
+															{folderCountLabel(folder)}
+														</p>
+													)}
 													{meta.description && (
 														<p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2 leading-snug">
 															{meta.description}
@@ -1197,8 +1376,8 @@ export default function FileManagerPage() {
 							Subir archivos
 						</DialogTitle>
 						<DialogDescription>
-							{prefix
-								? `Se van a subir dentro de ${prefix}`
+							{currentPrefix
+								? `Se van a subir dentro de ${currentPrefix}`
 								: "Se van a subir a la raíz del bucket"}
 						</DialogDescription>
 					</DialogHeader>
@@ -1379,8 +1558,8 @@ export default function FileManagerPage() {
 							Nueva carpeta
 						</DialogTitle>
 						<DialogDescription>
-							{prefix
-								? `Se va a crear dentro de ${prefix}`
+							{currentPrefix
+								? `Se va a crear dentro de ${currentPrefix}`
 								: "Se va a crear en la raíz del bucket"}
 						</DialogDescription>
 					</DialogHeader>
