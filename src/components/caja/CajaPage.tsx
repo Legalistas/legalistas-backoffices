@@ -121,6 +121,7 @@ function VistaCajas({
 	mesLabel,
 	token,
 	esAdmin,
+	operables,
 	version,
 	onChanged,
 }: {
@@ -130,6 +131,7 @@ function VistaCajas({
 	mesLabel: string;
 	token: string | undefined;
 	esAdmin: boolean;
+	operables: { caja: Caja; label: string }[];
 	version: number;
 	onChanged: () => void;
 }) {
@@ -160,6 +162,7 @@ function VistaCajas({
 					titulo={`Movimientos · ${seleccionada.nombre}`}
 					mostrarCaja={seleccionada.esContenedora}
 					esAdmin={esAdmin}
+					cajas={operables}
 					version={version}
 					onChanged={onChanged}
 				/>
@@ -324,6 +327,7 @@ export default function CajaPage() {
 								mesLabel={mesLabel}
 								token={token}
 								esAdmin
+								operables={operables}
 								version={version}
 								onChanged={refrescar}
 							/>
@@ -345,6 +349,7 @@ export default function CajaPage() {
 							titulo="Todos los movimientos"
 							mostrarCaja
 							esAdmin
+							cajas={operables}
 							version={version}
 							onChanged={refrescar}
 						/>
@@ -362,6 +367,7 @@ export default function CajaPage() {
 					mesLabel={mesLabel}
 					token={token}
 					esAdmin={false}
+					operables={operables}
 					version={version}
 					onChanged={refrescar}
 				/>

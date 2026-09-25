@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, Ban, Loader2, ReceiptText } from "lucide-react";
+import { ArrowLeftRight, Ban, Loader2, Pencil, ReceiptText } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -35,8 +35,9 @@ import {
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { CajaMovimiento, CajaMovimientosResponse } from "@/types/caja";
+import type { Caja, CajaMovimiento, CajaMovimientosResponse } from "@/types/caja";
 import { cajaFetch, formatARS, formatFecha } from "./api";
+import MovimientoDialog from "./MovimientoDialog";
 
 interface MovimientosPanelProps {
 	token: string | undefined;
@@ -46,7 +47,9 @@ interface MovimientosPanelProps {
 	/** Muestra la columna Caja (vista de contenedora o de todas). */
 	mostrarCaja: boolean;
 	esAdmin: boolean;
-	/** Cambiarlo fuerza a recargar (después de cargar/anular algo). */
+	/** Cajas a las que se puede pasar un movimiento al editarlo (ver `cajasOperables`). */
+	cajas: { caja: Caja; label: string }[];
+	/** Cambiarlo fuerza a recargar (después de cargar/editar/anular algo). */
 	version: number;
 	onChanged: () => void;
 	limit?: number;
@@ -137,6 +140,7 @@ export default function MovimientosPanel({
 	titulo,
 	mostrarCaja,
 	esAdmin,
+	cajas,
 	version,
 	onChanged,
 	limit = 25,
@@ -149,6 +153,10 @@ export default function MovimientosPanel({
 	const [data, setData] = useState<CajaMovimientosResponse | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [aAnular, setAAnular] = useState<CajaMovimiento | null>(null);
+	// El movimiento queda seteado al cerrar para que el diálogo no cambie de
+	// contenido durante la animación de salida.
+	const [aEditar, setAEditar] = useState<CajaMovimiento | null>(null);
+	const [editOpen, setEditOpen] = useState(false);
 
 	// Al cambiar de caja o de filtros, volver a la primera página.
 	useEffect(() => setPage(1), [cajaId, desde, hasta, tipo, incluirAnulados]);
@@ -247,7 +255,7 @@ export default function MovimientosPanel({
 							<TableHead>Cargado por</TableHead>
 							<TableHead className="text-right">Ingreso</TableHead>
 							<TableHead className="text-right">Egreso</TableHead>
-							{esAdmin && <TableHead className="w-10" />}
+							{esAdmin && <TableHead className="w-20" />}
 						</TableRow>
 					</TableHeader>
 					<TableBody>
@@ -306,15 +314,29 @@ export default function MovimientosPanel({
 									{esAdmin && (
 										<TableCell>
 											{!m.anulado && (
-												<Button
-													variant="ghost"
-													size="icon"
-													className="h-8 w-8 text-muted-foreground hover:text-red-600"
-													title="Anular"
-													onClick={() => setAAnular(m)}
-												>
-													<Ban className="h-4 w-4" />
-												</Button>
+												<div className="flex justify-end">
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-8 w-8 text-muted-foreground hover:text-foreground"
+														title="Editar"
+														onClick={() => {
+															setAEditar(m);
+															setEditOpen(true);
+														}}
+													>
+														<Pencil className="h-4 w-4" />
+													</Button>
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-8 w-8 text-muted-foreground hover:text-red-600"
+														title="Anular"
+														onClick={() => setAAnular(m)}
+													>
+														<Ban className="h-4 w-4" />
+													</Button>
+												</div>
 											)}
 										</TableCell>
 									)}
@@ -373,6 +395,16 @@ export default function MovimientosPanel({
 				token={token}
 				onDone={onChanged}
 			/>
+			{esAdmin && (
+				<MovimientoDialog
+					open={editOpen}
+					onOpenChange={setEditOpen}
+					token={token}
+					cajas={cajas}
+					movimiento={aEditar}
+					onSaved={onChanged}
+				/>
+			)}
 		</Card>
 	);
 }

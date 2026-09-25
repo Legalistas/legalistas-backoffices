@@ -11,6 +11,16 @@ export interface Transaction {
 	description: string;
 	user: User;
 	transferUser?: { id: number; name: string } | null;
+	/** Mes ya cerrado: no se puede editar. */
+	closed?: boolean;
+	/** Cobro de HP/PCL vinculado a un cierre. */
+	closingId?: number | null;
+	/** "cash" o "card". */
+	paymentMethod?: string;
+	/** Con "card": la tarjeta de la compra. Con "cash": este movimiento es el pago del resumen de esa tarjeta. */
+	creditCardId?: number | null;
+	/** Compra con tarjeta ya incluida en un pago de resumen. */
+	settledByTransactionId?: number | null;
 }
 
 export interface ClosedMonthReport {

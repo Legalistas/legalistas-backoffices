@@ -27,6 +27,7 @@ import {
 	FileText,
 	HandCoins,
 	type LucideIcon,
+	Pencil,
 	Plus,
 	Send,
 	Tag,
@@ -83,6 +84,7 @@ import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/users";
 import { CreditCardsPanel, type CreditCardWithPending } from "./CreditCardsPanel";
+import EditTransactionDialog from "./EditTransactionDialog";
 
 function FieldLabel({
 	icon: Icon,
@@ -128,6 +130,11 @@ export default function CashBoxPage() {
 	const [isNewBoxModalOpen, setIsNewBoxModalOpen] = useState(false);
 	const [isRegisterMovementModalOpen, setIsRegisterMovementModalOpen] =
 		useState(false);
+	// Movimiento en edición: queda seteado al cerrar para no vaciar el diálogo
+	// durante la animación de salida.
+	const [editingTransaction, setEditingTransaction] =
+		useState<Transaction | null>(null);
+	const [isEditMovementModalOpen, setIsEditMovementModalOpen] = useState(false);
 
 	// Form states for new movement
 	const [newType, setNewType] = useState<string>(""); // Cambiado a string para incluir "transfer"
@@ -1907,14 +1914,27 @@ export default function CashBoxPage() {
 														{t.description}
 													</TableCell>
 													<TableCell className="px-4 py-3 text-sm text-foreground text-right">
-														<Button
-															onClick={() => handleDeleteTransaction(t.id)}
-															variant="default"
-															className="h-7 w-7 bg-red-500 hover:bg-red-700 text-white"
-															title="Eliminar"
-														>
-															<Trash2 className="h-4 w-4" />
-														</Button>
+														<div className="flex justify-end gap-1.5">
+															<Button
+																onClick={() => {
+																	setEditingTransaction(t);
+																	setIsEditMovementModalOpen(true);
+																}}
+																variant="outline"
+																className="h-7 w-7"
+																title="Editar"
+															>
+																<Pencil className="h-4 w-4" />
+															</Button>
+															<Button
+																onClick={() => handleDeleteTransaction(t.id)}
+																variant="default"
+																className="h-7 w-7 bg-red-500 hover:bg-red-700 text-white"
+																title="Eliminar"
+															>
+																<Trash2 className="h-4 w-4" />
+															</Button>
+														</div>
 													</TableCell>
 												</TableRow>
 											);
@@ -2126,6 +2146,18 @@ export default function CashBoxPage() {
 						</Button>
 					</div>
 			</div>
+			<EditTransactionDialog
+				open={isEditMovementModalOpen}
+				onOpenChange={setIsEditMovementModalOpen}
+				token={session?.user?.accessToken}
+				transaction={editingTransaction}
+				users={apiUsers}
+				creditCards={creditCards}
+				onSaved={() => {
+					loadData();
+					fetchCreditCards();
+				}}
+			/>
 			{ConfirmationDialog}
 		</div>
 	);
