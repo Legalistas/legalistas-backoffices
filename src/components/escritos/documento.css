@@ -30,3 +30,50 @@
 .escrito-documento strong { font-weight: bold; }
 .escrito-documento em { font-style: italic; }
 .escrito-documento u { text-decoration: underline; }
+.escrito-documento s { text-decoration: line-through; }
+.escrito-documento sub { vertical-align: sub; font-size: smaller; }
+.escrito-documento sup { vertical-align: super; font-size: smaller; }
+.escrito-documento a { color: #1d4ed8; text-decoration: underline; }
+.escrito-documento mark { color: inherit; }
+.escrito-documento hr { border: none; border-top: 1px solid #000; margin: 0.5em 0; }
+.escrito-documento table { border-collapse: collapse; width: 100%; margin: 0 0 0.5em; table-layout: fixed; }
+.escrito-documento td,
+.escrito-documento th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+.escrito-documento th { font-weight: bold; background: #f3f3f3; text-align: left; }
+.escrito-documento td p,
+.escrito-documento th p { margin: 0; }
+
+/* Solo en el editor: dónde corta la hoja y la celda seleccionada. */
+.escrito-documento .page-break {
+	margin: 1em 0;
+	border-top: 2px dashed #94a3b8;
+	text-align: center;
+	height: 0;
+}
+.escrito-documento .page-break::after {
+	content: "Salto de página";
+	position: relative;
+	top: -0.75em;
+	padding: 0 0.5em;
+	background: #fff;
+	font: 11px/1 system-ui, sans-serif;
+	color: #64748b;
+}
+.escrito-documento .ProseMirror-selectednode.page-break { border-top-color: #0ea5e9; }
+.escrito-documento .selectedCell { background: rgba(14, 165, 233, 0.15); }
+
+/* Hoja A4 del editor: 210 × 297 mm, con una línea punteada cada 297 mm
+   (fin aproximado de cada hoja del PDF). */
+.hoja-a4 {
+	box-sizing: border-box;
+	width: 210mm;
+	min-height: 297mm;
+	background-color: #fff;
+	background-image: repeating-linear-gradient(
+		to bottom,
+		transparent 0,
+		transparent calc(297mm - 1px),
+		#cbd5e1 calc(297mm - 1px),
+		#cbd5e1 297mm
+	);
+}

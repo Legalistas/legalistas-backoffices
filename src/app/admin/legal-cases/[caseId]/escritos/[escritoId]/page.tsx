@@ -178,7 +178,7 @@ export default function EditarEscritoPage() {
 	}
 
 	return (
-		<div className="mx-auto max-w-screen-lg space-y-4 p-6">
+		<div className="mx-auto max-w-6xl space-y-4 p-4 md:p-6">
 			<div className="flex flex-wrap items-center gap-2">
 				<Link href={`/admin/legal-cases/${caseId}?tab=escritos`}>
 					<Button variant="ghost" size="sm">
