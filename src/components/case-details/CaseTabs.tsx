@@ -184,7 +184,7 @@ export const CaseTabs = ({
 			</TabsContent>
 
 			<TabsContent value="liquidacion" className={tabContentClass}>
-				<LiquidacionView caseData={caseData} />
+				<LiquidacionView caseId={caseId} files={filteredFiles} customerName={customer?.name} />
 			</TabsContent>
 
 			<TabsContent value="informacion" className={tabContentClass}>

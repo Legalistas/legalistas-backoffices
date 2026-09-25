@@ -25,6 +25,21 @@ import {
 	CALCULATOR_CAUSES_LIST_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { apiErrorMessage } from "@/lib/api-error";
+import {
+	ajustarHaber,
+	buscarRipte,
+	edadALaFecha,
+	type FilaVariacion,
+	fechaISO,
+	filasVariacion,
+	formatFecha,
+	hoyISO,
+	interesesPorAnio,
+	mesDeRipte,
+	parseFecha,
+	periodosIBM,
+	variacionAcumulada,
+} from "@/lib/lrt/calculo";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -88,9 +103,11 @@ export default function AccidentsWorkPage() {
 	const getStorageKey = (fileId?: number) =>
 		fileId ? `calculator_data_${fileId}` : STORAGE_KEY_BASE;
 
+	// Desde un caso se arranca con lo guardado para ESE expediente, nunca con
+	// el último cálculo de otro caso (dejaba haberes y meses de otra fecha).
 	const [_init] = useState<any>(() => {
 		try {
-			const stored = localStorage.getItem(STORAGE_KEY_BASE);
+			const stored = localStorage.getItem(getStorageKey(urlFileId ? Number(urlFileId) : undefined));
 			return stored ? JSON.parse(stored) : null;
 		} catch { return null; }
 	});
@@ -105,7 +122,6 @@ export default function AccidentsWorkPage() {
 	const [customerAge, setCustomerAge] = useState<number | null>(_init?.customerAge ?? null);
 	const [disabilityPercentage, setDisabilityPercentage] = useState<number | null>(_init?.disabilityPercentage ?? null);
 	const [dateUntil, setDateUntil] = useState(_init?.dateUntil || "");
-	const [riptes, setRiptes] = useState<any[]>([]);
 	const [selectedRipte, setSelectedRipte] = useState<any>(_init?.selectedRipte ?? null);
 	const [latestRipte, setLatestRipte] = useState<any>(null);
 	const [allRiptes, setAllRiptes] = useState<any[]>([]);
@@ -118,13 +134,9 @@ export default function AccidentsWorkPage() {
 			haber_ajustado: number | null;
 		}[]
 	>(_init?.remuneraciones ?? []);
-	const [porcentajesRipte, setPorcentajesRipte] = useState<
-		{
-			mesPeriodo: string;
-			mesCorriendo: string;
-			riptePercentage: number | null;
-		}[]
-	>(_init?.porcentajesRipte ?? []);
+	const [porcentajesRipte, setPorcentajesRipte] = useState<FilaVariacion[]>(
+		_init?.porcentajesRipte ?? [],
+	);
 	const [activar20Porciento, setActivar20Porciento] = useState(_init?.activar20Porciento ?? false);
 	const [pisoMinimo, setPisoMinimo] = useState<number | null>(_init?.pisoMinimo ?? null);
 	const [activarPisoMinimo, setActivarPisoMinimo] = useState(_init?.activarPisoMinimo ?? false);
@@ -132,7 +144,6 @@ export default function AccidentsWorkPage() {
 	const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 	const [savedLiquidations, setSavedLiquidations] = useState<any[]>([]);
 	const [showSavedLiquidations, setShowSavedLiquidations] = useState(false);
-	const [isLoadingFromJSON, setIsLoadingFromJSON] = useState(false);
 	const [tasaInteresAnual, setTasaInteresAnual] = useState<number>(_init?.tasaInteresAnual ?? 8);
 	const searchRef = useRef<HTMLDivElement>(null);
 	const [activeTab, setActiveTab] = useState("parametros");
@@ -299,170 +310,43 @@ export default function AccidentsWorkPage() {
 				);
 				setShowSuggestions(false);
 
-				// Auto-seleccionar el archivo específico si viene fileId
-				if (urlFileId && matchingCause.files) {
-					const fileIdNum = parseInt(urlFileId);
-					const matchingFile = matchingCause.files.find(
-						(f) => f.id === fileIdNum,
-					);
-					if (matchingFile) {
-						setSelectedFile(matchingFile);
-
-						// Auto-completar fecha de accidente si existe
-						if (matchingFile.accidentDate) {
-							// Convertir fecha al formato YYYY-MM-DD
-							const date = new Date(matchingFile.accidentDate);
-							const year = date.getFullYear();
-							const month = String(date.getMonth() + 1).padStart(2, "0");
-							const day = String(date.getDate()).padStart(2, "0");
-							setAccidentDate(`${year}-${month}-${day}`);
-						}
-
-						// Auto-completar porcentaje de incapacidad si existe
-						if (matchingFile.disabilityPercentage) {
-							setDisabilityPercentage(matchingFile.disabilityPercentage);
-						}
-					}
-				} else if (matchingCause.files && matchingCause.files.length === 1) {
-					// Si no viene fileId pero hay solo un archivo, auto-seleccionarlo
-					const file = matchingCause.files[0];
-					setSelectedFile(file);
-
-					// Auto-completar fecha de accidente si existe
-					if (file.accidentDate) {
-						// Convertir fecha al formato YYYY-MM-DD
-						const date = new Date(file.accidentDate);
-						const year = date.getFullYear();
-						const month = String(date.getMonth() + 1).padStart(2, "0");
-						const day = String(date.getDate()).padStart(2, "0");
-						setAccidentDate(`${year}-${month}-${day}`);
-					}
-
-					// Auto-completar porcentaje de incapacidad si existe
-					if (file.disabilityPercentage) {
-						setDisabilityPercentage(file.disabilityPercentage);
+				// El expediente que viene en la URL; sin fileId, el único que haya.
+				const matchingFile = urlFileId
+					? matchingCause.files?.find((f) => f.id === parseInt(urlFileId))
+					: matchingCause.files?.length === 1
+						? matchingCause.files[0]
+						: undefined;
+				if (matchingFile) {
+					setSelectedFile(matchingFile);
+					// Fecha literal del expediente (con `new Date` se corría un día
+					// y el 1° de enero pasaba al año anterior).
+					if (matchingFile.accidentDate) setAccidentDate(fechaISO(matchingFile.accidentDate));
+					if (matchingFile.disabilityPercentage) {
+						setDisabilityPercentage(Number(matchingFile.disabilityPercentage));
 					}
 				}
-
-				// Calcular edad del cliente si tiene fecha de nacimiento
-				if (matchingCause.customer?.userProfile?.birthDate) {
-					const birthDate = new Date(
-						matchingCause.customer.userProfile.birthDate,
-					);
-					const today = new Date();
-					let age = today.getFullYear() - birthDate.getFullYear();
-					const monthDiff = today.getMonth() - birthDate.getMonth();
-					if (
-						monthDiff < 0 ||
-						(monthDiff === 0 && today.getDate() < birthDate.getDate())
-					) {
-						age--;
-					}
-					setCustomerAge(age);
-				}
+				// La edad sale de la fecha de nacimiento y la del accidente (efecto de abajo).
 			}
 		}
 	}, [urlCaseId, urlFileId, causes, selectedCause]);
 
-	// Cargar RIPTEs cuando cambia la fecha de accidente
+	// RIPTE vigente: el del mes y año del accidente, leídos de la fecha literal.
+	// Antes pasaba por `new Date(fecha)` en hora local: un accidente el día 1
+	// tomaba el RIPTE del mes anterior (el 1° de enero, del año anterior) y
+	// corría toda la tabla de 12 meses.
 	useEffect(() => {
-		const fetchRiptes = async () => {
-			if (!accidentDate || !session?.user?.accessToken) {
-				console.log("No se puede cargar RIPTEs:", {
-					accidentDate,
-					hasToken: !!session?.user?.accessToken,
-				});
-				setRiptes([]);
-				return;
-			}
-
-			try {
-				const date = new Date(accidentDate);
-				const year = date.getFullYear();
-				const month = date.toLocaleString("es-ES", { month: "long" });
-				const monthCapitalized = month.charAt(0).toUpperCase() + month.slice(1);
-
-				const url = `${API_BASE_URL}/statistics/monthly?type=estadistica_general&year=${year}`;
-				console.log("Cargando RIPTEs desde:", url);
-				console.log("Para fecha:", {
-					accidentDate,
-					year,
-					month: monthCapitalized,
-				});
-
-				const response = await fetch(url, {
-					method: "GET",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${session.user.accessToken}`,
-					},
-				});
-
-				console.log("Response status:", response.status);
-
-				if (!response.ok) {
-					const errorText = await response.text();
-					console.error("Error response:", errorText);
-					throw new Error(`Error al cargar RIPTEs: ${response.status}`);
-				}
-
-				const data = await response.json();
-				console.log("RIPTEs recibidos:", data);
-				setRiptes(data.data || []);
-
-				// Seleccionar automáticamente el RIPTE vigente a la fecha del accidente
-				const accidentDateObj = new Date(accidentDate);
-				const ripteYear = accidentDateObj.getFullYear();
-				const ripteMonth = accidentDateObj.toLocaleString("es-ES", {
-					month: "long",
-				});
-				const ripteMonthCapitalized =
-					ripteMonth.charAt(0).toUpperCase() + ripteMonth.slice(1);
-
-				const sourceRiptes = allRiptes.length > 0 ? allRiptes : (data.data || []);
-				const ripteVigente = sourceRiptes.find(
-					(r: any) => r.month === ripteMonthCapitalized && r.year === ripteYear,
-				);
-				console.log(
-					"RIPTE Vigente (1 año atrás) encontrado:",
-					ripteVigente,
-					"Mes:",
-					ripteMonthCapitalized,
-					"Año:",
-					ripteYear,
-				);
-				if (ripteVigente) {
-					setSelectedRipte(ripteVigente);
-				}
-			} catch (err) {
-				console.error("Error fetching riptes:", err);
-				setRiptes([]);
-			}
-		};
-
-		fetchRiptes();
-	}, [accidentDate, session?.user?.accessToken]);
-
-	// Auto-seleccionar RIPTE vigente cuando allRiptes se carga o cambia la fecha
-	useEffect(() => {
-		if (!accidentDate || allRiptes.length === 0) return;
-
-		const accidentDateObj = new Date(accidentDate);
-		const ripteYear = accidentDateObj.getFullYear();
-		const ripteMonth = accidentDateObj.toLocaleString("es-ES", {
-			month: "long",
-		});
-		const ripteMonthCapitalized =
-			ripteMonth.charAt(0).toUpperCase() + ripteMonth.slice(1);
-
-		const ripteVigente = allRiptes.find(
-			(r: any) => r.month === ripteMonthCapitalized && r.year === ripteYear,
-		);
-
-		if (ripteVigente) {
-			setSelectedRipte(ripteVigente);
-		}
+		const fecha = parseFecha(accidentDate);
+		if (!fecha || allRiptes.length === 0) return;
+		const ripteVigente = buscarRipte(allRiptes, fecha.anio, fecha.mes);
+		if (ripteVigente) setSelectedRipte(ripteVigente);
 	}, [accidentDate, allRiptes]);
+
+	// Edad a la fecha del accidente (art. 14: 65 / edad a la primera
+	// manifestación invalidante), no a hoy.
+	const birthDate = selectedCause?.customer?.userProfile?.birthDate ?? null;
+	useEffect(() => {
+		if (birthDate) setCustomerAge(edadALaFecha(birthDate, accidentDate));
+	}, [birthDate, accidentDate]);
 
 	// Función para validar si un expediente es válido
 	const isValidFile = (
@@ -508,36 +392,34 @@ export default function AccidentsWorkPage() {
 			files: cause.files.filter((file) => isValidFile(file, cause.customer)),
 		}));
 
-	// Calcular edad
-	const calculateAge = (birthdate: string | null) => {
-		if (!birthdate) return null;
-		const today = new Date();
-		const birth = new Date(birthdate);
-		let age = today.getFullYear() - birth.getFullYear();
-		const m = today.getMonth() - birth.getMonth();
-		if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-			age--;
-		}
-		return age;
-	};
-
 	const handleSelectFile = (cause: CalculatorCause, file: CaseFile) => {
+		// Cada expediente con sus propios datos: lo guardado para él o en
+		// blanco, nunca los haberes del expediente anterior.
+		let guardado: any = null;
+		try {
+			const raw = localStorage.getItem(getStorageKey(file.id));
+			guardado = raw ? JSON.parse(raw) : null;
+		} catch {
+			guardado = null;
+		}
+		setRemuneraciones(guardado?.remuneraciones ?? []);
+		setPorcentajesRipte(guardado?.porcentajesRipte ?? []);
+		setDateUntil(guardado?.dateUntil ?? "");
+		setActivar20Porciento(guardado?.activar20Porciento ?? false);
+		setPisoMinimo(guardado?.pisoMinimo ?? null);
+		setActivarPisoMinimo(guardado?.activarPisoMinimo ?? false);
+		if (guardado?.tasaInteresAnual != null) setTasaInteresAnual(guardado.tasaInteresAnual);
+
 		setSelectedCause(cause);
 		setSelectedFile(file);
 		setSearchTerm(cause.customer.name);
 		setShowSuggestions(false);
-		setAccidentDate(file.accidentDate ? file.accidentDate.split("T")[0] : "");
-
-		// Calcular edad si hay fecha de nacimiento
-		const calculatedAge = cause.customer.userProfile?.birthDate
-			? calculateAge(cause.customer.userProfile.birthDate)
-			: null;
-		setCustomerAge(calculatedAge);
-
-		// Establecer porcentaje de incapacidad
+		setAccidentDate(fechaISO(file.accidentDate));
 		setDisabilityPercentage(
 			file.disabilityPercentage ? Number(file.disabilityPercentage) : null,
 		);
+		// Con fecha de nacimiento la edad la calcula el efecto; sin ella se carga a mano.
+		if (!cause.customer.userProfile?.birthDate) setCustomerAge(null);
 	};
 
 	const handleRemoveSelection = () => {
@@ -555,7 +437,6 @@ export default function AccidentsWorkPage() {
 		setCustomerAge(null);
 		setDisabilityPercentage(null);
 		setDateUntil("");
-		setRiptes([]);
 		setSelectedRipte(null);
 		setRemuneraciones([]);
 		setPorcentajesRipte([]);
@@ -591,277 +472,69 @@ export default function AccidentsWorkPage() {
 	const hasCustomerBirthDate =
 		!!selectedCause?.customer?.userProfile?.birthDate;
 
-	// Generar tabla de remuneraciones basándose en el RIPTE Vigente seleccionado
+	// Tabla de remuneraciones: los 12 meses anteriores al del RIPTE vigente (el
+	// del accidente). Se rearma siempre que cambia el mes o el expediente, así
+	// nunca queda con los meses de otra fecha; los haberes ya cargados se
+	// conservan en el mes que corresponde.
 	useEffect(() => {
 		if (!selectedRipte) {
 			setRemuneraciones([]);
 			return;
 		}
-		// allRiptes aún cargando desde API — no borrar datos existentes
+		// allRiptes aún cargando desde la API: no tocar lo que hay.
 		if (allRiptes.length === 0) return;
 
-		// No regenerar durante la carga del JSON
-		if (isLoadingFromJSON) {
-			console.log("Cargando desde JSON, no regenerando tabla");
-			return;
-		}
-
-		// Si ya hay haberes cargados, no regenerar la tabla (evitar sobrescribir datos cargados del JSON)
-		const hayHaberesExistentes = remuneraciones.some(
-			(row) => row.haberes && row.haberes !== "",
-		);
-		if (hayHaberesExistentes && remuneraciones.length > 0) {
-			console.log(
-				"Tabla ya tiene haberes cargados, no regenerando para preservar datos",
-			);
-			return;
-		}
-
-		console.log(
-			"Generando tabla basada en RIPTE Vigente:",
-			selectedRipte.month,
-			selectedRipte.year,
-		);
-
-		const rows = [];
-		const monthNames = [
-			"Enero",
-			"Febrero",
-			"Marzo",
-			"Abril",
-			"Mayo",
-			"Junio",
-			"Julio",
-			"Agosto",
-			"Septiembre",
-			"Octubre",
-			"Noviembre",
-			"Diciembre",
-		];
-
-		// Crear fecha base del RIPTE Vigente seleccionado
-		const ripteVigenteMonth = monthNames.indexOf(selectedRipte.month);
-		const ripteVigenteYear = selectedRipte.year;
-
-		// Generar 12 meses: desde el mes del RIPTE del año anterior hasta el mes anterior del RIPTE actual
-		// Si RIPTE es Nov 2024, generamos desde Nov 2023 hasta Oct 2024
-		for (let i = 0; i < 12; i++) {
-			const date = new Date(ripteVigenteYear - 1, ripteVigenteMonth + i, 1);
-			const monthName = monthNames[date.getMonth()];
-			const year = date.getFullYear();
-			const periodo = `${monthName.toLowerCase().substring(0, 3)}-${year.toString().substring(2)}`;
-
-			// Buscar el RIPTE correspondiente a este mes
-			const ripteDelMes = allRiptes.find(
-				(r) => r.month === monthName && r.year === year,
-			);
-
-			rows.push({
-				periodo,
-				haberes: "",
-				ripteDelMes: ripteDelMes ? Number(ripteDelMes.value) : null,
-				haber_ajustado: null,
+		const { anio, mes } = mesDeRipte(selectedRipte);
+		const vigente = Number(selectedRipte.value);
+		setRemuneraciones((prev) => {
+			const haberes = new Map(prev.map((r) => [r.periodo, r.haberes]));
+			return periodosIBM(anio, mes).map((p) => {
+				const ripte = buscarRipte(allRiptes, p.anio, p.mes);
+				const ripteDelMes = ripte ? Number(ripte.value) : null;
+				const haber = haberes.get(p.periodo) ?? "";
+				return {
+					periodo: p.periodo,
+					haberes: haber,
+					ripteDelMes,
+					haber_ajustado: ajustarHaber(haber, vigente, ripteDelMes),
+				};
 			});
-		}
+		});
+	}, [selectedRipte, allRiptes, selectedFile?.id]);
 
-		console.log(
-			"Nueva tabla generada con",
-			rows.length,
-			"filas. Primera:",
-			rows[0]?.periodo,
-			"Última:",
-			rows[rows.length - 1]?.periodo,
-		);
-		setRemuneraciones(rows);
-	}, [selectedRipte, allRiptes]);
-
-	// Generar tabla de porcentajes RIPTE basado en el rango DNU 669/19
+	// Tabla de variación del RIPTE (DNU 669/19): de "Desde" a "Hasta". Se rearma
+	// con el rango; solo se conservan los porcentajes cargados a mano.
 	useEffect(() => {
 		if (!selectedRipte || !selectedRipteHasta) {
 			setPorcentajesRipte([]);
 			return;
 		}
-		// allRiptes aún cargando desde API — no borrar datos existentes
 		if (allRiptes.length === 0) return;
 
-		// No regenerar durante la carga del JSON
-		if (isLoadingFromJSON) return;
-
-		// Si ya hay porcentajes editados manualmente, no regenerar
-		if (porcentajesRipte.length > 0) return;
-
-		console.log(
-			"Generando tabla de porcentajes RIPTE desde:",
-			selectedRipte.month,
-			selectedRipte.year,
-			"hasta:",
-			selectedRipteHasta.month,
-			selectedRipteHasta.year,
-		);
-
-		const rows = [];
-		const monthNames = [
-			"Enero",
-			"Febrero",
-			"Marzo",
-			"Abril",
-			"Mayo",
-			"Junio",
-			"Julio",
-			"Agosto",
-			"Septiembre",
-			"Octubre",
-			"Noviembre",
-			"Diciembre",
-		];
-		const mesesCortos = [
-			"ene",
-			"feb",
-			"mar",
-			"abr",
-			"may",
-			"jun",
-			"jul",
-			"ago",
-			"sep",
-			"oct",
-			"nov",
-			"dic",
-		];
-
-		// Crear fechas desde y hasta basadas en las selecciones del DNU
-		const fechaDesde = new Date(
-			selectedRipte.year,
-			monthNames.indexOf(selectedRipte.month),
-			1,
-		);
-		const fechaHasta = new Date(
-			selectedRipteHasta.year,
-			monthNames.indexOf(selectedRipteHasta.month),
-			1,
-		);
-		// Extender 1 mes: el último período usa el RIPTE "hasta" como referencia 3M atrás
-		fechaHasta.setMonth(fechaHasta.getMonth() + 1);
-
-		const tempDate = new Date(fechaDesde);
-
-		while (tempDate <= fechaHasta) {
-			const monthName = monthNames[tempDate.getMonth()];
-			const year = tempDate.getFullYear();
-			const periodo = `${mesesCortos[tempDate.getMonth()]}-${year.toString().substring(2)}`;
-
-			// Buscar RIPTE del mes actual
-			const ripteActual = allRiptes.find(
-				(r) => r.month === monthName && r.year === year,
+		const filas = filasVariacion(allRiptes, mesDeRipte(selectedRipte), mesDeRipte(selectedRipteHasta));
+		setPorcentajesRipte((prev) => {
+			const editados = new Map(
+				prev.filter((r) => r.editado).map((r) => [r.mesPeriodo, r.riptePercentage]),
 			);
-
-			// Buscar RIPTE de 3 meses atrás
-			const fecha3MesesAtras = new Date(tempDate);
-			fecha3MesesAtras.setMonth(fecha3MesesAtras.getMonth() - 3);
-			const month3MA = monthNames[fecha3MesesAtras.getMonth()];
-			const year3MA = fecha3MesesAtras.getFullYear();
-			const ripte3MesesAtras = allRiptes.find(
-				(r) => r.month === month3MA && r.year === year3MA,
+			return filas.map((f) =>
+				editados.has(f.mesPeriodo)
+					? { ...f, riptePercentage: editados.get(f.mesPeriodo) ?? null, editado: true }
+					: f,
 			);
-
-			// Mostrar el porcentaje del RIPTE de 3 meses atrás (no el valor)
-			let riptePercentage = null;
-			if (ripte3MesesAtras && ripte3MesesAtras.percentage !== undefined) {
-				riptePercentage = Number(ripte3MesesAtras.percentage);
-			}
-
-			rows.push({
-				mesPeriodo: periodo,
-				mesCorriendo: `${mesesCortos[fecha3MesesAtras.getMonth()]}-${year3MA.toString().substring(2)}`,
-				riptePercentage: riptePercentage,
-			});
-
-			// Avanzar al siguiente mes
-			tempDate.setMonth(tempDate.getMonth() + 1);
-		}
-
-		console.log(
-			"Tabla de porcentajes generada con",
-			rows.length,
-			"filas desde",
-			selectedRipte.month,
-			selectedRipte.year,
-			"hasta",
-			selectedRipteHasta.month,
-			selectedRipteHasta.year,
-		);
-		setPorcentajesRipte(rows);
-	}, [selectedRipte, selectedRipteHasta, allRiptes]);
-
-	// Recalcular solo los haberes ajustados cuando hay valores ingresados y cambia el RIPTE
-	useEffect(() => {
-		if (!selectedRipte || remuneraciones.length === 0) return;
-
-		// Solo recalcular si hay haberes ingresados
-		const hayHaberes = remuneraciones.some(
-			(row) => row.haberes && row.haberes !== "",
-		);
-		if (!hayHaberes) return;
-
-		// Verificar si ya están calculados con el RIPTE actual para evitar loops
-		const yaCalculado = remuneraciones.some((row) => {
-			if (row.haberes && row.haber_ajustado && row.ripteDelMes) {
-				const expectedValue =
-					(Number(selectedRipte.value) / row.ripteDelMes) *
-					parseFloat(row.haberes);
-				return Math.abs(row.haber_ajustado - expectedValue) < 0.01; // Tolerancia para decimales
-			}
-			return false;
 		});
+	}, [selectedRipte, selectedRipteHasta, allRiptes, selectedFile?.id]);
 
-		if (yaCalculado) return; // Ya está calculado, no hacer nada
-
-		console.log(
-			"Recalculando haberes ajustados con RIPTE:",
-			selectedRipte.value,
-		);
-
-		setRemuneraciones((currentRemuneraciones) =>
-			currentRemuneraciones.map((row, index) => {
-				if (row.haberes && row.haberes !== "") {
-					const haber = parseFloat(row.haberes);
-					const ripteDelMes = row.ripteDelMes;
-
-					if (ripteDelMes && !isNaN(haber)) {
-						const ripteDesde = Number(selectedRipte.value);
-						const haber_ajustado = (ripteDesde / ripteDelMes) * haber;
-
-						return {
-							...row,
-							haber_ajustado,
-						};
-					}
-				}
-				return {
-					...row,
-					haber_ajustado: null,
-				};
-			}),
-		);
-	}, [selectedRipte]); // Removido remuneraciones de las dependencias    // Calcular haberes con ajuste cuando cambian los valores
-
-	const calcularHaberAjustado = (index: number, haberes: string) => {
-		if (!selectedRipte || !haberes) return null;
-
-		const haber = parseFloat(haberes);
-		const ripteDelMes = remuneraciones[index]?.ripteDelMes;
-
-		if (!ripteDelMes || isNaN(haber)) return null;
-
-		const ripteDesde = Number(selectedRipte.value);
-		return (ripteDesde / ripteDelMes) * haber;
-	};
+	const calcularHaberAjustado = (index: number, haberes: string) =>
+		selectedRipte
+			? ajustarHaber(haberes, Number(selectedRipte.value), remuneraciones[index]?.ripteDelMes ?? null)
+			: null;
 
 	const handlePorcentajeChange = (index: number, value: string) => {
 		const newPorcentajes = [...porcentajesRipte];
 		newPorcentajes[index] = {
 			...newPorcentajes[index],
 			riptePercentage: value !== "" ? parseFloat(value) : null,
+			editado: true,
 		};
 		setPorcentajesRipte(newPorcentajes);
 	};
@@ -937,13 +610,9 @@ export default function AccidentsWorkPage() {
 			? totalHaberesAjustados / remuneraciones.length
 			: 0;
 
-	// Calcular la tasa de variación desde el total de porcentajes RIPTE
-	const tasaDeVariacion = porcentajesRipte.reduce((sum, row) => {
-		if (row.riptePercentage !== null) {
-			return sum + row.riptePercentage;
-		}
-		return sum;
-	}, 0);
+	// Tasa de variación del RIPTE en el período: acumulada (∏(1 + p) − 1), no
+	// la suma de los porcentajes mensuales.
+	const tasaDeVariacion = variacionAcumulada(porcentajesRipte.map((row) => row.riptePercentage));
 
 	// Calcular IBM TOTAL usando la fórmula: SUMA(promedioHaberesAjustados*tasaDeVariacion)+promedioHaberesAjustados
 	const ibmTotal =
@@ -976,287 +645,121 @@ export default function AccidentsWorkPage() {
 	// Total piso mínimo final: piso + 20% adicional
 	const totalPisoMinimoFinal = totalPisoMinimo + veintePorCientoPiso;
 
-	// Calcular intereses 8% anual desde fecha de accidente
-	const calcularIntereses = () => {
-		if (!accidentDate) return [];
-
-		const fechaAccidente = new Date(accidentDate);
-		const hoy = new Date();
-		const añoAccidente = fechaAccidente.getFullYear();
-		const añoActual = hoy.getFullYear();
-		const interesesPorAño = [];
-
-		for (let año = añoAccidente; año <= añoActual; año++) {
-			let diasDelAño = 0;
-
-			if (año === añoAccidente && año === añoActual) {
-				// Mismo año: desde accidente hasta hoy
-				diasDelAño = Math.ceil(
-					(hoy.getTime() - fechaAccidente.getTime()) / (1000 * 60 * 60 * 24),
-				);
-			} else if (año === añoAccidente) {
-				// Primer año: desde accidente hasta fin del año
-				const finDelAño = new Date(año, 11, 31, 23, 59, 59);
-				diasDelAño =
-					Math.ceil(
-						(finDelAño.getTime() - fechaAccidente.getTime()) /
-						(1000 * 60 * 60 * 24),
-					) + 1;
-			} else if (año === añoActual) {
-				// Año actual: desde inicio del año hasta hoy
-				const inicioDelAño = new Date(año, 0, 1);
-				diasDelAño =
-					Math.ceil(
-						(hoy.getTime() - inicioDelAño.getTime()) / (1000 * 60 * 60 * 24),
-					) + 1;
-			} else {
-				// Años intermedios: año completo
-				diasDelAño =
-					año % 4 === 0 && (año % 100 !== 0 || año % 400 === 0) ? 366 : 365;
-			}
-
-			// Fórmula: (TOTAL INDEM. * tasa% / 365) * días del año
-			const interesDiario = (totalIndemnizacion * (tasaInteresAnual / 100)) / 365;
-			const interesDelAño = interesDiario * diasDelAño;
-
-			interesesPorAño.push({
-				año,
-				dias: diasDelAño,
-				interesDiario,
-				interesDelAño,
-			});
-		}
-
-		return interesesPorAño;
-	};
-
-	const interesesCalculados = calcularIntereses();
+	// Interés simple anual sobre el total de la indemnización, desde la fecha
+	// del accidente hasta "Hasta" (vacío = hoy). Los días suman exacto: antes
+	// se ignoraba "Hasta" y se contaban días de más al partir por año.
+	const fechaHasta = dateUntil || hoyISO();
+	const interesesCalculados = interesesPorAnio(totalIndemnizacion, tasaInteresAnual, accidentDate, fechaHasta);
 	const totalIntereses = interesesCalculados.reduce(
 		(sum, item) => sum + item.interesDelAño,
 		0,
 	);
 	const totalConIntereses = totalIndemnizacion + totalIntereses;
 
-	// Función para generar PDF
-	const handleGeneratePDF = async () => {
+	// Lo que va al PDF y lo que se guarda en la causa para poder volver a
+	// abrirla: el mismo objeto, con las fechas literales "YYYY-MM-DD".
+	const datosLiquidacion = {
+		cliente: selectedCause?.customer.name || "Sin causa asociada",
+		expediente:
+			selectedFile?.cuij || (selectedFile ? `Expediente #${selectedFile.id}` : "Sin expediente"),
+		fechaAccidente: accidentDate,
+		fechaHasta,
+		dateUntil,
+		edad: customerAge,
+		incapacidad: disabilityPercentage,
+		ibmConRipte: promedioHaberesAjustados,
+		tasaVariacion: tasaDeVariacion,
+		ibmTotal,
+		coeficienteEdad,
+		totalFormula,
+		activar20Porciento,
+		veintePorCiento,
+		totalIndemnizacion,
+		pisoMinimo,
+		totalPisoMinimo,
+		activarPisoMinimo,
+		veintePorCientoPiso,
+		totalPisoMinimoFinal,
+		remuneraciones,
+		porcentajesRipte,
+		selectedRipte,
+		selectedRipteHasta,
+		tasaInteresAnual,
+		interesesCalculados,
+		totalIntereses,
+		totalConIntereses,
+	};
 
+	// Descargar el PDF sin guardarlo en la causa.
+	const handleGeneratePDF = async () => {
 		setIsGeneratingPDF(true);
 		try {
-			// Crear datos para el PDF
-			const pdfData = {
-				cliente: selectedCause?.customer.name || "Sin causa asociada",
-				expediente: selectedFile?.cuij || (selectedFile ? `Expediente #${selectedFile.id}` : "Sin expediente"),
-				fechaAccidente: accidentDate
-					? new Date(accidentDate).toLocaleDateString("es-AR")
-					: "",
-				edad: customerAge,
-				incapacidad: disabilityPercentage,
-				ibmConRipte: promedioHaberesAjustados,
-				tasaVariacion: tasaDeVariacion,
-				ibmTotal: ibmTotal,
-				coeficienteEdad: coeficienteEdad,
-				totalFormula: totalFormula,
-				activar20Porciento,
-				veintePorCiento: veintePorCiento,
-				totalIndemnizacion: totalIndemnizacion,
-				pisoMinimo: pisoMinimo,
-				totalPisoMinimo: totalPisoMinimo,
-				activarPisoMinimo,
-				veintePorCientoPiso: veintePorCientoPiso,
-				totalPisoMinimoFinal: totalPisoMinimoFinal,
-				remuneraciones: remuneraciones,
-				porcentajesRipte: porcentajesRipte,
-				selectedRipte: selectedRipte,
-				tasaInteresAnual,
-				interesesCalculados,
-				totalIntereses,
-				totalConIntereses,
-			};
-
-			// Llamar al endpoint para generar PDF
 			const response = await fetch(`${API_BASE_URL}/lrt/generate-pdf`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
-				body: JSON.stringify(pdfData),
+				body: JSON.stringify(datosLiquidacion),
 			});
+			if (!response.ok) {
+				throw new Error(await apiErrorMessage(response, "Error al generar el PDF"));
+			}
 
-			if (!response.ok) throw new Error("Error al generar PDF");
-
-			// Descargar el PDF
 			const blob = await response.blob();
 			const url = window.URL.createObjectURL(blob);
 			const a = document.createElement("a");
 			a.href = url;
-			a.download = `Liquidacion_LRT_${selectedCause?.customer.name || "calculadora"}_${new Date().toLocaleDateString("es-AR").replace(/\//g, "-")}.pdf`;
+			a.download = `Liquidacion_LRT_${selectedCause?.customer.name || "calculadora"}_${formatFecha(hoyISO()).replace(/\//g, "-")}.pdf`;
 			document.body.appendChild(a);
 			a.click();
 			window.URL.revokeObjectURL(url);
 			document.body.removeChild(a);
-
-			console.log("PDF generado exitosamente");
 		} catch (error) {
 			console.error("Error al generar PDF:", error);
+			toast.error(error instanceof Error ? error.message : "Error al generar el PDF");
 		} finally {
 			setIsGeneratingPDF(false);
 		}
 	};
 
-	// Función para guardar liquidación en el expediente
+	// Guardar en la causa: el backend arma el PDF y lo deja en la carpeta
+	// 5_LIQUIDACIONES del caso como archivo nuevo (cada recálculo es otra
+	// versión, no se pisa ninguna) y guarda los datos para volver a abrirla.
 	const handleSaveLiquidacion = async () => {
 		if (!selectedCause || !selectedFile || !session?.user?.accessToken) {
-			toast.error("Por favor seleccione una causa y expediente primero");
+			toast.error("Seleccioná la causa y el expediente primero");
 			return;
 		}
-
-		// Verificar que hay datos para guardar
-		console.log("=== VERIFICACIÓN ANTES DE GUARDAR ===");
-		console.log("Remuneraciones actuales:", remuneraciones);
-		console.log("Cantidad de remuneraciones:", remuneraciones.length);
-		console.log(
-			"Haberes ingresados:",
-			remuneraciones.filter((r) => r.haberes && r.haberes !== ""),
-		);
-
-		if (remuneraciones.length === 0) {
-			toast.error(
-				"No hay datos de remuneraciones para guardar. Asegúrese de haber ingresado la información necesaria.",
-			);
+		if (!hayHaberesIngresados) {
+			toast.error("Cargá los haberes antes de guardar la liquidación");
 			return;
 		}
 
 		setIsSaving(true);
 		try {
-			const calculationData = {
-				cliente: selectedCause?.customer.name || "Sin causa asociada",
-				expediente: selectedFile?.cuij || (selectedFile ? `Expediente #${selectedFile.id}` : "Sin expediente"),
-				fechaAccidente: accidentDate,
-				edad: customerAge,
-				incapacidad: disabilityPercentage,
-				dateUntil: dateUntil,
-				ibmConRipte: promedioHaberesAjustados,
-				tasaVariacion: tasaDeVariacion,
-				ibmTotal: ibmTotal,
-				coeficienteEdad: coeficienteEdad,
-				totalFormula: totalFormula,
-				activar20Porciento,
-				veintePorCiento: veintePorCiento,
-				totalIndemnizacion: totalIndemnizacion,
-				pisoMinimo: pisoMinimo,
-				totalPisoMinimo: totalPisoMinimo,
-				activarPisoMinimo,
-				veintePorCientoPiso: veintePorCientoPiso,
-				totalPisoMinimoFinal: totalPisoMinimoFinal,
-				remuneraciones: remuneraciones,
-				porcentajesRipte: porcentajesRipte,
-				selectedRipte: selectedRipte,
-				selectedRipteHasta: selectedRipteHasta,
-				allRiptes: allRiptes,
-				fechaCalculo: new Date().toISOString(),
-			};
-
-			console.log("Guardando remuneraciones:", remuneraciones);
-			console.log("Estado actual de remuneraciones detallado:");
-			remuneraciones.forEach((rem, index) => {
-				console.log(
-					`  [${index}] ${rem.periodo}: haberes="${rem.haberes}", ripte=${rem.ripteDelMes}, ajustado=${rem.haber_ajustado}`,
-				);
-			});
-			console.log("Datos completos a guardar:", calculationData);
-
-			const fileName = `Liquidacion_LRT_${selectedCause.customer.name}_${new Date().toLocaleDateString("es-AR").replace(/\//g, "-")}.json`;
-
-			const requestBody = {
-				caseId: selectedFile.caseId,
-				fileName: fileName,
-				calculationData: calculationData,
-			};
-
-			console.log("=== DATOS ENVIADOS AL SERVIDOR ===");
-			console.log("Body completo:", JSON.stringify(requestBody, null, 2));
-			console.log(
-				"Solo calculationData:",
-				JSON.stringify(calculationData, null, 2),
-			);
-
 			const response = await fetch(`${API_BASE_URL}/lrt/save-liquidation`, {
 				method: "POST",
 				headers: {
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${session.user.accessToken}`,
 				},
-				body: JSON.stringify(requestBody),
+				body: JSON.stringify({
+					caseId: selectedFile.caseId,
+					fileId: selectedFile.id,
+					fileName: `Liquidacion_LRT_${selectedCause.customer.name}_${formatFecha(hoyISO()).replace(/\//g, "-")}.json`,
+					calculationData: { ...datosLiquidacion, fechaCalculo: new Date().toISOString() },
+				}),
 			});
-
-			if (!response.ok)
-				throw new Error(
-					await apiErrorMessage(response, "Error al guardar la liquidación"),
-				);
-
+			if (!response.ok) {
+				throw new Error(await apiErrorMessage(response, "Error al guardar la liquidación"));
+			}
 			const result = await response.json();
-
-			// Generar y subir PDF al caso
-			try {
-				toast.info("Generando PDF de la liquidación...");
-				const pdfResponse = await fetch(`${API_BASE_URL}/lrt/generate-pdf`, {
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${session.user.accessToken}`,
-					},
-					body: JSON.stringify(calculationData),
-				});
-
-				if (pdfResponse.ok) {
-					const pdfBlob = await pdfResponse.blob();
-					const pdfFileName = `Liquidacion_LRT_${selectedCause.customer.name}_${new Date().toLocaleDateString("es-AR").replace(/\//g, "-")}.pdf`;
-					const formData = new FormData();
-					formData.append("file", pdfBlob, pdfFileName);
-					formData.append("caseId", String(selectedFile.caseId));
-					// Va a 5_LIQUIDACIONES/ del caso (por la categoría), vinculada al expediente.
-					formData.append("fileId", String(selectedFile.id));
-					formData.append("category", "LIQUIDACION_LRT");
-					formData.append("description", `Liquidación LRT PDF - ${selectedCause.customer.name}`);
-
-					await fetch(`${API_BASE_URL}/cases/${selectedFile.caseId}/documents`, {
-						method: "POST",
-						headers: {
-							Authorization: `Bearer ${session.user.accessToken}`,
-						},
-						body: formData,
-					});
-				}
-			} catch (pdfError) {
-				console.error("Error al generar/subir PDF:", pdfError);
-			}
-
-			toast.success("Liquidación guardada exitosamente en el expediente");
-
-			// Verificar inmediatamente lo que se guardó
-			if (result.liquidation && result.liquidation.calculationData) {
-				console.log(
-					"Datos guardados en el servidor:",
-					result.liquidation.calculationData,
-				);
-				console.log(
-					"Remuneraciones en servidor:",
-					result.liquidation.calculationData.remuneraciones,
-				);
-			}
-
-			// Recargar las liquidaciones guardadas si hay un caso seleccionado
-			if (selectedFile?.caseId) {
-				fetchSavedLiquidations(selectedFile.caseId);
-			}
+			toast.success(result.message ?? "Liquidación guardada en la causa");
+			fetchSavedLiquidations(selectedFile.caseId);
 		} catch (error) {
 			console.error("Error al guardar liquidación:", error);
-			toast.error(
-				error instanceof Error
-					? error.message
-					: "Error al guardar la liquidación",
-			);
+			toast.error(error instanceof Error ? error.message : "Error al guardar la liquidación");
 		} finally {
 			setIsSaving(false);
 		}
@@ -1291,106 +794,44 @@ export default function AccidentsWorkPage() {
 		}
 	};
 
-	// Función para cargar una liquidación guardada
+	// Abre una liquidación guardada tal como se guardó (los porcentajes quedan
+	// como cargados a mano para no pisarlos con los del RIPTE actual).
 	const handleLoadLiquidation = async (liquidationId: number) => {
 		if (!session?.user?.accessToken) return;
 
-		setIsLoadingFromJSON(true); // Activar flag de carga
 		try {
-			const response = await fetch(
-				`${API_BASE_URL}/lrt/liquidation/${liquidationId}`,
-				{
-					method: "GET",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${session.user.accessToken}`,
-					},
-				},
-			);
-
-			if (!response.ok) throw new Error("Error al cargar liquidación");
-
+			const response = await fetch(`${API_BASE_URL}/lrt/liquidation/${liquidationId}`, {
+				headers: { Authorization: `Bearer ${session.user.accessToken}` },
+			});
+			if (!response.ok) {
+				throw new Error(await apiErrorMessage(response, "Error al cargar la liquidación"));
+			}
 			const result = await response.json();
 			const data = result.liquidation.calculationData;
 
-			console.log("Cargando liquidación:", data);
-			console.log("Remuneraciones cargadas:", data.remuneraciones);
-
-			// Limpiar localStorage antes de cargar nuevos datos para evitar conflictos
-			try {
-				localStorage.removeItem(currentStorageKey);
-			} catch (error) {
-				console.error("Error al limpiar localStorage antes de cargar:", error);
-			}
-
-			// Cargar primero las remuneraciones para evitar regeneración
-			if (data.remuneraciones && Array.isArray(data.remuneraciones)) {
-				console.log(
-					"Estableciendo remuneraciones ANTES que selectedRipte:",
-					data.remuneraciones,
-				);
-				setRemuneraciones(data.remuneraciones);
-			}
-
-			// Esperar un poco antes de cargar otros datos para asegurar que remuneraciones se establezca
-			setTimeout(() => {
-				// Cargar los demás datos
-				if (data.fechaAccidente) setAccidentDate(data.fechaAccidente);
-				if (data.edad !== null && data.edad !== undefined)
-					setCustomerAge(data.edad);
-				if (data.incapacidad !== null && data.incapacidad !== undefined)
-					setDisabilityPercentage(data.incapacidad);
-				if (data.dateUntil) setDateUntil(data.dateUntil);
-				if (data.selectedRipte) setSelectedRipte(data.selectedRipte);
-				if (data.selectedRipteHasta)
-					setSelectedRipteHasta(data.selectedRipteHasta);
-				if (data.porcentajesRipte && Array.isArray(data.porcentajesRipte)) {
-					setPorcentajesRipte(data.porcentajesRipte);
-				}
-				if (data.activar20Porciento !== undefined)
-					setActivar20Porciento(data.activar20Porciento);
-				if (data.pisoMinimo !== null && data.pisoMinimo !== undefined)
-					setPisoMinimo(data.pisoMinimo);
-				if (data.activarPisoMinimo !== undefined)
-					setActivarPisoMinimo(data.activarPisoMinimo);
-
-				// Desactivar flag después de cargar todo
-				setTimeout(() => {
-					setIsLoadingFromJSON(false);
-					console.log("Carga desde JSON completada, flag desactivado");
-				}, 500);
-			}, 100);
-
-			// Guardar los datos cargados en localStorage para persistencia
-			setTimeout(() => {
-				const dataToSave = {
-					accidentDate: data.fechaAccidente || "",
-					customerAge: data.edad,
-					disabilityPercentage: data.incapacidad,
-					dateUntil: data.dateUntil || "",
-					selectedRipte: data.selectedRipte,
-					selectedRipteHasta: data.selectedRipteHasta,
-					remuneraciones: data.remuneraciones || [],
-					porcentajesRipte: data.porcentajesRipte || [],
-					activar20Porciento: data.activar20Porciento || false,
-					pisoMinimo: data.pisoMinimo,
-					activarPisoMinimo: data.activarPisoMinimo || false,
-					timestamp: Date.now(),
-					loadedFromJSON: true,
-				};
-				saveToLocalStorage(currentStorageKey, dataToSave);
-			}, 1500);
+			setRemuneraciones(Array.isArray(data.remuneraciones) ? data.remuneraciones : []);
+			setPorcentajesRipte(
+				Array.isArray(data.porcentajesRipte)
+					? data.porcentajesRipte.map((r: FilaVariacion) => ({ ...r, editado: true }))
+					: [],
+			);
+			if (data.fechaAccidente) setAccidentDate(fechaISO(data.fechaAccidente));
+			if (data.incapacidad != null) setDisabilityPercentage(Number(data.incapacidad));
+			// Sin fecha de nacimiento, la edad es la guardada; con ella, la recalcula el efecto.
+			if (data.edad != null && !hasCustomerBirthDate) setCustomerAge(data.edad);
+			setDateUntil(data.dateUntil ?? "");
+			if (data.selectedRipte) setSelectedRipte(data.selectedRipte);
+			if (data.selectedRipteHasta) setSelectedRipteHasta(data.selectedRipteHasta);
+			setActivar20Porciento(Boolean(data.activar20Porciento));
+			setPisoMinimo(data.pisoMinimo ?? null);
+			setActivarPisoMinimo(Boolean(data.activarPisoMinimo));
+			if (data.tasaInteresAnual != null) setTasaInteresAnual(Number(data.tasaInteresAnual));
 
 			setShowSavedLiquidations(false);
-			toast.success("Liquidación cargada exitosamente");
+			toast.success("Liquidación cargada");
 		} catch (error) {
 			console.error("Error al cargar liquidación:", error);
-			toast.error("Error al cargar la liquidación");
-		} finally {
-			// Asegurar que el flag se desactive incluso si hay error
-			setTimeout(() => {
-				setIsLoadingFromJSON(false);
-			}, 2000);
+			toast.error(error instanceof Error ? error.message : "Error al cargar la liquidación");
 		}
 	};
 
@@ -1440,7 +881,7 @@ export default function AccidentsWorkPage() {
 							{selectedFile.accidentDate && (
 								<Badge variant="outline">
 									<Calendar className="size-3 mr-1" />
-									{new Date(selectedFile.accidentDate).toLocaleDateString("es-AR")}
+									{formatFecha(selectedFile.accidentDate)}
 								</Badge>
 							)}
 							<Badge variant="outline"><Cake className="size-3 mr-1" />{customerAge !== null ? `${customerAge} años` : "Sin edad"}</Badge>
@@ -1481,7 +922,7 @@ export default function AccidentsWorkPage() {
 														<span className="font-mono text-xs">{file.cuij || "Sin CUIJ"}</span>
 														{file.accidentDate && (
 															<span className="text-xs text-muted-foreground">
-																{new Date(file.accidentDate).toLocaleDateString("es-AR")}
+																{formatFecha(file.accidentDate)}
 															</span>
 														)}
 													</button>
@@ -1540,7 +981,7 @@ export default function AccidentsWorkPage() {
 								</div>
 								<div className="space-y-1.5">
 									<Label><Calendar className="size-3.5" /> Hasta</Label>
-									<Input type="date" value={dateUntil || new Date().toLocaleDateString("en-CA")} onChange={(e) => setDateUntil(e.target.value)} />
+									<Input type="date" value={fechaHasta} onChange={(e) => setDateUntil(e.target.value)} />
 								</div>
 							</CardContent>
 						</Card>
@@ -1767,7 +1208,7 @@ export default function AccidentsWorkPage() {
 									<span className="font-medium">${promedioHaberesAjustados.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
 								</div>
 								<div className="flex justify-between py-1.5 border-b text-sm">
-									<span className="text-muted-foreground">TASA VARIACIÓN</span>
+									<span className="text-muted-foreground">TASA VARIACIÓN (acumulada)</span>
 									<span className="font-medium">{tasaDeVariacion.toFixed(2)}%</span>
 								</div>
 								<div className="flex justify-between py-1.5 border-b text-sm">
@@ -1803,7 +1244,7 @@ export default function AccidentsWorkPage() {
 								{accidentDate && totalIndemnizacion > 0 && (
 									<div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700 space-y-1">
 										<div className="flex items-center justify-between mb-2">
-											<h4 className="text-sm font-bold text-amber-900 dark:text-amber-100">INTERÉS TASA ANUAL</h4>
+											<h4 className="text-sm font-bold text-amber-900 dark:text-amber-100">INTERÉS TASA ANUAL <span className="font-normal">hasta el {formatFecha(fechaHasta)}</span></h4>
 											<div className="flex items-center gap-1.5">
 												<Input
 													type="number"
@@ -1870,7 +1311,7 @@ export default function AccidentsWorkPage() {
 									<CardTitle className="text-base">Resumen</CardTitle>
 								</CardHeader>
 								<CardContent className="space-y-1.5 text-sm text-muted-foreground">
-									<p><strong>F. Accidente:</strong> {accidentDate ? new Date(accidentDate).toLocaleDateString("es-AR") : "No def."}</p>
+									<p><strong>F. Accidente:</strong> {accidentDate ? formatFecha(accidentDate) : "No def."}</p>
 									<p><strong>Edad:</strong> {customerAge !== null ? `${customerAge} años` : "No def."}</p>
 									<p><strong>Incapacidad:</strong> {disabilityPercentage !== null ? `${disabilityPercentage}%` : "No def."}</p>
 									<p><strong>RIPTE:</strong> {selectedRipte ? `${selectedRipte.month} ${selectedRipte.year} - $${Number(selectedRipte.value).toLocaleString("es-AR")}` : "No sel."}</p>
