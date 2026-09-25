@@ -7,6 +7,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 // Subetapas de la etapa Administrativo (relevamiento v1.1). Solo aplican a
 // Accidente de Trabajo (SRT) y son también las carpetas de MinIO:
@@ -31,9 +32,11 @@ interface SubstageSelectProps {
 	value: string | null | undefined;
 	onChange: (value: AdministrativeSubstage) => void;
 	disabled?: boolean;
+	/** Para achicarlo (p. ej. en la tabla de casos). */
+	className?: string;
 }
 
-export function SubstageSelect({ value, onChange, disabled }: SubstageSelectProps) {
+export function SubstageSelect({ value, onChange, disabled, className }: SubstageSelectProps) {
 	return (
 		<Select
 			// Sin subetapa cargada, el caso está (y su carpeta) en "Iniciado".
@@ -41,7 +44,7 @@ export function SubstageSelect({ value, onChange, disabled }: SubstageSelectProp
 			onValueChange={(v) => onChange(v as AdministrativeSubstage)}
 			disabled={disabled}
 		>
-			<SelectTrigger className="h-8 w-[190px] text-xs">
+			<SelectTrigger className={cn("h-8 w-[190px] text-xs", className)}>
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>

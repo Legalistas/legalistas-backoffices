@@ -22,6 +22,7 @@ import { CasesFilters } from "./CasesFilters";
 import { CasesHeader } from "./CasesHeader";
 import { CasesKanbanView } from "./CasesKanbanView";
 import { CasesListView } from "./CasesListView";
+import type { AdministrativeSubstage } from "./SubstageSelect";
 
 interface LawyerOption {
 	id: string;
@@ -1100,6 +1101,40 @@ export default function CasesContent() {
 		],
 	);
 
+	// Subetapa administrativa desde la tabla. El backend mueve la carpeta del
+	// caso a 2_ADMINISTRATIVO/{subetapa}/.
+	const handleSubstageChange = useCallback(
+		async (caseId: number, substage: AdministrativeSubstage) => {
+			const actual = cases.find((c) => c.id === caseId)?.administrativeSubstage ?? "INICIADO";
+			if (substage === actual) return;
+			try {
+				const response = await fetch(`${CASES_ENDPOINT}/${caseId}`, {
+					method: "PATCH",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session?.user?.accessToken}`,
+					},
+					body: JSON.stringify({ administrativeSubstage: substage }),
+				});
+				if (!response.ok) {
+					throw new Error(
+						await apiErrorMessage(response, "No se pudo actualizar la subetapa."),
+					);
+				}
+				// Sin refetch, para no perder la página de la tabla.
+				setCases((prev) =>
+					prev.map((c) => (c.id === caseId ? { ...c, administrativeSubstage: substage } : c)),
+				);
+				toast.success("Subetapa actualizada: la carpeta del caso se movió");
+			} catch (error) {
+				toast.error(
+					error instanceof Error ? error.message : "No se pudo actualizar la subetapa.",
+				);
+			}
+		},
+		[session?.user?.accessToken, cases],
+	);
+
 	const handleGoogleReviewToggle = useCallback(
 		async (caseId: number, value: boolean) => {
 			try {
@@ -1416,6 +1451,7 @@ export default function CasesContent() {
 					handleClearSearch={handleClearSearch}
 					handleDelete={handleDelete}
 					onStageChange={handleStageChange}
+					onSubstageChange={handleSubstageChange}
 					onResultChange={handleResultChange}
 					onNoteCreate={handleNoteCreate}
 					isArchivedView={activeTab === "archived"}
