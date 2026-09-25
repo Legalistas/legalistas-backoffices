@@ -5,10 +5,18 @@ import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EscritoEditor } from "@/components/escritos/EscritoEditor";
+import { MEMBRETE_OPCIONES } from "@/components/escritos/Membrete";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
 	ESCRITOS_PLANTILLA_ENDPOINT,
@@ -17,11 +25,17 @@ import {
 } from "@/constant/api-endpoints";
 import { useConfirm } from "@/hooks/useConfirm";
 import { escritosFetch } from "@/lib/escritos-api";
-import type { Plantilla, PlantillaListItem, VariableEscrito } from "@/types/escritos";
+import type {
+	MembreteEscrito,
+	Plantilla,
+	PlantillaListItem,
+	VariableEscrito,
+} from "@/types/escritos";
 
 // Plantillas estándar reutilizables (acompaña cédula, sorteo de perito, anexos,
-// pronto despacho…). Todas salen con el mismo diseño Legalistas: acá se edita
-// el texto y las variables, no el aspecto.
+// pronto despacho…). Salen con el diseño Legalistas, salvo las de membrete RPU
+// (encabezado del Poder Judicial). Acá se edita el texto, las variables y el
+// membrete; no el resto del aspecto.
 
 interface Borrador {
 	id: number | null;
@@ -30,6 +44,7 @@ interface Borrador {
 	descripcion: string;
 	activa: boolean;
 	contenidoHtml: string;
+	membrete: MembreteEscrito;
 }
 
 const NUEVA: Borrador = {
@@ -39,6 +54,7 @@ const NUEVA: Borrador = {
 	descripcion: "",
 	activa: true,
 	contenidoHtml: "<p></p>",
+	membrete: "LEGALISTAS",
 };
 
 export default function PlantillasEscritosPage() {
@@ -92,6 +108,7 @@ export default function PlantillasEscritosPage() {
 				descripcion: data.descripcion ?? "",
 				activa: data.activa,
 				contenidoHtml: data.contenidoHtml,
+				membrete: data.membrete ?? "LEGALISTAS",
 			});
 		} catch (e) {
 			toast.error((e as Error).message);
@@ -112,6 +129,7 @@ export default function PlantillasEscritosPage() {
 				descripcion: editando.descripcion,
 				activa: editando.activa,
 				contenidoHtml: editando.contenidoHtml,
+				membrete: editando.membrete,
 			});
 			await escritosFetch(
 				editando.id ? ESCRITOS_PLANTILLA_ENDPOINT(editando.id) : ESCRITOS_PLANTILLAS_ENDPOINT,
@@ -201,6 +219,24 @@ export default function PlantillasEscritosPage() {
 							maxLength={255}
 						/>
 					</div>
+					<div className="space-y-1.5">
+						<Label>Membrete</Label>
+						<Select
+							value={editando.membrete}
+							onValueChange={(v) => set({ membrete: v as MembreteEscrito })}
+						>
+							<SelectTrigger className="w-full">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{MEMBRETE_OPCIONES.map((m) => (
+									<SelectItem key={m.value} value={m.value}>
+										{m.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					</div>
 					<label className="flex items-center gap-2 text-sm">
 						<Switch
 							checked={editando.activa}
@@ -214,6 +250,7 @@ export default function PlantillasEscritosPage() {
 					value={editando.contenidoHtml}
 					onChange={(html) => set({ contenidoHtml: html })}
 					variables={variables}
+					formato={{ membrete: editando.membrete }}
 				/>
 			</div>
 		);
@@ -225,7 +262,8 @@ export default function PlantillasEscritosPage() {
 				<div>
 					<h1 className="text-xl font-semibold">Plantillas de escritos</h1>
 					<p className="text-sm text-muted-foreground">
-						Todas se generan con el diseño Legalistas. Las variables
+						Se generan con el diseño Legalistas o, si la plantilla lo indica, con el
+						membrete RPU del Poder Judicial. Las variables
 						({"{{CARATULA}}"}, {"{{CUIJ}}"}…) se completan con el expediente del
 						escrito.
 					</p>
@@ -261,6 +299,7 @@ export default function PlantillasEscritosPage() {
 												{p.nombre}
 											</button>
 											{!p.activa && <Badge variant="secondary">Inactiva</Badge>}
+											{p.membrete === "RPU" && <Badge variant="outline">RPU</Badge>}
 										</div>
 										<div className="truncate text-xs text-muted-foreground">
 											{p.descripcion || "—"} · {p._count.escritos} escrito

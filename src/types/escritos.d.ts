@@ -9,7 +9,11 @@ export interface FormatoHoja {
 	margenIzquierdo: number;
 	margenDerecho: number;
 	numerarPaginas: boolean;
+	/** LEGALISTAS (logo en cada página) | RPU (encabezado del Poder Judicial en la primera). */
+	membrete?: MembreteEscrito;
 }
+
+export type MembreteEscrito = "LEGALISTAS" | "RPU";
 
 export interface ExpedienteResumen {
 	id: number;
@@ -54,6 +58,7 @@ export interface PlantillaListItem {
 	descripcion: string | null;
 	categoria: string | null;
 	activa: boolean;
+	membrete?: MembreteEscrito;
 	updatedAt: string;
 	createdBy: { id: number; name: string } | null;
 	_count: { escritos: number };

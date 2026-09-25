@@ -25,10 +25,11 @@ import {
 } from "@/components/ui/select";
 import type { FormatoHoja, VariableEscrito } from "@/types/escritos";
 import "./documento.css";
+import { Membrete } from "./Membrete";
 
 // Editor de escritos y plantillas. A propósito sin colores ni tamaños libres:
-// el diseño es único para todos los escritos (logo Legalistas, fuente y
-// márgenes del formato). Lo que se edita es el texto.
+// el diseño lo dan el membrete (Legalistas o RPU), la fuente y los márgenes
+// del formato. Lo que se edita es el texto.
 
 interface EscritoEditorProps {
 	value: string;
@@ -106,7 +107,13 @@ export function EscritoEditor({
 		"--doc-fuente": `'${formato?.fuente ?? "Times New Roman"}', Tinos, 'Liberation Serif', serif`,
 		"--doc-tamano": `${formato?.tamanoFuente ?? 12}pt`,
 		"--doc-interlineado": String(formato?.interlineado ?? 1.5),
-		paddingTop: `${Math.max(formato?.margenSuperior ?? 25, 22)}mm`,
+		// Con el logo de Legalistas en el margen hace falta un mínimo de 22 mm;
+		// el membrete RPU va con el texto.
+		paddingTop: `${
+			formato?.membrete === "RPU"
+				? (formato?.margenSuperior ?? 25)
+				: Math.max(formato?.margenSuperior ?? 25, 22)
+		}mm`,
 		paddingBottom: `${formato?.margenInferior ?? 20}mm`,
 		paddingLeft: `${formato?.margenIzquierdo ?? 30}mm`,
 		paddingRight: `${formato?.margenDerecho ?? 20}mm`,
@@ -213,17 +220,13 @@ export function EscritoEditor({
 				</div>
 			)}
 
-			{/* Hoja A4: mismo ancho, márgenes y logo que el PDF. */}
+			{/* Hoja A4: mismo ancho, márgenes y membrete que el PDF. */}
 			<div className="overflow-x-auto p-4">
 				<div
 					className="mx-auto w-[210mm] max-w-full bg-white shadow-sm"
 					style={hoja}
 				>
-					<img
-						src="/images/logo/logo-print.png"
-						alt="Legalistas"
-						className="-mt-[14mm] mb-[5mm] h-[9mm]"
-					/>
+					<Membrete tipo={formato?.membrete} />
 					<EditorContent editor={editor} />
 				</div>
 			</div>
