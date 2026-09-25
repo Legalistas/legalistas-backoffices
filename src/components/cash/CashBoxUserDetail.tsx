@@ -8,6 +8,7 @@ import {
 	DollarSign,
 	FileText,
 	ListFilter,
+	Pencil,
 } from "lucide-react"; // Added FileText
 import Image from "next/image";
 import { useSession } from "next-auth/react";
@@ -30,10 +31,13 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Pagination } from "@/components/shared/Pagination";
-import { CASH_ENDPOINT } from "@/constant/api-endpoints";
+import { CASH_ENDPOINT, CREDIT_CARDS_ENDPOINT } from "@/constant/api-endpoints";
 import { MOVEMENTS } from "@/constant/cash"; // Importar MOVEMENTS y su tipo
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/users"; // Assuming Transaction type is now in types/users
+import type { Transaction } from "@/types/cash";
+import type { CreditCardWithPending } from "./CreditCardsPanel";
+import EditTransactionDialog from "./EditTransactionDialog";
 
 export default function CashBoxUserDetail({ userId }: { userId: number }) {
 	const { data: session } = useSession();
@@ -42,6 +46,11 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 	const [user, setUser] = useState<User | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	// Edición de un movimiento: queda seteado al cerrar para no vaciar el
+	// diálogo durante la animación de salida.
+	const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+	const [isEditMovementModalOpen, setIsEditMovementModalOpen] = useState(false);
+	const [creditCards, setCreditCards] = useState<CreditCardWithPending[]>([]);
 	const currentMonth = String(new Date().getMonth() + 1).padStart(2, "0");
 	const currentYear = String(new Date().getFullYear());
 	const [selectedMonth, setSelectedMonth] = useState<string>(currentMonth);
@@ -108,6 +117,25 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 			fetchUser();
 		}
 	}, [currentViewUserId, session?.user?.accessToken]); // Añadir currentViewUserId a las dependencias
+
+	// Tarjetas para el medio de pago al editar un egreso.
+	const fetchCreditCards = useCallback(async () => {
+		if (!session?.user?.accessToken) return;
+		try {
+			const response = await fetch(CREDIT_CARDS_ENDPOINT, {
+				headers: { Authorization: `Bearer ${session.user.accessToken}` },
+			});
+			if (!response.ok) return;
+			const { data } = await response.json();
+			setCreditCards(data || []);
+		} catch (err) {
+			console.error("Error fetching credit cards:", err);
+		}
+	}, [session?.user?.accessToken]);
+
+	useEffect(() => {
+		fetchCreditCards();
+	}, [fetchCreditCards]);
 
 	const years = useMemo(() => {
 		const currentYearNum = new Date().getFullYear();
@@ -601,13 +629,14 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 												))}
 										</div>
 									</TableCell>
+									<TableCell className="w-14 px-4 py-3" />
 								</TableRow>
 							</TableHeader>
 							<TableBody>
 								{filteredTransactions.length === 0 ? (
 									<TableRow>
 										<TableCell
-											colSpan={6}
+											colSpan={7}
 											className="py-8 text-center text-gray-500"
 										>
 											<div className="flex min-h-[200px] flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 p-8 text-center">
@@ -704,6 +733,22 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 												<TableCell className="px-4 py-3 text-sm text-gray-700">
 													{transaction.description}
 												</TableCell>
+												<TableCell className="px-4 py-3 text-right">
+													{/* Las transferencias se editan desde Caja Principal; los meses cerrados no se tocan. */}
+													{transaction.type !== "transfer" && !transaction.closed && (
+														<Button
+															variant="outline"
+															className="h-7 w-7 p-0"
+															title="Editar"
+															onClick={() => {
+																setEditingTransaction(transaction);
+																setIsEditMovementModalOpen(true);
+															}}
+														>
+															<Pencil className="h-4 w-4" />
+														</Button>
+													)}
+												</TableCell>
 											</TableRow>
 										);
 									})
@@ -720,6 +765,17 @@ export default function CashBoxUserDetail({ userId }: { userId: number }) {
 					</div>
 				</CardContent>
 			</Card>
+			<EditTransactionDialog
+				open={isEditMovementModalOpen}
+				onOpenChange={setIsEditMovementModalOpen}
+				token={session?.user?.accessToken}
+				transaction={editingTransaction}
+				creditCards={creditCards}
+				onSaved={() => {
+					fetchUser();
+					fetchCreditCards();
+				}}
+			/>
 		</div>
 	);
 }

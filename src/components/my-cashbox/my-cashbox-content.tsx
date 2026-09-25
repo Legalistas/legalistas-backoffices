@@ -13,6 +13,7 @@ import {
 	FileText,
 	type LucideIcon,
 	ListFilter,
+	Pencil,
 	Plus,
 	Send,
 	Tag,
@@ -51,6 +52,8 @@ import {
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { CreditCardWithPending } from "@/components/cash/CreditCardsPanel";
+import EditTransactionDialog from "@/components/cash/EditTransactionDialog";
+import type { Transaction } from "@/types/cash";
 
 function FieldLabel({
 	icon: Icon,
@@ -112,6 +115,10 @@ export default function MyCashboxContent() {
 	// pagar con tarjeta no descuenta el saldo hasta liquidar el resumen.
 	const [newPaymentMethod, setNewPaymentMethod] = useState<string>("cash");
 	const [creditCards, setCreditCards] = useState<CreditCardWithPending[]>([]);
+	// Movimiento en edición: queda seteado al cerrar para no vaciar el diálogo
+	// durante la animación de salida.
+	const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+	const [isEditMovementModalOpen, setIsEditMovementModalOpen] = useState(false);
 
 	const formatCurrency = (amount: number) => {
 		if (typeof amount !== "number" || isNaN(amount)) {
@@ -1195,6 +1202,7 @@ export default function MyCashboxContent() {
 													))}
 											</div>
 										</TableCell>
+										<TableCell className="w-14 px-4 py-3" />
 									</TableRow>
 								</TableHeader>
 								<TableBody>
@@ -1258,6 +1266,22 @@ export default function MyCashboxContent() {
 												<TableCell className="px-4 py-3 text-sm text-gray-700">
 													{transaction.description}
 												</TableCell>
+												<TableCell className="px-4 py-3 text-right">
+													{/* Las transferencias se editan desde Caja Principal; los meses cerrados no se tocan. */}
+													{transaction.type !== "transfer" && !transaction.closed && (
+														<Button
+															variant="outline"
+															className="h-7 w-7 p-0"
+															title="Editar"
+															onClick={() => {
+																setEditingTransaction(transaction);
+																setIsEditMovementModalOpen(true);
+															}}
+														>
+															<Pencil className="h-4 w-4" />
+														</Button>
+													)}
+												</TableCell>
 											</TableRow>
 										);
 									})}
@@ -1274,6 +1298,17 @@ export default function MyCashboxContent() {
 					)}
 				</div>
 			</div>
+			<EditTransactionDialog
+				open={isEditMovementModalOpen}
+				onOpenChange={setIsEditMovementModalOpen}
+				token={session?.user?.accessToken}
+				transaction={editingTransaction}
+				creditCards={creditCards}
+				onSaved={() => {
+					fetchData();
+					fetchCreditCards();
+				}}
+			/>
 		</div>
 	);
 }

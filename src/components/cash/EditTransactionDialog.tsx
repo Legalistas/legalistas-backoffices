@@ -28,10 +28,14 @@ interface EditTransactionDialogProps {
 	onOpenChange: (open: boolean) => void;
 	token: string | undefined;
 	transaction: Transaction | null;
-	users: User[];
+	/** Para pasar el movimiento a la caja de otra persona. Sin lista, no se muestra el campo (Mi Caja). */
+	users?: User[];
 	creditCards: CreditCardWithPending[];
 	onSaved: () => void;
 }
+
+/** "2026-09-25" o "2026-09-25T15:30:00.000Z" → "2026-09-25" (día UTC, como el resto de Caja). */
+const toISODate = (value: string) => value.slice(0, 10);
 
 const TYPE_OPTIONS = MOVEMENTS.filter((m) => m.value !== "transfer").map((m) => ({
 	value: m.value,
@@ -68,7 +72,7 @@ export default function EditTransactionDialog({
 		setSubtype(t.subtype ?? "");
 		setUserId(t.userId);
 		setAmount(String(t.amount));
-		setDate(t.date);
+		setDate(toISODate(t.date));
 		setDescription(t.description ?? "");
 		setPayment(t.paymentMethod === "card" && t.creditCardId ? String(t.creditCardId) : "cash");
 	}, [open, t]);
@@ -130,12 +134,12 @@ export default function EditTransactionDialog({
 		// La fecha va solo si cambió: los movimientos creados desde otros
 		// módulos traen hora y reenviarla la pisaría con 00:00.
 		const payload: Record<string, unknown> = { description };
-		if (date !== t.date) payload.date = date;
+		if (date !== toISODate(t.date)) payload.date = date;
 		if (!isTransfer) {
 			payload.type = type;
 			payload.subtype = subtype;
 			payload.amount = amountNum;
-			if (userId) payload.userId = userId;
+			if (users && userId) payload.userId = userId;
 			if (type === "expense" && payment !== "cash") {
 				payload.paymentMethod = "card";
 				payload.creditCardId = Number(payment);
@@ -222,16 +226,18 @@ export default function EditTransactionDialog({
 									disabled={isClosingPayment}
 								/>
 							</div>
-							<div className="col-span-2 space-y-2">
-								<Label htmlFor="edit-movement-user">Usuario</Label>
-								<Autocomplete
-									id="edit-movement-user"
-									value={userId}
-									onSelect={selectUser}
-									options={users}
-									placeholder={t?.user?.name ?? "Nombre del usuario"}
-								/>
-							</div>
+							{users && (
+								<div className="col-span-2 space-y-2">
+									<Label htmlFor="edit-movement-user">Usuario</Label>
+									<Autocomplete
+										id="edit-movement-user"
+										value={userId}
+										onSelect={selectUser}
+										options={users}
+										placeholder={t?.user?.name ?? "Nombre del usuario"}
+									/>
+								</div>
+							)}
 						</>
 					)}
 					<div className="space-y-2">
