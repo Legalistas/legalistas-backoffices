@@ -20,6 +20,22 @@ interface Lawyer {
 	}>;
 }
 
+/**
+ * Monto escrito a mano → número. Acepta "11804857", "11.804.857",
+ * "11.804.857,50" y "11804857.50": con coma o varios puntos, los puntos son
+ * de miles; un solo punto seguido de 3 dígitos también.
+ */
+function parseMonto(texto: string): number | null {
+	const t = texto.trim();
+	if (!t) return null;
+	let normal: string;
+	if (t.includes(",")) normal = t.replace(/\./g, "").replace(",", ".");
+	else if ((t.match(/\./g) ?? []).length > 1 || /^\d+\.\d{3}$/.test(t)) normal = t.replace(/\./g, "");
+	else normal = t;
+	const n = Number(normal);
+	return Number.isFinite(n) ? n : null;
+}
+
 interface CaseEditFormProps {
 	caseData: Cases;
 	onSave: (updatedCase: Partial<Cases>) => void;
@@ -47,6 +63,9 @@ export const CaseEditForm = ({
 		internalLawyerId: caseData.internalLawyerId || undefined,
 		injury: caseData.injury || "",
 		disabilityPercentage: caseData.disabilityPercentage ?? undefined,
+		// Texto del input; se manda como número (o null si queda vacío).
+		claimedAmount:
+			caseData.claimedAmount != null ? String(Number(caseData.claimedAmount)) : "",
 	});
 
 	// Estados para los abogados
@@ -167,6 +186,7 @@ export const CaseEditForm = ({
 			internalLawyerId: formData.internalLawyerId,
 			injury: formData.injury || null,
 			disabilityPercentage: formData.disabilityPercentage ?? null,
+			claimedAmount: parseMonto(formData.claimedAmount),
 		};
 
 		console.log("Submit data:", submitData);
@@ -251,8 +271,8 @@ export const CaseEditForm = ({
 						</div>
 					</div>
 
-					{/* Lesión + Incapacidad */}
-					<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+					{/* Lesión + Incapacidad + Monto reclamado */}
+					<div className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1fr] gap-4">
 						<div className="space-y-2">
 							<label
 								htmlFor="injury"
@@ -287,6 +307,29 @@ export const CaseEditForm = ({
 								value={formData.disabilityPercentage ?? ""}
 								onChange={handleChange}
 								placeholder="Ej: 22.5"
+								className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							/>
+						</div>
+						<div className="space-y-2">
+							<label
+								htmlFor="claimedAmount"
+								className="block text-sm font-medium text-foreground"
+							>
+								Monto reclamado ($)
+							</label>
+							<input
+								id="claimedAmount"
+								name="claimedAmount"
+								type="text"
+								inputMode="decimal"
+								value={formData.claimedAmount}
+								onChange={(e) =>
+									setFormData((prev) => ({
+										...prev,
+										claimedAmount: e.target.value.replace(/[^\d.,]/g, ""),
+									}))
+								}
+								placeholder="Ej: 11804857"
 								className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 							/>
 						</div>
