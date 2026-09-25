@@ -57,14 +57,23 @@ function MembreteRpu() {
 	);
 }
 
-/** Lo que va arriba del texto en la hoja del editor, según el membrete. */
+/**
+ * Lo que va arriba del texto en la primera hoja: el encabezado RPU. El logo de
+ * Legalistas no ocupa lugar en el texto: va en el margen de cada hoja
+ * (LogoLegalistas).
+ */
 export function Membrete({ tipo }: { tipo?: MembreteEscrito }) {
-	if (tipo === "RPU") return <MembreteRpu />;
+	return tipo === "RPU" ? <MembreteRpu /> : null;
+}
+
+/** Logo de Legalistas en el margen superior de una hoja, alineado con el texto. */
+export function LogoLegalistas({ style }: { style?: React.CSSProperties }) {
 	return (
 		<img
 			src="/images/logo/logo-print.png"
 			alt="Legalistas"
-			className="-mt-[14mm] mb-[5mm] h-[9mm]"
+			className="pointer-events-none absolute h-[9mm]"
+			style={style}
 		/>
 	);
 }

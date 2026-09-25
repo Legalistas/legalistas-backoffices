@@ -62,21 +62,28 @@
 .escrito-documento .ProseMirror-selectednode.page-break { border-top-color: #0ea5e9; }
 .escrito-documento .selectedCell { background: rgba(14, 165, 233, 0.15); }
 
-/* Hoja A4 del editor: 210 × 297 mm, con una línea punteada cada 297 mm
-   (fin aproximado de cada hoja del PDF). */
+/* Hojas A4 del editor (210 × 297 mm), separadas como en Word. El texto va
+   en .hoja-a4, transparente, sobre las hojas dibujadas detrás
+   (.hoja-a4-pagina); paginacion.ts agrega los espaciadores (.salto-hoja)
+   para que cada hoja respete sus márgenes. */
 .hoja-a4 {
 	box-sizing: border-box;
+	position: relative;
 	width: 210mm;
-	min-height: 297mm;
-	background-color: #fff;
-	background-image: repeating-linear-gradient(
-		to bottom,
-		transparent 0,
-		transparent calc(297mm - 1px),
-		#cbd5e1 calc(297mm - 1px),
-		#cbd5e1 297mm
-	);
 }
+.hoja-a4-pagina {
+	position: absolute;
+	left: 0;
+	width: 210mm;
+	height: 297mm;
+	background: #fff;
+	border: 1px solid #cbd5e1;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+.escrito-documento .salto-hoja { user-select: none; }
+.escrito-documento .salto-hoja-linea { display: inline-block; width: 100%; vertical-align: top; }
+/* Mientras paginacion.ts mide el texto de corrido. */
+.hoja-a4.midiendo .salto-hoja { display: none; }
 
 /* Variables sin completar ({{CLAVE}}): datos que faltan cargar; en el PDF
    salen como "*". */

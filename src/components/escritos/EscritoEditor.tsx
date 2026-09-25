@@ -45,7 +45,7 @@ import {
 	Underline,
 	Undo,
 } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -65,7 +65,8 @@ import {
 import { cn } from "@/lib/utils";
 import type { FormatoHoja, VariableEscrito } from "@/types/escritos";
 import "./documento.css";
-import { Membrete } from "./Membrete";
+import { LogoLegalistas, Membrete } from "./Membrete";
+import { ALTO_HOJA, Paginacion, REPAGINAR, SEPARACION_HOJAS } from "./paginacion";
 
 // Editor de escritos y plantillas. Todo lo que ofrece se guarda como HTML que
 // el PDF del servidor respeta (backend/src/modules/escritos/utils/documento.ts,
@@ -632,6 +633,7 @@ export function EscritoEditor({
 	variables,
 	editable = true,
 }: EscritoEditorProps) {
+	const [hojas, setHojas] = useState(1);
 	const editor = useEditor({
 		extensions: [
 			StarterKit.configure({
@@ -647,6 +649,7 @@ export function EscritoEditor({
 			Superscript,
 			SaltoPagina,
 			VariablesMarcadas,
+			Paginacion.configure({ alCambiarHojas: setHojas }),
 		],
 		content: value,
 		editable,
@@ -667,22 +670,32 @@ export function EscritoEditor({
 	// La hoja reproduce márgenes y tipografía del PDF.
 	const fuente = formato?.fuente ?? "Times New Roman";
 	const altoLinea = ALTO_LINEA[fuente] ?? ALTO_LINEA["Times New Roman"];
+	const rpu = formato?.membrete === "RPU";
+	// Con el logo de Legalistas en el margen hace falta un mínimo de 22 mm;
+	// el membrete RPU va con el texto.
+	const margenSuperior = rpu
+		? (formato?.margenSuperior ?? 25)
+		: Math.max(formato?.margenSuperior ?? 25, 22);
+	const margenInferior = formato?.margenInferior ?? 20;
+	const margenIzquierdo = formato?.margenIzquierdo ?? 30;
 	const hoja = {
 		"--doc-fuente": STACK_FUENTES[fuente] ?? STACK_FUENTES["Times New Roman"],
 		"--doc-tamano": `${formato?.tamanoFuente ?? 12}pt`,
 		"--alto-linea": String(altoLinea),
 		"--doc-interlineado": String(Math.round(Number(formato?.interlineado ?? 1.5) * altoLinea * 1000) / 1000),
-		// Con el logo de Legalistas en el margen hace falta un mínimo de 22 mm;
-		// el membrete RPU va con el texto.
-		paddingTop: `${
-			formato?.membrete === "RPU"
-				? (formato?.margenSuperior ?? 25)
-				: Math.max(formato?.margenSuperior ?? 25, 22)
-		}mm`,
-		paddingBottom: `${formato?.margenInferior ?? 20}mm`,
-		paddingLeft: `${formato?.margenIzquierdo ?? 30}mm`,
+		paddingTop: `${margenSuperior}mm`,
+		paddingBottom: `${margenInferior}mm`,
+		paddingLeft: `${margenIzquierdo}mm`,
 		paddingRight: `${formato?.margenDerecho ?? 20}mm`,
+		minHeight: `${hojas * (ALTO_HOJA + SEPARACION_HOJAS) - SEPARACION_HOJAS}px`,
 	} as React.CSSProperties;
+
+	// Con otro formato (márgenes, fuente…) los cortes de hoja cambian.
+	const claveFormato = JSON.stringify(formato ?? {});
+	useEffect(() => {
+		if (!editor || editor.isDestroyed || !claveFormato) return;
+		editor.view.dispatch(editor.state.tr.setMeta(REPAGINAR, true).setMeta("addToHistory", false));
+	}, [editor, claveFormato]);
 
 	if (!editor) return null;
 
@@ -690,12 +703,55 @@ export function EscritoEditor({
 		<div className="overflow-hidden rounded-lg border bg-card">
 			{editable && <Toolbar editor={editor} variables={variables} />}
 
-			{/* Hoja A4 (210 × 297 mm): mismo ancho, márgenes y membrete que el PDF.
-			    Las líneas punteadas marcan dónde termina cada hoja. */}
+			{/* Hojas A4 (210 × 297 mm) separadas, como en Word, con los márgenes,
+			    el membrete y la numeración del PDF. El texto pasa de una a otra
+			    respetando los márgenes de cada hoja (paginacion.ts). */}
 			<div className="overflow-x-auto bg-muted/50 px-4 py-8">
-				<div className="hoja-a4 mx-auto shadow-md" style={hoja}>
-					<Membrete tipo={formato?.membrete} />
-					<EditorContent editor={editor} />
+				<div className="relative mx-auto w-[210mm]">
+					{Array.from({ length: hojas }, (_, i) => (
+						<div
+							// biome-ignore lint/suspicious/noArrayIndexKey: las hojas son posiciones fijas
+							key={i}
+							className="hoja-a4-pagina"
+							style={{ top: `${i * (ALTO_HOJA + SEPARACION_HOJAS)}px` }}
+						>
+							{!rpu && (
+								<LogoLegalistas
+									style={{ top: `${margenSuperior - 14}mm`, left: `${margenIzquierdo}mm` }}
+								/>
+							)}
+							{formato?.numerarPaginas && (
+								<div
+									className="absolute inset-x-0 text-center text-[9pt] text-black"
+									style={{
+										bottom: `${Math.max(margenInferior / 2 - 2, 3)}mm`,
+										fontFamily: STACK_FUENTES[fuente],
+									}}
+								>
+									Página {i + 1} de {hojas}
+								</div>
+							)}
+						</div>
+					))}
+					<div
+						className="hoja-a4"
+						style={hoja}
+						// Click en el margen o entre hojas: cursor en el texto más cercano.
+						onMouseDown={(e) => {
+							if (!editable || e.target !== e.currentTarget) return;
+							e.preventDefault();
+							const r = editor.view.dom.getBoundingClientRect();
+							const pos = editor.view.posAtCoords({
+								left: Math.min(Math.max(e.clientX, r.left + 1), r.right - 1),
+								top: Math.min(Math.max(e.clientY, r.top + 1), r.bottom - 1),
+							})?.pos;
+							if (pos == null) editor.commands.focus("end");
+							else editor.chain().focus().setTextSelection(pos).run();
+						}}
+					>
+						<Membrete tipo={formato?.membrete} />
+						<EditorContent editor={editor} />
+					</div>
 				</div>
 			</div>
 		</div>
