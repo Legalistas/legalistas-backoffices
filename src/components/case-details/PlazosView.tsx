@@ -4,8 +4,10 @@ import {
 	AlertTriangle,
 	Calendar,
 	CalendarClock,
+	Check,
 	CheckCircle2,
 	ChevronDown,
+	ChevronsUpDown,
 	Clock,
 	Eye,
 	EyeOff,
@@ -14,14 +16,23 @@ import {
 	MapPin,
 	Pencil,
 	Plus,
-	Search,
 	Trash2,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+	Command,
+	CommandEmpty,
+	CommandGroup,
+	CommandInput,
+	CommandItem,
+	CommandList,
+	CommandSeparator,
+} from "@/components/ui/command";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useConfirm } from "@/hooks/useConfirm";
 import {
 	CASE_DEADLINE_BY_ID_ENDPOINT,
@@ -33,6 +44,7 @@ import {
 import { getExpedienteLabel } from "@/lib/expediente-label";
 import { apiErrorMessage } from "@/lib/api-error";
 import { getProcessTypeLabel } from "@/lib/functions";
+import { cn } from "@/lib/utils";
 import type {
 	CaseDeadline,
 	CasesFiles,
@@ -114,6 +126,112 @@ const formatDeadlineTypeLabel = (t: DeadlineType) => {
 		t.daysType === "business" ? "días hábiles" : "días corridos";
 	return `${t.name} (${t.daysCount} ${daysLabel})`;
 };
+
+interface SearchSelectOption {
+	value: string;
+	label: string;
+	/** Texto extra para el buscador (ej. número o tipo de proceso). */
+	keywords?: string[];
+}
+
+/**
+ * Select con buscador que se abre flotando (Popover): así no lo recorta el
+ * scroll del modal. `modal` en el Popover deja scrollear la lista con la
+ * rueda estando dentro de un Dialog.
+ */
+function SearchSelect({
+	value,
+	label,
+	placeholder,
+	searchPlaceholder,
+	options,
+	onSelect,
+	extra,
+	className,
+}: {
+	value: string;
+	/** Texto del elegido; null muestra el placeholder. */
+	label: string | null;
+	placeholder: string;
+	searchPlaceholder: string;
+	options: SearchSelectOption[];
+	onSelect: (value: string) => void;
+	/** Opción fija al final, siempre visible (ej. "Otro"). */
+	extra?: { label: string; selected: boolean; onSelect: () => void };
+	className?: string;
+}) {
+	const [open, setOpen] = useState(false);
+
+	return (
+		<Popover open={open} onOpenChange={setOpen} modal>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					role="combobox"
+					aria-expanded={open}
+					className={cn(className, "flex items-center justify-between gap-2 text-left")}
+				>
+					<span className={cn("truncate", !label && "text-muted-foreground")}>
+						{label ?? placeholder}
+					</span>
+					<ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+				</button>
+			</PopoverTrigger>
+			<PopoverContent className="w-(--radix-popover-trigger-width) min-w-72 p-0" align="start">
+				<Command>
+					<CommandInput placeholder={searchPlaceholder} />
+					<CommandList className="max-h-64">
+						<CommandEmpty>Sin resultados.</CommandEmpty>
+						<CommandGroup>
+							{options.map((o) => (
+								<CommandItem
+									key={o.value}
+									value={`${o.label} #${o.value}`}
+									keywords={o.keywords}
+									onSelect={() => {
+										onSelect(o.value);
+										setOpen(false);
+									}}
+								>
+									<Check
+										className={cn(
+											"h-4 w-4 shrink-0 text-primary",
+											value === o.value ? "opacity-100" : "opacity-0",
+										)}
+									/>
+									<span className="leading-snug">{o.label}</span>
+								</CommandItem>
+							))}
+						</CommandGroup>
+						{extra && (
+							<>
+								<CommandSeparator />
+								<CommandGroup>
+									<CommandItem
+										value="__extra__"
+										forceMount
+										onSelect={() => {
+											extra.onSelect();
+											setOpen(false);
+										}}
+									>
+										<Check
+											className={cn(
+												"h-4 w-4 shrink-0 text-primary",
+												extra.selected ? "opacity-100" : "opacity-0",
+											)}
+										/>
+										{extra.label}
+									</CommandItem>
+								</CommandGroup>
+							</>
+						)}
+					</CommandList>
+				</Command>
+			</PopoverContent>
+		</Popover>
+	);
+}
 
 const STATUS_CONFIG: Record<
 	string,
@@ -216,41 +334,18 @@ export const PlazosView = ({
 		schedule: "si" as "si" | "no",
 	});
 
-	// ── Dropdown expediente ──
-	const [isFileDropdownOpen, setIsFileDropdownOpen] = useState(false);
-	const [fileSearch, setFileSearch] = useState("");
-	const fileDropdownRef = useRef<HTMLDivElement>(null);
-	const fileSearchRef = useRef<HTMLInputElement>(null);
-
-	// ── Dropdown jurisdicción ──
-	const [isJurisdictionDropdownOpen, setIsJurisdictionDropdownOpen] =
-		useState(false);
-	const [jurisdictionSearch, setJurisdictionSearch] = useState("");
-	const jurisdictionDropdownRef = useRef<HTMLDivElement>(null);
-	const jurisdictionSearchRef = useRef<HTMLInputElement>(null);
-
-	// ── Dropdown tipo de plazo ──
-	const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
-	const [typeSearch, setTypeSearch] = useState("");
-	const typeDropdownRef = useRef<HTMLDivElement>(null);
-	const typeSearchRef = useRef<HTMLInputElement>(null);
-
-	const selectedFileLabel = useMemo(() => {
-		const f = files.find((file) => String(file.id) === String(form.fileId));
-		if (!f) return "Seleccionar expediente";
-		return getFileLabel(f, customerName);
-	}, [form.fileId, files, customerName]);
-
-	const searchedFiles = useMemo(() => {
-		if (!fileSearch) return files;
-		const q = fileSearch.toLowerCase();
-		return files.filter(
-			(f) =>
-				f.title?.toLowerCase().includes(q) ||
-				f.id.toString().includes(q) ||
-				getProcessTypeLabel(f.typeProcessId).toLowerCase().includes(q),
-		);
-	}, [files, fileSearch]);
+	// ── Opciones de los selectores del modal ──
+	const fileOptions = useMemo(
+		() =>
+			files.map((f) => ({
+				value: String(f.id),
+				label: getFileLabel(f, customerName),
+				keywords: [String(f.id), getProcessTypeLabel(f.typeProcessId)],
+			})),
+		[files, customerName],
+	);
+	const selectedFileLabel =
+		fileOptions.find((o) => o.value === String(form.fileId))?.label ?? null;
 
 	const selectedJurisdictionLabel = useMemo(() => {
 		const j = jurisdictions.find(
@@ -259,24 +354,18 @@ export const PlazosView = ({
 		return j ? j.name : "Seleccionar jurisdicción...";
 	}, [form.jurisdictionId, jurisdictions]);
 
-	const searchedJurisdictions = useMemo(() => {
-		if (!jurisdictionSearch) return jurisdictions;
-		const q = jurisdictionSearch.toLowerCase();
-		return jurisdictions.filter((j) => j.name.toLowerCase().includes(q));
-	}, [jurisdictions, jurisdictionSearch]);
+	const jurisdictionOptions = useMemo(
+		() => jurisdictions.map((j) => ({ value: String(j.id), label: j.name })),
+		[jurisdictions],
+	);
 
-	const selectedTypeLabel = useMemo(() => {
-		const t = deadlineTypes.find((t) => t.id === selectedDeadlineTypeId);
-		return t ? formatDeadlineTypeLabel(t) : "Elegí el tipo de plazo...";
-	}, [selectedDeadlineTypeId, deadlineTypes]);
-
-	const searchedTypes = useMemo(() => {
-		if (!typeSearch) return deadlineTypes;
-		const q = typeSearch.toLowerCase();
-		return deadlineTypes.filter((t: DeadlineType) =>
-			t.name.toLowerCase().includes(q),
-		);
-	}, [typeSearch, deadlineTypes]);
+	const typeOptions = useMemo(
+		() =>
+			deadlineTypes.map((t) => ({ value: String(t.id), label: formatDeadlineTypeLabel(t) })),
+		[deadlineTypes],
+	);
+	const selectedTypeLabel =
+		typeOptions.find((o) => o.value === String(selectedDeadlineTypeId))?.label ?? null;
 
 	// ── Fetch jurisdictions ──
 	useEffect(() => {
@@ -339,52 +428,6 @@ export const PlazosView = ({
 	useEffect(() => {
 		if (session?.user?.accessToken) fetchDeadlines();
 	}, [fetchDeadlines, session?.user?.accessToken]);
-
-	// ── Cerrar dropdown expediente al click fuera ──
-	useEffect(() => {
-		if (!isFileDropdownOpen) return;
-		const handle = (e: MouseEvent) => {
-			if (fileDropdownRef.current?.contains(e.target as Node)) return;
-			setIsFileDropdownOpen(false);
-		};
-		document.addEventListener("mousedown", handle);
-		return () => document.removeEventListener("mousedown", handle);
-	}, [isFileDropdownOpen]);
-
-	useEffect(() => {
-		if (isFileDropdownOpen) setTimeout(() => fileSearchRef.current?.focus(), 0);
-	}, [isFileDropdownOpen]);
-
-	// ── Cerrar dropdown jurisdicción al click fuera ──
-	useEffect(() => {
-		if (!isJurisdictionDropdownOpen) return;
-		const handle = (e: MouseEvent) => {
-			if (jurisdictionDropdownRef.current?.contains(e.target as Node)) return;
-			setIsJurisdictionDropdownOpen(false);
-		};
-		document.addEventListener("mousedown", handle);
-		return () => document.removeEventListener("mousedown", handle);
-	}, [isJurisdictionDropdownOpen]);
-
-	useEffect(() => {
-		if (isJurisdictionDropdownOpen)
-			setTimeout(() => jurisdictionSearchRef.current?.focus(), 0);
-	}, [isJurisdictionDropdownOpen]);
-
-	// ── Cerrar dropdown tipo de plazo al click fuera ──
-	useEffect(() => {
-		if (!isTypeDropdownOpen) return;
-		const handle = (e: MouseEvent) => {
-			if (typeDropdownRef.current?.contains(e.target as Node)) return;
-			setIsTypeDropdownOpen(false);
-		};
-		document.addEventListener("mousedown", handle);
-		return () => document.removeEventListener("mousedown", handle);
-	}, [isTypeDropdownOpen]);
-
-	useEffect(() => {
-		if (isTypeDropdownOpen) setTimeout(() => typeSearchRef.current?.focus(), 0);
-	}, [isTypeDropdownOpen]);
 
 	// ── Cerrar dropdown status al click fuera ──
 	useEffect(() => {
@@ -1182,60 +1225,27 @@ export const PlazosView = ({
 								<label className={labelClass}>
 									Expediente <span className="text-red-500">*</span>
 								</label>
-								<div ref={fileDropdownRef} className="relative">
-									<button
-										type="button"
-										onClick={() => setIsFileDropdownOpen(!isFileDropdownOpen)}
-										className={`${inputClass} text-left flex items-center justify-between truncate`}
-									>
-										<span
-											className={`truncate ${form.fileId ? "text-foreground" : "text-muted-foreground"}`}
-										>
-											{selectedFileLabel}
-										</span>
-										<ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
-									</button>
-									{isFileDropdownOpen && (
-										<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-44 overflow-auto">
-											<div className="sticky top-0 bg-card p-1.5 border-b border-border">
-												<div className="relative">
-													<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-													<input
-														ref={fileSearchRef}
-														type="text"
-														value={fileSearch}
-														onChange={(e) => setFileSearch(e.target.value)}
-														placeholder="Buscar..."
-														className="w-full pl-6 pr-2 py-1 text-xs border border-border rounded bg-muted text-foreground outline-none"
-													/>
-												</div>
-											</div>
-											{searchedFiles.map((file) => (
-												<button
-													key={file.id}
-													type="button"
-													onClick={() => {
-														const jId =
-															file.jurisdictionId || file.court?.jurisdiction?.id;
-														setForm({
-															...form,
-															fileId: file.id,
-															jurisdictionId: jId ? String(jId) : "",
-														});
-														setShowJurisdictionPicker(!jId);
-														setSelectedDeadlineTypeId(null);
-														setIsOtherType(false);
-														setIsFileDropdownOpen(false);
-														setFileSearch("");
-													}}
-													className={`w-full text-left px-2.5 py-1.5 text-xs hover:bg-muted truncate ${String(form.fileId) === String(file.id) ? "bg-primary/10 text-primary" : "text-foreground"}`}
-												>
-													{getFileLabel(file, customerName)}
-												</button>
-											))}
-										</div>
-									)}
-								</div>
+								<SearchSelect
+									className={inputClass}
+									value={String(form.fileId)}
+									label={selectedFileLabel}
+									placeholder="Seleccionar expediente"
+									searchPlaceholder="Buscar expediente..."
+									options={fileOptions}
+									onSelect={(v) => {
+										const file = files.find((f) => String(f.id) === v);
+										if (!file) return;
+										const jId = file.jurisdictionId || file.court?.jurisdiction?.id;
+										setForm({
+											...form,
+											fileId: file.id,
+											jurisdictionId: jId ? String(jId) : "",
+										});
+										setShowJurisdictionPicker(!jId);
+										setSelectedDeadlineTypeId(null);
+										setIsOtherType(false);
+									}}
+								/>
 							</div>
 
 							{/* Circunscripción: sale del expediente; se elige solo si no tiene. */}
@@ -1258,54 +1268,20 @@ export const PlazosView = ({
 									<label className={labelClass}>
 										Circunscripción <span className="text-red-500">*</span>
 									</label>
-									<div ref={jurisdictionDropdownRef} className="relative">
-										<button
-											type="button"
-											onClick={() => setIsJurisdictionDropdownOpen(!isJurisdictionDropdownOpen)}
-											className={`${inputClass} text-left flex items-center justify-between truncate`}
-										>
-											<span
-												className={`truncate ${form.jurisdictionId ? "text-foreground" : "text-muted-foreground"}`}
-											>
-												{selectedJurisdictionLabel}
-											</span>
-											<ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
-										</button>
-										{isJurisdictionDropdownOpen && (
-											<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-44 overflow-auto">
-												<div className="sticky top-0 bg-card p-1.5 border-b border-border">
-													<div className="relative">
-														<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-														<input
-															ref={jurisdictionSearchRef}
-															type="text"
-															value={jurisdictionSearch}
-															onChange={(e) => setJurisdictionSearch(e.target.value)}
-															placeholder="Buscar circunscripción..."
-															className="w-full pl-6 pr-2 py-1 text-xs border border-border rounded bg-muted text-foreground outline-none"
-														/>
-													</div>
-												</div>
-												{searchedJurisdictions.map((j) => (
-													<button
-														key={j.id}
-														type="button"
-														onClick={() => {
-															setForm({ ...form, jurisdictionId: String(j.id) });
-															setSelectedDeadlineTypeId(null);
-															setIsOtherType(false);
-															setIsJurisdictionDropdownOpen(false);
-															setJurisdictionSearch("");
-															setShowJurisdictionPicker(false);
-														}}
-														className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted ${String(j.id) === form.jurisdictionId ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
-													>
-														{j.name}
-													</button>
-												))}
-											</div>
-										)}
-									</div>
+									<SearchSelect
+										className={inputClass}
+										value={form.jurisdictionId}
+										label={form.jurisdictionId ? selectedJurisdictionLabel : null}
+										placeholder="Seleccionar circunscripción..."
+										searchPlaceholder="Buscar circunscripción..."
+										options={jurisdictionOptions}
+										onSelect={(v) => {
+											setForm({ ...form, jurisdictionId: v });
+											setSelectedDeadlineTypeId(null);
+											setIsOtherType(false);
+											setShowJurisdictionPicker(false);
+										}}
+									/>
 								</div>
 							)}
 						</div>
@@ -1317,62 +1293,20 @@ export const PlazosView = ({
 									<label className={labelClass}>
 										Tipo de plazo <span className="text-red-500">*</span>
 									</label>
-									<div ref={typeDropdownRef} className="relative">
-										<button
-											type="button"
-											onClick={() => setIsTypeDropdownOpen(!isTypeDropdownOpen)}
-											className={`${inputClass} text-left flex items-center justify-between truncate`}
-										>
-											<span
-												className={`truncate ${selectedDeadlineTypeId || isOtherType ? "text-foreground" : "text-muted-foreground"}`}
-											>
-												{isOtherType ? "Otro (días a mano)" : selectedTypeLabel}
-											</span>
-											<ChevronDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
-										</button>
-										{isTypeDropdownOpen && (
-											<div className="absolute z-50 mt-1 w-full bg-card border border-border rounded-lg shadow-lg max-h-52 overflow-auto">
-												<div className="sticky top-0 bg-card p-1.5 border-b border-border">
-													<div className="relative">
-														<Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
-														<input
-															ref={typeSearchRef}
-															type="text"
-															value={typeSearch}
-															onChange={(e) => setTypeSearch(e.target.value)}
-															placeholder="Buscar tipo de plazo..."
-															className="w-full pl-6 pr-2 py-1 text-xs border border-border rounded bg-muted text-foreground outline-none"
-														/>
-													</div>
-												</div>
-												{searchedTypes.map((t) => (
-													<button
-														key={t.id}
-														type="button"
-														onClick={() => {
-															handleTypeChange(t.id);
-															setIsTypeDropdownOpen(false);
-															setTypeSearch("");
-														}}
-														className={`w-full text-left px-3 py-1.5 text-sm hover:bg-muted ${t.id === selectedDeadlineTypeId ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
-													>
-														{formatDeadlineTypeLabel(t)}
-													</button>
-												))}
-												<button
-													type="button"
-													onClick={() => {
-														handleOtherType();
-														setIsTypeDropdownOpen(false);
-														setTypeSearch("");
-													}}
-													className={`w-full text-left px-3 py-1.5 text-sm border-t border-border hover:bg-muted ${isOtherType ? "bg-primary/5 text-primary font-medium" : "text-foreground"}`}
-												>
-													Otro (cargo los días a mano)
-												</button>
-											</div>
-										)}
-									</div>
+									<SearchSelect
+										className={inputClass}
+										value={selectedDeadlineTypeId ? String(selectedDeadlineTypeId) : ""}
+										label={isOtherType ? "Otro (días a mano)" : selectedTypeLabel}
+										placeholder="Elegí el tipo de plazo..."
+										searchPlaceholder="Buscar tipo de plazo..."
+										options={typeOptions}
+										onSelect={(v) => handleTypeChange(Number(v))}
+										extra={{
+											label: "Otro (cargo los días a mano)",
+											selected: isOtherType,
+											onSelect: handleOtherType,
+										}}
+									/>
 									{genericTypes && (
 										<p className="mt-0.5 text-xs text-muted-foreground">
 											Esta circunscripción no tiene catálogo propio: se muestran los tipos
