@@ -32,6 +32,7 @@ import {
 	List,
 	ListOrdered,
 	Minus,
+	PilcrowRight,
 	Quote,
 	Redo,
 	RemoveFormatting,
@@ -114,6 +115,29 @@ const VariablesMarcadas = Extension.create({
 	},
 });
 
+/**
+ * Sangría de primera línea (text-indent en el párrafo), como la de Word. Con
+ * espacios no sirve: al justificar se estiran y cada párrafo queda distinto.
+ */
+const SangriaPrimeraLinea = Extension.create({
+	name: "sangriaPrimeraLinea",
+	addGlobalAttributes() {
+		return [
+			{
+				types: ["paragraph"],
+				attributes: {
+					sangria: {
+						default: null,
+						parseHTML: (el) => el.style.textIndent || null,
+						renderHTML: (attrs) =>
+							attrs.sangria ? { style: `text-indent: ${attrs.sangria}` } : {},
+					},
+				},
+			},
+		];
+	},
+});
+
 /** Salto de página: en el PDF corta la hoja (clase .page-break). */
 const SaltoPagina = Node.create({
 	name: "saltoPagina",
@@ -140,6 +164,7 @@ const RESALTADOS = [
 	{ nombre: "Rosa", valor: "#fbcfe8" },
 ];
 const SIN_TAMANO = "auto";
+const SANGRIAS = ["1.25cm", "2.5cm", "3.5cm", "5cm", "6.5cm"];
 
 function ToolbarBtn({
 	onClick,
@@ -195,6 +220,7 @@ function Toolbar({ editor, variables }: { editor: Editor; variables?: VariableEs
 	const tamano = (editor.getAttributes("textStyle").fontSize as string | undefined)?.replace("pt", "");
 	const enLista = editor.isActive("bulletList") || editor.isActive("orderedList");
 	const enTabla = editor.isActive("table");
+	const sangria = editor.getAttributes("paragraph").sangria as string | null | undefined;
 
 	const setLink = () => {
 		const previo = editor.getAttributes("link").href as string | undefined;
@@ -363,6 +389,35 @@ function Toolbar({ editor, variables }: { editor: Editor; variables?: VariableEs
 			>
 				<AlignJustify className="h-4 w-4" />
 			</ToolbarBtn>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<button
+						type="button"
+						title="Sangría de primera línea"
+						className={cn(
+							"rounded p-1.5 hover:bg-muted hover:text-foreground",
+							sangria ? "bg-primary/10 text-primary" : "text-muted-foreground",
+						)}
+					>
+						<PilcrowRight className="h-4 w-4" />
+					</button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start">
+					{SANGRIAS.map((s) => (
+						<DropdownMenuItem
+							key={s}
+							onSelect={() => c().updateAttributes("paragraph", { sangria: s }).run()}
+						>
+							<span className={cn("w-4", sangria !== s && "invisible")}>✓</span>
+							{s.replace(".", ",").replace("cm", " cm")}
+						</DropdownMenuItem>
+					))}
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onSelect={() => c().updateAttributes("paragraph", { sangria: null }).run()}>
+						Sin sangría
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
 			<Separador />
 
 			<ToolbarBtn
@@ -517,6 +572,7 @@ export function EscritoEditor({
 			TextStyleKit.configure({ backgroundColor: false, fontFamily: false, lineHeight: false }),
 			Highlight.configure({ multicolor: true }),
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
+			SangriaPrimeraLinea,
 			TableKit.configure({ table: { resizable: false } }),
 			Subscript,
 			Superscript,
