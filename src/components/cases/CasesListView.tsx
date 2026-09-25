@@ -132,22 +132,22 @@ export const CasesListView = ({
 							<TableCell className="w-[1%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
 								Caso #
 							</TableCell>
-							<TableCell className="w-[18%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
+							<TableCell className="w-[16%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
 								Título
 							</TableCell>
 							<TableCell className="w-[9%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
 								Servicio
 							</TableCell>
-							<TableCell className="w-[12%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
+							<TableCell className="w-[20%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
 								Etapa
 							</TableCell>
-							<TableCell className="w-[17%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
+							<TableCell className="w-[15%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
 								Nota
 							</TableCell>
-							<TableCell className="w-[12%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
+							<TableCell className="w-[11%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
 								Abog. Responsable
 							</TableCell>
-							<TableCell className="w-[12%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
+							<TableCell className="w-[11%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
 								Abog. Interno
 							</TableCell>
 							<TableCell className="w-[7%] px-3 py-2 text-xs font-semibold text-gray-600 dark:text-gray-400 text-left">
@@ -183,7 +183,7 @@ export const CasesListView = ({
 									<TableCell className="px-3 py-2">
 										<Link
 											href={`/admin/legal-cases/${caso.id}`}
-											className="text-xs font-medium text-gray-700 dark:text-gray-300 hover:underline"
+											className="text-xs font-medium text-gray-700 uppercase dark:text-gray-300 hover:underline"
 										>
 											{caso.title}
 										</Link>
@@ -202,7 +202,7 @@ export const CasesListView = ({
 									</TableCell>
 									{/* Etapa (+ subetapa si es Administrativo) */}
 									<TableCell className="px-3 py-2">
-										<div className="flex flex-col items-start gap-1">
+										<div className="flex items-center gap-1.5">
 											<StageSelectDropdown
 												currentStageId={Number(caso.stageId)}
 												onStageChange={(newStageId) =>
@@ -213,7 +213,8 @@ export const CasesListView = ({
 												<SubstageSelect
 													value={caso.administrativeSubstage}
 													onChange={(substage) => onSubstageChange(caso.id, substage)}
-													className="h-7 w-37.5 text-[11px]"
+													// Mismo alto que el selector de etapa (el trigger fija h-9).
+													className="w-37.5 rounded-lg px-2.5 text-[11px] data-[size=default]:h-7.5"
 												/>
 											)}
 										</div>
