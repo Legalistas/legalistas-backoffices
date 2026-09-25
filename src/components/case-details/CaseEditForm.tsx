@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { LAWYERS_ENDPOINT } from "@/constant/api-endpoints";
 import { Role } from "@/constant/user";
 import { servicesType, stageCases } from "@/lib/constant";
+import { parseMonto } from "@/lib/monto";
 import type { Cases } from "@/types/cases";
 
 interface Lawyer {
@@ -18,22 +19,6 @@ interface Lawyer {
 			name: string;
 		};
 	}>;
-}
-
-/**
- * Monto escrito a mano → número. Acepta "11804857", "11.804.857",
- * "11.804.857,50" y "11804857.50": con coma o varios puntos, los puntos son
- * de miles; un solo punto seguido de 3 dígitos también.
- */
-function parseMonto(texto: string): number | null {
-	const t = texto.trim();
-	if (!t) return null;
-	let normal: string;
-	if (t.includes(",")) normal = t.replace(/\./g, "").replace(",", ".");
-	else if ((t.match(/\./g) ?? []).length > 1 || /^\d+\.\d{3}$/.test(t)) normal = t.replace(/\./g, "");
-	else normal = t;
-	const n = Number(normal);
-	return Number.isFinite(n) ? n : null;
 }
 
 interface CaseEditFormProps {

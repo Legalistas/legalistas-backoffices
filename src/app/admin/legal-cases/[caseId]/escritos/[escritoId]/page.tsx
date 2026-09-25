@@ -9,18 +9,40 @@ import { toast } from "sonner";
 import { EscritoEditor } from "@/components/escritos/EscritoEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import {
+	ESCRITO_DATOS_ENDPOINT,
 	ESCRITO_ENDPOINT,
 	ESCRITO_GUARDAR_PDF_ENDPOINT,
 	ESCRITO_PDF_ENDPOINT,
 	ESCRITOS_VARIABLES_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { ESTADOS_CIVILES } from "@/constant/estado-civil";
 import { abrirPdf, escritosFetch } from "@/lib/escritos-api";
 import { getExpedienteLabel } from "@/lib/expediente-label";
+import { parseMonto } from "@/lib/monto";
 import type { Escrito, VariableEscrito } from "@/types/escritos";
 
 const escapar = (s: string) =>
 	s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+// Datos que, si faltan, se pueden cargar desde el escrito: se guardan en el
+// cliente o en el caso (PUT /escritos/:id/datos) y quedan en el sistema.
+const DATOS_EDITABLES = [
+	{ clave: "CLIENTE_ESTADO_CIVIL", etiqueta: "Estado civil del cliente", tipo: "estadoCivil" },
+	{ clave: "MONTO_RECLAMADO", etiqueta: "Monto reclamado ($)", tipo: "monto" },
+	{ clave: "PORCENTAJE_INCAPACIDAD", etiqueta: "% de incapacidad", tipo: "porcentaje" },
+] as const;
+
+const usaVariable = (html: string, clave: string) =>
+	new RegExp(`\\{\\{\\s*${clave}\\s*\\}\\}`).test(html);
 
 function fechaHora(iso: string): string {
 	return new Date(iso).toLocaleString("es-AR", {
@@ -45,7 +67,8 @@ export default function EditarEscritoPage() {
 	const [variables, setVariables] = useState<VariableEscrito[]>([]);
 	const [valores, setValores] = useState<Record<string, string | null>>({});
 	const [dirty, setDirty] = useState(false);
-	const [accion, setAccion] = useState<"guardar" | "preview" | "pdf" | null>(null);
+	const [accion, setAccion] = useState<"guardar" | "preview" | "pdf" | "datos" | null>(null);
+	const [datos, setDatos] = useState<Record<string, string>>({});
 
 	const cargar = useCallback(async () => {
 		if (!token) return;
@@ -84,7 +107,7 @@ export default function EditarEscritoPage() {
 		return () => window.removeEventListener("beforeunload", onBeforeUnload);
 	}, [dirty]);
 
-	const guardar = async (): Promise<boolean> => {
+	const guardar = async (html: string = contenido): Promise<boolean> => {
 		if (!token) return false;
 		if (!titulo.trim()) {
 			toast.error("El título es obligatorio");
@@ -94,7 +117,7 @@ export default function EditarEscritoPage() {
 			const { data } = await escritosFetch<{ data: Escrito }>(
 				ESCRITO_ENDPOINT(escritoId),
 				token,
-				{ method: "PUT", body: JSON.stringify({ titulo, contenidoHtml: contenido }) },
+				{ method: "PUT", body: JSON.stringify({ titulo, contenidoHtml: html }) },
 			);
 			setEscrito((prev) => (prev ? { ...prev, ...data } : data));
 			setDirty(false);
@@ -167,6 +190,58 @@ export default function EditarEscritoPage() {
 		setContenido(html);
 		setDirty(true);
 		toast.success(`${reemplazos} variable${reemplazos > 1 ? "s" : ""} completada${reemplazos > 1 ? "s" : ""}`);
+	};
+
+	// Variables editables que el escrito usa y todavía no tienen dato.
+	const faltantes = DATOS_EDITABLES.filter(
+		(d) => !valores[d.clave] && usaVariable(contenido, d.clave),
+	);
+
+	// Guarda los datos en el sistema, completa esas variables en el texto y
+	// guarda el escrito.
+	const guardarDatos = async () => {
+		if (!token) return;
+		const body: Record<string, string | number> = {};
+		for (const d of faltantes) {
+			const v = datos[d.clave]?.trim();
+			if (!v) continue;
+			if (d.tipo === "monto") {
+				const n = parseMonto(v);
+				if (n == null) return void toast.error("El monto reclamado no es un número");
+				body[d.clave] = n;
+			} else if (d.tipo === "porcentaje") {
+				const n = Number(v.replace(",", "."));
+				if (!Number.isFinite(n) || n < 0 || n > 100) {
+					return void toast.error("El % de incapacidad va de 0 a 100");
+				}
+				body[d.clave] = n;
+			} else {
+				body[d.clave] = v;
+			}
+		}
+		if (Object.keys(body).length === 0) return void toast.error("Completá al menos un dato");
+
+		setAccion("datos");
+		try {
+			const res = await escritosFetch<{ data: { valores: Record<string, string | null> } }>(
+				ESCRITO_DATOS_ENDPOINT(escritoId),
+				token,
+				{ method: "PUT", body: JSON.stringify(body) },
+			);
+			setValores(res.data.valores);
+			const claves = Object.keys(body);
+			const html = contenido.replace(/\{\{\s*([A-Z_]+)\s*\}\}/g, (match, clave: string) => {
+				const valor = res.data.valores[clave];
+				return claves.includes(clave) && valor ? escapar(valor) : match;
+			});
+			setContenido(html);
+			setDatos({});
+			if (await guardar(html)) toast.success("Datos guardados en el sistema y completados en el escrito");
+		} catch (e) {
+			toast.error((e as Error).message);
+		} finally {
+			setAccion(null);
+		}
 	};
 
 	if (!escrito) {
@@ -255,6 +330,65 @@ export default function EditarEscritoPage() {
 					</Button>
 				</div>
 			</div>
+
+			{faltantes.length > 0 && (
+				<div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+					<div className="mb-3">
+						<p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+							Datos que faltan en el sistema
+						</p>
+						<p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+							Se guardan en el cliente o en el caso (quedan para los próximos escritos) y se
+							completan en este escrito.
+						</p>
+					</div>
+					<div className="flex flex-wrap items-end gap-3">
+						{faltantes.map((d) => (
+							<div key={d.clave} className="w-56 space-y-1">
+								<Label className="text-xs">{d.etiqueta}</Label>
+								{d.tipo === "estadoCivil" ? (
+									<Select
+										value={datos[d.clave] ?? ""}
+										onValueChange={(v) => setDatos((prev) => ({ ...prev, [d.clave]: v }))}
+									>
+										<SelectTrigger className="bg-white dark:bg-background">
+											<SelectValue placeholder="Elegí…" />
+										</SelectTrigger>
+										<SelectContent>
+											{ESTADOS_CIVILES.map((e) => (
+												<SelectItem key={e} value={e}>
+													{e}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								) : (
+									<Input
+										inputMode="decimal"
+										className="bg-white dark:bg-background"
+										placeholder={d.tipo === "monto" ? "Ej: 11.804.857" : "Ej: 28"}
+										value={datos[d.clave] ?? ""}
+										onChange={(e) =>
+											setDatos((prev) => ({
+												...prev,
+												[d.clave]: e.target.value.replace(/[^\d.,]/g, ""),
+											}))
+										}
+									/>
+								)}
+							</div>
+						))}
+						<Button size="sm" onClick={guardarDatos} disabled={accion !== null}>
+							{accion === "datos" ? (
+								<Loader2 className="mr-1 h-4 w-4 animate-spin" />
+							) : (
+								<Save className="mr-1 h-4 w-4" />
+							)}
+							Guardar datos
+						</Button>
+					</div>
+				</div>
+			)}
 
 			<EscritoEditor
 				value={contenido}

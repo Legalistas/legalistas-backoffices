@@ -11,6 +11,9 @@ import {
 } from "@/constant/api-endpoints";
 import LocalitySelect from "@/components/common/LocalitySelect";
 import type { User } from "@/types/users";
+import { ESTADOS_CIVILES } from "@/constant/estado-civil";
+
+const SIN_ESTADO_CIVIL = "none";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,6 +69,7 @@ interface CustomerForm {
 		gender: number;
 		birthDate: string;
 		phone: string;
+		maritalStatus: string;
 	};
 	userAddresses: {
 		id: number;
@@ -147,7 +151,7 @@ const emptyForm: CustomerForm = {
 	email: "",
 	image: "",
 	role: CUSTOMER_ROLE_ID,
-	userProfile: { id: 0, userId: 0, docType: 1, docNumber: "", gender: 1, birthDate: "", phone: "" },
+	userProfile: { id: 0, userId: 0, docType: 1, docNumber: "", gender: 1, birthDate: "", phone: "", maritalStatus: "" },
 	userAddresses: [],
 	roleUser: [],
 	street: "",
@@ -218,6 +222,7 @@ export default function CustomerRegistrationModal({
 					gender: editingCustomer.userProfile?.gender || 1,
 					birthDate: formatDateForInput(editingCustomer.userProfile?.birthDate),
 					phone: editingCustomer.userProfile?.phone || "",
+					maritalStatus: editingCustomer.userProfile?.maritalStatus || "",
 				},
 				userAddresses: (editingCustomer.userAddresses || []).map((addr) => ({
 					id: addr.id, userId: addr.userId, countryId: addr.countryId, stateId: addr.stateId,
@@ -318,6 +323,8 @@ export default function CustomerRegistrationModal({
 					gender: mode === "edit" ? (newCustomer.userProfile?.gender || 1) : null,
 					birthDate: mode === "edit" ? (birthDate || new Date()) : null,
 					phone: newCustomer.userProfile?.phone || "",
+					// En el alta no se pide: sin el campo el backend no lo toca.
+					...(mode === "edit" && { maritalStatus: newCustomer.userProfile?.maritalStatus || null }),
 				},
 				// stateId es NOT NULL en user_addresses: sin provincia no se manda dirección.
 				userAddresses: newCustomer.userAddresses?.[0]?.stateId
@@ -449,6 +456,26 @@ export default function CustomerRegistrationModal({
 									<SelectContent>
 										{genderOptions.map((opt) => (
 											<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+							<div className="space-y-2">
+								<Label>Estado civil</Label>
+								<Select
+									value={newCustomer.userProfile?.maritalStatus || SIN_ESTADO_CIVIL}
+									onValueChange={(v) =>
+										setNewCustomer((prev) => ({
+											...prev,
+											userProfile: { ...prev.userProfile, maritalStatus: v === SIN_ESTADO_CIVIL ? "" : v },
+										}))
+									}
+								>
+									<SelectTrigger><SelectValue /></SelectTrigger>
+									<SelectContent>
+										<SelectItem value={SIN_ESTADO_CIVIL}>Sin dato</SelectItem>
+										{ESTADOS_CIVILES.map((e) => (
+											<SelectItem key={e} value={e}>{e}</SelectItem>
 										))}
 									</SelectContent>
 								</Select>

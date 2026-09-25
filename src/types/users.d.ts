@@ -39,6 +39,8 @@ export interface Profile {
 	gender: number;
 	birthDate: Date;
 	phone: string;
+	/** Estado civil ("Soltero/a", "Casado/a"…), para escritos como el RPU. */
+	maritalStatus?: string | null;
 }
 
 export interface Addresses {

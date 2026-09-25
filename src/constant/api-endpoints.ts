@@ -133,6 +133,9 @@ export const ESCRITO_GUARDAR_PDF_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/escritos/${id}/guardar-pdf`;
 export const ESCRITO_PDF_GUARDADO_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/escritos/${id}/pdf-guardado`;
+// Datos que faltaban (estado civil, monto, %) cargados desde el escrito: se
+// guardan en el cliente o el caso.
+export const ESCRITO_DATOS_ENDPOINT = (id: number) => `${API_BASE_URL}/escritos/${id}/datos`;
 export const ESCRITOS_VARIABLES_ENDPOINT = `${API_BASE_URL}/escritos/variables`;
 export const ESCRITOS_PLANTILLAS_ENDPOINT = `${API_BASE_URL}/escritos/plantillas`;
 export const ESCRITOS_PLANTILLA_ENDPOINT = (id: number) =>
