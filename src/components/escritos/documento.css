@@ -77,3 +77,12 @@
 		#cbd5e1 297mm
 	);
 }
+
+/* Variables sin completar ({{CLAVE}}): datos que faltan cargar; en el PDF
+   salen como "*". */
+.escrito-documento .variable-escrito {
+	background: #fef3c7;
+	color: #92400e;
+	border-radius: 3px;
+	box-shadow: 0 0 0 1px #fcd34d;
+}

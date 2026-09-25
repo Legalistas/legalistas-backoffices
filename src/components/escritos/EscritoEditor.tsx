@@ -6,7 +6,16 @@ import Superscript from "@tiptap/extension-superscript";
 import { TableKit } from "@tiptap/extension-table";
 import TextAlign from "@tiptap/extension-text-align";
 import { TextStyleKit } from "@tiptap/extension-text-style";
-import { type Editor, EditorContent, mergeAttributes, Node, useEditor } from "@tiptap/react";
+import { Plugin } from "@tiptap/pm/state";
+import { Decoration, DecorationSet } from "@tiptap/pm/view";
+import {
+	type Editor,
+	EditorContent,
+	Extension,
+	mergeAttributes,
+	Node,
+	useEditor,
+} from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import {
 	AlignCenter,
@@ -69,6 +78,41 @@ interface EscritoEditorProps {
 	variables?: VariableEscrito[];
 	editable?: boolean;
 }
+
+const VARIABLE = /\{\{\s*[A-Z_]+\s*\}\}/g;
+
+/**
+ * Marca las {{VARIABLES}} del texto. En un escrito son datos que faltan
+ * cargar en el sistema: en el PDF salen como "*" y "Completar variables" las
+ * llena cuando el dato exista. Solo es una marca visual: el texto no cambia.
+ */
+const VariablesMarcadas = Extension.create({
+	name: "variablesMarcadas",
+	addProseMirrorPlugins() {
+		return [
+			new Plugin({
+				props: {
+					decorations(state) {
+						const marcas: Decoration[] = [];
+						state.doc.descendants((node, pos) => {
+							if (!node.isText || !node.text) return;
+							for (const m of node.text.matchAll(VARIABLE)) {
+								const desde = pos + (m.index ?? 0);
+								marcas.push(
+									Decoration.inline(desde, desde + m[0].length, {
+										class: "variable-escrito",
+										title: "Dato que falta cargar en el sistema: en el PDF sale *",
+									}),
+								);
+							}
+						});
+						return DecorationSet.create(state.doc, marcas);
+					},
+				},
+			}),
+		];
+	},
+});
 
 /** Salto de página: en el PDF corta la hoja (clase .page-break). */
 const SaltoPagina = Node.create({
@@ -477,6 +521,7 @@ export function EscritoEditor({
 			Subscript,
 			Superscript,
 			SaltoPagina,
+			VariablesMarcadas,
 		],
 		content: value,
 		editable,
