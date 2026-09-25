@@ -5,7 +5,7 @@
  * Si cambiás algo acá, cambialo allá.
  *
  * Fuente, tamaño e interlineado vienen del formato del escrito como variables
- * CSS (--doc-fuente, --doc-tamano, --doc-interlineado).
+ * CSS (--doc-fuente, --doc-tamano, --doc-interlineado, --alto-linea).
  */
 .escrito-documento {
 	color: #000;

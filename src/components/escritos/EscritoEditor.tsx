@@ -22,6 +22,7 @@ import {
 	AlignJustify,
 	AlignLeft,
 	AlignRight,
+	ArrowUpDown,
 	Baseline,
 	Bold,
 	Highlighter,
@@ -116,11 +117,15 @@ const VariablesMarcadas = Extension.create({
 });
 
 /**
- * Sangría de primera línea (text-indent en el párrafo), como la de Word. Con
- * espacios no sirve: al justificar se estiran y cada párrafo queda distinto.
+ * Formato propio de un párrafo, como en Word:
+ * - sangría de primera línea (text-indent). Con espacios no sirve: al
+ *   justificar se estiran y cada párrafo queda distinto;
+ * - interlineado distinto al de la hoja (encabezado sencillo y cuerpo doble).
+ *   Va como múltiplo del alto de línea de la fuente (--alto-linea), igual que
+ *   el interlineado de la hoja.
  */
-const SangriaPrimeraLinea = Extension.create({
-	name: "sangriaPrimeraLinea",
+const FormatoParrafo = Extension.create({
+	name: "formatoParrafo",
 	addGlobalAttributes() {
 		return [
 			{
@@ -131,6 +136,17 @@ const SangriaPrimeraLinea = Extension.create({
 						parseHTML: (el) => el.style.textIndent || null,
 						renderHTML: (attrs) =>
 							attrs.sangria ? { style: `text-indent: ${attrs.sangria}` } : {},
+					},
+					interlineado: {
+						default: null,
+						parseHTML: (el) => el.getAttribute("data-interlineado"),
+						renderHTML: (attrs) =>
+							attrs.interlineado
+								? {
+										"data-interlineado": attrs.interlineado,
+										style: `line-height: calc(${attrs.interlineado} * var(--alto-linea, 1.15))`,
+									}
+								: {},
 					},
 				},
 			},
@@ -165,6 +181,26 @@ const RESALTADOS = [
 ];
 const SIN_TAMANO = "auto";
 const SANGRIAS = ["1.25cm", "2.5cm", "3.5cm", "5cm", "6.5cm"];
+const INTERLINEADOS = ["1", "1.15", "1.5", "2"];
+
+/**
+ * Alto de línea "sencillo" de Word por fuente, en em. Word multiplica el
+ * interlineado por esto; CSS, por el tamaño de letra. Misma tabla que el PDF
+ * (backend/src/modules/escritos/utils/documento.ts, ALTO_LINEA).
+ */
+const ALTO_LINEA: Record<string, number> = {
+	"Times New Roman": 1.15,
+	Arial: 1.15,
+	Calibri: 1.22,
+	Garamond: 1.125,
+};
+/** Mismas alternativas métricamente compatibles que el PDF (STACK_FUENTES). */
+const STACK_FUENTES: Record<string, string> = {
+	"Times New Roman": "'Times New Roman', Tinos, 'Liberation Serif', serif",
+	Arial: "Arial, Arimo, 'Liberation Sans', Helvetica, sans-serif",
+	Calibri: "Calibri, Carlito, 'Liberation Sans', sans-serif",
+	Garamond: "Garamond, 'EB Garamond', 'Liberation Serif', serif",
+};
 
 function ToolbarBtn({
 	onClick,
@@ -221,6 +257,7 @@ function Toolbar({ editor, variables }: { editor: Editor; variables?: VariableEs
 	const enLista = editor.isActive("bulletList") || editor.isActive("orderedList");
 	const enTabla = editor.isActive("table");
 	const sangria = editor.getAttributes("paragraph").sangria as string | null | undefined;
+	const interlineado = editor.getAttributes("paragraph").interlineado as string | null | undefined;
 
 	const setLink = () => {
 		const previo = editor.getAttributes("link").href as string | undefined;
@@ -418,6 +455,38 @@ function Toolbar({ editor, variables }: { editor: Editor; variables?: VariableEs
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
+			<DropdownMenu>
+				<DropdownMenuTrigger asChild>
+					<button
+						type="button"
+						title="Interlineado del párrafo"
+						className={cn(
+							"rounded p-1.5 hover:bg-muted hover:text-foreground",
+							interlineado ? "bg-primary/10 text-primary" : "text-muted-foreground",
+						)}
+					>
+						<ArrowUpDown className="h-4 w-4" />
+					</button>
+				</DropdownMenuTrigger>
+				<DropdownMenuContent align="start">
+					{INTERLINEADOS.map((i) => (
+						<DropdownMenuItem
+							key={i}
+							onSelect={() => c().updateAttributes("paragraph", { interlineado: i }).run()}
+						>
+							<span className={cn("w-4", interlineado !== i && "invisible")}>✓</span>
+							{i.replace(".", ",")}
+						</DropdownMenuItem>
+					))}
+					<DropdownMenuSeparator />
+					<DropdownMenuItem
+						onSelect={() => c().updateAttributes("paragraph", { interlineado: null }).run()}
+					>
+						<span className={cn("w-4", interlineado && "invisible")}>✓</span>
+						El de la hoja
+					</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>
 			<Separador />
 
 			<ToolbarBtn
@@ -572,7 +641,7 @@ export function EscritoEditor({
 			TextStyleKit.configure({ backgroundColor: false, fontFamily: false, lineHeight: false }),
 			Highlight.configure({ multicolor: true }),
 			TextAlign.configure({ types: ["heading", "paragraph"] }),
-			SangriaPrimeraLinea,
+			FormatoParrafo,
 			TableKit.configure({ table: { resizable: false } }),
 			Subscript,
 			Superscript,
@@ -596,10 +665,13 @@ export function EscritoEditor({
 	}, [editor, value]);
 
 	// La hoja reproduce márgenes y tipografía del PDF.
+	const fuente = formato?.fuente ?? "Times New Roman";
+	const altoLinea = ALTO_LINEA[fuente] ?? ALTO_LINEA["Times New Roman"];
 	const hoja = {
-		"--doc-fuente": `'${formato?.fuente ?? "Times New Roman"}', Tinos, 'Liberation Serif', serif`,
+		"--doc-fuente": STACK_FUENTES[fuente] ?? STACK_FUENTES["Times New Roman"],
 		"--doc-tamano": `${formato?.tamanoFuente ?? 12}pt`,
-		"--doc-interlineado": String(formato?.interlineado ?? 1.5),
+		"--alto-linea": String(altoLinea),
+		"--doc-interlineado": String(Math.round(Number(formato?.interlineado ?? 1.5) * altoLinea * 1000) / 1000),
 		// Con el logo de Legalistas en el margen hace falta un mínimo de 22 mm;
 		// el membrete RPU va con el texto.
 		paddingTop: `${
