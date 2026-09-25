@@ -1,10 +1,10 @@
 "use client";
 
-import { AlertTriangle, Check, CheckCircle2, Eye, Loader2, Pencil, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Eye, Loader2, Pencil, Receipt, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useConfirm } from "@/hooks/useConfirm";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/shared/Pagination";
@@ -36,6 +36,7 @@ import type {
 } from "@/types/closing-manager";
 import ViewClosingModal from "./ViewClosingModal";
 import ClosingPaymentHistoryModal from "./ClosingPaymentHistoryModal";
+import LiquidarHonorariosModal from "./LiquidarHonorariosModal";
 
 // =============================================================================
 // Definición de columnas v2 — 21 columnas (sin intimation ni sepblac)
@@ -121,6 +122,11 @@ export default function ClosingManagerTable({
 	const [viewClosing, setViewClosing] = useState<ClosingManagerEntry | null>(
 		null,
 	);
+
+	// "Liquidar honorarios": HP + PCL + gastos a cobrarle al cliente.
+	const [liquidarId, setLiquidarId] = useState<number | null>(null);
+	// Estable: el modal lo tiene en las dependencias de su fetch.
+	const cerrarLiquidacion = useCallback(() => setLiquidarId(null), []);
 
 	// Historial de pagos parciales HP/PCL
 	const [paymentHistory, setPaymentHistory] = useState<{
@@ -683,6 +689,14 @@ export default function ClosingManagerTable({
 												<span className="sr-only">Ver</span>
 											</button>
 											<button
+												onClick={() => setLiquidarId(closing.id)}
+												className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-emerald-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-emerald-400 dark:hover:bg-white/5 transition-colors"
+												title="Liquidar honorarios"
+											>
+												<Receipt className="h-4 w-4" />
+												<span className="sr-only">Liquidar honorarios</span>
+											</button>
+											<button
 												onClick={() => handleEdit(closing.id)}
 												className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-blue-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-white/5 transition-colors"
 											>
@@ -732,6 +746,7 @@ export default function ClosingManagerTable({
 				isOpen={!!viewClosing}
 				onClose={() => setViewClosing(null)}
 			/>
+			<LiquidarHonorariosModal closingId={liquidarId} onClose={cerrarLiquidacion} />
 			{paymentHistory && (
 				<ClosingPaymentHistoryModal
 					closingId={paymentHistory.closingId}

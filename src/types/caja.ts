@@ -65,6 +65,11 @@ export interface CajaMovimiento {
 	anulado: boolean;
 	anuladoAt: string | null;
 	motivoAnulacion: string | null;
+	/** Réplica de un gasto de causa: se ve pero no suma al saldo ni a los totales. */
+	informativo: boolean;
+	/** Gasto de causa que lo generó: se edita y se anula desde el caso. */
+	caseExpenseId: number | null;
+	caseExpense: { id: number; caseId: number; fileId: number | null } | null;
 	createdAt: string;
 	caja: { id: number; nombre: string };
 	rubro: { id: number; nombre: string } | null;

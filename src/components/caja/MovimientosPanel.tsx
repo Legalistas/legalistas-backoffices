@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowLeftRight, Ban, Loader2, Pencil, ReceiptText } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -269,7 +270,7 @@ export default function MovimientosPanel({
 							))
 						) : data?.data.length ? (
 							data.data.map((m) => (
-								<TableRow key={m.id} className={cn(m.anulado && "opacity-50")}>
+								<TableRow key={m.id} className={cn((m.anulado || m.informativo) && "opacity-50")}>
 									<TableCell className="whitespace-nowrap tabular-nums">
 										{formatFecha(m.fecha)}
 									</TableCell>
@@ -296,6 +297,21 @@ export default function MovimientosPanel({
 										<span className={cn("line-clamp-2", m.anulado && "line-through")}>
 											{m.descripcion || "—"}
 										</span>
+										{m.caseExpense && (
+											<span className="mt-1 flex flex-wrap items-center gap-1">
+												<Link
+													href={`/admin/legal-cases/${m.caseExpense.caseId}?tab=gastos`}
+													className="text-xs text-primary hover:underline"
+												>
+													Gasto de causa
+												</Link>
+												{m.informativo && (
+													<Badge variant="outline" className="text-[10px]">
+														Réplica: no suma al saldo
+													</Badge>
+												)}
+											</span>
+										)}
 										{m.anulado && (
 											<span className="block text-xs text-red-600">
 												Anulado por {m.anuladoBy?.name ?? "—"}: {m.motivoAnulacion}
@@ -313,7 +329,8 @@ export default function MovimientosPanel({
 									</TableCell>
 									{esAdmin && (
 										<TableCell>
-											{!m.anulado && (
+											{/* Los gastos de causa se editan y anulan desde el caso. */}
+											{!m.anulado && !m.caseExpenseId && (
 												<div className="flex justify-end">
 													<Button
 														variant="ghost"

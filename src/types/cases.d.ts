@@ -82,11 +82,17 @@ export interface CaseExpense {
 	amount: number;
 	date?: string | null;
 	category?: string | null;
+	/** ESTUDIO | ABOGADO_EXTERNO; null en gastos cargados antes del relevamiento 11. */
+	pagadoPor?: "ESTUDIO" | "ABOGADO_EXTERNO" | null;
+	/** Si pagó el estudio: EFECTIVO | TRANSFERENCIA. */
+	medioPago?: "EFECTIVO" | "TRANSFERENCIA" | null;
 	userId: number;
 	createdAt: string;
 	updatedAt: string;
 	file?: { id: number; title: string } | null;
 	user?: { id: number; name: string } | null;
+	/** Movimientos de Caja vigentes: el egreso real y la réplica informativa. */
+	cajaMovimientos?: { id: number; informativo: boolean; caja: { id: number; nombre: string } }[];
 }
 
 export interface CaseEvent {
