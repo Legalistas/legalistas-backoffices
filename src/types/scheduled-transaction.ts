@@ -15,6 +15,9 @@ export interface ScheduledTransaction {
 	/** Presente cuando la fila viene de un cierre del Gestor de Cierres — no editable acá. */
 	closingId: number | null;
 	closingConcept: "fee" | "pcl" | null;
+	/** Resumen de una tarjeta (Caja → Tarjetas): se paga el resumen, no se edita acá. */
+	creditCardId?: number | null;
+	periodoTarjeta?: string | null;
 	category: string;
 	subcategory: string | null;
 	currency: ScheduledCurrency;
@@ -31,6 +34,13 @@ export interface ScheduledTransaction {
 		name: string;
 		image: string | null;
 	};
+	/** Cobros/pagos vigentes en la Caja Contable (en qué caja entró o salió). */
+	cajaMovimientos?: {
+		id: number;
+		monto: number | string;
+		fecha: string;
+		caja: { id: number; nombre: string };
+	}[];
 }
 
 export interface ScheduledSummary {

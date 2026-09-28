@@ -17,7 +17,9 @@ import {
 import {
 	EMPLOYMENT_BY_USER_ENDPOINT,
 	SETTINGS_ROLES_ENDPOINT,
+	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
+import { SEGMENTO_LABEL, type Segmento } from "@/constant/rrhh";
 import { apiErrorMessage } from "@/lib/api-error";
 
 type EmploymentStatus = "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "TERMINATED";
@@ -33,7 +35,13 @@ interface EmploymentData {
 	artProvider: string;
 	baseSalary: string;
 	status: EmploymentStatus;
+	/** "" = se deduce del rol (abogado_representante → Representantes). */
+	segmento: "" | Segmento;
+	/** A quién reporta (organigrama). "" = nadie. */
+	jefeId: string;
 }
+
+const SIN_VALOR = "none";
 
 const EMPTY: EmploymentData = {
 	cuil: "",
@@ -46,6 +54,8 @@ const EMPTY: EmploymentData = {
 	artProvider: "",
 	baseSalary: "",
 	status: "ACTIVE",
+	segmento: "",
+	jefeId: "",
 };
 
 const toInputDate = (iso?: string | null) => (iso ? iso.slice(0, 10) : "");
@@ -92,7 +102,31 @@ export default function EmploymentDataForm({
 		{ id: number; name: string; displayName: string | null }[]
 	>([]);
 
+	const [personas, setPersonas] = useState<{ id: number; name: string }[]>([]);
+
 	const token = session?.user?.accessToken;
+
+	// Posibles jefes: quienes tienen ficha laboral (menos la propia persona).
+	useEffect(() => {
+		if (!token) return;
+		let cancelled = false;
+		fetch(`${USERS_ENDPOINT}?limit=500`, { headers: { Authorization: `Bearer ${token}` } })
+			.then((res) => (res.ok ? res.json() : null))
+			.then((json) => {
+				if (cancelled || !json) return;
+				const list: { id: number; name: string; employment?: unknown }[] = json.data ?? json ?? [];
+				setPersonas(
+					list
+						.filter((u) => u.employment && u.id !== userId)
+						.map((u) => ({ id: u.id, name: u.name }))
+						.sort((a, b) => a.name.localeCompare(b.name)),
+				);
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	}, [token, userId]);
 
 	// Cargar roles disponibles para el select de Puesto
 	useEffect(() => {
@@ -149,6 +183,8 @@ export default function EmploymentDataForm({
 						artProvider: emp.artProvider || "",
 						baseSalary: emp.baseSalary?.toString() || "",
 						status: (emp.status as EmploymentStatus) || "ACTIVE",
+						segmento: emp.segmento === "INTERNO" || emp.segmento === "REPRESENTANTE" ? emp.segmento : "",
+						jefeId: emp.jefeId ? String(emp.jefeId) : "",
 					});
 				} else {
 					// Sin ficha aún → pre-cargar solo puesto/área desde el rol
@@ -182,6 +218,8 @@ export default function EmploymentDataForm({
 					hireDate: data.hireDate || null,
 					terminationDate: data.terminationDate || null,
 					baseSalary: data.baseSalary || null,
+					segmento: data.segmento || null,
+					jefeId: data.jefeId ? Number(data.jefeId) : null,
 				}),
 			});
 			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar datos laborales"));
@@ -312,6 +350,46 @@ export default function EmploymentDataForm({
 							))}
 						</SelectContent>
 					</Select>
+				</div>
+
+				<div className="space-y-2">
+					<Label>Segmento</Label>
+					<Select
+						value={data.segmento || SIN_VALOR}
+						onValueChange={(v) => set("segmento", v === SIN_VALOR ? "" : (v as Segmento))}
+					>
+						<SelectTrigger>
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={SIN_VALOR}>Según el rol</SelectItem>
+							<SelectItem value="INTERNO">{SEGMENTO_LABEL.INTERNO}</SelectItem>
+							<SelectItem value="REPRESENTANTE">{SEGMENTO_LABEL.REPRESENTANTE}</SelectItem>
+						</SelectContent>
+					</Select>
+					<p className="text-[11px] text-muted-foreground">
+						Separa al equipo interno de los representantes en Equipo y en el reporte.
+					</p>
+				</div>
+				<div className="space-y-2">
+					<Label>Reporta a</Label>
+					<Select
+						value={data.jefeId || SIN_VALOR}
+						onValueChange={(v) => set("jefeId", v === SIN_VALOR ? "" : v)}
+					>
+						<SelectTrigger>
+							<SelectValue placeholder="Nadie" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={SIN_VALOR}>Nadie (cabeza del organigrama)</SelectItem>
+							{personas.map((p) => (
+								<SelectItem key={p.id} value={String(p.id)}>
+									{p.name}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<p className="text-[11px] text-muted-foreground">Arma el organigrama.</p>
 				</div>
 
 				<div className="space-y-2 md:col-span-2">

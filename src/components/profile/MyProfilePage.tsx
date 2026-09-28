@@ -3,6 +3,8 @@
 import {
 	Clock,
 	ClipboardCheck,
+	FileText,
+	FolderOpen,
 	ListChecks,
 	Loader2,
 	Palmtree,
@@ -21,13 +23,19 @@ import {
 } from "@/constant/api-endpoints";
 import AttendanceTab from "@/components/members/AttendanceTab";
 import ChecklistsTab from "@/components/members/ChecklistsTab";
+import ContractsTab from "@/components/members/ContractsTab";
 import LeavesTab from "@/components/members/LeavesTab";
 import PayrollsTab from "@/components/members/PayrollsTab";
 import PerformanceTab from "@/components/members/PerformanceTab";
+import LegajoTab from "@/components/rrhh/LegajoTab";
 
+// Todo es de solo lectura (los botones de carga los ve solo RR.HH.), salvo
+// pedir licencias y adjuntar el certificado de las propias.
 type SectionKey =
+	| "contracts"
 	| "attendance"
 	| "leaves"
+	| "legajo"
 	| "payrolls"
 	| "performance"
 	| "checklists";
@@ -38,9 +46,11 @@ const SECTIONS: {
 	icon: typeof Clock;
 	color: string;
 }[] = [
-	{ key: "attendance", label: "Mi asistencia", icon: Clock, color: "text-cyan-600" },
-	{ key: "leaves", label: "Mis licencias", icon: Palmtree, color: "text-emerald-600" },
+	{ key: "contracts", label: "Mi contrato", icon: FileText, color: "text-indigo-600" },
 	{ key: "payrolls", label: "Mis recibos", icon: Receipt, color: "text-amber-600" },
+	{ key: "leaves", label: "Mis licencias", icon: Palmtree, color: "text-emerald-600" },
+	{ key: "attendance", label: "Mi asistencia", icon: Clock, color: "text-cyan-600" },
+	{ key: "legajo", label: "Mi legajo", icon: FolderOpen, color: "text-slate-600" },
 	{ key: "performance", label: "Mis evaluaciones", icon: ClipboardCheck, color: "text-fuchsia-600" },
 	{ key: "checklists", label: "Mi onboarding", icon: ListChecks, color: "text-teal-600" },
 ];
@@ -73,9 +83,9 @@ export default function MyProfilePage() {
 	const searchParams = useSearchParams();
 	const { data: session, status } = useSession();
 
-	const sectionParam = (searchParams.get("section") as SectionKey) || "attendance";
+	const sectionParam = (searchParams.get("section") as SectionKey) || "contracts";
 	const [section, setSection] = useState<SectionKey>(
-		SECTIONS.some((s) => s.key === sectionParam) ? sectionParam : "attendance",
+		SECTIONS.some((s) => s.key === sectionParam) ? sectionParam : "contracts",
 	);
 	const [user, setUser] = useState<UserInfo | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -187,8 +197,8 @@ export default function MyProfilePage() {
 						Todavía no tenés ficha laboral
 					</p>
 					<p className="text-xs text-muted-foreground mt-1 max-w-md mx-auto">
-						Cuando RRHH genere tu alta como empleado, vas a poder ver acá tus
-						recibos, licencias, evaluaciones y más.
+						Cuando RRHH genere tu alta como empleado, vas a poder ver acá tu
+						contrato, recibos, licencias, legajo y más.
 					</p>
 				</div>
 			) : (
@@ -222,7 +232,9 @@ export default function MyProfilePage() {
 							value={s.key}
 							className="rounded-lg border border-border bg-card p-4 sm:p-6 mt-4"
 						>
+							{s.key === "contracts" && <ContractsTab userId={userId} />}
 							{s.key === "attendance" && <AttendanceTab userId={userId} />}
+							{s.key === "legajo" && <LegajoTab userId={userId} />}
 							{s.key === "leaves" && <LeavesTab userId={userId} />}
 							{s.key === "payrolls" && <PayrollsTab userId={userId} />}
 							{s.key === "performance" && <PerformanceTab userId={userId} />}

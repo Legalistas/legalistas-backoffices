@@ -27,18 +27,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CAJA_GRUPO_LABEL } from "@/constant/caja";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaGrupo } from "@/types/caja";
-import { aplanarCajas, cajasOperables, formatARS, MESES, mesParam } from "./api";
+import { aplanarCajas, cajasOperables, formatARS, MESES, mesParam, rangoPeriodo } from "./api";
 import CajaEditDialog from "./CajaEditDialog";
 import CajaGeneralPanel from "./CajaGeneralPanel";
 import CajasGrid from "./CajasGrid";
 import MovimientoDialog from "./MovimientoDialog";
 import MovimientosPanel from "./MovimientosPanel";
+import BrixarPanel from "./BrixarPanel";
 import NuevaCajaMonotributoDialog from "./NuevaCajaMonotributoDialog";
+import ProyeccionPanel from "./ProyeccionPanel";
 import RubrosManager from "./RubrosManager";
+import TarjetasPanel from "./TarjetasPanel";
 import TransferenciaDialog from "./TransferenciaDialog";
 import { useCajas } from "./useCajas";
 
-type Tab = CajaGrupo | "GENERAL" | "RUBROS";
+type Tab = CajaGrupo | "GENERAL" | "PROYECCION" | "TARJETAS" | "RUBROS";
 
 function Kpi({
 	titulo,
@@ -66,7 +69,7 @@ function Kpi({
 	);
 }
 
-/** Selector de mes y año (define los totales del mes de tarjetas y estadísticas). */
+/** Selector de período: un mes o el año completo (month0 = -1). Define los totales de las tarjetas, la Caja General y la lista de movimientos. */
 function SelectorMes({
 	year,
 	month0,
@@ -86,10 +89,11 @@ function SelectorMes({
 		<div className="flex items-center gap-2">
 			{loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
 			<Select value={String(month0)} onValueChange={(v) => onChange(year, Number(v))}>
-				<SelectTrigger className="w-36" aria-label="Mes">
+				<SelectTrigger className="w-40" aria-label="Mes">
 					<SelectValue />
 				</SelectTrigger>
 				<SelectContent>
+					<SelectItem value="-1">Año completo</SelectItem>
 					{MESES.map((m, i) => (
 						<SelectItem key={m} value={String(i)}>
 							{m}
@@ -113,6 +117,9 @@ function SelectorMes({
 	);
 }
 
+/** La Caja Agustín muestra además sus cajas de Brixar (solo lectura). */
+const CAJA_BRIXAR_SLUG = "caja-agustin";
+
 /** Cajas de un grupo + movimientos de la caja elegida. */
 function VistaCajas({
 	cajas,
@@ -124,6 +131,7 @@ function VistaCajas({
 	operables,
 	version,
 	onChanged,
+	rango,
 }: {
 	cajas: Caja[];
 	selectedId: number | null;
@@ -134,6 +142,7 @@ function VistaCajas({
 	operables: { caja: Caja; label: string }[];
 	version: number;
 	onChanged: () => void;
+	rango: { desde: string; hasta: string };
 }) {
 	const seleccionada = aplanarCajas(cajas).find((c) => c.id === selectedId) ?? cajas[0];
 	const [editando, setEditando] = useState<Caja | null>(null);
@@ -165,7 +174,12 @@ function VistaCajas({
 					cajas={operables}
 					version={version}
 					onChanged={onChanged}
+					rango={rango}
+					periodoLabel={mesLabel}
 				/>
+			)}
+			{seleccionada?.slug === CAJA_BRIXAR_SLUG && (
+				<BrixarPanel token={token} rango={rango} periodoLabel={mesLabel} />
 			)}
 		</div>
 	);
@@ -175,8 +189,11 @@ export default function CajaPage() {
 	const now = new Date();
 	const [year, setYear] = useState(now.getFullYear());
 	const [month0, setMonth0] = useState(now.getMonth());
-	const mes = mesParam(year, month0);
-	const mesLabel = `${MESES[month0].toLowerCase()} ${year}`;
+	// month0 = -1: año completo. `mes` queda "YYYY-MM" o "YYYY".
+	const anual = month0 < 0;
+	const mes = anual ? String(year) : mesParam(year, month0);
+	const mesLabel = anual ? `año ${year}` : `${MESES[month0].toLowerCase()} ${year}`;
+	const rango = useMemo(() => rangoPeriodo(mes), [mes]);
 
 	const { data, loading, fetching, error, reload, token } = useCajas(mes);
 	const searchParams = useSearchParams();
@@ -281,19 +298,19 @@ export default function CajaPage() {
 						color="border-l-primary"
 					/>
 					<Kpi
-						titulo="Ingresos del mes"
+						titulo={anual ? `Ingresos ${year}` : "Ingresos del mes"}
 						valor={general.ingresosMes}
 						icon={TrendingUp}
 						color="border-l-emerald-500"
 					/>
 					<Kpi
-						titulo="Egresos del mes"
+						titulo={anual ? `Egresos ${year}` : "Egresos del mes"}
 						valor={general.egresosMes}
 						icon={TrendingDown}
 						color="border-l-red-500"
 					/>
 					<Kpi
-						titulo="Diferencia del mes"
+						titulo={anual ? `Diferencia ${year}` : "Diferencia del mes"}
 						valor={general.ingresosMes - general.egresosMes}
 						icon={Scale}
 						color="border-l-sky-500"
@@ -307,6 +324,8 @@ export default function CajaPage() {
 						<TabsTrigger value="PRINCIPAL">{CAJA_GRUPO_LABEL.PRINCIPAL}</TabsTrigger>
 						<TabsTrigger value="MONOTRIBUTO">{CAJA_GRUPO_LABEL.MONOTRIBUTO}</TabsTrigger>
 						<TabsTrigger value="GENERAL">Caja General</TabsTrigger>
+						<TabsTrigger value="PROYECCION">Proyección</TabsTrigger>
+						<TabsTrigger value="TARJETAS">Tarjetas</TabsTrigger>
 						<TabsTrigger value="RUBROS">Rubros</TabsTrigger>
 					</TabsList>
 
@@ -330,6 +349,7 @@ export default function CajaPage() {
 								operables={operables}
 								version={version}
 								onChanged={refrescar}
+								rango={rango}
 							/>
 						</TabsContent>
 					))}
@@ -352,7 +372,17 @@ export default function CajaPage() {
 							cajas={operables}
 							version={version}
 							onChanged={refrescar}
+							rango={rango}
+							periodoLabel={mesLabel}
 						/>
+					</TabsContent>
+
+					<TabsContent value="PROYECCION" className="mt-4">
+						<ProyeccionPanel anio={year} token={token} version={version} />
+					</TabsContent>
+
+					<TabsContent value="TARJETAS" className="mt-4">
+						<TarjetasPanel token={token} version={version} onChanged={refrescar} />
 					</TabsContent>
 
 					<TabsContent value="RUBROS" className="mt-4">
@@ -370,6 +400,7 @@ export default function CajaPage() {
 					operables={operables}
 					version={version}
 					onChanged={refrescar}
+					rango={rango}
 				/>
 			)}
 

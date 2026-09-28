@@ -25,6 +25,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { CAJA_ADMIN_ROLES } from "@/constant/caja";
+import { RRHH_REPORTE_ROLES } from "@/constant/rrhh";
 import { Role } from "@/constant/user";
 import type { MenuSection, NavItem } from "@/types/navigation";
 
@@ -91,12 +92,9 @@ const REPRESENTANTES_ACCESS = [
 ];
 
 
-const RRHH_REPORTS_ACCESS = [
-  ...SUPERADMIN,
-  DIRECTORA_AREA_LEGAL,
-  COORDINADOR_LEGAL,
-  ASISTENTE_LEGAL,
-];
+// Reporte RR.HH.: los que administran RR.HH. (ven costos) + coordinación legal.
+// Espejo de RRHH_REPORTE_ROLES del backend.
+const RRHH_REPORTS_ACCESS = RRHH_REPORTE_ROLES;
 
 // ── Menú agrupado por área funcional ───────────────────────────────
 // El orden de las secciones y de los items dentro de cada sección es el orden

@@ -54,6 +54,7 @@ import { Can } from "@/components/auth/Can";
 import { Role } from "@/constant/user";
 import { SUPERADMIN } from "@/constant/menu";
 import { getRoleIdentifier, INTERNAL_TEAM_ROLES, isInternalTeamMember } from "@/constant/team";
+import { SEGMENTO_LABEL, segmentoDe } from "@/constant/rrhh";
 
 const EMPLOYMENT_ALLOWED_ROLES = [
 	...SUPERADMIN,
@@ -74,10 +75,15 @@ const LAWYER_ROLES = [
 	"asistente_legal",
 ];
 
-type TabType = "all" | "lawyers" | "staff";
+type TabType = "all" | "internos" | "representantes" | "lawyers" | "staff";
 
 function isLawyer(member: any): boolean {
 	return LAWYER_ROLES.includes(getRoleIdentifier(member));
+}
+
+// Equipo interno vs. representantes: lo cargado en la ficha laboral, o el rol.
+function esRepresentante(member: any): boolean {
+	return segmentoDe(member.employment?.segmento, getRoleIdentifier(member)) === "REPRESENTANTE";
 }
 
 export default function MembersContent() {
@@ -123,6 +129,8 @@ export default function MembersContent() {
 			total: internalMembers.length,
 			lawyers: internalMembers.filter(isLawyer).length,
 			staff: internalMembers.filter((m) => !isLawyer(m)).length,
+			internos: internalMembers.filter((m) => !esRepresentante(m)).length,
+			representantes: internalMembers.filter(esRepresentante).length,
 			hr: internalMembers.filter((m) => m.employment).length,
 			inactivos: allMembers.filter(
 				(m) => isInternalTeamMember(m) && m.isBlocked,
@@ -141,7 +149,11 @@ export default function MembersContent() {
 			filtered = filtered.filter((m) => !m.isBlocked);
 		}
 
-		if (activeTab === "lawyers") {
+		if (activeTab === "internos") {
+			filtered = filtered.filter((m) => !esRepresentante(m));
+		} else if (activeTab === "representantes") {
+			filtered = filtered.filter(esRepresentante);
+		} else if (activeTab === "lawyers") {
 			filtered = filtered.filter(isLawyer);
 		} else if (activeTab === "staff") {
 			filtered = filtered.filter((m) => !isLawyer(m));
@@ -730,23 +742,35 @@ export default function MembersContent() {
 					</div>
 				</Card>
 
-				<Card className="border-l-2 border-l-purple-500 py-0">
+				<Card
+					className={`border-l-2 border-l-purple-500 py-0 cursor-pointer transition-colors hover:bg-muted/40 ${activeTab === "internos" ? "ring-1 ring-purple-500/40" : ""}`}
+					onClick={() => setActiveTab(activeTab === "internos" ? "all" : "internos")}
+				>
 					<div className="flex items-center justify-between px-3 py-2">
 						<div>
-							<p className="text-[11px] font-medium text-muted-foreground">Abogados</p>
-							<p className="text-lg font-bold text-foreground leading-none mt-1">{memberStats.lawyers}</p>
+							<p className="text-[11px] font-medium text-muted-foreground">{SEGMENTO_LABEL.INTERNO}</p>
+							<p className="text-lg font-bold text-foreground leading-none mt-1">{memberStats.internos}</p>
+							<p className="text-[10px] text-muted-foreground mt-1">
+								{memberStats.lawyers} abogados · {memberStats.staff} personal
+							</p>
 						</div>
-						<Scale className="h-4 w-4 text-purple-500 shrink-0" />
+						<UserCog className="h-4 w-4 text-purple-500 shrink-0" />
 					</div>
 				</Card>
 
-				<Card className="border-l-2 border-l-orange-500 py-0">
+				<Card
+					className={`border-l-2 border-l-orange-500 py-0 cursor-pointer transition-colors hover:bg-muted/40 ${activeTab === "representantes" ? "ring-1 ring-orange-500/40" : ""}`}
+					onClick={() => setActiveTab(activeTab === "representantes" ? "all" : "representantes")}
+				>
 					<div className="flex items-center justify-between px-3 py-2">
 						<div>
-							<p className="text-[11px] font-medium text-muted-foreground">Personal</p>
-							<p className="text-lg font-bold text-foreground leading-none mt-1">{memberStats.staff}</p>
+							<p className="text-[11px] font-medium text-muted-foreground">{SEGMENTO_LABEL.REPRESENTANTE}</p>
+							<p className="text-lg font-bold text-foreground leading-none mt-1">
+								{memberStats.representantes}
+							</p>
+							<p className="text-[10px] text-muted-foreground mt-1">Abogados representantes</p>
 						</div>
-						<UserCog className="h-4 w-4 text-orange-500 shrink-0" />
+						<Scale className="h-4 w-4 text-orange-500 shrink-0" />
 					</div>
 				</Card>
 
@@ -775,6 +799,18 @@ export default function MembersContent() {
 								Todos
 								<Badge variant="secondary" className="ml-2">
 									{memberStats.total}
+								</Badge>
+							</TabsTrigger>
+							<TabsTrigger value="internos">
+								{SEGMENTO_LABEL.INTERNO}
+								<Badge variant="secondary" className="ml-2">
+									{memberStats.internos}
+								</Badge>
+							</TabsTrigger>
+							<TabsTrigger value="representantes">
+								{SEGMENTO_LABEL.REPRESENTANTE}
+								<Badge variant="secondary" className="ml-2">
+									{memberStats.representantes}
 								</Badge>
 							</TabsTrigger>
 							<TabsTrigger value="lawyers">

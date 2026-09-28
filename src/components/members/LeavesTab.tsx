@@ -35,6 +35,8 @@ import {
 	LEAVES_BY_USER_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { apiErrorMessage } from "@/lib/api-error";
+import Adjuntos from "@/components/rrhh/Adjuntos";
+import { useDocumentos, useEsRrhhAdmin } from "@/components/rrhh/api";
 
 const APPROVER_ROLES = [
 	...SUPERADMIN,
@@ -77,6 +79,16 @@ interface Leave {
 interface Stats {
 	vacationDaysYear: number;
 	pendingCount: number;
+	/** Saldo del año según la antigüedad (LCT art. 150). */
+	vacaciones?: {
+		anio: number;
+		corresponden: number | null;
+		antiguedadAnios: number | null;
+		proporcional: boolean;
+		tomados: number;
+		pedidos: number;
+		disponibles: number | null;
+	};
 }
 
 interface FormState {
@@ -168,6 +180,10 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 	const [filter, setFilter] = useState<FilterType>("all");
 
 	const token = session?.user?.accessToken;
+	const esAdmin = useEsRrhhAdmin();
+	const esPropia = Number(session?.user?.id) === userId;
+	const { documentos, recargar: recargarDocs } = useDocumentos(userId);
+	const vac = stats.vacaciones;
 
 	const loadLeaves = async () => {
 		if (!token) return;
@@ -320,17 +336,54 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 	return (
 		<div className="space-y-4 py-2">
 			{/* Stats */}
-			<div className="grid grid-cols-2 gap-3">
+			<div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+				<div className="rounded-lg border border-sky-500/30 bg-sky-50/50 dark:bg-sky-900/10 p-3">
+					<div className="flex items-center gap-2">
+						<Palmtree className="h-4 w-4 text-sky-600" />
+						<span className="text-xs font-medium text-muted-foreground">
+							Le corresponden en {vac?.anio ?? new Date().getFullYear()}
+						</span>
+					</div>
+					{vac?.corresponden != null ? (
+						<>
+							<p className="text-lg font-bold text-foreground mt-1">
+								{vac.corresponden}{" "}
+								<span className="text-xs font-normal text-muted-foreground">días corridos</span>
+							</p>
+							<p className="text-[11px] text-muted-foreground">
+								{vac.proporcional
+									? "Proporcional: ingresó este año (1 día cada 20 trabajados)"
+									: `Antigüedad al 31/12: ${vac.antiguedadAnios} ${vac.antiguedadAnios === 1 ? "año" : "años"}`}
+							</p>
+						</>
+					) : (
+						<p className="text-xs text-muted-foreground mt-1">
+							Cargá la fecha de ingreso en Datos laborales para calcularlo.
+						</p>
+					)}
+				</div>
 				<div className="rounded-lg border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-900/10 p-3">
 					<div className="flex items-center gap-2">
 						<Palmtree className="h-4 w-4 text-emerald-600" />
 						<span className="text-xs font-medium text-muted-foreground">
-							Vacaciones tomadas este año
+							Tomadas / disponibles
 						</span>
 					</div>
 					<p className="text-lg font-bold text-foreground mt-1">
-						{stats.vacationDaysYear} <span className="text-xs font-normal text-muted-foreground">días</span>
+						{stats.vacationDaysYear}
+						{vac?.disponibles != null && (
+							<span
+								className={`text-sm font-semibold ${vac.disponibles < 0 ? "text-destructive" : "text-emerald-600"}`}
+							>
+								{" "}
+								/ {vac.disponibles}
+							</span>
+						)}{" "}
+						<span className="text-xs font-normal text-muted-foreground">días</span>
 					</p>
+					{(vac?.pedidos ?? 0) > 0 && (
+						<p className="text-[11px] text-amber-600">{vac?.pedidos} días pedidos sin aprobar</p>
+					)}
 				</div>
 				<div className="rounded-lg border border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10 p-3">
 					<div className="flex items-center gap-2">
@@ -420,14 +473,6 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 								onChange={(e) => setF("endDate", e.target.value)}
 							/>
 						</div>
-						<div className="space-y-1.5">
-							<Label className="text-xs">URL del certificado</Label>
-							<Input
-								value={form.documentUrl}
-								onChange={(e) => setF("documentUrl", e.target.value)}
-								placeholder="https://..."
-							/>
-						</div>
 						<div className="space-y-1.5 md:col-span-2">
 							<Label className="text-xs">Motivo / observaciones</Label>
 							<Input
@@ -465,7 +510,7 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 					</p>
 				</div>
 			) : (
-				<div className="space-y-2 max-h-[45vh] overflow-y-auto">
+				<div className="space-y-2">
 					{filtered.map((l) => {
 						const badge = statusBadge[l.status];
 						return (
@@ -514,6 +559,19 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 											Ver documento →
 										</a>
 									)}
+									<Adjuntos
+										userId={userId}
+										documentos={documentos.filter((d) => d.licenciaId === l.id)}
+										fijo={{
+											tipo: "CERTIFICADO",
+											licenciaId: l.id,
+											titulo: `Certificado ${typeLabel[l.type].toLowerCase()} ${formatDay(l.startDate)}`,
+										}}
+										puedeSubir={(esAdmin || esPropia) && l.status !== "CANCELLED" && l.status !== "REJECTED"}
+										puedeBorrar={esAdmin}
+										textoBoton="Adjuntar certificado"
+										onCambio={recargarDocs}
+									/>
 								</div>
 								<div className="flex items-center gap-0.5 shrink-0">
 									{l.status === "PENDING" && (

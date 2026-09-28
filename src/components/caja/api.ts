@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { CAJA_ENDPOINT } from "@/constant/api-endpoints";
-import type { Caja } from "@/types/caja";
+import type { Caja, CajaMovimiento, CajaMovimientosResponse } from "@/types/caja";
 
 export class CajaApiError extends Error {
 	constructor(
@@ -73,3 +73,40 @@ export function cajasOperables(cajas: Caja[]): { caja: Caja; label: string }[] {
 
 /** Todas las cajas en una lista plana (padres e hijas). */
 export const aplanarCajas = (cajas: Caja[]): Caja[] => cajas.flatMap((c) => [c, ...c.hijas]);
+
+/** Todas las páginas de /movimientos con esos filtros (para exportar). */
+export async function traerTodosLosMovimientos(
+	token: string | undefined,
+	filtros: URLSearchParams,
+): Promise<CajaMovimientosResponse> {
+	const todos: CajaMovimiento[] = [];
+	let totales = { ingresos: 0, egresos: 0 };
+	for (let page = 1; ; page++) {
+		const params = new URLSearchParams(filtros);
+		params.set("page", String(page));
+		params.set("limit", "200");
+		const res = await cajaFetch<CajaMovimientosResponse>(`/movimientos?${params}`, token);
+		todos.push(...res.data);
+		totales = res.totales;
+		if (page >= res.pagination.totalPages) {
+			return {
+				data: todos,
+				totales,
+				pagination: { ...res.pagination, page: 1, limit: todos.length },
+			};
+		}
+	}
+}
+
+/** "2026-09" → "septiembre 2026"; "2026" → "año 2026". */
+export const nombrePeriodo = (periodo: string) => {
+	if (periodo.length === 4) return `año ${periodo}`;
+	const [y, m] = periodo.split("-").map(Number);
+	return new Date(y, m - 1, 1).toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+};
+
+/** Primer y último día del período ("YYYY-MM" o "YYYY"). */
+export const rangoPeriodo = (periodo: string) =>
+	periodo.length === 4
+		? { desde: `${periodo}-01-01`, hasta: `${periodo}-12-31` }
+		: { desde: `${periodo}-01`, hasta: finDeMes(periodo) };

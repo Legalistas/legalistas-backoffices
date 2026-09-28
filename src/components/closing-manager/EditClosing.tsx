@@ -479,7 +479,12 @@ export default function EditClosing({
 						</div>
 
 						{/* Cobro HP */}
-						<div className="border-t border-gray-200 pt-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+						<p className="border-t border-gray-200 pt-4 text-xs text-muted-foreground">
+							Para que la plata entre en una caja, usá <strong>Registrar cobro</strong> (ícono de
+							billetera) en la lista del Gestor de Cierres: el cierre queda cobrado solo. Tildar
+							«Cobrado» acá no registra el ingreso en ninguna caja.
+						</p>
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
 							<label className="flex items-center gap-2 cursor-pointer select-none h-10">
 								<Checkbox
 									checked={hpCharged}

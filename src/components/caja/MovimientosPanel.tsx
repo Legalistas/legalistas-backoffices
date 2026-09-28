@@ -1,6 +1,14 @@
 "use client";
 
-import { ArrowLeftRight, Ban, Loader2, Pencil, ReceiptText } from "lucide-react";
+import {
+	ArrowLeftRight,
+	Ban,
+	FileDown,
+	FileSpreadsheet,
+	Loader2,
+	Pencil,
+	ReceiptText,
+} from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -35,9 +43,10 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
+import { exportarExcel, exportarPdf, type TablaInforme } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaMovimiento, CajaMovimientosResponse } from "@/types/caja";
-import { cajaFetch, formatARS, formatFecha } from "./api";
+import { cajaFetch, formatARS, formatFecha, traerTodosLosMovimientos } from "./api";
 import MovimientoDialog from "./MovimientoDialog";
 
 interface MovimientosPanelProps {
@@ -54,6 +63,10 @@ interface MovimientosPanelProps {
 	version: number;
 	onChanged: () => void;
 	limit?: number;
+	/** Período elegido arriba (mes o año): la lista arranca filtrada por él. */
+	rango?: { desde: string; hasta: string };
+	/** Para el nombre del informe ("septiembre 2026", "año 2026"). */
+	periodoLabel?: string;
 }
 
 function AnularDialog({
@@ -102,7 +115,11 @@ function AnularDialog({
 					<DialogDescription>
 						{movimiento?.transferenciaId
 							? "Es una transferencia: se anulan las dos puntas."
-							: "El movimiento queda en el historial marcado como anulado y deja de sumar al saldo."}
+							: movimiento?.closingId
+								? "Es el cobro de un cierre: el cierre vuelve a Parcial o Pendiente y su fila de Gastos e Ingresos, a pendiente."
+								: movimiento?.scheduledTransactionId
+									? "Paga una fila de Gastos e Ingresos: la fila vuelve a pendiente."
+									: "El movimiento queda en el historial marcado como anulado y deja de sumar al saldo."}
 					</DialogDescription>
 				</DialogHeader>
 				{movimiento && (
@@ -145,9 +162,21 @@ export default function MovimientosPanel({
 	version,
 	onChanged,
 	limit = 25,
+	rango,
+	periodoLabel,
 }: MovimientosPanelProps) {
-	const [desde, setDesde] = useState("");
-	const [hasta, setHasta] = useState("");
+	const [desde, setDesde] = useState(rango?.desde ?? "");
+	const [hasta, setHasta] = useState(rango?.hasta ?? "");
+	const [exportando, setExportando] = useState<"xlsx" | "pdf" | null>(null);
+
+	// Al cambiar el período de arriba, la lista lo sigue (se puede ajustar a mano).
+	const rangoDesde = rango?.desde;
+	const rangoHasta = rango?.hasta;
+	useEffect(() => {
+		if (rangoDesde === undefined || rangoHasta === undefined) return;
+		setDesde(rangoDesde);
+		setHasta(rangoHasta);
+	}, [rangoDesde, rangoHasta]);
 	const [tipo, setTipo] = useState("todos");
 	const [incluirAnulados, setIncluirAnulados] = useState(false);
 	const [page, setPage] = useState(1);
@@ -184,13 +213,114 @@ export default function MovimientosPanel({
 		cargar();
 	}, [cargar, version]);
 
+	// Informe con los mismos filtros de la lista (todas las páginas).
+	const exportar = async (formato: "xlsx" | "pdf") => {
+		setExportando(formato);
+		try {
+			const params = new URLSearchParams();
+			if (cajaId) params.set("cajaId", String(cajaId));
+			if (desde) params.set("desde", desde);
+			if (hasta) params.set("hasta", hasta);
+			if (tipo !== "todos") params.set("tipo", tipo);
+			if (incluirAnulados) params.set("incluirAnulados", "true");
+			const { data: movs, totales } = await traerTodosLosMovimientos(token, params);
+
+			const tabla: TablaInforme = {
+				titulo: "Movimientos",
+				columnas: [
+					"Fecha",
+					...(mostrarCaja ? ["Caja"] : []),
+					"Rubro",
+					"Descripción",
+					"Cargado por",
+					"Ingreso",
+					"Egreso",
+				],
+				filas: movs.map((m) => [
+					formatFecha(m.fecha),
+					...(mostrarCaja ? [m.caja.nombre] : []),
+					m.transferenciaId
+						? `Transferencia ${m.tipo === "EGRESO" ? "a" : "desde"} ${m.cajaContraparte?.nombre ?? "otra caja"}`
+						: [m.rubro?.nombre, m.subRubro?.nombre].filter(Boolean).join(" › ") || "—",
+					[
+						m.descripcion,
+						m.anulado ? `ANULADO: ${m.motivoAnulacion ?? ""}` : null,
+						m.informativo ? "(réplica, no suma)" : null,
+					]
+						.filter(Boolean)
+						.join(" · "),
+					m.createdBy.name,
+					m.tipo === "INGRESO" ? m.monto : null,
+					m.tipo === "EGRESO" ? m.monto : null,
+				]),
+				totales: [
+					"Total",
+					...(mostrarCaja ? [""] : []),
+					"",
+					"",
+					"",
+					totales.ingresos,
+					totales.egresos,
+				],
+				montos: mostrarCaja ? [5, 6] : [4, 5],
+			};
+			const rangoTexto =
+				desde || hasta
+					? `${desde ? formatFecha(desde) : "inicio"} al ${hasta ? formatFecha(hasta) : "hoy"}`
+					: "todo el historial";
+			const archivo = `${titulo.replace("Movimientos · ", "")} ${periodoLabel ?? rangoTexto}`;
+			if (formato === "xlsx") await exportarExcel(archivo, [tabla]);
+			else
+				await exportarPdf(archivo, {
+					titulo,
+					subtitulo: `${rangoTexto} · Neto ${formatARS(totales.ingresos - totales.egresos)}`,
+					tablas: [tabla],
+					horizontal: true,
+				});
+		} catch (e) {
+			toast.error((e as Error).message);
+		} finally {
+			setExportando(null);
+		}
+	};
+
 	const columnas = 6 + (mostrarCaja ? 1 : 0) + (esAdmin ? 1 : 0);
 	const pagination = data?.pagination;
 
 	return (
 		<Card>
 			<CardHeader className="gap-4">
-				<CardTitle className="text-base">{titulo}</CardTitle>
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<CardTitle className="text-base">{titulo}</CardTitle>
+					<div className="flex gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => exportar("xlsx")}
+							disabled={!!exportando || !data?.data.length}
+						>
+							{exportando === "xlsx" ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<FileSpreadsheet className="mr-2 h-4 w-4" />
+							)}
+							Excel
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => exportar("pdf")}
+							disabled={!!exportando || !data?.data.length}
+						>
+							{exportando === "pdf" ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<FileDown className="mr-2 h-4 w-4" />
+							)}
+							PDF
+						</Button>
+					</div>
+				</div>
 				<div className="flex flex-wrap items-end gap-3">
 					<div className="space-y-1">
 						<Label className="text-xs text-muted-foreground">Desde</Label>
@@ -311,6 +441,24 @@ export default function MovimientosPanel({
 													</Badge>
 												)}
 											</span>
+										)}
+										{m.closing && (
+											<Link
+												href={`/admin/closing-manager?openId=${m.closing.id}`}
+												className="mt-1 block text-xs text-primary hover:underline"
+											>
+												Cobro de cierre ({m.closingConcepto === "pcl" ? "PCL" : "HP"}) ·{" "}
+												{m.closing.case?.title ?? `Causa #${m.closing.caseId}`}
+											</Link>
+										)}
+										{!m.closing && m.scheduledTransaction && (
+											<Link
+												href="/admin/accounting"
+												className="mt-1 block text-xs text-primary hover:underline"
+											>
+												{m.scheduledTransaction.type === "income" ? "Cobro" : "Pago"} de Gastos e
+												Ingresos
+											</Link>
 										)}
 										{m.anulado && (
 											<span className="block text-xs text-red-600">

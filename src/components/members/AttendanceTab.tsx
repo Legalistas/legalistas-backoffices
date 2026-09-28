@@ -14,6 +14,8 @@ import {
 	ATTENDANCE_TOGGLE_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { apiErrorMessage } from "@/lib/api-error";
+import Adjuntos from "@/components/rrhh/Adjuntos";
+import { useDocumentos, useEsRrhhAdmin } from "@/components/rrhh/api";
 
 interface AttendanceRecord {
 	id: number;
@@ -94,6 +96,10 @@ export default function AttendanceTab({ userId }: AttendanceTabProps) {
 	const [isSaving, setIsSaving] = useState(false);
 
 	const token = session?.user?.accessToken;
+	// Fichar y corregir registros es de RR.HH.; la persona ve su historial y sus planillas.
+	const esAdmin = useEsRrhhAdmin();
+	const { documentos, recargar: recargarDocs } = useDocumentos(userId);
+	const planillas = documentos.filter((d) => d.tipo === "ASISTENCIA");
 
 	const loadRecords = async () => {
 		if (!token) return;
@@ -269,9 +275,30 @@ export default function AttendanceTab({ userId }: AttendanceTabProps) {
 
 	return (
 		<div className="space-y-4 py-2">
+			{/* Planillas de asistencia (firmadas / escaneadas) en el legajo */}
+			<div className="rounded-lg border border-border p-3">
+				<p className="text-sm font-medium text-foreground">Planillas de asistencia</p>
+				<p className="text-xs text-muted-foreground">
+					{planillas.length > 0
+						? "Quedan en el legajo digital, por mes."
+						: esAdmin
+							? "Subí la planilla del mes (PDF, foto o Excel); queda en el legajo."
+							: "Todavía no hay planillas cargadas."}
+				</p>
+				<Adjuntos
+					userId={userId}
+					documentos={planillas}
+					fijo={{ tipo: "ASISTENCIA" }}
+					puedeSubir={esAdmin}
+					puedeBorrar={esAdmin}
+					textoBoton="Subir planilla"
+					onCambio={recargarDocs}
+				/>
+			</div>
+
 			{/* Clock in/out big button */}
 			<div
-				className={`flex items-center justify-between gap-3 p-4 rounded-lg border-2 ${openRecord ? "border-emerald-500/30 bg-emerald-50 dark:bg-emerald-900/20" : "border-border bg-muted/20"}`}
+				className={`flex items-center justify-between gap-3 p-4 rounded-lg border-2 ${openRecord ? "border-emerald-500/30 bg-emerald-50 dark:bg-emerald-900/20" : "border-border bg-muted/20"} ${esAdmin ? "" : "hidden"}`}
 			>
 				<div className="flex items-center gap-3">
 					<div
@@ -324,7 +351,7 @@ export default function AttendanceTab({ userId }: AttendanceTabProps) {
 						Agrupado por día · 8h estándar, excedente cuenta como extra
 					</p>
 				</div>
-				{!formOpen && (
+				{esAdmin && !formOpen && (
 					<Button size="sm" variant="outline" onClick={openCreateForm}>
 						<Plus className="h-4 w-4 mr-1" />
 						Cargar entrada manual
@@ -453,7 +480,7 @@ export default function AttendanceTab({ userId }: AttendanceTabProps) {
 													</span>
 												)}
 											</div>
-											<div className="flex items-center gap-0.5 shrink-0">
+											<div className={`flex items-center gap-0.5 shrink-0 ${esAdmin ? "" : "hidden"}`}>
 												<Button
 													size="icon"
 													variant="ghost"

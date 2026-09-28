@@ -102,6 +102,13 @@ export const CHECKLIST_ITEMS_ENDPOINT = (checklistId: number) =>
 export const CHECKLIST_ITEM_BY_ID_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/checklist-items/${id}`;
 
+// RRHH — Documentos del legajo (MinIO, carpeta rrhh/) y reporte
+export const RRHH_DOCUMENTOS_BY_USER_ENDPOINT = (userId: number) =>
+	`${API_BASE_URL}/employment/${userId}/documentos`;
+export const RRHH_DOCUMENTO_BY_ID_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/rrhh/documentos/${id}`;
+export const RRHH_REPORTE_ENDPOINT = `${API_BASE_URL}/rrhh/reporte`;
+
 // RRHH — Self-service del empleado logueado
 export const ME_ATTENDANCE_STATUS_ENDPOINT = `${API_BASE_URL}/me/attendance/status`;
 export const ME_ATTENDANCE_ACTION_ENDPOINT = `${API_BASE_URL}/me/attendance/action`;

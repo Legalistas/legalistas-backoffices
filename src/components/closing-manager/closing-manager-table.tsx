@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, CheckCircle2, Eye, Loader2, Pencil, Receipt, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, Eye, Loader2, Pencil, Receipt, Trash2, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -37,6 +37,8 @@ import type {
 import ViewClosingModal from "./ViewClosingModal";
 import ClosingPaymentHistoryModal from "./ClosingPaymentHistoryModal";
 import LiquidarHonorariosModal from "./LiquidarHonorariosModal";
+import RegistrarCobroDialog from "@/components/caja/RegistrarCobroDialog";
+import { useCajas } from "@/components/caja/useCajas";
 
 // =============================================================================
 // Definición de columnas v2 — 21 columnas (sin intimation ni sepblac)
@@ -127,6 +129,11 @@ export default function ClosingManagerTable({
 	const [liquidarId, setLiquidarId] = useState<number | null>(null);
 	// Estable: el modal lo tiene en las dependencias de su fetch.
 	const cerrarLiquidacion = useCallback(() => setLiquidarId(null), []);
+
+	// Cobro del cierre en la Caja Contable (solo quien tiene acceso a la Caja).
+	const [cobrarId, setCobrarId] = useState<number | null>(null);
+	const { data: cajas } = useCajas();
+	const puedeCobrar = !!cajas;
 
 	// Historial de pagos parciales HP/PCL
 	const [paymentHistory, setPaymentHistory] = useState<{
@@ -680,6 +687,21 @@ export default function ClosingManagerTable({
 									)}
 									<TableCell className="px-4 py-3 text-right">
 										<div className="flex items-center justify-end gap-2">
+											{puedeCobrar &&
+												!(
+													closing.feeStatus === "CHARGED" &&
+													(!closing.pclStatus || closing.pclStatus === "CHARGED")
+												) && (
+													<button
+														type="button"
+														onClick={() => setCobrarId(closing.id)}
+														className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 transition-colors"
+														title="Registrar cobro en la Caja"
+													>
+														<Wallet className="h-4 w-4" />
+														<span className="sr-only">Registrar cobro</span>
+													</button>
+												)}
 											<button
 												onClick={() => setViewClosing(closing)}
 												className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 transition-colors"
@@ -747,6 +769,11 @@ export default function ClosingManagerTable({
 				onClose={() => setViewClosing(null)}
 			/>
 			<LiquidarHonorariosModal closingId={liquidarId} onClose={cerrarLiquidacion} />
+			<RegistrarCobroDialog
+				closingId={cobrarId}
+				onClose={() => setCobrarId(null)}
+				onSaved={() => onRefresh?.()}
+			/>
 			{paymentHistory && (
 				<ClosingPaymentHistoryModal
 					closingId={paymentHistory.closingId}

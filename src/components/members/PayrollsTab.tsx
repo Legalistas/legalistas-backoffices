@@ -1,17 +1,57 @@
 "use client";
 
-import { DollarSign, Loader2, Pencil, Plus, Receipt, Trash2, X } from "lucide-react";
+import {
+	CheckCircle2,
+	Clock,
+	DollarSign,
+	Loader2,
+	Pencil,
+	Plus,
+	Receipt,
+	Trash2,
+	Wallet,
+	X,
+} from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import PagarProgramadoDialog from "@/components/caja/PagarProgramadoDialog";
+import Adjuntos from "@/components/rrhh/Adjuntos";
+import { useDocumentos, useEsRrhhAdmin } from "@/components/rrhh/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-	PAYROLL_BY_ID_ENDPOINT,
-	PAYROLLS_BY_USER_ENDPOINT,
-} from "@/constant/api-endpoints";
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
+import { PAYROLL_BY_ID_ENDPOINT, PAYROLLS_BY_USER_ENDPOINT } from "@/constant/api-endpoints";
+import { CONCEPTO_LABEL, type ConceptoTipo } from "@/constant/rrhh";
 import { apiErrorMessage } from "@/lib/api-error";
+import { parseMonto } from "@/lib/monto";
+
+// Recibos de sueldo / remuneraciones del mes. Cada uno puede llevar sus
+// conceptos de costo (remuneración, cargas sociales, obra social, monotributo,
+// IIBB…): se proyectan en Gastos e Ingresos y se pagan desde la Caja.
+// La persona ve los suyos (Mi perfil) sin poder cambiarlos.
+
+interface Concepto {
+	id: number;
+	concepto: ConceptoTipo;
+	descripcion: string | null;
+	monto: string;
+	vencimiento: string;
+	scheduledTransactionId: number | null;
+	scheduledTransaction: {
+		id: number;
+		status: "pending" | "paid" | "cancelled";
+		paidAt: string | null;
+		cajaMovimientos: { id: number; fecha: string; caja: { id: number; nombre: string } }[];
+	} | null;
+}
 
 interface Payroll {
 	id: number;
@@ -26,12 +66,23 @@ interface Payroll {
 	documentUrl: string | null;
 	notes: string | null;
 	createdAt: string;
+	conceptos?: Concepto[];
 }
 
 interface Stats {
 	countYear: number;
 	grossYear: string;
 	netYear: string;
+	costYear?: string;
+}
+
+interface ConceptoForm {
+	id?: number;
+	concepto: ConceptoTipo;
+	descripcion: string;
+	monto: string;
+	vencimiento: string;
+	pagado: boolean;
 }
 
 interface FormState {
@@ -42,8 +93,8 @@ interface FormState {
 	contributions: string;
 	deductions: string;
 	currency: string;
-	documentUrl: string;
 	notes: string;
+	conceptos: ConceptoForm[];
 }
 
 const currentPeriod = () => {
@@ -51,7 +102,15 @@ const currentPeriod = () => {
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
-const EMPTY_FORM: FormState = {
+/** Día 5 del mes siguiente al período (vencimiento sugerido). */
+const vencimientoSugerido = (period: string) => {
+	const [y, m] = period.split("-").map(Number);
+	if (!y || !m) return "";
+	const d = new Date(Date.UTC(y, m, 5));
+	return d.toISOString().slice(0, 10);
+};
+
+const EMPTY_FORM = (): FormState => ({
 	period: currentPeriod(),
 	payDate: "",
 	grossAmount: "",
@@ -59,9 +118,11 @@ const EMPTY_FORM: FormState = {
 	contributions: "",
 	deductions: "",
 	currency: "ARS",
-	documentUrl: "",
 	notes: "",
-};
+	conceptos: [],
+});
+
+const CONCEPTOS = Object.keys(CONCEPTO_LABEL) as ConceptoTipo[];
 
 const formatMoney = (value: string | number | null, currency = "ARS") => {
 	if (value === null || value === undefined || value === "") return "—";
@@ -86,6 +147,7 @@ const formatDate = (iso: string | null) =>
 				day: "2-digit",
 				month: "2-digit",
 				year: "numeric",
+				timeZone: "UTC",
 			})
 		: "—";
 
@@ -95,6 +157,8 @@ interface PayrollsTabProps {
 
 export default function PayrollsTab({ userId }: PayrollsTabProps) {
 	const { data: session } = useSession();
+	const esAdmin = useEsRrhhAdmin();
+	const { documentos, recargar: recargarDocs } = useDocumentos(userId);
 	const [payrolls, setPayrolls] = useState<Payroll[]>([]);
 	const [stats, setStats] = useState<Stats>({
 		countYear: 0,
@@ -106,8 +170,11 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 	const [formOpen, setFormOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
+	const [pagar, setPagar] = useState<number | null>(null);
 
 	const token = session?.user?.accessToken;
+	// El costo (con cargas del empleador) lo ve RR.HH.; la persona ve su neto y bruto.
+	const verCosto = esAdmin && stats.costYear !== undefined;
 
 	const loadPayrolls = async () => {
 		if (!token) return;
@@ -134,7 +201,7 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 
 	const openCreateForm = () => {
 		setEditingId(null);
-		setForm(EMPTY_FORM);
+		setForm(EMPTY_FORM());
 		setFormOpen(true);
 	};
 
@@ -148,8 +215,15 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 			contributions: p.contributions?.toString() || "",
 			deductions: p.deductions?.toString() || "",
 			currency: p.currency || "ARS",
-			documentUrl: p.documentUrl || "",
 			notes: p.notes || "",
+			conceptos: (p.conceptos ?? []).map((c) => ({
+				id: c.id,
+				concepto: c.concepto,
+				descripcion: c.descripcion ?? "",
+				monto: String(Number(c.monto)).replace(".", ","),
+				vencimiento: c.vencimiento.slice(0, 10),
+				pagado: c.scheduledTransaction?.status === "paid",
+			})),
 		});
 		setFormOpen(true);
 	};
@@ -157,7 +231,7 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 	const closeForm = () => {
 		setFormOpen(false);
 		setEditingId(null);
-		setForm(EMPTY_FORM);
+		setForm(EMPTY_FORM());
 	};
 
 	const handleSave = async () => {
@@ -166,19 +240,39 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 			toast.error("Período, bruto y neto son obligatorios");
 			return;
 		}
+		const conceptos = [];
+		for (const c of form.conceptos) {
+			const monto = parseMonto(c.monto);
+			if (!monto || monto <= 0) {
+				toast.error(`${CONCEPTO_LABEL[c.concepto]}: el monto tiene que ser mayor a 0`);
+				return;
+			}
+			if (!c.vencimiento) {
+				toast.error(`${CONCEPTO_LABEL[c.concepto]}: falta el vencimiento`);
+				return;
+			}
+			conceptos.push({
+				...(c.id ? { id: c.id } : {}),
+				concepto: c.concepto,
+				descripcion: c.descripcion.trim() || null,
+				monto,
+				vencimiento: c.vencimiento,
+			});
+		}
 		setIsSaving(true);
 		try {
 			const payload = {
-				...form,
+				period: form.period,
 				payDate: form.payDate || null,
+				grossAmount: form.grossAmount,
+				netAmount: form.netAmount,
 				contributions: form.contributions || null,
 				deductions: form.deductions || null,
-				documentUrl: form.documentUrl || null,
+				currency: form.currency,
 				notes: form.notes || null,
+				conceptos,
 			};
-			const url = editingId
-				? PAYROLL_BY_ID_ENDPOINT(editingId)
-				: PAYROLLS_BY_USER_ENDPOINT(userId);
+			const url = editingId ? PAYROLL_BY_ID_ENDPOINT(editingId) : PAYROLLS_BY_USER_ENDPOINT(userId);
 			const res = await fetch(url, {
 				method: editingId ? "PUT" : "POST",
 				headers: {
@@ -188,7 +282,12 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 				body: JSON.stringify(payload),
 			});
 			if (!res.ok) throw new Error(await apiErrorMessage(res, "Error al guardar"));
-			toast.success(editingId ? "Recibo actualizado" : "Recibo creado");
+			toast.success(
+				editingId ? "Recibo actualizado" : "Recibo creado",
+				conceptos.length > 0
+					? { description: "Los conceptos quedaron en Gastos e Ingresos para pagar." }
+					: undefined,
+			);
 			closeForm();
 			loadPayrolls();
 		} catch (err) {
@@ -217,27 +316,47 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 	const setF = <K extends keyof FormState>(k: K, v: FormState[K]) =>
 		setForm((s) => ({ ...s, [k]: v }));
 
+	const setConcepto = (i: number, cambios: Partial<ConceptoForm>) =>
+		setForm((s) => ({
+			...s,
+			conceptos: s.conceptos.map((c, j) => (j === i ? { ...c, ...cambios } : c)),
+		}));
+
+	const agregarConcepto = () => {
+		const usados = new Set(form.conceptos.map((c) => c.concepto));
+		const siguiente = CONCEPTOS.find((c) => !usados.has(c)) ?? "OTRO";
+		setForm((s) => ({
+			...s,
+			conceptos: [
+				...s.conceptos,
+				{
+					concepto: siguiente,
+					descripcion: "",
+					monto: siguiente === "REMUNERACION" && s.netAmount ? s.netAmount.replace(".", ",") : "",
+					vencimiento: vencimientoSugerido(s.period),
+					pagado: false,
+				},
+			],
+		}));
+	};
+
+	const totalConceptos = form.conceptos.reduce((s, c) => s + (parseMonto(c.monto) ?? 0), 0);
+
 	return (
 		<div className="space-y-4 py-2">
 			{/* Stats */}
-			<div className="grid grid-cols-3 gap-3">
+			<div className={`grid gap-3 ${verCosto ? "grid-cols-2 md:grid-cols-4" : "grid-cols-3"}`}>
 				<div className="rounded-lg border border-blue-500/30 bg-blue-50/50 dark:bg-blue-900/10 p-3">
 					<div className="flex items-center gap-2">
 						<Receipt className="h-4 w-4 text-blue-600" />
-						<span className="text-xs font-medium text-muted-foreground">
-							Recibos del año
-						</span>
+						<span className="text-xs font-medium text-muted-foreground">Recibos del año</span>
 					</div>
-					<p className="text-lg font-bold text-foreground mt-1">
-						{stats.countYear}
-					</p>
+					<p className="text-lg font-bold text-foreground mt-1">{stats.countYear}</p>
 				</div>
 				<div className="rounded-lg border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-900/10 p-3">
 					<div className="flex items-center gap-2">
 						<DollarSign className="h-4 w-4 text-emerald-600" />
-						<span className="text-xs font-medium text-muted-foreground">
-							Neto acumulado
-						</span>
+						<span className="text-xs font-medium text-muted-foreground">Neto acumulado</span>
 					</div>
 					<p className="text-sm font-bold text-foreground mt-1 truncate">
 						{formatMoney(stats.netYear)}
@@ -246,24 +365,33 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 				<div className="rounded-lg border border-border bg-muted/20 p-3">
 					<div className="flex items-center gap-2">
 						<DollarSign className="h-4 w-4 text-muted-foreground" />
-						<span className="text-xs font-medium text-muted-foreground">
-							Bruto acumulado
-						</span>
+						<span className="text-xs font-medium text-muted-foreground">Bruto acumulado</span>
 					</div>
 					<p className="text-sm font-bold text-foreground mt-1 truncate">
 						{formatMoney(stats.grossYear)}
 					</p>
 				</div>
+				{verCosto && (
+					<div className="rounded-lg border border-amber-500/30 bg-amber-50/50 dark:bg-amber-900/10 p-3">
+						<div className="flex items-center gap-2">
+							<Wallet className="h-4 w-4 text-amber-600" />
+							<span className="text-xs font-medium text-muted-foreground">Costo del año</span>
+						</div>
+						<p className="text-sm font-bold text-foreground mt-1 truncate">
+							{formatMoney(stats.costYear ?? null)}
+						</p>
+					</div>
+				)}
 			</div>
 
 			<div className="flex items-center justify-between">
 				<div>
 					<p className="text-sm font-medium text-foreground">Historial de recibos</p>
 					<p className="text-xs text-muted-foreground">
-						Carga manual. Un recibo por período mensual.
+						Los conceptos de costo de cada recibo (sueldo, SAC, cargas…) se pagan desde la Caja.
 					</p>
 				</div>
-				{!formOpen && (
+				{esAdmin && !formOpen && (
 					<Button size="sm" onClick={openCreateForm}>
 						<Plus className="h-4 w-4 mr-1" />
 						Nuevo recibo
@@ -274,15 +402,8 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 			{formOpen && (
 				<div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-3">
 					<div className="flex items-center justify-between">
-						<p className="text-sm font-medium">
-							{editingId ? "Editar recibo" : "Nuevo recibo"}
-						</p>
-						<Button
-							size="icon"
-							variant="ghost"
-							onClick={closeForm}
-							className="h-7 w-7"
-						>
+						<p className="text-sm font-medium">{editingId ? "Editar recibo" : "Nuevo recibo"}</p>
+						<Button size="icon" variant="ghost" onClick={closeForm} className="h-7 w-7">
 							<X className="h-4 w-4" />
 						</Button>
 					</div>
@@ -356,14 +477,6 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 							/>
 						</div>
 						<div className="space-y-1.5">
-							<Label className="text-xs">URL del PDF</Label>
-							<Input
-								value={form.documentUrl}
-								onChange={(e) => setF("documentUrl", e.target.value)}
-								placeholder="https://..."
-							/>
-						</div>
-						<div className="space-y-1.5 md:col-span-2">
 							<Label className="text-xs">Notas</Label>
 							<Input
 								value={form.notes}
@@ -372,6 +485,99 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 							/>
 						</div>
 					</div>
+
+					{/* Conceptos de costo */}
+					<div className="rounded-md border border-border bg-background p-3 space-y-2">
+						<div className="flex items-center justify-between gap-2">
+							<div>
+								<p className="text-xs font-semibold">Conceptos de costo</p>
+								<p className="text-[11px] text-muted-foreground">
+									Cada uno queda en Gastos e Ingresos con su vencimiento y se paga desde la Caja.
+								</p>
+							</div>
+							<Button size="sm" variant="outline" onClick={agregarConcepto} className="h-7">
+								<Plus className="h-3.5 w-3.5 mr-1" />
+								Concepto
+							</Button>
+						</div>
+						{form.conceptos.map((c, i) => (
+							<div
+								key={c.id ?? `nuevo-${i}`}
+								className="grid grid-cols-2 md:grid-cols-[160px_1fr_130px_140px_32px] items-end gap-2"
+							>
+								<div className="space-y-1">
+									<Label className="text-[11px]">Concepto</Label>
+									<Select
+										value={c.concepto}
+										onValueChange={(v) => setConcepto(i, { concepto: v as ConceptoTipo })}
+										disabled={c.pagado}
+									>
+										<SelectTrigger className="h-8">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{CONCEPTOS.map((k) => (
+												<SelectItem key={k} value={k}>
+													{CONCEPTO_LABEL[k]}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-1">
+									<Label className="text-[11px]">Detalle</Label>
+									<Input
+										className="h-8"
+										value={c.descripcion}
+										onChange={(e) => setConcepto(i, { descripcion: e.target.value })}
+										placeholder="Opcional"
+									/>
+								</div>
+								<div className="space-y-1">
+									<Label className="text-[11px]">Monto</Label>
+									<Input
+										className="h-8"
+										inputMode="decimal"
+										value={c.monto}
+										onChange={(e) => setConcepto(i, { monto: e.target.value })}
+										placeholder="0,00"
+										disabled={c.pagado}
+									/>
+								</div>
+								<div className="space-y-1">
+									<Label className="text-[11px]">Vence</Label>
+									<Input
+										className="h-8"
+										type="date"
+										value={c.vencimiento}
+										onChange={(e) => setConcepto(i, { vencimiento: e.target.value })}
+										disabled={c.pagado}
+									/>
+								</div>
+								<Button
+									size="icon"
+									variant="ghost"
+									className="h-8 w-8 text-destructive hover:text-destructive"
+									onClick={() =>
+										setForm((s) => ({ ...s, conceptos: s.conceptos.filter((_, j) => j !== i) }))
+									}
+									disabled={c.pagado}
+									title={
+										c.pagado ? "Ya está pago: anulá el pago en la Caja para quitarlo" : "Quitar"
+									}
+								>
+									<Trash2 className="h-3.5 w-3.5" />
+								</Button>
+							</div>
+						))}
+						{form.conceptos.length > 0 && (
+							<p className="text-right text-xs text-muted-foreground">
+								Costo total del mes:{" "}
+								<span className="font-semibold text-foreground">{formatMoney(totalConceptos)}</span>
+							</p>
+						)}
+					</div>
+
 					<div className="flex justify-end gap-2">
 						<Button variant="outline" onClick={closeForm} disabled={isSaving}>
 							Cancelar
@@ -396,7 +602,7 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 					<p className="text-sm text-muted-foreground">Sin recibos todavía</p>
 				</div>
 			) : (
-				<div className="space-y-2 max-h-[45vh] overflow-y-auto">
+				<div className="space-y-2">
 					{payrolls.map((p) => (
 						<div
 							key={p.id}
@@ -411,9 +617,7 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 										<p className="text-sm font-medium text-foreground capitalize">
 											{periodLabel(p.period)}
 										</p>
-										<span className="text-xs text-muted-foreground font-mono">
-											{p.period}
-										</span>
+										<span className="text-xs text-muted-foreground font-mono">{p.period}</span>
 									</div>
 									<div className="flex items-center gap-3 flex-wrap mt-1 text-xs">
 										<span className="text-muted-foreground">
@@ -441,10 +645,58 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 										Pago: {formatDate(p.payDate)}
 									</p>
 									{p.notes && (
-										<p className="text-xs text-muted-foreground mt-1 italic truncate">
-											{p.notes}
-										</p>
+										<p className="text-xs text-muted-foreground mt-1 italic truncate">{p.notes}</p>
 									)}
+
+									{esAdmin && (p.conceptos?.length ?? 0) > 0 && (
+										<div className="mt-2 space-y-1">
+											{p.conceptos?.map((c) => {
+												const st = c.scheduledTransaction;
+												const pago = st?.status === "paid";
+												const caja = st?.cajaMovimientos?.[0]?.caja?.nombre;
+												return (
+													<div
+														key={c.id}
+														className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-muted/40 px-2 py-1 text-xs"
+													>
+														<span className="font-medium min-w-27.5">
+															{CONCEPTO_LABEL[c.concepto]}
+															{c.descripcion ? ` · ${c.descripcion}` : ""}
+														</span>
+														<span className="tabular-nums">{formatMoney(c.monto)}</span>
+														<span className="text-muted-foreground">
+															vence {formatDate(c.vencimiento)}
+														</span>
+														{pago ? (
+															<span className="inline-flex items-center gap-1 text-emerald-600">
+																<CheckCircle2 className="h-3 w-3" />
+																Pagado{caja ? ` desde ${caja}` : ""}
+															</span>
+														) : (
+															<>
+																<span className="inline-flex items-center gap-1 text-amber-600">
+																	<Clock className="h-3 w-3" />
+																	Pendiente
+																</span>
+																{st && (
+																	<Button
+																		size="sm"
+																		variant="outline"
+																		className="h-6 px-2 text-xs"
+																		onClick={() => setPagar(st.id)}
+																	>
+																		<Wallet className="h-3 w-3 mr-1" />
+																		Pagar
+																	</Button>
+																)}
+															</>
+														)}
+													</div>
+												);
+											})}
+										</div>
+									)}
+
 									{p.documentUrl && (
 										<a
 											href={p.documentUrl}
@@ -455,32 +707,57 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 											Descargar PDF →
 										</a>
 									)}
+									<Adjuntos
+										userId={userId}
+										documentos={documentos.filter((d) => d.reciboId === p.id)}
+										fijo={{
+											tipo: "RECIBO",
+											reciboId: p.id,
+											periodo: p.period,
+											titulo: `Recibo ${p.period}`,
+										}}
+										puedeSubir={esAdmin}
+										puedeBorrar={esAdmin}
+										textoBoton="Adjuntar recibo firmado"
+										onCambio={recargarDocs}
+									/>
 								</div>
 							</div>
-							<div className="flex items-center gap-0.5 shrink-0">
-								<Button
-									size="icon"
-									variant="ghost"
-									onClick={() => openEditForm(p)}
-									title="Editar"
-									className="h-8 w-8"
-								>
-									<Pencil className="h-3.5 w-3.5" />
-								</Button>
-								<Button
-									size="icon"
-									variant="ghost"
-									onClick={() => handleDelete(p)}
-									title="Eliminar"
-									className="h-8 w-8 text-destructive hover:text-destructive"
-								>
-									<Trash2 className="h-3.5 w-3.5" />
-								</Button>
-							</div>
+							{esAdmin && (
+								<div className="flex items-center gap-0.5 shrink-0">
+									<Button
+										size="icon"
+										variant="ghost"
+										onClick={() => openEditForm(p)}
+										title="Editar"
+										className="h-8 w-8"
+									>
+										<Pencil className="h-3.5 w-3.5" />
+									</Button>
+									<Button
+										size="icon"
+										variant="ghost"
+										onClick={() => handleDelete(p)}
+										title="Eliminar"
+										className="h-8 w-8 text-destructive hover:text-destructive"
+									>
+										<Trash2 className="h-3.5 w-3.5" />
+									</Button>
+								</div>
+							)}
 						</div>
 					))}
 				</div>
 			)}
+
+			<PagarProgramadoDialog
+				programadoId={pagar}
+				onClose={() => setPagar(null)}
+				onPaid={() => {
+					setPagar(null);
+					loadPayrolls();
+				}}
+			/>
 		</div>
 	);
 }

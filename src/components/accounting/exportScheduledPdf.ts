@@ -1,4 +1,4 @@
-// Informe PDF detallado del Gestor de Gastos e Ingresos — todo el historial,
+// Informe PDF detallado del Gestor de Gastos e Ingresos (lo filtrado en pantalla),
 // generado client-side. Mismo patrón de import dinámico que
 // src/app/api/generate-case-pdf/route.ts (jsPDF + jspdf-autotable).
 
@@ -29,7 +29,10 @@ function arsEquivalent(tx: ScheduledTransaction): number {
 		: Number(tx.amount);
 }
 
-export async function exportScheduledPdf(records: ScheduledTransaction[]): Promise<void> {
+export async function exportScheduledPdf(
+	records: ScheduledTransaction[],
+	periodo = "completo",
+): Promise<void> {
 	const { default: jsPDF } = await import("jspdf");
 	const { default: autoTable } = await import("jspdf-autotable");
 
@@ -37,7 +40,11 @@ export async function exportScheduledPdf(records: ScheduledTransaction[]): Promi
 
 	doc.setFontSize(14);
 	doc.setTextColor(9, 164, 181);
-	doc.text("Gestor de Gastos e Ingresos — Informe completo", 14, 12);
+	doc.text(
+		`Gestor de Gastos e Ingresos — ${periodo === "completo" ? "Informe completo" : periodo}`,
+		14,
+		12,
+	);
 	doc.setFontSize(9);
 	doc.setTextColor(120);
 	doc.text(`Generado: ${new Date().toLocaleString("es-AR")}`, 14, 17);
@@ -73,7 +80,8 @@ export async function exportScheduledPdf(records: ScheduledTransaction[]): Promi
 	y += 6;
 
 	const rows = records.map((r) => [
-		new Date(r.dueDate).toLocaleDateString("es-AR"),
+		// Vencimiento = día guardado a medianoche UTC: se muestra en UTC para no correrlo.
+		new Date(r.dueDate).toLocaleDateString("es-AR", { timeZone: "UTC" }),
 		r.type === "income" ? "Cobro" : "Gasto",
 		r.subcategory ? `${r.category} / ${r.subcategory}` : r.category,
 		r.concept,
@@ -109,5 +117,7 @@ export async function exportScheduledPdf(records: ScheduledTransaction[]): Promi
 		columnStyles: { 3: { cellWidth: 34 }, 4: { cellWidth: 28 } },
 	});
 
-	doc.save(`Gastos_e_Ingresos_completo_${new Date().toLocaleDateString("en-CA")}.pdf`);
+	doc.save(
+		`Gastos_e_Ingresos_${periodo.normalize("NFD").replace(/[^\w]+/g, "_")}_${new Date().toLocaleDateString("en-CA")}.pdf`,
+	);
 }

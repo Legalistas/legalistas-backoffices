@@ -20,6 +20,8 @@ import {
 	CONTRACTS_BY_USER_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { apiErrorMessage } from "@/lib/api-error";
+import Adjuntos from "@/components/rrhh/Adjuntos";
+import { useDocumentos, useEsRrhhAdmin } from "@/components/rrhh/api";
 
 type ContractType = "FIXED_TERM" | "INDEFINITE" | "INTERNSHIP" | "FREELANCE";
 type ContractStatus = "ACTIVE" | "EXPIRED" | "TERMINATED" | "DRAFT";
@@ -93,6 +95,9 @@ export default function ContractsTab({ userId }: ContractsTabProps) {
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
 	const token = session?.user?.accessToken;
+	// Cargar y cambiar contratos es de RR.HH.; la persona los ve en Mi perfil.
+	const esAdmin = useEsRrhhAdmin();
+	const { documentos, recargar: recargarDocs } = useDocumentos(userId);
 
 	const loadContracts = async () => {
 		if (!token) return;
@@ -209,7 +214,7 @@ export default function ContractsTab({ userId }: ContractsTabProps) {
 						Historial completo con renovaciones
 					</p>
 				</div>
-				{!formOpen && (
+				{esAdmin && !formOpen && (
 					<Button size="sm" onClick={openCreateForm}>
 						<Plus className="h-4 w-4 mr-1" />
 						Nuevo contrato
@@ -306,14 +311,6 @@ export default function ContractsTab({ userId }: ContractsTabProps) {
 							</Select>
 						</div>
 						<div className="space-y-1.5 md:col-span-2">
-							<Label className="text-xs">URL del documento PDF</Label>
-							<Input
-								value={form.documentUrl}
-								onChange={(e) => setF("documentUrl", e.target.value)}
-								placeholder="https://..."
-							/>
-						</div>
-						<div className="space-y-1.5 md:col-span-2">
 							<Label className="text-xs">Notas</Label>
 							<Input
 								value={form.notes}
@@ -392,9 +389,18 @@ export default function ContractsTab({ userId }: ContractsTabProps) {
 												Ver PDF →
 											</a>
 										)}
+										<Adjuntos
+											userId={userId}
+											documentos={documentos.filter((d) => d.contratoId === c.id)}
+											fijo={{ tipo: "CONTRATO", contratoId: c.id, titulo: `Contrato ${typeLabel[c.type].toLowerCase()} ${formatDate(c.startDate)}` }}
+											puedeSubir={esAdmin}
+											puedeBorrar={esAdmin}
+											textoBoton="Adjuntar contrato firmado"
+											onCambio={recargarDocs}
+										/>
 									</div>
 								</div>
-								<div className="flex items-center gap-0.5 shrink-0">
+								<div className={`flex items-center gap-0.5 shrink-0 ${esAdmin ? "" : "hidden"}`}>
 									<Button
 										size="icon"
 										variant="ghost"

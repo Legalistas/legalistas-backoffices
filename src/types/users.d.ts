@@ -27,6 +27,10 @@ export interface Employment {
 	artProvider: string | null;
 	baseSalary: string | null;
 	status: "ACTIVE" | "ON_LEAVE" | "SUSPENDED" | "TERMINATED";
+	/** INTERNO o REPRESENTANTE; null = se deduce del rol. */
+	segmento?: "INTERNO" | "REPRESENTANTE" | null;
+	/** A quién reporta (organigrama). */
+	jefeId?: number | null;
 	createdAt: string;
 	updatedAt: string;
 }

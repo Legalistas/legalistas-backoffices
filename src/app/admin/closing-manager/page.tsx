@@ -30,6 +30,7 @@ import {
 	CLOSINGS_KPIS_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { Role } from "@/constant/user";
+import { exportarPdf } from "@/lib/exportar";
 import {
 	buildFilteredUrl,
 	useRolePermissions,
@@ -229,6 +230,106 @@ export default function ClosingManagerPage() {
 	// =========================================================================
 	// Export
 	// =========================================================================
+	// Informe PDF con los mismos filtros de la lista (todas las páginas), con
+	// lo cobrado de HP y PCL (caja vieja + Caja Contable).
+	const handleExportPdf = async () => {
+		if (!session?.user?.accessToken) return;
+		setExporting(true);
+		try {
+			const params: Record<string, string> = {
+				page: "1",
+				limit: "1000",
+				month: month.toString(),
+				year: year.toString(),
+				sortOrder,
+			};
+			if (viewAll) params.viewAll = "true";
+			if (filters.search) params.search = filters.search;
+			if (filters.type) params.type = filters.type;
+			if (filters.capitalState) params.capitalState = filters.capitalState;
+			if (filters.feeStatus) params.feeStatus = filters.feeStatus;
+			if (filters.pclStatus) params.pclStatus = filters.pclStatus;
+			if (filters.paymentPending === "true" || filters.paymentPending === "false")
+				params.paymentPending = filters.paymentPending;
+			if (filters.responsibleLawyerId) params.responsibleLawyerId = filters.responsibleLawyerId;
+			if (filters.internalLawyerId) params.internalLawyerId = filters.internalLawyerId;
+
+			const response = await fetch(buildFilteredUrl(CLOSINGS_ENDPOINT, permissions, params), {
+				headers: { Authorization: `Bearer ${session.user.accessToken}` },
+			});
+			if (!response.ok) throw new Error("Error al traer los cierres");
+			const data: ClosingManagerApiResponse = await response.json();
+
+			const ESTADO: Record<string, string> = {
+				EARRINGS: "Pendiente",
+				REQUESTED: "Solicitado",
+				PARTIAL: "Parcial",
+				CHARGED: "Cobrado",
+			};
+			const filas = data.data.map((c) => [
+				new Date(c.date).toLocaleDateString("es-AR"),
+				c.case?.title ?? `Causa #${c.caseId}`,
+				c.type,
+				Number(c.capitalAmount),
+				Number(c.hpTotal),
+				c.hpLegalistas,
+				ESTADO[c.feeStatus] ?? c.feeStatus,
+				c.hpPaid,
+				c.pclTotal == null ? null : Number(c.pclTotal),
+				c.pclStatus ? (ESTADO[c.pclStatus] ?? c.pclStatus) : "—",
+				c.pclPaid,
+				c.montoTransferir,
+			]);
+			const suma = (i: number) =>
+				filas.reduce((s, f) => s + (typeof f[i] === "number" ? (f[i] as number) : 0), 0);
+			const periodo = viewAll ? `año ${year}` : `${String(month).padStart(2, "0")}/${year}`;
+			await exportarPdf(`Cierres ${periodo}`, {
+				titulo: "Gestor de Cierres",
+				subtitulo: `Período: ${periodo} · ${filas.length} cierres`,
+				horizontal: true,
+				tablas: [
+					{
+						titulo: "Cierres",
+						columnas: [
+							"Fecha",
+							"Caso",
+							"Tipo",
+							"Capital",
+							"HP total",
+							"HP Legalistas",
+							"HP estado",
+							"HP cobrado",
+							"PCL total",
+							"PCL estado",
+							"PCL cobrado",
+							"A transferir",
+						],
+						filas,
+						totales: [
+							"Total",
+							"",
+							"",
+							suma(3),
+							suma(4),
+							suma(5),
+							"",
+							suma(7),
+							suma(8),
+							"",
+							suma(10),
+							suma(11),
+						],
+						montos: [3, 4, 5, 7, 8, 10, 11],
+					},
+				],
+			});
+		} catch (err) {
+			toast.error((err as Error).message || "Error al exportar los cierres");
+		} finally {
+			setExporting(false);
+		}
+	};
+
 	const handleExport = async (format: "xlsx" | "csv") => {
 		if (!session?.user?.accessToken) return;
 		setExporting(true);
@@ -423,6 +524,14 @@ export default function ClosingManagerPage() {
 								className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
 							>
 								CSV (.csv)
+							</button>
+							<button
+								type="button"
+								onClick={handleExportPdf}
+								disabled={exporting}
+								className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5"
+							>
+								PDF (con cobros)
 							</button>
 						</div>
 					</div>

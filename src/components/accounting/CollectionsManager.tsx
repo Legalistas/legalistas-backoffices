@@ -8,6 +8,7 @@ import {
 	ChevronLeft,
 	ChevronRight,
 	FileDown,
+	FileSpreadsheet,
 	Loader2,
 	Minus,
 	MoreHorizontal,
@@ -24,7 +25,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { exportScheduledPdf } from "@/components/accounting/exportScheduledPdf";
 import NewMovementDialog from "@/components/accounting/NewMovementDialog";
-import PayFromCashDialog from "@/components/accounting/PayFromCashDialog";
+import PagarProgramadoDialog from "@/components/caja/PagarProgramadoDialog";
+import PagarResumenDialog from "@/components/caja/PagarResumenDialog";
+import RegistrarCobroDialog from "@/components/caja/RegistrarCobroDialog";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -43,11 +46,11 @@ import {
 	SCHEDULED_TX_BY_ID_ENDPOINT,
 	SCHEDULED_TX_CANCEL_ENDPOINT,
 	SCHEDULED_TX_ENDPOINT,
-	SCHEDULED_TX_MARK_PAID_ENDPOINT,
 	SCHEDULED_TX_MARK_PENDING_ENDPOINT,
 	SCHEDULED_TX_SUMMARY_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { CURRENCY_SYMBOL } from "@/constant/scheduled-categories";
+import { exportarExcel } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import type {
 	ScheduledStatus,
@@ -107,10 +110,21 @@ const amountFmt = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2 });
 const formatByCurrency = (tx: ScheduledTransaction) =>
 	`${CURRENCY_SYMBOL[tx.currency]} ${amountFmt.format(Number(tx.amount))}`;
 
-/** Próximos 3 meses + últimos 12, del más futuro al más viejo. */
+/**
+ * Años completos (el que viene, el actual y el anterior) y después los
+ * próximos 3 meses + los últimos 12, del más futuro al más viejo.
+ */
 function buildMonths() {
 	const today = new Date();
-	return Array.from({ length: 15 }, (_, i) => {
+	const y = today.getFullYear();
+	const anios = [y + 1, y, y - 1].map((anio) => ({
+		key: `anio-${anio}`,
+		label: `Año ${anio} completo`,
+		from: `${anio}-01-01`,
+		to: `${anio}-12-31`,
+		anual: true,
+	}));
+	const meses = Array.from({ length: 15 }, (_, i) => {
 		const d = new Date(today.getFullYear(), today.getMonth() + 3 - i, 1);
 		const from = new Date(d.getFullYear(), d.getMonth(), 1);
 		const to = new Date(d.getFullYear(), d.getMonth() + 1, 0);
@@ -123,8 +137,41 @@ function buildMonths() {
 			label: d.toLocaleDateString("es-AR", { month: "long", year: "numeric" }),
 			from: iso(from),
 			to: iso(to),
+			anual: false,
 		};
 	});
+	return [...anios, ...meses];
+}
+
+/**
+ * El vencimiento es un día guardado a medianoche UTC: mostrado en hora
+ * argentina salía un día antes (el 5/12 aparecía 4/12). Se muestra en UTC.
+ */
+const fechaDia = (iso: string) => new Date(iso).toLocaleDateString("es-AR", { timeZone: "UTC" });
+
+/** Monto de la fila en pesos (USD × cotización guardada). */
+const enPesos = (tx: ScheduledTransaction) =>
+	tx.currency === "USD" ? Number(tx.amount) * Number(tx.exchangeRate ?? 0) : Number(tx.amount);
+
+/** Totales por mes de un año: pendiente y ya cobrado/pagado (sin cancelados). */
+function resumenPorMes(items: ScheduledTransaction[]) {
+	const meses = new Map<
+		string,
+		{ aCobrar: number; cobrado: number; aPagar: number; pagado: number }
+	>();
+	for (const tx of items) {
+		if (tx.status === "cancelled") continue;
+		const mes = tx.dueDate.slice(0, 7);
+		const fila = meses.get(mes) ?? { aCobrar: 0, cobrado: 0, aPagar: 0, pagado: 0 };
+		const monto = enPesos(tx);
+		if (tx.type === "income") {
+			if (tx.status === "paid") fila.cobrado += monto;
+			else fila.aCobrar += monto;
+		} else if (tx.status === "paid") fila.pagado += monto;
+		else fila.aPagar += monto;
+		meses.set(mes, fila);
+	}
+	return [...meses.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
 export default function CollectionsManager() {
@@ -137,9 +184,7 @@ export default function CollectionsManager() {
 		return `${now.getFullYear()}-${now.getMonth()}`;
 	}, []);
 	const [monthKey, setMonthKey] = useState(currentMonthKey);
-	const [statusFilter, setStatusFilter] = useState<ScheduledStatus | "all">(
-		"all",
-	);
+	const [statusFilter, setStatusFilter] = useState<ScheduledStatus | "all">("all");
 	const [onlyPending, setOnlyPending] = useState(false);
 	const [search, setSearch] = useState("");
 	const [tab, setTab] = useState<TabId>("todos");
@@ -153,9 +198,18 @@ export default function CollectionsManager() {
 	const [actingId, setActingId] = useState<number | null>(null);
 	const [newType, setNewType] = useState<ScheduledType | null>(null);
 	const [editing, setEditing] = useState<ScheduledTransaction | null>(null);
-	// Gasto esperando que se elija de qué caja sale.
-	const [paying, setPaying] = useState<ScheduledTransaction | null>(null);
-	const [exportingPdf, setExportingPdf] = useState(false);
+	// Fila esperando que se elija la caja (Caja Contable).
+	const [pagandoId, setPagandoId] = useState<number | null>(null);
+	// Fila de un cierre: cobro (total o parcial) de HP/PCL.
+	const [cobrando, setCobrando] = useState<{ closingId: number; concepto: "fee" | "pcl" } | null>(
+		null,
+	);
+	// Resumen de una tarjeta: se paga el resumen (sus cuotas quedan pagas).
+	const [pagandoResumen, setPagandoResumen] = useState<{
+		tarjetaId: number;
+		periodo: string;
+	} | null>(null);
+	const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
 
 	const month = months.find((m) => m.key === monthKey) ?? months[0];
 
@@ -210,10 +264,7 @@ export default function CollectionsManager() {
 				if (tab === "pagar" && tx.type !== "expense") return false;
 				if (tab === "vencidos" && !isOverdue(tx)) return false;
 				if (!q) return true;
-				return (
-					tx.concept.toLowerCase().includes(q) ||
-					(tx.detail ?? "").toLowerCase().includes(q)
-				);
+				return tx.concept.toLowerCase().includes(q) || (tx.detail ?? "").toLowerCase().includes(q);
 			})
 			.sort((a, b) =>
 				dateSort === "asc"
@@ -225,12 +276,7 @@ export default function CollectionsManager() {
 	const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
 	const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-	const runAction = async (
-		id: number,
-		url: string,
-		method: "PATCH" | "DELETE",
-		okMsg: string,
-	) => {
+	const runAction = async (id: number, url: string, method: "PATCH" | "DELETE", okMsg: string) => {
 		if (!token) return;
 		setActingId(id);
 		try {
@@ -252,37 +298,83 @@ export default function CollectionsManager() {
 	};
 
 	/**
-	 * Un cobro se marca de un click. Un gasto sale de la Caja de alguien, así
-	 * que primero hay que elegir de quién: eso lo resuelve el diálogo.
+	 * Cobrar o pagar registra el movimiento en la Caja Contable: se elige la
+	 * caja en el diálogo. Las filas de un cierre son un cobro de HP/PCL (puede
+	 * ser parcial) y abren el diálogo de cobro del cierre.
 	 */
 	const markPaid = (tx: ScheduledTransaction) => {
-		if (tx.type === "expense") {
-			setPaying(tx);
+		if (tx.creditCardId && tx.periodoTarjeta) {
+			setPagandoResumen({ tarjetaId: tx.creditCardId, periodo: tx.periodoTarjeta });
 			return;
 		}
-		runAction(
-			tx.id,
-			SCHEDULED_TX_MARK_PAID_ENDPOINT(tx.id),
-			"PATCH",
-			"Cobro registrado",
-		);
+		if (tx.closingId && tx.closingConcept) {
+			setCobrando({ closingId: tx.closingId, concepto: tx.closingConcept as "fee" | "pcl" });
+			return;
+		}
+		setPagandoId(tx.id);
 	};
 
-	// El informe trae todo el historial, no solo el período filtrado en pantalla.
-	const handleExportPdf = async () => {
-		if (!token) return;
-		setExportingPdf(true);
+	// El informe sale con lo que se ve: período, estado, pestaña y búsqueda.
+	const handleExport = async (formato: "xlsx" | "pdf") => {
+		setExporting(formato);
 		try {
-			const res = await fetch(SCHEDULED_TX_ENDPOINT, {
-				headers: { Authorization: `Bearer ${token}` },
-			});
-			if (!res.ok) throw new Error("No se pudo traer el historial completo");
-			const json = await res.json();
-			await exportScheduledPdf((json.data ?? []) as ScheduledTransaction[]);
+			const periodo = month?.label ?? "período";
+			if (formato === "pdf") {
+				await exportScheduledPdf(filtered, periodo);
+				return;
+			}
+			await exportarExcel(`Gastos e Ingresos ${periodo}`, [
+				{
+					titulo: "Gastos e Ingresos",
+					columnas: [
+						"Vencimiento",
+						"Tipo",
+						"Concepto",
+						"Categoría",
+						"Detalle",
+						"Moneda",
+						"Monto",
+						"Monto en pesos",
+						"Estado",
+						"Caja",
+						"Cargado por",
+					],
+					filas: filtered.map((tx) => [
+						fechaDia(tx.dueDate),
+						tx.type === "income" ? "Cobro" : "Pago",
+						tx.concept,
+						[tx.category, tx.subcategory].filter(Boolean).join(" › "),
+						tx.detail ?? "",
+						tx.currency,
+						Number(tx.amount),
+						enPesos(tx),
+						isOverdue(tx) ? "Vencido" : STATUS_LABEL[tx.status],
+						tx.cajaMovimientos?.map((m) => m.caja.nombre).join(", ") ?? "",
+						tx.createdBy?.name ?? "",
+					]),
+					montos: [7],
+				},
+				...(month?.anual
+					? [
+							{
+								titulo: "Resumen por mes",
+								columnas: ["Mes", "A cobrar", "Cobrado", "A pagar", "Pagado"],
+								filas: resumenPorMes(items).map(([mes, r]) => [
+									mes,
+									r.aCobrar,
+									r.cobrado,
+									r.aPagar,
+									r.pagado,
+								]),
+								montos: [1, 2, 3, 4],
+							},
+						]
+					: []),
+			]);
 		} catch (err) {
 			toast.error((err as Error).message);
 		} finally {
-			setExportingPdf(false);
+			setExporting(null);
 		}
 	};
 
@@ -296,21 +388,33 @@ export default function CollectionsManager() {
 			{/* ── Encabezado ─────────────────────────────────────────────── */}
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h1 className="text-2xl font-semibold text-foreground">
-						Gestor de Gastos e Ingresos
-					</h1>
-					<p className="text-sm text-muted-foreground">
-						Controlá cobros, pagos y vencimientos
-					</p>
+					<h1 className="text-2xl font-semibold text-foreground">Gestor de Gastos e Ingresos</h1>
+					<p className="text-sm text-muted-foreground">Controlá cobros, pagos y vencimientos</p>
 				</div>
 				<div className="flex items-center gap-2">
-					<Button variant="outline" onClick={handleExportPdf} disabled={exportingPdf}>
-						{exportingPdf ? (
+					<Button
+						variant="outline"
+						onClick={() => handleExport("xlsx")}
+						disabled={!!exporting || filtered.length === 0}
+					>
+						{exporting === "xlsx" ? (
+							<Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+						) : (
+							<FileSpreadsheet className="mr-1.5 h-4 w-4" />
+						)}
+						Excel
+					</Button>
+					<Button
+						variant="outline"
+						onClick={() => handleExport("pdf")}
+						disabled={!!exporting || filtered.length === 0}
+					>
+						{exporting === "pdf" ? (
 							<Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
 						) : (
 							<FileDown className="mr-1.5 h-4 w-4" />
 						)}
-						Exportar PDF
+						PDF
 					</Button>
 					<Button
 						variant="outline"
@@ -420,6 +524,57 @@ export default function CollectionsManager() {
 				/>
 			</div>
 
+			{/* ── Año completo: resumen mes a mes ─────────────────────────── */}
+			{month?.anual && !loading && items.length > 0 && (
+				<div className="overflow-x-auto rounded-xl border border-border bg-card">
+					<table className="w-full text-sm">
+						<thead>
+							<tr className="border-b border-border text-xs text-muted-foreground">
+								<th className="px-4 py-2 text-left font-medium">Mes</th>
+								<th className="px-4 py-2 text-right font-medium">A cobrar</th>
+								<th className="px-4 py-2 text-right font-medium">Cobrado</th>
+								<th className="px-4 py-2 text-right font-medium">A pagar</th>
+								<th className="px-4 py-2 text-right font-medium">Pagado</th>
+								<th className="px-4 py-2 text-right font-medium">Neto previsto</th>
+							</tr>
+						</thead>
+						<tbody>
+							{resumenPorMes(items).map(([mes, r]) => {
+								const [y, m] = mes.split("-").map(Number);
+								const neto = r.aCobrar + r.cobrado - r.aPagar - r.pagado;
+								return (
+									<tr key={mes} className="border-b border-border/60 last:border-0">
+										<td className="px-4 py-2 capitalize">
+											{new Date(y, m - 1, 1).toLocaleDateString("es-AR", { month: "long" })}
+										</td>
+										<td className="px-4 py-2 text-right tabular-nums text-teal-700">
+											{r.aCobrar ? money(r.aCobrar) : "–"}
+										</td>
+										<td className="px-4 py-2 text-right tabular-nums text-muted-foreground">
+											{r.cobrado ? money(r.cobrado) : "–"}
+										</td>
+										<td className="px-4 py-2 text-right tabular-nums text-red-600">
+											{r.aPagar ? money(r.aPagar) : "–"}
+										</td>
+										<td className="px-4 py-2 text-right tabular-nums text-muted-foreground">
+											{r.pagado ? money(r.pagado) : "–"}
+										</td>
+										<td
+											className={cn(
+												"px-4 py-2 text-right font-medium tabular-nums",
+												neto < 0 && "text-red-600",
+											)}
+										>
+											{money(neto)}
+										</td>
+									</tr>
+								);
+							})}
+						</tbody>
+					</table>
+				</div>
+			)}
+
 			{/* ── Pestañas + tabla ───────────────────────────────────────── */}
 			<div className="rounded-xl border border-border bg-card">
 				<div className="flex gap-1 border-b border-border px-3">
@@ -457,17 +612,13 @@ export default function CollectionsManager() {
 									<th className="px-3 py-3 text-left font-medium">
 										<button
 											type="button"
-											onClick={() =>
-												setDateSort((s) => (s === "asc" ? "desc" : "asc"))
-											}
+											onClick={() => setDateSort((s) => (s === "asc" ? "desc" : "asc"))}
 											className="inline-flex items-center gap-1 hover:text-foreground"
 										>
 											Fecha {dateSort === "asc" ? "↑" : "↓"}
 										</button>
 									</th>
-									<th className="px-3 py-3 text-left font-medium">
-										Cliente / Concepto
-									</th>
+									<th className="px-3 py-3 text-left font-medium">Cliente / Concepto</th>
 									<th className="px-3 py-3 text-left font-medium">Categoría</th>
 									<th className="px-3 py-3 text-left font-medium">Detalle</th>
 									<th className="px-3 py-3 text-right font-medium">Monto</th>
@@ -488,9 +639,7 @@ export default function CollectionsManager() {
 												<span
 													className={cn(
 														"flex h-6 w-6 items-center justify-center rounded-full",
-														income
-															? "bg-teal-50 text-teal-600"
-															: "bg-red-50 text-red-500",
+														income ? "bg-teal-50 text-teal-600" : "bg-red-50 text-red-500",
 													)}
 												>
 													{income ? (
@@ -500,21 +649,13 @@ export default function CollectionsManager() {
 													)}
 												</span>
 											</td>
-											<td className="whitespace-nowrap px-3 py-3">
-												{new Date(tx.dueDate).toLocaleDateString("es-AR")}
-											</td>
-											<td className="px-3 py-3 font-medium text-foreground">
-												{tx.concept}
-											</td>
+											<td className="whitespace-nowrap px-3 py-3">{fechaDia(tx.dueDate)}</td>
+											<td className="px-3 py-3 font-medium text-foreground">{tx.concept}</td>
 											<td className="px-3 py-3 text-muted-foreground">
 												{tx.category}
-												{tx.subcategory && (
-													<span className="block text-xs">{tx.subcategory}</span>
-												)}
+												{tx.subcategory && <span className="block text-xs">{tx.subcategory}</span>}
 											</td>
-											<td className="px-3 py-3 text-muted-foreground">
-												{tx.detail || "–"}
-											</td>
+											<td className="px-3 py-3 text-muted-foreground">{tx.detail || "–"}</td>
 											<td className="whitespace-nowrap px-3 py-3 text-right font-medium">
 												{formatByCurrency(tx)}
 												{tx.currency === "USD" && (
@@ -545,6 +686,18 @@ export default function CollectionsManager() {
 												>
 													{isOverdue(tx) ? "Vencido" : STATUS_LABEL[tx.status]}
 												</span>
+												{tx.cajaMovimientos && tx.cajaMovimientos.length > 0 && (
+													<span className="mt-1 block text-xs text-muted-foreground">
+														{tx.type === "income"
+															? tx.status === "pending"
+																? "Parte cobrada en"
+																: "En"
+															: tx.status === "pending"
+																? "Parte pagada desde"
+																: "Desde"}{" "}
+														{[...new Set(tx.cajaMovimientos.map((m) => m.caja.nombre))].join(", ")}
+													</span>
+												)}
 											</td>
 											<td className="px-3 py-3 text-muted-foreground">
 												{tx.createdBy?.name ?? "–"}
@@ -587,7 +740,7 @@ export default function CollectionsManager() {
 														{/* Los movimientos que vienen de un cierre no se
 														    editan ni se borran acá: sus datos son del
 														    cierre que los generó. */}
-														{!tx.closingId && (
+														{!tx.closingId && !tx.creditCardId && (
 															<DropdownMenuItem
 																onClick={() => {
 																	setEditing(tx);
@@ -599,7 +752,7 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{tx.status !== "pending" && (
+														{tx.status !== "pending" && !tx.closingId && !tx.creditCardId && (
 															<DropdownMenuItem
 																onClick={() =>
 																	runAction(
@@ -615,7 +768,7 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{tx.status === "pending" && (
+														{tx.status === "pending" && !tx.closingId && !tx.creditCardId && (
 															<DropdownMenuItem
 																onClick={() =>
 																	runAction(
@@ -631,7 +784,7 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{!tx.closingId && (
+														{!tx.closingId && !tx.creditCardId && (
 															<DropdownMenuItem
 																variant="destructive"
 																onClick={() => {
@@ -668,9 +821,8 @@ export default function CollectionsManager() {
 				{!loading && filtered.length > 0 && (
 					<div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-4 py-3 text-sm">
 						<span className="text-muted-foreground">
-							Mostrando {(page - 1) * pageSize + 1} a{" "}
-							{Math.min(page * pageSize, filtered.length)} de {filtered.length}{" "}
-							movimientos
+							Mostrando {(page - 1) * pageSize + 1} a {Math.min(page * pageSize, filtered.length)}{" "}
+							de {filtered.length} movimientos
 						</span>
 						<div className="flex items-center gap-2">
 							<Button
@@ -724,13 +876,27 @@ export default function CollectionsManager() {
 				)}
 			</div>
 
-			<PayFromCashDialog
-				item={paying}
-				onClose={() => setPaying(null)}
+			<PagarProgramadoDialog
+				programadoId={pagandoId}
+				onClose={() => setPagandoId(null)}
 				onPaid={() => {
-					setPaying(null);
+					setPagandoId(null);
 					fetchData();
 				}}
+			/>
+			<PagarResumenDialog
+				resumen={pagandoResumen}
+				onClose={() => setPagandoResumen(null)}
+				onPaid={() => {
+					setPagandoResumen(null);
+					fetchData();
+				}}
+			/>
+			<RegistrarCobroDialog
+				closingId={cobrando?.closingId ?? null}
+				conceptoInicial={cobrando?.concepto}
+				onClose={() => setCobrando(null)}
+				onSaved={fetchData}
 			/>
 
 			<NewMovementDialog
@@ -776,12 +942,7 @@ function KpiCard({
 		<div className="flex items-start justify-between rounded-xl border border-border bg-card p-4">
 			<div className="min-w-0">
 				<p className="text-xs text-muted-foreground">{label}</p>
-				<p
-					className={cn(
-						"mt-1 truncate text-xl font-semibold",
-						TONES[tone].split(" ")[0],
-					)}
-				>
+				<p className={cn("mt-1 truncate text-xl font-semibold", TONES[tone].split(" ")[0])}>
 					{money(amount)}
 				</p>
 				<p className="mt-1 text-xs text-muted-foreground">{hint}</p>

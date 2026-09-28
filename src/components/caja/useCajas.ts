@@ -7,10 +7,11 @@ import { CajaApiError, cajaFetch } from "./api";
 
 /**
  * Cajas visibles para el usuario (todas si es admin, las propias si es dueño).
- * `mes` (YYYY-MM) define los totales "Mes"; sin mes, el actual.
+ * `periodo` define los totales "Mes": YYYY-MM (un mes) o YYYY (año completo); sin
+ * periodo, el mes actual.
  * `loading` es solo la primera carga; `fetching`, cualquier recarga.
  */
-export function useCajas(mes?: string) {
+export function useCajas(periodo?: string) {
 	const { data: session } = useSession();
 	const token = session?.user?.accessToken;
 	const [data, setData] = useState<CajasResponse | null>(null);
@@ -23,7 +24,7 @@ export function useCajas(mes?: string) {
 		setFetching(true);
 		try {
 			const res = await cajaFetch<{ data: CajasResponse }>(
-				`/cajas${mes ? `?mes=${mes}` : ""}`,
+				`/cajas${periodo ? `?${periodo.length === 4 ? "anio" : "mes"}=${periodo}` : ""}`,
 				token,
 			);
 			setData(res.data);
@@ -34,7 +35,7 @@ export function useCajas(mes?: string) {
 			setLoading(false);
 			setFetching(false);
 		}
-	}, [token, mes]);
+	}, [token, periodo]);
 
 	useEffect(() => {
 		reload();

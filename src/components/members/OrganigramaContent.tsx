@@ -26,6 +26,7 @@ import { Role } from "@/constant/user";
 import { SUPERADMIN } from "@/constant/menu";
 import { USERS_ENDPOINT } from "@/constant/api-endpoints";
 import type { User } from "@/types/users";
+import OrganigramaPorJefe from "@/components/rrhh/OrganigramaPorJefe";
 
 const EMPLOYMENT_ALLOWED_ROLES = [
 	...SUPERADMIN,
@@ -179,6 +180,8 @@ export default function OrganigramaContent() {
 	const router = useRouter();
 	const [users, setUsers] = useState<User[]>([]);
 	const [isLoading, setIsLoading] = useState(true);
+	// "jefe": árbol real según "Reporta a" (Datos laborales). "area": agrupado por rol.
+	const [vista, setVista] = useState<"jefe" | "area">("jefe");
 	// Control de qué áreas tienen los representantes expandidos (por default colapsados)
 	const [expandedReps, setExpandedReps] = useState<Set<AreaKey>>(new Set());
 
@@ -302,13 +305,35 @@ export default function OrganigramaContent() {
 							Organigrama
 						</h1>
 						<p className="text-xs text-muted-foreground">
-							{totalEmployees} miembros · agrupados por área y nivel jerárquico
+							{vista === "jefe"
+								? "Según a quién reporta cada persona (Datos laborales → Reporta a)"
+								: `${totalEmployees} miembros · agrupados por área y nivel jerárquico`}
 						</p>
 					</div>
 				</div>
-				<div className="hidden sm:flex items-center gap-1 text-[11px] text-muted-foreground">
-					<Users className="h-3.5 w-3.5" />
-					<span>Clic en cualquier persona para abrir su ficha RRHH</span>
+				<div className="flex items-center gap-3">
+					<div className="hidden md:flex items-center gap-1 text-[11px] text-muted-foreground">
+						<Users className="h-3.5 w-3.5" />
+						<span>Clic en una persona para abrir su ficha RRHH</span>
+					</div>
+					<div className="inline-flex rounded-md border border-border p-0.5">
+						<Button
+							size="sm"
+							variant={vista === "jefe" ? "secondary" : "ghost"}
+							className="h-7 text-xs"
+							onClick={() => setVista("jefe")}
+						>
+							Por jefe
+						</Button>
+						<Button
+							size="sm"
+							variant={vista === "area" ? "secondary" : "ghost"}
+							className="h-7 text-xs"
+							onClick={() => setVista("area")}
+						>
+							Por área
+						</Button>
+					</div>
 				</div>
 			</div>
 
@@ -316,6 +341,8 @@ export default function OrganigramaContent() {
 				<div className="flex items-center justify-center py-20">
 					<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
 				</div>
+			) : vista === "jefe" ? (
+				<OrganigramaPorJefe users={users} onOpen={openUser} />
 			) : (
 				<div className="space-y-8">
 					{/* Nivel 1: Dirección */}

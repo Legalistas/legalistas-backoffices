@@ -1,6 +1,9 @@
 "use client";
 
+import { FileDown, FileSpreadsheet, Loader2 } from "lucide-react";
 import { Fragment, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -13,6 +16,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { CAJA_GRUPO_LABEL } from "@/constant/caja";
+import { exportarExcel, exportarPdf, type TablaInforme } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaGrupo, CajaResumen, CajaTotales } from "@/types/caja";
 import { cajaFetch, finDeMes, formatARS } from "./api";
@@ -28,8 +32,9 @@ const nombreMes = (mes: string) => {
 	return new Date(y, m - 1, 1).toLocaleDateString("es-AR", { month: "long", year: "numeric" });
 };
 
-/** Primer día de los 6 meses que terminan en `mes` (YYYY-MM). */
-const inicioSeisMeses = (mes: string) => {
+/** Primer día de los 6 meses que terminan en `mes` (YYYY-MM); en un año, el 1/1. */
+const inicioPeriodo = (mes: string) => {
+	if (mes.length === 4) return `${mes}-01-01`;
 	const [y, m] = mes.split("-").map(Number);
 	const d = new Date(y, m - 6, 1);
 	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
@@ -45,7 +50,7 @@ export default function CajaGeneralPanel({
 }: {
 	cajas: Caja[];
 	general: CajaTotales;
-	/** YYYY-MM elegido: el resumen muestra los 6 meses que terminan en él. */
+	/** YYYY-MM elegido (el resumen muestra los 6 meses que terminan en él) o YYYY (el año entero). */
 	mes: string;
 	token: string | undefined;
 	version: number;
@@ -54,7 +59,10 @@ export default function CajaGeneralPanel({
 
 	useEffect(() => {
 		if (!token) return;
-		const params = new URLSearchParams({ desde: inicioSeisMeses(mes), hasta: finDeMes(mes) });
+		const params = new URLSearchParams({
+			desde: inicioPeriodo(mes),
+			hasta: mes.length === 4 ? `${mes}-12-31` : finDeMes(mes),
+		});
 		cajaFetch<{ data: CajaResumen }>(`/resumen?${params}`, token)
 			.then((r) => setResumen(r.data))
 			.catch((e) => console.error("[Caja] Error cargando resumen:", e));
@@ -64,12 +72,106 @@ export default function CajaGeneralPanel({
 		.map((g) => ({ grupo: g, cajas: cajas.filter((c) => c.grupo === g) }))
 		.filter((g) => g.cajas.length > 0);
 
+	const [exportando, setExportando] = useState<"xlsx" | "pdf" | null>(null);
+
+	/** Informe de la Caja General: saldos por caja, resultado por mes y por rubro. */
+	const exportar = async (formato: "xlsx" | "pdf") => {
+		if (!resumen) return;
+		setExportando(formato);
+		try {
+			const periodo = mes.length === 4 ? `año ${mes}` : nombreMes(mes);
+			const tablas: TablaInforme[] = [
+				{
+					titulo: "Saldo por caja",
+					columnas: ["Caja", "Grupo", "Saldo", "Ingresos del período", "Egresos del período"],
+					filas: grupos.flatMap(({ grupo, cajas: delGrupo }) =>
+						delGrupo.flatMap((c) => [
+							[c.nombre, CAJA_GRUPO_LABEL[grupo], c.saldo, c.ingresosMes, c.egresosMes],
+							...c.hijas.map((h) => [
+								`   ${h.nombre}`,
+								CAJA_GRUPO_LABEL[grupo],
+								h.saldo,
+								h.ingresosMes,
+								h.egresosMes,
+							]),
+						]),
+					),
+					totales: ["Caja General", "", general.saldo, general.ingresosMes, general.egresosMes],
+					montos: [2, 3, 4],
+				},
+				{
+					titulo: "Resultado por mes",
+					columnas: ["Mes", "Ingresos", "Egresos", "Diferencia"],
+					filas: resumen.porMes.map((f) => [
+						nombreMes(f.mes),
+						f.ingresos,
+						f.egresos,
+						f.ingresos - f.egresos,
+					]),
+					montos: [1, 2, 3],
+				},
+				{
+					titulo: "Por rubro",
+					columnas: ["Rubro", "Tipo", "Total"],
+					filas: resumen.porRubro.map((r) => [
+						r.nombre,
+						r.tipo === "INGRESO" ? "Ingreso" : "Egreso",
+						r.total,
+					]),
+					montos: [2],
+				},
+			];
+			const archivo = `Caja General ${periodo}`;
+			if (formato === "xlsx") await exportarExcel(archivo, tablas);
+			else
+				await exportarPdf(archivo, {
+					titulo: "Caja General",
+					subtitulo: `Período: ${periodo} · Saldo total ${formatARS(general.saldo)}`,
+					tablas,
+				});
+		} catch (e) {
+			toast.error((e as Error).message);
+		} finally {
+			setExportando(null);
+		}
+	};
+
 	return (
 		<div className="grid gap-6 xl:grid-cols-2">
 			<Card className="xl:row-span-2">
-				<CardHeader>
-					<CardTitle className="text-base">Saldo por caja</CardTitle>
-					<CardDescription>La Caja General es la suma de todas las cajas.</CardDescription>
+				<CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
+					<div>
+						<CardTitle className="text-base">Saldo por caja</CardTitle>
+						<CardDescription>La Caja General es la suma de todas las cajas.</CardDescription>
+					</div>
+					<div className="flex gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => exportar("xlsx")}
+							disabled={!resumen || !!exportando}
+						>
+							{exportando === "xlsx" ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<FileSpreadsheet className="mr-2 h-4 w-4" />
+							)}
+							Excel
+						</Button>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => exportar("pdf")}
+							disabled={!resumen || !!exportando}
+						>
+							{exportando === "pdf" ? (
+								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+							) : (
+								<FileDown className="mr-2 h-4 w-4" />
+							)}
+							PDF
+						</Button>
+					</div>
 				</CardHeader>
 				<CardContent>
 					<Table>
@@ -129,8 +231,14 @@ export default function CajaGeneralPanel({
 				<CardHeader>
 					<CardTitle className="text-base">Resultado por mes</CardTitle>
 					<CardDescription>
-						6 meses hasta <span className="capitalize">{nombreMes(mes)}</span>, sin transferencias
-						entre cajas.
+						{mes.length === 4 ? (
+							`Año ${mes}`
+						) : (
+							<>
+								6 meses hasta <span className="capitalize">{nombreMes(mes)}</span>
+							</>
+						)}
+						, sin transferencias entre cajas.
 					</CardDescription>
 				</CardHeader>
 				<CardContent>
