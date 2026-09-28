@@ -480,6 +480,20 @@ export const NEGOTIATION_ACCEPT_OFFER_ENDPOINT = (
 	offerId: number,
 ) => `${API_BASE_URL}/negotiations/${negotiationId}/offers/${offerId}/accept`;
 
+// Abogados contraparte (reutilizables): GET ?search=, POST; PUT /:id
+export const NEGOTIATION_ABOGADOS_CONTRAPARTE_ENDPOINT = `${API_BASE_URL}/negotiations/abogados-contraparte`;
+
+// Casilla desde la que salen los mails de negociaciones ({ configurada, direccion })
+export const NEGOTIATION_CASILLA_MAIL_ENDPOINT = `${API_BASE_URL}/negotiations/casilla-mail`;
+
+// Línea de tiempo: eventos (GET, DELETE /:eventoId), mails (POST) y respuestas (POST)
+export const NEGOTIATION_EVENTOS_ENDPOINT = (negotiationId: number) =>
+	`${API_BASE_URL}/negotiations/${negotiationId}/eventos`;
+export const NEGOTIATION_MAILS_ENDPOINT = (negotiationId: number) =>
+	`${API_BASE_URL}/negotiations/${negotiationId}/mails`;
+export const NEGOTIATION_RESPUESTAS_ENDPOINT = (negotiationId: number) =>
+	`${API_BASE_URL}/negotiations/${negotiationId}/respuestas`;
+
 // ============================================================================
 // CLOSING MANAGER MODULE - Sistema de Gestión de Cierres
 // ============================================================================

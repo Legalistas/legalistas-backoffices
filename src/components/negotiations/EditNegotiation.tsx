@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import CounterpartyLawyerSelect from "./CounterpartyLawyerSelect";
+import AbogadoContraparteSelect from "./AbogadoContraparteSelect";
 import {
 	Select,
 	SelectContent,
@@ -50,7 +50,7 @@ export default function EditNegotiation({
 }: EditNegotiationProps) {
 	const { data: session } = useSession();
 	const [formData, setFormData] = useState({
-		contraparteLawyer: "",
+		abogadoContraparteId: null as number | null,
 		incLegalistas: "",
 		deArt: "",
 		liquidacion100: "",
@@ -65,7 +65,7 @@ export default function EditNegotiation({
 	useEffect(() => {
 		if (negotiation) {
 			setFormData({
-				contraparteLawyer: negotiation.contraparteLawyer || "",
+				abogadoContraparteId: negotiation.abogadoContraparte?.id ?? null,
 				incLegalistas: negotiation.incLegalistas?.toString() || "",
 				deArt: negotiation.deArt?.toString() || "",
 				liquidacion100: negotiation.liquidacion100?.toString() || "",
@@ -100,7 +100,7 @@ export default function EditNegotiation({
 
 		try {
 			const body: any = {
-				contraparteLawyer: formData.contraparteLawyer || null,
+				abogadoContraparteId: formData.abogadoContraparteId,
 				incLegalistas: formData.incLegalistas ? parseFloat(formData.incLegalistas) : null,
 				deArt: formData.deArt ? parseFloat(formData.deArt) : null,
 				liquidacion100: formData.liquidacion100 ? parseFloat(formData.liquidacion100) : null,
@@ -214,11 +214,10 @@ export default function EditNegotiation({
 						<div className="grid grid-cols-2 gap-4">
 							<div className="space-y-2">
 								<Label>Abogado Contraparte</Label>
-								<CounterpartyLawyerSelect
-									caseId={negotiation.case?.id ?? negotiation.caseId}
-									value={formData.contraparteLawyer}
-									onChange={(name) =>
-										setFormData({ ...formData, contraparteLawyer: name })
+								<AbogadoContraparteSelect
+									value={formData.abogadoContraparteId}
+									onChange={(abogado) =>
+										setFormData({ ...formData, abogadoContraparteId: abogado?.id ?? null })
 									}
 								/>
 							</div>

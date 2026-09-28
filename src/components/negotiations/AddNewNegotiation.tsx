@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import CounterpartyLawyerSelect from "./CounterpartyLawyerSelect";
+import AbogadoContraparteSelect from "./AbogadoContraparteSelect";
 import {
 	NEGOTIATIONS_ENDPOINT,
 	NEGOTIATIONS_NEGOTIABLE_CAUSES_ENDPOINT,
@@ -38,7 +38,7 @@ export default function AddNewNegotiation() {
 	const permissions = useRolePermissions();
 
 	const [formData, setFormData] = useState({
-		contraparteLawyer: "",
+		abogadoContraparteId: null as number | null,
 		incLegalistas: "",
 		deArt: "",
 		liquidacion100: "",
@@ -161,7 +161,7 @@ export default function AddNewNegotiation() {
 				},
 				body: JSON.stringify({
 					caseId: selectedCause.id,
-					contraparteLawyer: formData.contraparteLawyer || null,
+					abogadoContraparteId: formData.abogadoContraparteId,
 					incLegalistas: formData.incLegalistas ? parseFloat(formData.incLegalistas) : null,
 					deArt: formData.deArt ? parseFloat(formData.deArt) : null,
 					liquidacion100: formData.liquidacion100 ? parseFloat(formData.liquidacion100) : null,
@@ -337,11 +337,10 @@ export default function AddNewNegotiation() {
 									<div className="grid grid-cols-2 gap-4">
 										<div className="space-y-1.5">
 											<Label>Abogado Contraparte</Label>
-											<CounterpartyLawyerSelect
-												caseId={selectedCause?.id ?? null}
-												value={formData.contraparteLawyer}
-												onChange={(name) =>
-													setFormData({ ...formData, contraparteLawyer: name })
+											<AbogadoContraparteSelect
+												value={formData.abogadoContraparteId}
+												onChange={(abogado) =>
+													setFormData({ ...formData, abogadoContraparteId: abogado?.id ?? null })
 												}
 											/>
 										</div>

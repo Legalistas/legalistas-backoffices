@@ -6,6 +6,8 @@ import {
 	ArrowUpDown,
 	Edit2,
 	Eye,
+	Mail,
+	Reply,
 	Trash2,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -39,10 +41,14 @@ import { apiErrorMessage } from "@/lib/api-error";
 import type {
 	Negotiation,
 	NegotiationStatus,
+	Oferta,
 } from "@/types/negotiations";
 import { servicesType } from "@/lib/constant";
 import type { ColumnConfig } from "./ColumnSelector";
 import EditNegotiation from "./EditNegotiation";
+import NegociacionTimeline from "./NegociacionTimeline";
+import RedactarMailDialog from "./RedactarMailDialog";
+import RegistrarRespuestaDialog from "./RegistrarRespuestaDialog";
 import type { FilterState } from "./NegotiationFilters";
 import { NegotiationStatusDropdown } from "./NegotiationStatusDropdown";
 
@@ -52,6 +58,17 @@ interface UniqueValues {
 	abogadosContraparte: string[];
 	lesiones: string[];
 }
+
+/** Oferta del backend → la de la tabla (fecha corta y completa, para la línea de tiempo). */
+const mapOffer = (o: any): Oferta => ({
+	id: o.id,
+	tipo: o.type,
+	monto: parseFloat(o.amount),
+	fecha: new Date(o.date).toLocaleDateString("es-AR"),
+	fechaIso: new Date(o.date).toISOString(),
+	aceptada: o.accepted,
+	notes: o.notes || null,
+});
 
 const STATUS_LABELS: Record<NegotiationStatus, string> = {
 	INICIAR: "Iniciar",
@@ -109,6 +126,10 @@ export function NegotiationsTable({
 	const [editingOfferId, setEditingOfferId] = useState<number | null>(null);
 	const [editMonto, setEditMonto] = useState("");
 	const [editNotes, setEditNotes] = useState("");
+	// Mail rápido y respuesta de la contraparte (línea de tiempo).
+	const [mailPara, setMailPara] = useState<Negotiation | null>(null);
+	const [showRespuesta, setShowRespuesta] = useState(false);
+	const [recargarTimeline, setRecargarTimeline] = useState(0);
 
 	const isLawyer = permissions.isLawyer;
 	const userId = permissions.getUserId();
@@ -176,14 +197,9 @@ export function NegotiationsTable({
 					customer: neg.case?.customer || null,
 					parts: neg.case?.parts || [],
 				},
-				offers: (neg.offers || []).map((offer: any) => ({
-					id: offer.id,
-					tipo: offer.type,
-					monto: parseFloat(offer.amount),
-					fecha: new Date(offer.date).toLocaleDateString("es-AR"),
-					aceptada: offer.accepted,
-					notes: offer.notes || null,
-				})),
+				offers: (neg.offers || []).map(mapOffer),
+				abogadoContraparte: neg.abogadoContraparte ?? null,
+				caseFile: neg.caseFile ?? null,
 				closingId: neg.closing?.id || null,
 			}));
 
@@ -554,14 +570,7 @@ export function NegotiationsTable({
 							? parseFloat(neg.lastOfferAmount)
 							: null,
 						lastOfferSource: neg.lastOfferSource,
-						offers: (neg.offers || []).map((o: any) => ({
-							id: o.id,
-							tipo: o.type,
-							monto: parseFloat(o.amount),
-							fecha: new Date(o.date).toLocaleDateString("es-AR"),
-							aceptada: o.accepted,
-							notes: o.notes || null,
-						})),
+						offers: (neg.offers || []).map(mapOffer),
 					});
 				}
 			}
@@ -626,19 +635,20 @@ export function NegotiationsTable({
 					...selectedNegotiation,
 					lastOfferAmount: neg.lastOfferAmount ? parseFloat(neg.lastOfferAmount) : null,
 					lastOfferSource: neg.lastOfferSource,
-					offers: (neg.offers || []).map((o: any) => ({
-						id: o.id,
-						tipo: o.type,
-						monto: parseFloat(o.amount),
-						fecha: new Date(o.date).toLocaleDateString("es-AR"),
-						aceptada: o.accepted,
-						notes: o.notes || null,
-					})),
+					offers: (neg.offers || []).map(mapOffer),
 				});
 			}
 		} catch (err) {
 			console.error("Error refreshing negotiation:", err);
 		}
+	};
+
+	// Mail enviado o respuesta registrada: pueden haber sumado una oferta.
+	const handleIntercambio = async () => {
+		setRecargarTimeline((n) => n + 1);
+		await refreshSelectedNegotiation();
+		await fetchNegotiations();
+		onDataChange?.();
 	};
 
 	const handleStartEditOffer = (oferta: { id: number; monto: number; notes?: string | null }) => {
@@ -727,6 +737,119 @@ export function NegotiationsTable({
 		await fetchNegotiations();
 		onDataChange?.();
 	};
+
+	// Tarjeta de una oferta (con aceptar / editar / borrar) en la línea de tiempo.
+	const renderOferta = (oferta: Oferta) => (
+		<div
+			key={oferta.id}
+			className={`p-3 rounded-lg border ${oferta.tipo === "ASEGURADORA"
+					? "bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800"
+					: "bg-primary/5 border-primary/30"
+				} ${oferta.aceptada ? "ring-2 ring-primary" : ""}`}
+		>
+			{editingOfferId === oferta.id ? (
+				/* ── Modo edición inline ── */
+				<div className="space-y-2">
+					<div className="flex items-center gap-2">
+						<span className="text-xs font-semibold px-2 py-1 text-[10px] rounded-full text-white bg-primary">
+							{oferta.tipo === "ASEGURADORA" ? "ART" : "LEGALISTAS"}
+						</span>
+						<span className="text-[10px] text-muted-foreground">Editando...</span>
+					</div>
+					<input
+						type="number"
+						value={editMonto}
+						onChange={(e) => setEditMonto(e.target.value)}
+						placeholder="Monto"
+						className="w-full h-9 px-3 rounded-md border bg-background text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+					/>
+					<input
+						type="text"
+						value={editNotes}
+						onChange={(e) => setEditNotes(e.target.value)}
+						placeholder="Notas (opcional)"
+						className="w-full h-9 px-3 rounded-md border bg-background text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
+					/>
+					<div className="flex gap-2">
+						<Button
+							size="sm"
+							className="flex-1 h-8 text-xs"
+							onClick={handleSaveEditOffer}
+						>
+							Guardar
+						</Button>
+						<Button
+							size="sm"
+							variant="outline"
+							className="h-8 text-xs"
+							onClick={handleCancelEditOffer}
+						>
+							Cancelar
+						</Button>
+					</div>
+				</div>
+			) : (
+				/* ── Modo visualización ── */
+				<div className="flex items-center justify-between">
+					<div className="flex-1">
+						<div className="flex items-center gap-2">
+							<span className="text-xs font-semibold px-2 py-1 text-[10px] rounded-full text-white bg-primary">
+								{oferta.tipo === "ASEGURADORA"
+									? "ART"
+									: "LEGALISTAS"}
+							</span>
+							{oferta.aceptada && (
+								<span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-medium">
+									ACEPTADA
+								</span>
+							)}
+						</div>
+						<p className="text-lg font-bold mt-1">
+							{formatCurrency(oferta.monto)}
+						</p>
+						<p className="text-[10px] text-muted-foreground">
+							{oferta.fecha}
+						</p>
+						{oferta.notes && (
+							<p className="text-xs text-gray-500 mt-1">
+								{oferta.notes}
+							</p>
+						)}
+					</div>
+					<div className="flex items-center gap-1.5">
+						{!oferta.aceptada &&
+							selectedNegotiation?.status !== "FINALIZADAS" &&
+							selectedNegotiation?.status !== "PERDIDAS" && (
+								<>
+									<Button
+										className="h-8 text-xs bg-primary text-white hover:bg-primary/85 border-0 px-3 font-medium"
+										onClick={() => handleAcceptOffer(oferta.id)}
+									>
+										Aceptar
+									</Button>
+									<Button
+										size="sm"
+										variant="outline"
+										className="h-8 w-8 p-0"
+										onClick={() => handleStartEditOffer(oferta)}
+									>
+										<Edit2 className="size-3.5" />
+									</Button>
+									<Button
+										size="sm"
+										variant="outline"
+										className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+										onClick={() => handleDeleteOffer(oferta.id)}
+									>
+										<Trash2 className="size-3.5" />
+									</Button>
+								</>
+							)}
+					</div>
+				</div>
+			)}
+		</div>
+	);
 
 	// ─── Column header helper ───
 	const ColHeader = ({
@@ -853,7 +976,20 @@ export function NegotiationsTable({
 										</TableCell>
 									)}
 									{isColumnVisible("abogadoContraparte") && (
-										<TableCell className="px-4 py-2 text-sm whitespace-nowrap">
+										<TableCell
+											className="px-4 py-2 text-sm whitespace-nowrap"
+											title={
+												neg.abogadoContraparte
+													? [
+															neg.abogadoContraparte.estudio,
+															neg.abogadoContraparte.email,
+															neg.abogadoContraparte.telefono,
+														]
+															.filter(Boolean)
+															.join(" · ") || undefined
+													: undefined
+											}
+										>
 											{neg.contraparteLawyer || "-"}
 										</TableCell>
 									)}
@@ -915,10 +1051,20 @@ export function NegotiationsTable({
 													setSelectedNegotiation(neg);
 													setShowPujaModal(true);
 												}}
-												title="Ver Ofertas"
+												title="Ver negociación (historial y ofertas)"
 												className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background hover:bg-muted hover:text-primary transition-colors"
 											>
 												<Eye className="h-4 w-4" />
+											</button>
+
+											{/* Mail rápido a la contraparte */}
+											<button
+												type="button"
+												onClick={() => setMailPara(neg)}
+												title="Redactar mail a la contraparte"
+												className="inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background hover:bg-muted hover:text-sky-600 transition-colors"
+											>
+												<Mail className="h-4 w-4" />
 											</button>
 
 											{/* Editar */}
@@ -959,8 +1105,10 @@ export function NegotiationsTable({
 			<Dialog open={showPujaModal} onOpenChange={setShowPujaModal}>
 				<DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
 					<DialogHeader>
-						<DialogTitle>Historial de Ofertas</DialogTitle>
-						<DialogDescription>Ofertas realizadas en esta negociación</DialogDescription>
+						<DialogTitle>Negociación</DialogTitle>
+						<DialogDescription>
+							Mails enviados, respuestas de la contraparte y ofertas
+						</DialogDescription>
 					</DialogHeader>
 					{selectedNegotiation && (
 						<div className="space-y-4">
@@ -994,6 +1142,18 @@ export function NegotiationsTable({
 										<span className="font-medium">
 											{selectedNegotiation.contraparteLawyer || "-"}
 										</span>
+										{selectedNegotiation.abogadoContraparte &&
+											(selectedNegotiation.abogadoContraparte.email ||
+												selectedNegotiation.abogadoContraparte.telefono) && (
+												<span className="block text-[11px] text-muted-foreground">
+													{[
+														selectedNegotiation.abogadoContraparte.email,
+														selectedNegotiation.abogadoContraparte.telefono,
+													]
+														.filter(Boolean)
+														.join(" · ")}
+												</span>
+											)}
 									</div>
 									<div>
 										<span className="text-muted-foreground">Lesión:</span>{" "}
@@ -1042,130 +1202,33 @@ export function NegotiationsTable({
 								</div>
 							</div>
 
-							{/* Ofertas */}
+							{/* Mail rápido y respuesta de la contraparte */}
+							{selectedNegotiation.status !== "FINALIZADAS" &&
+								selectedNegotiation.status !== "PERDIDAS" && (
+									<div className="flex flex-wrap gap-2">
+										<Button size="sm" onClick={() => setMailPara(selectedNegotiation)}>
+											<Mail className="mr-1.5 h-4 w-4" />
+											Redactar mail
+										</Button>
+										<Button size="sm" variant="outline" onClick={() => setShowRespuesta(true)}>
+											<Reply className="mr-1.5 h-4 w-4" />
+											Registrar respuesta
+										</Button>
+									</div>
+								)}
+
+							{/* Línea de tiempo: mails, respuestas y ofertas, con el monto de cada intercambio */}
 							<div>
 								<h4 className="font-semibold text-sm mb-3">
-									Historial de Ofertas
+									Historial de la negociación
 								</h4>
-								<div className="space-y-2">
-									{selectedNegotiation.offers.length === 0 ? (
-										<p className="text-xs text-muted-foreground text-center py-4">
-											No hay ofertas registradas aún
-										</p>
-									) : (
-										selectedNegotiation.offers.map((oferta) => (
-											<div
-												key={oferta.id}
-												className={`p-3 rounded-lg border ${oferta.tipo === "ASEGURADORA"
-														? "bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800"
-														: "bg-primary/5 border-primary/30"
-													} ${oferta.aceptada ? "ring-2 ring-primary" : ""}`}
-											>
-												{editingOfferId === oferta.id ? (
-													/* ── Modo edición inline ── */
-													<div className="space-y-2">
-														<div className="flex items-center gap-2">
-															<span className="text-xs font-semibold px-2 py-1 text-[10px] rounded-full text-white bg-primary">
-																{oferta.tipo === "ASEGURADORA" ? "ART" : "LEGALISTAS"}
-															</span>
-															<span className="text-[10px] text-muted-foreground">Editando...</span>
-														</div>
-														<input
-															type="number"
-															value={editMonto}
-															onChange={(e) => setEditMonto(e.target.value)}
-															placeholder="Monto"
-															className="w-full h-9 px-3 rounded-md border bg-background text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-														/>
-														<input
-															type="text"
-															value={editNotes}
-															onChange={(e) => setEditNotes(e.target.value)}
-															placeholder="Notas (opcional)"
-															className="w-full h-9 px-3 rounded-md border bg-background text-sm focus:border-primary focus:ring-1 focus:ring-primary outline-none"
-														/>
-														<div className="flex gap-2">
-															<Button
-																size="sm"
-																className="flex-1 h-8 text-xs"
-																onClick={handleSaveEditOffer}
-															>
-																Guardar
-															</Button>
-															<Button
-																size="sm"
-																variant="outline"
-																className="h-8 text-xs"
-																onClick={handleCancelEditOffer}
-															>
-																Cancelar
-															</Button>
-														</div>
-													</div>
-												) : (
-													/* ── Modo visualización ── */
-													<div className="flex items-center justify-between">
-														<div className="flex-1">
-															<div className="flex items-center gap-2">
-																<span className="text-xs font-semibold px-2 py-1 text-[10px] rounded-full text-white bg-primary">
-																	{oferta.tipo === "ASEGURADORA"
-																		? "ART"
-																		: "LEGALISTAS"}
-																</span>
-																{oferta.aceptada && (
-																	<span className="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full font-medium">
-																		ACEPTADA
-																	</span>
-																)}
-															</div>
-															<p className="text-lg font-bold mt-1">
-																{formatCurrency(oferta.monto)}
-															</p>
-															<p className="text-[10px] text-muted-foreground">
-																{oferta.fecha}
-															</p>
-															{oferta.notes && (
-																<p className="text-xs text-gray-500 mt-1">
-																	{oferta.notes}
-																</p>
-															)}
-														</div>
-														<div className="flex items-center gap-1.5">
-															{!oferta.aceptada &&
-																selectedNegotiation.status !== "FINALIZADAS" &&
-																selectedNegotiation.status !== "PERDIDAS" && (
-																	<>
-																		<Button
-																			className="h-8 text-xs bg-primary text-white hover:bg-primary/85 border-0 px-3 font-medium"
-																			onClick={() => handleAcceptOffer(oferta.id)}
-																		>
-																			Aceptar
-																		</Button>
-																		<Button
-																			size="sm"
-																			variant="outline"
-																			className="h-8 w-8 p-0"
-																			onClick={() => handleStartEditOffer(oferta)}
-																		>
-																			<Edit2 className="size-3.5" />
-																		</Button>
-																		<Button
-																			size="sm"
-																			variant="outline"
-																			className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-																			onClick={() => handleDeleteOffer(oferta.id)}
-																		>
-																			<Trash2 className="size-3.5" />
-																		</Button>
-																	</>
-																)}
-														</div>
-													</div>
-												)}
-											</div>
-										))
-									)}
-								</div>
+								<NegociacionTimeline
+									negotiationId={selectedNegotiation.id}
+									ofertas={selectedNegotiation.offers}
+									recargar={recargarTimeline}
+									renderOferta={renderOferta}
+									onCambio={handleIntercambio}
+								/>
 							</div>
 
 							{/* Agregar oferta — solo si no está finalizada/perdida */}
@@ -1213,6 +1276,20 @@ export function NegotiationsTable({
 					)}
 				</DialogContent>
 			</Dialog>
+
+			{/* ─── Mail rápido y respuesta (línea de tiempo) ─── */}
+			<RedactarMailDialog
+				negotiation={mailPara}
+				open={mailPara !== null}
+				onOpenChange={(abierto) => !abierto && setMailPara(null)}
+				onEnviado={handleIntercambio}
+			/>
+			<RegistrarRespuestaDialog
+				negotiation={selectedNegotiation}
+				open={showRespuesta}
+				onOpenChange={setShowRespuesta}
+				onRegistrada={handleIntercambio}
+			/>
 
 			{/* ─── Edit Modal ─── */}
 			{selectedNegotiation && (
