@@ -33,6 +33,11 @@
 .escrito-documento s { text-decoration: line-through; }
 .escrito-documento sub { vertical-align: sub; font-size: smaller; }
 .escrito-documento sup { vertical-align: super; font-size: smaller; }
+/* Notas (citas): el número sale del contador; en el PDF se listan al final. */
+.escrito-documento { counter-reset: nota; }
+.escrito-documento sup.nota { counter-increment: nota; cursor: pointer; color: #1d4ed8; }
+.escrito-documento sup.nota::after { content: counter(nota); }
+.escrito-documento sup.nota.ProseMirror-selectednode { outline: 2px solid #93c5fd; border-radius: 2px; }
 .escrito-documento a { color: #1d4ed8; text-decoration: underline; }
 .escrito-documento mark { color: inherit; }
 .escrito-documento hr { border: none; border-top: 1px solid #000; margin: 0.5em 0; }

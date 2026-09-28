@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Eye, FileCheck2, Loader2, Save, Wand2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Eye, FileCheck2, Loader2, Save, Wand2 } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -10,6 +10,7 @@ import { EscritoEditor } from "@/components/escritos/EscritoEditor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
 	Select,
 	SelectContent,
@@ -39,10 +40,26 @@ const DATOS_EDITABLES = [
 	{ clave: "CLIENTE_ESTADO_CIVIL", etiqueta: "Estado civil del cliente", tipo: "estadoCivil" },
 	{ clave: "MONTO_RECLAMADO", etiqueta: "Monto reclamado ($)", tipo: "monto" },
 	{ clave: "PORCENTAJE_INCAPACIDAD", etiqueta: "% de incapacidad", tipo: "porcentaje" },
+	{ clave: "LUGAR_ACCIDENTE", etiqueta: "Lugar del accidente", tipo: "texto" },
+	{ clave: "FECHA_INGRESO_LABORAL", etiqueta: "Fecha de ingreso al trabajo", tipo: "fecha" },
+	{ clave: "CATEGORIA_LABORAL", etiqueta: "Categoría laboral", tipo: "texto" },
+	{ clave: "FECHA_ALTA_MEDICA", etiqueta: "Fecha del alta médica", tipo: "fecha" },
+	{ clave: "CIRCUNSTANCIAS_ACCIDENTE", etiqueta: "Circunstancias del accidente (relato)", tipo: "textoLargo" },
 ] as const;
 
+// {{CLAVE}} o {{CLAVE|por defecto}}, con dígitos ({{ACTOR_1}}). Mismo patrón que el backend.
+const VARIABLE = /\{\{\s*([A-Z][A-Z0-9_]*)\s*(?:\|[^}]*)?\}\}/g;
+
 const usaVariable = (html: string, clave: string) =>
-	new RegExp(`\\{\\{\\s*${clave}\\s*\\}\\}`).test(html);
+	new RegExp(`\\{\\{\\s*${clave}\\s*(\\|[^}]*)?\\}\\}`).test(html);
+
+// Donde se cargan los datos obligatorios que no se completan desde el escrito.
+const DONDE_SE_CARGA: Record<string, string> = {
+	CUIJ: "en el expediente (pestaña Expedientes), cuando lo asigna el sorteo",
+	JUZGADO: "en el expediente (pestaña Expedientes), cuando lo asigna el sorteo",
+	DEMANDADO_1: "en la pestaña Información → Partes",
+	DEMANDADOS: "en la pestaña Información → Partes",
+};
 
 function fechaHora(iso: string): string {
 	return new Date(iso).toLocaleString("es-AR", {
@@ -69,6 +86,8 @@ export default function EditarEscritoPage() {
 	const [dirty, setDirty] = useState(false);
 	const [accion, setAccion] = useState<"guardar" | "preview" | "pdf" | "datos" | null>(null);
 	const [datos, setDatos] = useState<Record<string, string>>({});
+	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+	const esFormulario = escrito?.tipo === "FORMULARIO";
 
 	const cargar = useCallback(async () => {
 		if (!token) return;
@@ -98,6 +117,28 @@ export default function EditarEscritoPage() {
 	useEffect(() => {
 		cargar();
 	}, [cargar]);
+
+	// Formulario (Foja Cero): no se edita a mano; se muestra el PDF con los datos actuales.
+	const cargarPreview = useCallback(async () => {
+		if (!token) return;
+		try {
+			const res = await fetch(ESCRITO_PDF_ENDPOINT(escritoId), {
+				headers: { Authorization: `Bearer ${token}` },
+			});
+			if (!res.ok) throw new Error("No se pudo armar la vista previa");
+			const url = URL.createObjectURL(await res.blob());
+			setPreviewUrl((prev) => {
+				if (prev) URL.revokeObjectURL(prev);
+				return url;
+			});
+		} catch (e) {
+			toast.error((e as Error).message);
+		}
+	}, [escritoId, token]);
+
+	useEffect(() => {
+		if (esFormulario) cargarPreview();
+	}, [esFormulario, cargarPreview]);
 
 	// Avisar antes de salir con cambios sin guardar.
 	useEffect(() => {
@@ -167,6 +208,7 @@ export default function EditarEscritoPage() {
 			);
 			toast.success("PDF guardado en la carpeta del expediente");
 			window.open(res.data.url, "_blank", "noopener,noreferrer");
+			if (esFormulario) cargarPreview();
 		} catch (e) {
 			toast.error((e as Error).message);
 		} finally {
@@ -177,11 +219,11 @@ export default function EditarEscritoPage() {
 	// Reemplaza los {{CLAVE}} que tienen dato con los valores del expediente.
 	const completarVariables = () => {
 		let reemplazos = 0;
-		const html = contenido.replace(/\{\{\s*([A-Z_]+)\s*\}\}/g, (match, clave: string) => {
+		const html = contenido.replace(VARIABLE, (match, clave: string) => {
 			const valor = valores[clave];
 			if (!valor) return match;
 			reemplazos++;
-			return escapar(valor);
+			return escapar(valor).replace(/\r?\n/g, "<br>");
 		});
 		if (!reemplazos) {
 			toast.info("No hay variables con datos para completar");
@@ -197,6 +239,13 @@ export default function EditarEscritoPage() {
 		(d) => !valores[d.clave] && usaVariable(contenido, d.clave),
 	);
 
+	// Datos obligatorios de la plantilla (p. ej. CUIJ y juzgado en el RPU) sin cargar.
+	const obligatoriosFaltantes = (escrito?.plantilla?.requiere ?? "")
+		.split(",")
+		.map((c) => c.trim())
+		.filter((c) => c && !valores[c]);
+	const etiqueta = (clave: string) => variables.find((v) => v.clave === clave)?.etiqueta ?? clave;
+
 	// Guarda los datos en el sistema, completa esas variables en el texto y
 	// guarda el escrito.
 	const guardarDatos = async () => {
@@ -209,6 +258,9 @@ export default function EditarEscritoPage() {
 				const n = parseMonto(v);
 				if (n == null) return void toast.error("El monto reclamado no es un número");
 				body[d.clave] = n;
+			} else if (d.tipo === "fecha") {
+				if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return void toast.error(`${d.etiqueta}: fecha inválida`);
+				body[d.clave] = v;
 			} else if (d.tipo === "porcentaje") {
 				const n = Number(v.replace(",", "."));
 				if (!Number.isFinite(n) || n < 0 || n > 100) {
@@ -230,9 +282,9 @@ export default function EditarEscritoPage() {
 			);
 			setValores(res.data.valores);
 			const claves = Object.keys(body);
-			const html = contenido.replace(/\{\{\s*([A-Z_]+)\s*\}\}/g, (match, clave: string) => {
+			const html = contenido.replace(VARIABLE, (match, clave: string) => {
 				const valor = res.data.valores[clave];
-				return claves.includes(clave) && valor ? escapar(valor) : match;
+				return claves.includes(clave) && valor ? escapar(valor).replace(/\r?\n/g, "<br>") : match;
 			});
 			setContenido(html);
 			setDatos({});
@@ -285,10 +337,12 @@ export default function EditarEscritoPage() {
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
-					<Button variant="outline" size="sm" onClick={completarVariables}>
-						<Wand2 className="mr-1 h-4 w-4" />
-						Completar variables
-					</Button>
+					{!esFormulario && (
+						<Button variant="outline" size="sm" onClick={completarVariables}>
+							<Wand2 className="mr-1 h-4 w-4" />
+							Completar variables
+						</Button>
+					)}
 					<Button
 						variant="outline"
 						size="sm"
@@ -331,6 +385,24 @@ export default function EditarEscritoPage() {
 				</div>
 			</div>
 
+			{obligatoriosFaltantes.length > 0 && (
+				<div className="flex gap-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+					<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+					<div>
+						<p className="font-semibold">
+							Para guardar el PDF falta: {obligatoriosFaltantes.map(etiqueta).join(", ")}
+						</p>
+						<p className="text-xs opacity-80">
+							Se carga{" "}
+							{[...new Set(obligatoriosFaltantes.map((c) => DONDE_SE_CARGA[c]).filter(Boolean))].join(
+								"; ",
+							) || "en el caso"}
+							. Después tocá "Generar y guardar PDF": las variables pendientes se completan solas.
+						</p>
+					</div>
+				</div>
+			)}
+
 			{faltantes.length > 0 && (
 				<div className="rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/30">
 					<div className="mb-3">
@@ -344,7 +416,7 @@ export default function EditarEscritoPage() {
 					</div>
 					<div className="flex flex-wrap items-end gap-3">
 						{faltantes.map((d) => (
-							<div key={d.clave} className="w-56 space-y-1">
+							<div key={d.clave} className={d.tipo === "textoLargo" ? "w-full space-y-1" : "w-56 space-y-1"}>
 								<Label className="text-xs">{d.etiqueta}</Label>
 								{d.tipo === "estadoCivil" ? (
 									<Select
@@ -362,6 +434,21 @@ export default function EditarEscritoPage() {
 											))}
 										</SelectContent>
 									</Select>
+								) : d.tipo === "textoLargo" ? (
+									<Textarea
+										rows={3}
+										className="bg-white dark:bg-background"
+										placeholder="Cómo, dónde y cuándo ocurrió el accidente"
+										value={datos[d.clave] ?? ""}
+										onChange={(e) => setDatos((prev) => ({ ...prev, [d.clave]: e.target.value }))}
+									/>
+								) : d.tipo === "fecha" || d.tipo === "texto" ? (
+									<Input
+										type={d.tipo === "fecha" ? "date" : "text"}
+										className="bg-white dark:bg-background"
+										value={datos[d.clave] ?? ""}
+										onChange={(e) => setDatos((prev) => ({ ...prev, [d.clave]: e.target.value }))}
+									/>
 								) : (
 									<Input
 										inputMode="decimal"
@@ -390,15 +477,35 @@ export default function EditarEscritoPage() {
 				</div>
 			)}
 
-			<EscritoEditor
-				value={contenido}
-				onChange={(html) => {
-					setContenido(html);
-					setDirty(true);
-				}}
-				formato={escrito}
-				variables={variables}
-			/>
+			{esFormulario ? (
+				<div className="space-y-2">
+					<p className="text-xs text-muted-foreground">
+						Formulario de diseño fijo: se completa solo con los datos del caso (partes, abogados,
+						carátula, monto). Si falta algo, cargalo en el caso y tocá "Generar y guardar PDF".
+					</p>
+					{previewUrl ? (
+						<iframe
+							title="Vista previa del formulario"
+							src={previewUrl}
+							className="h-[80vh] w-full rounded-lg border"
+						/>
+					) : (
+						<div className="flex justify-center py-16">
+							<Loader2 className="h-6 w-6 animate-spin" />
+						</div>
+					)}
+				</div>
+			) : (
+				<EscritoEditor
+					value={contenido}
+					onChange={(html) => {
+						setContenido(html);
+						setDirty(true);
+					}}
+					formato={escrito}
+					variables={variables}
+				/>
+			)}
 		</div>
 	);
 }

@@ -230,6 +230,12 @@ export interface Cases {
 	disabilityPercentage?: number | null;
 	/** Monto reclamado en la demanda (Decimal: llega como string). */
 	claimedAmount?: string | number | null;
+	/** Datos para la demanda y los escritos judiciales. Fechas "YYYY-MM-DD…". */
+	accidentPlace?: string | null;
+	accidentCircumstances?: string | null;
+	workerHireDate?: string | null;
+	workerCategory?: string | null;
+	medicalDischargeDate?: string | null;
 	estadoActual?: string | null;
 	informeSavedAt?: string | null;
 	informeSentWhatsappAt?: string | null;

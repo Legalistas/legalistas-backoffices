@@ -145,6 +145,8 @@ export const ESCRITO_PDF_GUARDADO_ENDPOINT = (id: number) =>
 export const ESCRITO_DATOS_ENDPOINT = (id: number) => `${API_BASE_URL}/escritos/${id}/datos`;
 export const ESCRITOS_VARIABLES_ENDPOINT = `${API_BASE_URL}/escritos/variables`;
 export const ESCRITOS_PLANTILLAS_ENDPOINT = `${API_BASE_URL}/escritos/plantillas`;
+/** POST { fileId, clave }: escrito del sistema de un clic (Foja Cero), con el PDF guardado. */
+export const ESCRITOS_GENERAR_ENDPOINT = `${API_BASE_URL}/escritos/generar`;
 export const ESCRITOS_PLANTILLA_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/escritos/plantillas/${id}`;
 // Subpath de la carpeta del expediente (en la raíz del caso: `2_JUDICIAL_… nº …/`).

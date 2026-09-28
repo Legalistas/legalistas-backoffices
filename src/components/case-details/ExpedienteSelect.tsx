@@ -52,7 +52,8 @@ export function ExpedienteSelect({
 			onValueChange={(v) => onChange(Number(v))}
 			disabled={disabled}
 		>
-			<SelectTrigger>
+			{/* Las carátulas judiciales son largas: que no ensanchen el diálogo, se cortan con "…". */}
+			<SelectTrigger className="text-left contain-[inline-size] *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate">
 				<SelectValue placeholder="Seleccioná el expediente…" />
 			</SelectTrigger>
 			<SelectContent>

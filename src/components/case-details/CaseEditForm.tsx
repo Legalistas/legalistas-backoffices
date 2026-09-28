@@ -51,6 +51,14 @@ export const CaseEditForm = ({
 		// Texto del input; se manda como número (o null si queda vacío).
 		claimedAmount:
 			caseData.claimedAmount != null ? String(Number(caseData.claimedAmount)) : "",
+		// Datos para la demanda y los escritos judiciales.
+		accidentPlace: caseData.accidentPlace ?? "",
+		accidentCircumstances: caseData.accidentCircumstances ?? "",
+		workerHireDate: caseData.workerHireDate ? caseData.workerHireDate.slice(0, 10) : "",
+		workerCategory: caseData.workerCategory ?? "",
+		medicalDischargeDate: caseData.medicalDischargeDate
+			? caseData.medicalDischargeDate.slice(0, 10)
+			: "",
 	});
 
 	// Estados para los abogados
@@ -172,6 +180,12 @@ export const CaseEditForm = ({
 			injury: formData.injury || null,
 			disabilityPercentage: formData.disabilityPercentage ?? null,
 			claimedAmount: parseMonto(formData.claimedAmount),
+			// Vacío = se borra el dato.
+			accidentPlace: formData.accidentPlace.trim() || null,
+			accidentCircumstances: formData.accidentCircumstances.trim() || null,
+			workerHireDate: formData.workerHireDate || null,
+			workerCategory: formData.workerCategory.trim() || null,
+			medicalDischargeDate: formData.medicalDischargeDate || null,
 		};
 
 		console.log("Submit data:", submitData);
@@ -318,6 +332,85 @@ export const CaseEditForm = ({
 								className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
 							/>
 						</div>
+					</div>
+
+					{/* Datos para la demanda y los escritos judiciales ({{LUGAR_ACCIDENTE}}, etc.) */}
+					<div className="space-y-2">
+						<p className="text-sm font-semibold text-foreground">Datos para la demanda</p>
+						<p className="text-xs text-muted-foreground">
+							Los usan la demanda y los escritos judiciales. Si hay Anexo II del SRT, el lugar y el
+							relato del accidente salen de ahí mientras estos queden vacíos.
+						</p>
+					</div>
+					<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+						<div className="space-y-2">
+							<label htmlFor="accidentPlace" className="block text-sm font-medium text-foreground">
+								Lugar del accidente
+							</label>
+							<input
+								id="accidentPlace"
+								name="accidentPlace"
+								type="text"
+								value={formData.accidentPlace}
+								onChange={handleChange}
+								placeholder="Ej: Dante Alighieri y Rivadavia, Rafaela"
+								className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							/>
+						</div>
+						<div className="space-y-2">
+							<label htmlFor="workerHireDate" className="block text-sm font-medium text-foreground">
+								Fecha de ingreso al trabajo
+							</label>
+							<input
+								id="workerHireDate"
+								name="workerHireDate"
+								type="date"
+								value={formData.workerHireDate}
+								onChange={handleChange}
+								className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							/>
+						</div>
+						<div className="space-y-2">
+							<label htmlFor="workerCategory" className="block text-sm font-medium text-foreground">
+								Categoría laboral
+							</label>
+							<input
+								id="workerCategory"
+								name="workerCategory"
+								type="text"
+								value={formData.workerCategory}
+								onChange={handleChange}
+								placeholder="Ej: Empleada doméstica"
+								className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							/>
+						</div>
+						<div className="space-y-2">
+							<label htmlFor="medicalDischargeDate" className="block text-sm font-medium text-foreground">
+								Fecha del alta médica
+							</label>
+							<input
+								id="medicalDischargeDate"
+								name="medicalDischargeDate"
+								type="date"
+								value={formData.medicalDischargeDate}
+								onChange={handleChange}
+								className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+							/>
+						</div>
+					</div>
+					<div className="space-y-2">
+						<label htmlFor="accidentCircumstances" className="block text-sm font-medium text-foreground">
+							Circunstancias del accidente (relato)
+						</label>
+						<textarea
+							id="accidentCircumstances"
+							name="accidentCircumstances"
+							rows={3}
+							value={formData.accidentCircumstances}
+							onChange={handleChange}
+							placeholder="Cómo, dónde y cuándo ocurrió el accidente"
+							className="w-full rounded-md border border-input px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+						/>
 					</div>
 
 					{/* Grid para selects principales */}

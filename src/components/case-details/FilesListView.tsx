@@ -2,8 +2,10 @@
 
 import {
 	ChevronDown,
+	FileText,
 	FolderOpen,
 	Link2,
+	Loader2,
 	Pencil,
 	Plus,
 	Search,
@@ -15,9 +17,13 @@ import { useSession } from "next-auth/react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { CASES_FILES_DELETE_BY_CASE_ID_ENDPOINT } from "@/constant/api-endpoints";
+import {
+	CASES_FILES_DELETE_BY_CASE_ID_ENDPOINT,
+	ESCRITOS_GENERAR_ENDPOINT,
+} from "@/constant/api-endpoints";
 import { FILES_TYPE } from "@/constant/causes";
 import { apiErrorMessage } from "@/lib/api-error";
+import { escritosFetch } from "@/lib/escritos-api";
 import {
 	getFileTypeLabel,
 	getProceduralStageLabel,
@@ -53,6 +59,28 @@ export const FilesListView = ({
 	const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 	const [fileToEdit, setFileToEdit] = useState<CasesFiles | null>(null);
 	const [fileTypeFilter, setFileTypeFilter] = useState<number>(0);
+	const [generando, setGenerando] = useState<string | null>(null);
+
+	// Foja Cero del expediente judicial: se arma con los datos del caso y el PDF
+	// queda en la carpeta Escritos del expediente (y en la tab Escritos).
+	const generarFojaCero = async (fileId: string) => {
+		const token = session?.user?.accessToken;
+		if (!token) return;
+		setGenerando(fileId);
+		try {
+			const res = await escritosFetch<{ message: string; data: { url: string } }>(
+				ESCRITOS_GENERAR_ENDPOINT,
+				token,
+				{ method: "POST", body: JSON.stringify({ fileId: Number(fileId), clave: "FOJA_CERO" }) },
+			);
+			toast.success(res.message);
+			window.open(res.data.url, "_blank", "noopener,noreferrer");
+		} catch (e) {
+			toast.error((e as Error).message);
+		} finally {
+			setGenerando(null);
+		}
+	};
 
 	const handleDelete = async (fileId: string) => {
 		try {
@@ -244,7 +272,17 @@ export const FilesListView = ({
 												`${customer?.name ?? ""} S/ ${getProcessTypeLabel(file.typeProcessId)}`}
 										</TableCell>
 										<TableCell className="px-4 py-3 text-sm text-muted-foreground whitespace-nowrap">
-											{file.cuij || "—"}
+											{file.cuij ||
+												(file.filetype === 2 ? (
+													<span
+														className="text-amber-600 text-xs"
+														title="Se carga cuando la Mesa de Entradas lo asigna en el sorteo. Lo piden el RPU y los escritos que usan el N°."
+													>
+														Falta (sorteo)
+													</span>
+												) : (
+													"—"
+												))}
 										</TableCell>
 										<TableCell className="px-4 py-3 whitespace-nowrap">
 											<Badge
@@ -256,11 +294,17 @@ export const FilesListView = ({
 											</Badge>
 										</TableCell>
 										<TableCell className="px-4 py-3 text-sm text-muted-foreground">
-											{file.court?.charter || (
-												<span className="text-muted-foreground italic">
-													Sin asignar
-												</span>
-											)}
+											{file.court?.charter ||
+												(file.filetype === 2 ? (
+													<span
+														className="text-amber-600 text-xs"
+														title="Se carga cuando lo asigna el sorteo. Lo piden el RPU y los escritos que usan el juzgado."
+													>
+														Falta (sorteo)
+													</span>
+												) : (
+													<span className="text-muted-foreground italic">Sin asignar</span>
+												))}
 										</TableCell>
 										<TableCell className="px-4 py-3 text-sm text-foreground">
 											{file.injury?.trim() || (
@@ -271,6 +315,26 @@ export const FilesListView = ({
 										</TableCell>
 										<TableCell className="px-4 py-3">
 											<div className="flex items-center justify-end gap-1">
+												{file.filetype === 2 && (
+													<button
+														type="button"
+														title="Generar Foja Cero (queda en la carpeta Escritos del expediente)"
+														disabled={generando !== null}
+														onClick={(e) => {
+															e.preventDefault();
+															e.stopPropagation();
+															generarFojaCero(String(file.id));
+														}}
+														className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-muted hover:text-blue-600 transition-colors disabled:opacity-50"
+													>
+														{generando === String(file.id) ? (
+															<Loader2 className="h-3.5 w-3.5 animate-spin" />
+														) : (
+															<FileText className="h-3.5 w-3.5" />
+														)}
+														Foja Cero
+													</button>
+												)}
 												<button
 													onClick={(e) => {
 														e.preventDefault();

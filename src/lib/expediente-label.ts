@@ -5,6 +5,8 @@ interface ExpedienteLike {
 	title?: string | null;
 	cuij?: string | null;
 	typeProcessId?: number | null;
+	/** 1 = administrativo, 2 = judicial. */
+	filetype?: number | null;
 	parts?: Array<{ name?: string | null; partyType?: string | null }>;
 }
 

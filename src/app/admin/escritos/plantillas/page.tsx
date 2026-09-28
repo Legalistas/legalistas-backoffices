@@ -38,6 +38,8 @@ import {
 import { useConfirm } from "@/hooks/useConfirm";
 import { escritosFetch } from "@/lib/escritos-api";
 import type {
+	AmbitoPlantilla,
+	TipoEscrito,
 	FormatoHoja,
 	MembreteEscrito,
 	Plantilla,
@@ -67,7 +69,21 @@ interface Borrador extends Required<FormatoHoja> {
 	descripcion: string;
 	activa: boolean;
 	contenidoHtml: string;
+	/** En qué expedientes se ofrece. */
+	ambito: AmbitoPlantilla;
+	/** Datos obligatorios para guardar el PDF, separados por coma (p. ej. "CUIJ,JUZGADO"). */
+	requiere: string;
+	/** Solo lectura: FORMULARIO (diseño fijo) o ESCRITO. */
+	tipo: TipoEscrito;
+	/** Plantilla del sistema (Foja Cero, demanda): no se borra. */
+	clave: string | null;
 }
+
+const AMBITOS: { value: AmbitoPlantilla; label: string }[] = [
+	{ value: "AMBOS", label: "Todos los expedientes" },
+	{ value: "JUDICIAL", label: "Solo expedientes judiciales" },
+	{ value: "ADMINISTRATIVO", label: "Solo expedientes administrativos" },
+];
 
 const NUEVA: Borrador = {
 	id: null,
@@ -76,6 +92,10 @@ const NUEVA: Borrador = {
 	descripcion: "",
 	activa: true,
 	contenidoHtml: "<p></p>",
+	ambito: "AMBOS",
+	requiere: "",
+	tipo: "ESCRITO",
+	clave: null,
 	membrete: "LEGALISTAS",
 	fuente: "Times New Roman",
 	tamanoFuente: 12,
@@ -150,6 +170,10 @@ export default function PlantillasEscritosPage() {
 				descripcion: data.descripcion ?? "",
 				activa: data.activa,
 				contenidoHtml: data.contenidoHtml,
+				ambito: data.ambito ?? "AMBOS",
+				requiere: data.requiere ?? "",
+				tipo: data.tipo ?? "ESCRITO",
+				clave: data.clave ?? null,
 				membrete: data.membrete ?? "LEGALISTAS",
 				fuente: data.fuente,
 				tamanoFuente: data.tamanoFuente,
@@ -173,7 +197,9 @@ export default function PlantillasEscritosPage() {
 		}
 		setGuardando(true);
 		try {
-			const { id, ...datos } = editando;
+			// tipo y clave no se editan; un formulario no manda su contenido (diseño fijo).
+			const { id, tipo, clave: _clave, contenidoHtml, ...resto } = editando;
+			const datos = tipo === "FORMULARIO" ? resto : { ...resto, contenidoHtml };
 			await escritosFetch(
 				id ? ESCRITOS_PLANTILLA_ENDPOINT(id) : ESCRITOS_PLANTILLAS_ENDPOINT,
 				token,
@@ -247,12 +273,26 @@ export default function PlantillasEscritosPage() {
 				</div>
 
 				<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-					<EscritoEditor
-						value={editando.contenidoHtml}
-						onChange={(html) => set({ contenidoHtml: html })}
-						variables={variables}
-						formato={editando}
-					/>
+					{editando.tipo === "FORMULARIO" ? (
+						<Card>
+							<CardContent className="space-y-2 p-6 text-sm">
+								<p className="font-semibold">Formulario de diseño fijo</p>
+								<p className="text-muted-foreground">
+									Su diseño replica el formulario oficial y se completa solo con los datos del caso
+									(partes, abogados, carátula, monto). No se edita acá: podés cambiar el nombre, la
+									descripción, el ámbito o desactivarlo. Para verlo, generalo desde un expediente
+									judicial ("Foja Cero" en la pestaña Expedientes).
+								</p>
+							</CardContent>
+						</Card>
+					) : (
+						<EscritoEditor
+							value={editando.contenidoHtml}
+							onChange={(html) => set({ contenidoHtml: html })}
+							variables={variables}
+							formato={editando}
+						/>
+					)}
 
 					<aside className="space-y-4 xl:sticky xl:top-4 xl:self-start">
 						<Card>
@@ -293,6 +333,37 @@ export default function PlantillasEscritosPage() {
 									Activa (se puede elegir al crear un escrito)
 									<Switch checked={editando.activa} onCheckedChange={(v) => set({ activa: v })} />
 								</label>
+								<div className="space-y-1.5">
+									<Label>Ámbito</Label>
+									<Select
+										value={editando.ambito}
+										onValueChange={(v) => set({ ambito: v as AmbitoPlantilla })}
+									>
+										<SelectTrigger className="w-full">
+											<SelectValue />
+										</SelectTrigger>
+										<SelectContent>
+											{AMBITOS.map((a) => (
+												<SelectItem key={a.value} value={a.value}>
+													{a.label}
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+								<div className="space-y-1.5">
+									<Label htmlFor="pl-requiere">Datos obligatorios para el PDF</Label>
+									<Input
+										id="pl-requiere"
+										value={editando.requiere}
+										onChange={(e) => set({ requiere: e.target.value.toUpperCase() })}
+										placeholder="Ej: CUIJ, JUZGADO"
+									/>
+									<p className="text-xs text-muted-foreground">
+										Variables separadas por coma. Sin esos datos no se guarda el PDF (se avisa qué
+										falta y dónde se carga).
+									</p>
+								</div>
 							</CardContent>
 						</Card>
 
@@ -528,18 +599,20 @@ export default function PlantillasEscritosPage() {
 												>
 													<Pencil className="h-3.5 w-3.5" />
 												</Button>
-												<Button
-													variant="ghost"
-													size="icon"
-													className="h-7 w-7"
-													title="Eliminar"
-													onClick={(e) => {
-														e.stopPropagation();
-														eliminar(p);
-													}}
-												>
-													<Trash2 className="h-3.5 w-3.5 text-destructive" />
-												</Button>
+												{!p.clave && (
+													<Button
+														variant="ghost"
+														size="icon"
+														className="h-7 w-7"
+														title="Eliminar"
+														onClick={(e) => {
+															e.stopPropagation();
+															eliminar(p);
+														}}
+													>
+														<Trash2 className="h-3.5 w-3.5 text-destructive" />
+													</Button>
+												)}
 											</div>
 										</div>
 										{p.descripcion && (
@@ -549,6 +622,10 @@ export default function PlantillasEscritosPage() {
 											<Badge variant="outline">
 												{p.membrete === "RPU" ? "Membrete RPU" : "Legalistas"}
 											</Badge>
+											{p.tipo === "FORMULARIO" && <Badge variant="outline">Formulario</Badge>}
+											{p.ambito === "JUDICIAL" && <Badge variant="outline">Judicial</Badge>}
+											{p.ambito === "ADMINISTRATIVO" && <Badge variant="outline">Administrativo</Badge>}
+											{p.clave && <Badge variant="secondary">Del sistema</Badge>}
 											{!p.activa && <Badge variant="secondary">Inactiva</Badge>}
 											<span className="ml-auto text-xs text-muted-foreground">
 												{p._count.escritos} escrito{p._count.escritos === 1 ? "" : "s"} ·{" "}

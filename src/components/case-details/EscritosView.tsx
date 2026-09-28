@@ -125,6 +125,21 @@ export function EscritosView({ caseId, files = [], customerName }: EscritosViewP
 		if (p && !titulo.trim()) setTitulo(p.nombre);
 	};
 
+	// Plantillas del ámbito del expediente elegido: las judiciales (RPU, Foja
+	// Cero, demanda) solo en expedientes judiciales y al revés. Sin tipo cargado
+	// en el expediente, se ofrecen todas (el backend tampoco bloquea).
+	const expedienteElegido = files.find((f) => Number(f.id) === fileId);
+	const plantillasDelExpediente = plantillas.filter((p) => {
+		const filetype = expedienteElegido?.filetype;
+		if (!p.ambito || p.ambito === "AMBOS" || !filetype) return true;
+		return p.ambito === (filetype === 2 ? "JUDICIAL" : "ADMINISTRATIVO");
+	});
+	useEffect(() => {
+		if (plantillaId !== EN_BLANCO && !plantillasDelExpediente.some((p) => String(p.id) === plantillaId)) {
+			setPlantillaId(EN_BLANCO);
+		}
+	}, [plantillaId, plantillasDelExpediente]);
+
 	const crear = async () => {
 		if (!token) return;
 		if (!fileId) {
@@ -332,10 +347,11 @@ export function EscritosView({ caseId, files = [], customerName }: EscritosViewP
 								</SelectTrigger>
 								<SelectContent>
 									<SelectItem value={EN_BLANCO}>En blanco</SelectItem>
-									{plantillas.map((p) => (
+									{plantillasDelExpediente.map((p) => (
 										<SelectItem key={p.id} value={String(p.id)}>
 											{p.categoria ? `${p.categoria} · ` : ""}
 											{p.nombre}
+											{p.tipo === "FORMULARIO" ? " (formulario)" : ""}
 										</SelectItem>
 									))}
 								</SelectContent>

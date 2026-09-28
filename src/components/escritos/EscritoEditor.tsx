@@ -32,6 +32,7 @@ import {
 	Link2,
 	List,
 	ListOrdered,
+	MessageSquareQuote,
 	Minus,
 	PilcrowRight,
 	Quote,
@@ -82,7 +83,8 @@ interface EscritoEditorProps {
 	editable?: boolean;
 }
 
-const VARIABLE = /\{\{\s*[A-Z_]+\s*\}\}/g;
+// {{CLAVE}} o {{CLAVE|texto por defecto}} (con dígitos: {{ACTOR_1}}). Mismo patrón que el backend.
+const VARIABLE = /\{\{\s*[A-Z][A-Z0-9_]*\s*(?:\|[^}]*)?\}\}/g;
 
 /**
  * Marca las {{VARIABLES}} del texto. En un escrito son datos que faltan
@@ -153,6 +155,31 @@ const FormatoParrafo = Extension.create({
 			},
 		];
 	},
+});
+
+/**
+ * Nota (cita de jurisprudencia): un número volado en el texto; la cita va en
+ * data-nota. El número lo pone el CSS (contador) y en el PDF se numeran y se
+ * listan todas al final del escrito (backend utils/notas.ts).
+ */
+const Nota = Node.create({
+	name: "nota",
+	group: "inline",
+	inline: true,
+	atom: true,
+	selectable: true,
+	addAttributes() {
+		return {
+			texto: {
+				default: "",
+				parseHTML: (el) => el.getAttribute("data-nota") ?? "",
+				renderHTML: (attrs) => ({ "data-nota": attrs.texto }),
+			},
+		};
+	},
+	// Antes que el superíndice común (también es un <sup>).
+	parseHTML: () => [{ tag: "sup[data-nota]", priority: 100 }],
+	renderHTML: ({ HTMLAttributes }) => ["sup", mergeAttributes(HTMLAttributes, { class: "nota" })],
 });
 
 /** Salto de página: en el PDF corta la hoja (clase .page-break). */
@@ -344,6 +371,28 @@ function Toolbar({ editor, variables }: { editor: Editor; variables?: VariableEs
 				active={editor.isActive("superscript")}
 			>
 				<SuperscriptIcon className="h-4 w-4" />
+			</ToolbarBtn>
+			<ToolbarBtn
+				title={editor.isActive("nota") ? "Editar la nota" : "Nota (cita): se lista al final del escrito"}
+				onClick={() => {
+					const actual = editor.isActive("nota")
+						? (editor.getAttributes("nota").texto as string)
+						: "";
+					const texto = window.prompt(
+						actual ? "Texto de la nota (vacío para quitarla)" : "Texto de la nota (cita)",
+						actual,
+					);
+					if (texto === null) return;
+					if (actual) {
+						if (texto.trim()) c().updateAttributes("nota", { texto: texto.trim() }).run();
+						else c().deleteSelection().run();
+					} else if (texto.trim()) {
+						c().insertContent({ type: "nota", attrs: { texto: texto.trim() } }).run();
+					}
+				}}
+				active={editor.isActive("nota")}
+			>
+				<MessageSquareQuote className="h-4 w-4" />
 			</ToolbarBtn>
 
 			<DropdownMenu>
@@ -648,6 +697,7 @@ export function EscritoEditor({
 			Subscript,
 			Superscript,
 			SaltoPagina,
+			Nota,
 			VariablesMarcadas,
 			Paginacion.configure({ alCambiarHojas: setHojas }),
 		],
