@@ -16,6 +16,7 @@ import {
 } from "@/components/cases/SubstageSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { CASES_ENDPOINT } from "@/constant/api-endpoints";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -49,6 +50,9 @@ export const CaseDetails = ({
 	const [googleReviewLeft, setGoogleReviewLeft] = useState(
 		!!caseData.googleReviewLeft,
 	);
+	// Mail automático al cliente en los cambios de etapa (por caso).
+	const [mailsEtapa, setMailsEtapa] = useState(caseData.stageEmailEnabled !== false);
+	const [isUpdatingMailsEtapa, setIsUpdatingMailsEtapa] = useState(false);
 
 	const fillMessageVariables = (template: string) => {
 		return template
@@ -109,8 +113,9 @@ export const CaseDetails = ({
 				setWhatsappMessage(fillMessageVariables(defaultMsg));
 			}
 
-			// Enviar email automático al cliente con el nuevo estado de la etapa
-			sendCaseStageEmail(buildStageEmailPayload(newStageId));
+			// Email automático al cliente con la nueva etapa, salvo que el caso
+			// lo tenga apagado.
+			if (mailsEtapa) sendCaseStageEmail(buildStageEmailPayload(newStageId));
 
 			onCaseUpdated?.();
 		} catch (error) {
@@ -241,6 +246,41 @@ export const CaseDetails = ({
 			setGoogleReviewLeft(!checked);
 		} finally {
 			setIsUpdatingGoogleReview(false);
+		}
+	};
+
+	// Mails automáticos de cambio de etapa, por caso (como "No enviar mail de
+	// bienvenida" en el CRM). El backend también lo respeta.
+	const handleMailsEtapaToggle = async (checked: boolean) => {
+		setIsUpdatingMailsEtapa(true);
+		setMailsEtapa(checked);
+		try {
+			const response = await fetch(`${CASES_ENDPOINT}/${caseData.id}`, {
+				method: "PUT",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session?.user?.accessToken}`,
+				},
+				body: JSON.stringify({ stageEmailEnabled: checked }),
+			});
+			if (!response.ok) {
+				throw new Error(
+					await apiErrorMessage(response, "No se pudo cambiar el envío de mails."),
+				);
+			}
+			toast.success(
+				checked
+					? "Se le va a mandar mail al cliente en cada cambio de etapa"
+					: "No se le van a mandar mails al cliente al cambiar de etapa",
+			);
+			onCaseUpdated?.();
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "No se pudo cambiar el envío de mails.",
+			);
+			setMailsEtapa(!checked);
+		} finally {
+			setIsUpdatingMailsEtapa(false);
 		}
 	};
 
@@ -425,6 +465,26 @@ export const CaseDetails = ({
 								)}
 							</div>
 						</div>
+
+						<div className="h-5 w-px bg-border" />
+
+						{/* Mail automático al cliente en los cambios de etapa: se apaga por caso. */}
+						<label
+							className="flex items-center gap-2 cursor-pointer select-none"
+							title="Si está apagado, al cambiar de etapa no se le manda mail al cliente. El botón Reenviar email sigue funcionando."
+						>
+							<Switch
+								checked={mailsEtapa}
+								disabled={isUpdatingMailsEtapa}
+								onCheckedChange={handleMailsEtapaToggle}
+							/>
+							<span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+								Mail al cliente por etapa
+							</span>
+							{isUpdatingMailsEtapa && (
+								<Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+							)}
+						</label>
 
 						{/* Subetapa: solo Administrativo + Accidente de Trabajo. Mueve la carpeta. */}
 						{aplicaSubetapa(Number(caseData.stageId), Number(caseData.servicesId)) && (

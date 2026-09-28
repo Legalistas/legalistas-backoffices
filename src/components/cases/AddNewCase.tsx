@@ -156,6 +156,8 @@ export default function AddNewCase() {
 
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	// Como en el CRM: crear el caso sin mandarle la bienvenida al cliente.
+	const [skipWelcomeEmail, setSkipWelcomeEmail] = useState(false);
 
 	// User Lawyer
 	const [isLoading, setIsLoading] = useState(true);
@@ -557,8 +559,9 @@ export default function AddNewCase() {
 			const data = await response.json();
 			console.log("Caso creado:", data);
 
-			// Enviar certificado de inicio de trámite al cliente
-			if (selectedCustomer?.email) {
+			// Mail de bienvenida al cliente (con el certificado de inicio de
+			// trámite), salvo que se haya pedido no mandarlo.
+			if (selectedCustomer?.email && !skipWelcomeEmail) {
 				const serviceName = servicesType.find(
 					(s) => Number(s.value) === formData.servicesId,
 				)?.label;
@@ -569,6 +572,7 @@ export default function AddNewCase() {
 				sendCaseEmail({
 					email: selectedCustomer.email,
 					customerName: selectedCustomer.name,
+					caseId: data.data?.id,
 					caseNumber: data.data?.number,
 					caseTitle: formData.title,
 					serviceName,
@@ -1065,6 +1069,22 @@ export default function AddNewCase() {
 							>
 								Cancel
 							</Button>
+							<div className="flex items-center gap-4">
+								{/* Como en el CRM: se puede crear el caso sin mandarle la bienvenida. */}
+								<div className="flex items-center gap-2">
+									<Switch
+										id="skip-welcome-email-case"
+										checked={skipWelcomeEmail}
+										onCheckedChange={setSkipWelcomeEmail}
+										disabled={isSubmitting}
+									/>
+									<Label
+										htmlFor="skip-welcome-email-case"
+										className="cursor-pointer text-xs text-muted-foreground"
+									>
+										No enviar mail de bienvenida
+									</Label>
+								</div>
 							<Button
 								type="submit"
 								disabled={isSubmitting}
@@ -1083,6 +1103,7 @@ export default function AddNewCase() {
 									</div>
 								)}
 							</Button>
+							</div>
 						</div>
 					</form>
 				</div>

@@ -236,6 +236,8 @@ export interface Cases {
 	informeSentEmailAt?: string | null;
 	informeSentPushAt?: string | null;
 	googleReviewLeft?: boolean | null;
+	/** Mails automáticos al cliente en los cambios de etapa (se apagan por caso). */
+	stageEmailEnabled?: boolean;
 	folderName?: string | null;
 	createdAt: Date;
 	updatedAt: Date;
