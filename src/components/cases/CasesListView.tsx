@@ -181,12 +181,24 @@ export const CasesListView = ({
 									</TableCell>
 									{/* Título + expedientes */}
 									<TableCell className="px-3 py-2">
+										{/* #ID del cliente | APELLIDO Y NOMBRE (pedido de Jona, 28/09) */}
 										<Link
 											href={`/admin/legal-cases/${caso.id}`}
 											className="text-xs font-medium text-gray-700 uppercase dark:text-gray-300 hover:underline"
 										>
-											{caso.title}
+											<span className="text-gray-400 dark:text-gray-500">
+												#{caso.customer?.id ?? caso.customerId}
+											</span>
+											<span className="mx-1 text-gray-300 dark:text-gray-600">|</span>
+											{caso.customer?.name ?? caso.title}
 										</Link>
+										{caso.customer?.name &&
+										caso.title &&
+										caso.title.trim().toUpperCase() !== caso.customer.name.trim().toUpperCase() ? (
+											<p className="mt-0.5 max-w-65 truncate text-[10px] text-gray-500 uppercase dark:text-gray-400">
+												{caso.title}
+											</p>
+										) : null}
 										<p
 											className="mt-0.5 max-w-65 truncate text-[10px] text-gray-500 dark:text-gray-400"
 											title={resumenExpedientes(caso.files)}
