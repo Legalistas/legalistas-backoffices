@@ -29,8 +29,8 @@ import { parseMonto } from "@/lib/monto";
 import type { Negotiation } from "@/types/negotiations";
 
 // Mail rápido desde la negociación (relevamiento 13): plantilla prearmada y
-// editable, sale de la casilla única de negociaciones y queda en la línea de
-// tiempo. Si propone un monto, queda como oferta de Legalistas.
+// editable, sale de la casilla del sistema como "Legalistas Acuerdos" y queda
+// en la línea de tiempo. Si propone un monto, queda como oferta de Legalistas.
 
 interface DatosPlantilla {
 	saludo: string;
@@ -209,8 +209,8 @@ export default function RedactarMailDialog({ negotiation, open, onOpenChange, on
 				{sinCasilla && (
 					<div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
 						<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-						La casilla de negociaciones todavía no está configurada en el servidor: el mail no se
-						va a poder enviar.
+						El envío de mails no está configurado en el servidor: el mail no se va a poder
+						enviar.
 					</div>
 				)}
 
