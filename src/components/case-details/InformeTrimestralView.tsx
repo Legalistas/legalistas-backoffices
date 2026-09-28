@@ -1,23 +1,16 @@
 "use client";
 
 import {
-	Archive,
 	Bell,
 	Check,
 	Copy,
 	FileDown,
-	FileText,
-	HeartPulse,
-	Landmark,
 	Link,
 	Loader2,
 	Mail,
 	Percent,
 	Save,
-	Scale,
 	Send,
-	ShieldCheck,
-	Star,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -44,14 +37,24 @@ import {
 import {
 	CASES_ENDPOINT,
 	CASE_INFORME_ENDPOINT,
+	CASE_INFORME_ENVIOS_ENDPOINT,
 	CASE_INFORME_GENERATE_PDF_ENDPOINT,
-	CASE_INFORME_PUSH_ENDPOINT,
-	MAILER_SEND_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { BASE_URL } from "@/constant/api-endpoints";
 import { apiErrorMessage } from "@/lib/api-error";
 import { stageCases } from "@/lib/constant";
 import type { Cases } from "@/types/cases";
+import { fechaHora, type InformeHistorial, InformesHistorial } from "./InformesHistorial";
+import { VistaPreviaInforme } from "./VistaPreviaInforme";
+
+/** Página pública del informe (legalistas.ar): el link que recibe el cliente. */
+const linkInforme = (token: string) => `https://legalistas.ar/informes/${token}`;
+
+/** Versión del informe guardada en esta sesión y el contenido con que se generó. */
+interface VersionInforme {
+	id: number;
+	token: string;
+	firma: string;
+}
 
 const STAGE_DEFAULT_MESSAGES: Record<number, string> = {
 	1: "<p>Estamos reuniendo y validando <strong>toda la documentación necesaria</strong> para impulsar tu reclamo de manera sólida. Este paso es clave para <strong>asegurar un proceso eficiente y con respaldo</strong>.</p><p>Nos estaremos comunicando en caso de requerir información o documentación adicional.</p>",
@@ -180,6 +183,18 @@ export function InformeTrimestralView({
 	>("idle");
 	const [downloadLink, setDownloadLink] = useState<string | null>(null);
 	const [copied, setCopied] = useState(false);
+	const [version, setVersion] = useState<VersionInforme | null>(null);
+	const [recargarHistorial, setRecargarHistorial] = useState(0);
+	// Versión del historial a reenviar por email; null = la de la pantalla.
+	const [reenvio, setReenvio] = useState<InformeHistorial | null>(null);
+	// Lo que determina el PDF: si no cambió, se reusa la versión ya guardada.
+	const firma = JSON.stringify([
+		estadoActual,
+		incapacityPercentage,
+		currentStageId,
+		displayCaseNumber,
+		caseData.customer?.name,
+	]);
 	const prevStageIdRef = useRef(currentStageId);
 	const lastSavedIncapacityRef = useRef<string>(
 		caseData.disabilityPercentage != null
@@ -324,7 +339,8 @@ export function InformeTrimestralView({
 		onCaseUpdated,
 	]);
 
-	const uploadPdfBlob = async (blob: Blob): Promise<string | null> => {
+	/** Sube el PDF: el backend lo guarda en MinIO como versión nueva del historial. */
+	const uploadPdfBlob = async (blob: Blob): Promise<{ id: number; token: string }> => {
 		const fileName = `Informe_Trimestral_${caseData.number || caseData.id}_${caseData.customer?.name?.replace(/\s+/g, "_") || "cliente"}.pdf`;
 		const formData = new FormData();
 		formData.append("file", blob, fileName);
@@ -344,48 +360,70 @@ export function InformeTrimestralView({
 		if (!response.ok)
 			throw new Error(await apiErrorMessage(response, "Error al subir el PDF"));
 		const result = await response.json();
-		return result.data?.downloadToken || null;
+		if (!result.data?.id || !result.data?.downloadToken)
+			throw new Error("El servidor no devolvió el informe guardado");
+		return { id: result.data.id, token: result.data.downloadToken };
+	};
+
+	/**
+	 * Genera el PDF de lo que está en pantalla y lo guarda como versión nueva
+	 * (historial). También guarda el estado actual y el % en el caso.
+	 */
+	const guardarVersion = async (): Promise<VersionInforme> => {
+		toast.info("Generando informe...");
+		const blob = await generatePdfBlob();
+		if (!blob) throw new Error("No se pudo generar el PDF");
+
+		// Las marcas de envío del caso son de la última versión: esta todavía
+		// no se mandó.
+		await saveToDb({
+			estadoActual,
+			disabilityPercentage: incapacityPercentage
+				? Number.parseFloat(incapacityPercentage)
+				: null,
+			informeSavedAt: new Date().toISOString(),
+			informeSentWhatsappAt: null,
+			informeSentEmailAt: null,
+			informeSentPushAt: null,
+		});
+
+		const subido = await uploadPdfBlob(blob);
+		const nueva = { ...subido, firma };
+		setVersion(nueva);
+		setDownloadLink(linkInforme(nueva.token));
+		setRecargarHistorial((n) => n + 1);
+		return nueva;
+	};
+
+	/** La versión de lo que se ve: si ya se guardó sin cambios, esa; si no, una nueva. */
+	const asegurarVersion = async () =>
+		version && version.firma === firma ? version : guardarVersion();
+
+	/** Manda (o registra, en WhatsApp) el envío de una versión al cliente. */
+	const registrarEnvio = async (documentId: number, envio: Record<string, unknown>) => {
+		const res = await fetch(CASE_INFORME_ENVIOS_ENDPOINT(caseData.id, documentId), {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${session?.user?.accessToken}`,
+			},
+			body: JSON.stringify(envio),
+		});
+		if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo enviar el informe"));
+		setRecargarHistorial((n) => n + 1);
+		onCaseUpdated?.();
 	};
 
 	const handleSave = async () => {
+		if (version && version.firma === firma) {
+			toast.info("Este informe ya está guardado en el historial");
+			return;
+		}
 		setIsSaving(true);
 		try {
-			// 1. Generar el PDF primero (antes de cualquier re-render)
-			toast.info("Generando informe...");
-			const blob = await generatePdfBlob();
-			if (!blob) throw new Error("No se pudo generar el PDF");
-
-			// 2. Guardar datos en la DB.
-			// Al subir un informe nuevo se resetea el indicador de envío por WhatsApp:
-			// el cliente nunca recibió esta versión, así que el "tilde" anterior
-			// dejaría de tener sentido.
-			const fields: {
-				estadoActual: string;
-				disabilityPercentage: number | null;
-				informeSavedAt: string;
-				informeSentWhatsappAt: null;
-				informeSentEmailAt: null;
-				informeSentPushAt: null;
-			} = {
-				estadoActual,
-				disabilityPercentage: incapacityPercentage
-					? Number.parseFloat(incapacityPercentage)
-					: null,
-				informeSavedAt: new Date().toISOString(),
-				informeSentWhatsappAt: null,
-				informeSentEmailAt: null,
-				informeSentPushAt: null,
-			};
-			await saveToDb(fields);
-
-			// 3. Subir el PDF generado al backend
-			toast.info("Subiendo informe al servidor...");
-			const token = await uploadPdfBlob(blob);
-			if (token) {
-				setDownloadLink(`https://legalistas.ar/informes/${token}`);
-			}
+			await guardarVersion();
 			onCaseUpdated?.();
-			toast.success("Informe guardado correctamente");
+			toast.success("Informe guardado en el historial");
 		} catch (error) {
 			console.error("Error saving informe:", error);
 			toast.error(
@@ -453,43 +491,13 @@ export function InformeTrimestralView({
 		setIsSendingPush(true);
 		toast.info("Preparando notificación push...");
 		try {
-			// Si no hay link, generamos y subimos primero el PDF.
-			let link = downloadLink;
-			if (!link) {
-				const blob = await generatePdfBlob();
-				if (!blob) throw new Error("No se pudo generar el PDF");
-				const token = await uploadPdfBlob(blob);
-				if (token) {
-					link = `https://legalistas.ar/informes/${token}`;
-					setDownloadLink(link);
-				}
-			}
-			if (!link) throw new Error("No se pudo generar el link del informe");
-
+			const v = await asegurarVersion();
 			// El backend resuelve OneSignal (player_id / external_user_id del cliente).
-			const res = await fetch(CASE_INFORME_PUSH_ENDPOINT(caseData.id), {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${session?.user?.accessToken}`,
-				},
-				body: JSON.stringify({
-					title: `Informe trimestral — ${stageLabel}`,
-					message: `Hola ${caseData.customer?.name?.split(" ")[0] || ""}, está disponible tu informe trimestral. Tocá para verlo.`,
-					url: link,
-					isResend: !!caseData.informeSentPushAt,
-				}),
+			await registrarEnvio(v.id, {
+				canal: "PUSH",
+				title: `Informe periódico — ${stageLabel}`,
+				message: `Hola ${caseData.customer?.name?.split(" ")[0] || ""}, te enviamos tu informe periódico. Tocá para verlo.`,
 			});
-
-			if (!res.ok) {
-				const err = await res.json().catch(() => ({}));
-				throw new Error(
-					err?.message || err?.error || `Error ${res.status} al enviar push`,
-				);
-			}
-
-			await saveToDb({ informeSentPushAt: new Date().toISOString() });
-			onCaseUpdated?.();
 			toast.success("Notificación push enviada al cliente");
 		} catch (error) {
 			console.error("Error sending push:", error);
@@ -503,8 +511,10 @@ export function InformeTrimestralView({
 		}
 	};
 
-	const openEmailDialog = () => {
+	/** Sin versión: la de la pantalla. Con versión: reenvío desde el historial. */
+	const openEmailDialog = (informe: InformeHistorial | null = null) => {
 		const customerEmail = (caseData.customer as any)?.email ?? "";
+		setReenvio(informe);
 		setEmailDraft(customerEmail);
 		setEmailDialogOpen(true);
 	};
@@ -518,54 +528,19 @@ export function InformeTrimestralView({
 		}
 
 		setIsSendingEmail(true);
-		toast.info("Preparando informe para email...");
+		toast.info(reenvio ? "Reenviando informe..." : "Preparando informe para email...");
 		try {
-			// Si no hay link, generamos y subimos primero el PDF
-			let link = downloadLink;
-			if (!link) {
-				const blob = await generatePdfBlob();
-				if (!blob) throw new Error("No se pudo generar el PDF");
-				const token = await uploadPdfBlob(blob);
-				if (token) {
-					link = `https://legalistas.ar/informes/${token}`;
-					setDownloadLink(link);
-				}
-			}
-
-			const stageMessage = STAGE_WA_MESSAGES[currentStageId] || "";
-
-			// Envía email + registra en el timeline del caso (email-log).
-			const res = await fetch(MAILER_SEND_ENDPOINT, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${session?.user?.accessToken}`,
-				},
-				body: JSON.stringify({
-					to: trimmed,
-					template: "case-informe-trimestral",
-					caseId: caseData.id,
-					isResend: !!caseData.informeSentEmailAt,
-					variables: {
-						customerName: caseData.customer?.name,
-						caseNumber: caseData.number
-							? String(caseData.number)
-							: String(caseData.id),
-						caseTitle: caseData.title,
-						stageLabel,
-						stageMessage,
-						informeLink: link || undefined,
-						responsibleLawyerName: caseData.responsibleLawyer?.name,
-					},
-				}),
+			// Reenvío de una versión del historial, o la de la pantalla (que se
+			// guarda si todavía no está).
+			const documentId = reenvio?.id ?? (await asegurarVersion()).id;
+			// El backend manda el email ("Te hemos enviado tu informe periódico"),
+			// lo deja en el timeline del caso y registra el envío.
+			await registrarEnvio(documentId, {
+				canal: "EMAIL",
+				to: trimmed,
+				stageLabel,
+				stageMessage: STAGE_WA_MESSAGES[currentStageId] || "",
 			});
-
-			if (!res.ok) {
-				throw new Error(await apiErrorMessage(res, "Error al enviar el email"));
-			}
-
-			await saveToDb({ informeSentEmailAt: new Date().toISOString() });
-			onCaseUpdated?.();
 			toast.success(`Informe enviado a ${trimmed}`);
 			setEmailDialogOpen(false);
 		} catch (error) {
@@ -582,20 +557,11 @@ export function InformeTrimestralView({
 		setIsSending(true);
 		toast.info("Preparando informe para WhatsApp...");
 		try {
-			// Si no hay link, primero guardar y generar
-			let link = downloadLink;
-			if (!link) {
-				const blob = await generatePdfBlob();
-				if (!blob) throw new Error("No se pudo generar el PDF");
-				const token = await uploadPdfBlob(blob);
-				if (token) {
-					link = `https://legalistas.ar/informes/${token}`;
-					setDownloadLink(link);
-				}
-			}
+			const v = await asegurarVersion();
+			const link = linkInforme(v.token);
 
 			const stageMsg = STAGE_WA_MESSAGES[currentStageId] || "";
-			const message = `Hola ${caseData.customer?.name || ""}! Le enviamos el informe trimestral del estado de su reclamo (Caso #${caseData.number || caseData.id}).\n\n${stageMsg}\n\n${link ? `Puede descargar su informe completo en PDF aquí:\n${link}` : ""}\n\nSi observa algún error en el documento, por favor avísenos para corregirlo a la brevedad.`;
+			const message = `Hola ${caseData.customer?.name || ""}! Le enviamos el informe periódico del estado de su reclamo (Caso #${caseData.number || caseData.id}).\n\n${stageMsg}\n\nPuede descargar su informe completo en PDF aquí:\n${link}\n\nSi observa algún error en el documento, por favor avísenos para corregirlo a la brevedad.`;
 			const customerPhone = (caseData.customer as any)?.userProfile?.phone;
 			const cleanPhone = customerPhone?.replace(/[\s\-()]/g, "") || "";
 			const waUrl = cleanPhone
@@ -603,9 +569,8 @@ export function InformeTrimestralView({
 				: `https://web.whatsapp.com/send?text=${encodeURIComponent(message)}`;
 			window.open(waUrl, "_blank");
 
-			// Registrar envío por WhatsApp en la DB
-			await saveToDb({ informeSentWhatsappAt: new Date().toISOString() });
-			onCaseUpdated?.();
+			// WhatsApp lo manda la persona desde su sesión: acá queda registrado.
+			await registrarEnvio(v.id, { canal: "WHATSAPP", destinatario: cleanPhone || undefined });
 			toast.success("WhatsApp abierto con el link del informe.");
 		} catch (error) {
 			if ((error as Error)?.name !== "AbortError") {
@@ -718,67 +683,80 @@ export function InformeTrimestralView({
 					</div>
 
 					<div className="pt-2 space-y-2">
+						{/* Acción principal: genera, guarda en el historial y manda el email. */}
 						<Button
-							onClick={handleSave}
-							disabled={isSaving || isGenerating}
-							variant="outline"
-							className="w-full"
-						>
-							{isSaving ? (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							) : (
-								<Save className="mr-2 h-4 w-4" />
-							)}
-							{isSaving ? "Guardando..." : "Guardar y subir informe"}
-						</Button>
-						<Button
-							onClick={handleGeneratePdf}
-							disabled={isGenerating || isSending}
-							className="w-full bg-[#09a4b5] hover:bg-[#078a99] text-white"
-						>
-							{isGenerating ? (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							) : (
-								<FileDown className="mr-2 h-4 w-4" />
-							)}
-							{isGenerating ? "Generando..." : "Descargar Informe PDF"}
-						</Button>
-						<Button
-							onClick={handleSendWhatsApp}
-							disabled={isSending || isGenerating || isSaving || isSendingEmail}
-							className="w-full bg-[#25D366] hover:bg-[#1ebe57] text-white"
-						>
-							{isSending ? (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							) : (
-								<Send className="mr-2 h-4 w-4" />
-							)}
-							{isSending ? "Enviando..." : "Enviar por WhatsApp"}
-						</Button>
-						<Button
-							onClick={openEmailDialog}
+							onClick={() => openEmailDialog()}
 							disabled={isSending || isGenerating || isSaving || isSendingEmail || isSendingPush}
-							className="w-full bg-[#0ea5e9] hover:bg-[#0284c7] text-white"
+							className="h-11 w-full bg-[#09a4b5] text-base hover:bg-[#078a99] text-white"
 						>
 							{isSendingEmail ? (
 								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 							) : (
 								<Mail className="mr-2 h-4 w-4" />
 							)}
-							{isSendingEmail ? "Enviando..." : "Enviar por Email"}
+							{isSendingEmail ? "Enviando..." : "Enviar al cliente"}
 						</Button>
-						<Button
-							onClick={handleSendPush}
-							disabled={isSending || isGenerating || isSaving || isSendingEmail || isSendingPush}
-							className="w-full bg-[#f97316] hover:bg-[#ea580c] text-white"
-						>
-							{isSendingPush ? (
-								<Loader2 className="mr-2 h-4 w-4 animate-spin" />
-							) : (
-								<Bell className="mr-2 h-4 w-4" />
-							)}
-							{isSendingPush ? "Enviando..." : "Enviar por Push"}
-						</Button>
+						<p className="text-[11px] leading-snug text-muted-foreground">
+							Genera el informe como se ve en la vista previa, lo guarda en el
+							historial y le manda al cliente el email “Te hemos enviado tu
+							informe periódico” con el link.
+						</p>
+						<div className="grid grid-cols-2 gap-2">
+							<Button
+								onClick={handleSendWhatsApp}
+								disabled={isSending || isGenerating || isSaving || isSendingEmail || isSendingPush}
+								className="w-full bg-[#25D366] hover:bg-[#1ebe57] text-white"
+							>
+								{isSending ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<Send className="mr-2 h-4 w-4" />
+								)}
+								WhatsApp
+							</Button>
+							<Button
+								onClick={handleSendPush}
+								disabled={isSending || isGenerating || isSaving || isSendingEmail || isSendingPush}
+								className="w-full bg-[#f97316] hover:bg-[#ea580c] text-white"
+							>
+								{isSendingPush ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<Bell className="mr-2 h-4 w-4" />
+								)}
+								Push
+							</Button>
+						</div>
+						<div className="grid grid-cols-2 gap-2">
+							<Button
+								onClick={handleSave}
+								disabled={isSaving || isGenerating || isSending || isSendingEmail || isSendingPush}
+								variant="outline"
+								className="w-full"
+								title="Guarda esta versión en el historial sin mandarla"
+							>
+								{isSaving ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<Save className="mr-2 h-4 w-4" />
+								)}
+								Guardar
+							</Button>
+							<Button
+								onClick={handleGeneratePdf}
+								disabled={isGenerating || isSending}
+								variant="outline"
+								className="w-full"
+								title="Descarga el PDF sin guardarlo"
+							>
+								{isGenerating ? (
+									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+								) : (
+									<FileDown className="mr-2 h-4 w-4" />
+								)}
+								Descargar
+							</Button>
+						</div>
 					</div>
 
 					{/* Link de descarga generado */}
@@ -839,74 +817,30 @@ export function InformeTrimestralView({
 								<span className="text-muted-foreground">Etapa:</span>{" "}
 								{stageLabel}
 							</p>
-							<p>
-								<span className="text-muted-foreground">Guardado:</span>{" "}
-								{caseData.informeSavedAt ? (
-									<span className="text-green-600 inline-flex items-center gap-1">
-										<Check className="h-3.5 w-3.5 shrink-0" />
-										{new Date(caseData.informeSavedAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
-									</span>
-								) : (
-									<span className="text-muted-foreground">No</span>
-								)}
-							</p>
-							<p>
-								<span className="text-muted-foreground">WhatsApp:</span>{" "}
-								{caseData.informeSentWhatsappAt ? (
-									<span className="text-green-600 inline-flex items-center gap-1">
-										<Check className="h-3.5 w-3.5 shrink-0" />
-										{new Date(caseData.informeSentWhatsappAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
-									</span>
-								) : (
-									<span className="text-muted-foreground">No</span>
-								)}
-							</p>
-							<p>
-								<span className="text-muted-foreground">Email:</span>{" "}
-								{caseData.informeSentEmailAt ? (
-									<span className="text-green-600 inline-flex items-center gap-1">
-										<Check className="h-3.5 w-3.5 shrink-0" />
-										{new Date(caseData.informeSentEmailAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
-									</span>
-								) : (
-									<span className="text-muted-foreground">No</span>
-								)}
-							</p>
-							<p>
-								<span className="text-muted-foreground">Push:</span>{" "}
-								{caseData.informeSentPushAt ? (
-									<span className="text-green-600 inline-flex items-center gap-1">
-										<Check className="h-3.5 w-3.5 shrink-0" />
-										{new Date(caseData.informeSentPushAt).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false })}
-									</span>
-								) : (
-									<span className="text-muted-foreground">No</span>
-								)}
-							</p>
 						</div>
 					</div>
 				</div>
 			</div>
 
-			{/* Divider */}
-			<div className="flex items-center gap-3">
-				<div className="h-px flex-1 bg-border" />
-				<span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-					Vista previa del informe
-				</span>
-				<div className="h-px flex-1 bg-border" />
-			</div>
+			{/* Historial: versiones guardadas y sus envíos (fecha, canal, destinatario). */}
+			<InformesHistorial
+				caseId={caseData.id}
+				recargar={recargarHistorial}
+				onReenviar={(informe) => openEmailDialog(informe)}
+			/>
 
-			{/* Report Preview */}
-			<div className="max-w-2xl mx-auto">
-				<ReportPreview
-					customerName={caseData.customer?.name || "Cliente"}
-					caseNumber={displayCaseNumber}
-					stageId={currentStageId}
-					estadoActualHtml={estadoActual}
-					incapacityPercentage={incapacityPercentage}
-				/>
-			</div>
+			{/* Vista previa: el mismo HTML que el PDF, en una hoja A4 de tamaño real. */}
+			<VistaPreviaInforme
+				caseId={caseData.id}
+				datos={{
+					customerName: caseData.customer?.name || "Cliente",
+					caseNumber: displayCaseNumber,
+					stageId: currentStageId,
+					estadoActualHtml: estadoActual,
+					incapacityPercentage,
+				}}
+				generarPdf={generatePdfBlob}
+			/>
 
 			<Dialog
 				open={emailDialogOpen}
@@ -917,12 +851,16 @@ export function InformeTrimestralView({
 				<DialogContent className="sm:max-w-md">
 					<DialogHeader>
 						<DialogTitle className="flex items-center gap-2">
-							<Mail className="h-5 w-5 text-[#0ea5e9]" />
-							Enviar informe por email
+							<Mail className="h-5 w-5 text-[#09a4b5]" />
+							{reenvio ? "Reenviar informe al cliente" : "Enviar informe al cliente"}
 						</DialogTitle>
 						<DialogDescription>
-							Confirmá la dirección. Podés editarla si querés enviarlo a otro
-							destinatario; no se modifica el email del cliente en su ficha.
+							{reenvio
+								? `Se reenvía el informe del ${fechaHora(reenvio.uploadedAt)}.`
+								: "Se guarda el informe como se ve en la vista previa y queda en el historial."}{" "}
+							El cliente recibe el email “Te hemos enviado tu informe
+							periódico” con el link. Podés cambiar la dirección; no se
+							modifica el email de su ficha.
 						</DialogDescription>
 					</DialogHeader>
 
@@ -1020,349 +958,5 @@ export function InformeTrimestralView({
 				</DialogContent>
 			</Dialog>
 		</div>
-	);
-}
-
-function ReportPreview({
-	customerName,
-	caseNumber,
-	stageId,
-	estadoActualHtml,
-	incapacityPercentage,
-}: {
-	customerName: string;
-	caseNumber: string;
-	stageId: number;
-	estadoActualHtml: string;
-	incapacityPercentage: string;
-}) {
-	const stages = stageCases;
-
-	return (
-		<div className="bg-white overflow-hidden text-gray-800 flex flex-col" style={{ aspectRatio: "210 / 297" }}>
-			{/* Header */}
-			<div className="bg-linear-to-br from-[#09a4b5] to-[#0bbfcf] text-white px-6 py-4 text-center">
-				<div className="flex justify-center mb-2">
-					{/* eslint-disable-next-line @next/next/no-img-element */}
-					<img
-						src="/images/logo/logo-print-blanco.png"
-						alt="Legalistas"
-						style={{ height: "40px", width: "auto" }}
-					/>
-				</div>
-				<h2 className="text-sm font-bold tracking-wide leading-tight">
-					INFORME TRIMESTRAL DEL ESTADO
-					<br />
-					DE SU RECLAMO
-				</h2>
-				<p className="mt-1.5 text-white/80 text-md italic">
-					Cliente: {customerName} &nbsp;&nbsp; N° {caseNumber}
-				</p>
-			</div>
-
-			{/* Content area — flex-1 pushes footer to bottom */}
-			<div className="flex-1">
-
-				{/* Progress Timeline */}
-				<div className="px-3 py-4 bg-white border-b">
-					<p className="text-center text-[10px] text-gray-400 font-semibold uppercase tracking-[0.15em] mb-4">
-						Progreso de su Reclamo
-					</p>
-					<div className="relative">
-						{/* Horizontal timeline line — positioned at connector dot level */}
-						<div
-							className="absolute left-[30px] right-[30px] h-px bg-gray-200"
-							style={{ top: "62px" }}
-						/>
-						<div
-							className="absolute left-[30px] h-px bg-[#09a4b5]"
-							style={{
-								top: "62px",
-								width: `calc(${((Math.min(stageId, 7) - 1) / 6) * 100}% - ${((Math.min(stageId, 7) - 1) / 6) * 60}px)`,
-							}}
-						/>
-
-						<div className="flex items-start justify-between">
-							{stages.map((stage) => {
-								const isCompleted = stage.value < stageId;
-								const isCurrent = stage.value === stageId;
-								const isActive = isCompleted || isCurrent;
-								const ringState = isCompleted
-									? "completed"
-									: isCurrent
-										? "current"
-										: "pending";
-
-								return (
-									<div
-										key={stage.value}
-										className="flex flex-col items-center z-10"
-										style={{ width: "60px" }}
-									>
-										{/* Ring + Icon */}
-										<div className="relative w-[48px] h-[48px]">
-											<ProgressRing state={ringState} />
-											<div
-												className={`absolute inset-[6px] rounded-full flex items-center justify-center ${isActive ? "bg-gray-100" : "bg-gray-50"
-													}`}
-											>
-												<StageIcon
-													stage={stage.value}
-													active={isActive}
-												/>
-											</div>
-										</div>
-
-										{/* Vertical connector */}
-										<div
-											className={`w-px h-2.5 ${isActive ? "bg-[#09a4b5]" : "bg-gray-200"}`}
-										/>
-
-										{/* Dot on timeline */}
-										<div
-											className={`w-[7px] h-[7px] rounded-full border-2 ${isActive
-												? "bg-[#09a4b5] border-[#09a4b5]"
-												: "bg-white border-gray-300"
-												}`}
-										/>
-
-										{/* Label */}
-										<span
-											className={`text-[10px] mt-1.5 font-medium text-center leading-tight ${isCurrent
-												? "text-[#09a4b5] font-bold"
-												: isCompleted
-													? "text-[#09a4b5]/70"
-													: "text-gray-300"
-												}`}
-										>
-											{stage.label}
-										</span>
-									</div>
-								);
-							})}
-						</div>
-					</div>
-				</div>
-
-				{/* Two columns: Incapacidad + Estado Actual */}
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4">
-					{/* Incapacidad */}
-					<div className="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
-						<div className="bg-[#09a4b5] text-white px-4 py-2.5 text-center">
-							<h4 className="text-[11px] font-bold uppercase tracking-wider">
-								Incapacidad Determinada
-							</h4>
-						</div>
-						<div className="p-5 text-center">
-							<div className="text-5xl font-bold text-[#09a4b5] mb-1">
-								{incapacityPercentage || "-"}
-								<span className="text-2xl">%</span>
-							</div>
-							<p className="text-[10px] text-gray-500 font-semibold uppercase tracking-wide mt-3">
-								¿Qué significa el porcentaje de incapacidad?
-							</p>
-							<div className="flex justify-center my-3">
-								<div className="flex items-end gap-0.5">
-									{[0.4, 0.55, 0.7, 0.85, 1].map((h, i) => (
-										<div
-											key={i}
-											className="w-4 rounded-t"
-											style={{
-												height: `${h * 32}px`,
-												backgroundColor:
-													i < 3
-														? `rgba(9, 164, 181, ${0.3 + i * 0.2})`
-														: `rgba(9, 164, 181, ${0.3 + i * 0.15})`,
-											}}
-										/>
-									))}
-								</div>
-							</div>
-							<p className="text-[9px] text-gray-400 leading-relaxed px-2">
-								Este porcentaje representa la incapacidad determinada, y
-								constituye la base para calcular la indemnización económica
-								correspondiente.
-							</p>
-						</div>
-					</div>
-
-					{/* Estado Actual */}
-					<div className="rounded-xl overflow-hidden border border-gray-100 shadow-sm">
-						<div className="bg-[#09a4b5] text-white px-4 py-2.5 text-center">
-							<h4 className="text-[11px] font-bold uppercase tracking-wider">
-								Estado Actual
-							</h4>
-						</div>
-						<div className="p-5">
-							<div
-								className="text-sm text-gray-700 leading-relaxed [&_strong]:font-bold [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
-								dangerouslySetInnerHTML={{ __html: estadoActualHtml }}
-							/>
-						</div>
-					</div>
-				</div>
-
-				{/* Compromiso + Plazos */}
-				<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pb-4">
-					{/* Compromiso */}
-					<div className="bg-gray-50 rounded-xl p-4">
-						<h4 className="text-[11px] font-bold uppercase tracking-wider text-[#09a4b5] mb-3">
-							Compromiso Legalistas
-						</h4>
-						<ul className="space-y-2.5 text-xs text-gray-600">
-							<li className="flex items-start gap-2">
-								<svg
-									className="w-4 h-4 text-[#09a4b5] shrink-0 mt-0.5"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth={2.5}
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										d="M5 13l4 4L19 7"
-									/>
-								</svg>
-								Seguimiento permanente de su caso
-							</li>
-							<li className="flex items-start gap-2">
-								<svg
-									className="w-4 h-4 text-[#09a4b5] shrink-0 mt-0.5"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth={2.5}
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										d="M5 13l4 4L19 7"
-									/>
-								</svg>
-								Gestiones para avanzar en la negociación
-							</li>
-							<li className="flex items-start gap-2">
-								<svg
-									className="w-4 h-4 text-[#09a4b5] shrink-0 mt-0.5"
-									fill="none"
-									stroke="currentColor"
-									strokeWidth={2.5}
-									viewBox="0 0 24 24"
-								>
-									<path
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										d="M5 13l4 4L19 7"
-									/>
-								</svg>
-								Comunicación ante cualquier novedad relevante
-							</li>
-						</ul>
-					</div>
-
-					{/* Plazos */}
-					<div className="bg-gray-50 rounded-xl p-4">
-						<h4 className="text-[11px] font-bold uppercase tracking-wider text-[#09a4b5] mb-3">
-							Sobre los Plazos
-						</h4>
-						<p className="text-xs text-gray-600 leading-relaxed">
-							Los plazos dependen de organismos administrativos y judiciales.
-						</p>
-						<p className="text-xs text-gray-700 leading-relaxed mt-3 font-semibold">
-							Nosotros impulsamos su caso de forma permanente.
-						</p>
-					</div>
-				</div>
-
-			</div>
-			{/* end content area */}
-
-			{/* Footer */}
-			<div className="bg-linear-to-br from-[#09a4b5] to-[#0bbfcf] text-white py-3 px-6 text-center mt-auto">
-				<div className="flex justify-center mb-0.5">
-					{/* eslint-disable-next-line @next/next/no-img-element */}
-					<img
-						src="/images/logo/logo-print-blanco.png"
-						alt="Legalistas"
-						className="h-6 w-auto"
-					/>
-				</div>
-				<p className="text-[10px] text-white/70 mt-1.5">
-					Más información en https://usuarios.legalistas.ar/signin
-				</p>
-			</div>
-		</div>
-	);
-}
-
-// ── SVG ring decoration around each stage icon ──
-function ProgressRing({
-	state,
-}: { state: "completed" | "current" | "pending" }) {
-	const r = 20;
-
-	return (
-		<svg viewBox="0 0 48 48" className="absolute inset-0 w-full h-full">
-			{state === "completed" && (
-				<circle
-					cx="24"
-					cy="24"
-					r={r}
-					fill="none"
-					stroke="#09a4b5"
-					strokeWidth="3"
-				/>
-			)}
-
-			{state === "current" && (
-				<circle
-					cx="24"
-					cy="24"
-					r={r}
-					fill="none"
-					stroke="#09a4b5"
-					strokeWidth="3.5"
-				/>
-			)}
-
-			{state === "pending" && (
-				<circle
-					cx="24"
-					cy="24"
-					r={r}
-					fill="none"
-					stroke="#e5e7eb"
-					strokeWidth="2"
-				/>
-			)}
-		</svg>
-	);
-}
-
-// ── Icon for each stage ──
-const stageIconMap: Record<
-	number,
-	React.FC<{ className?: string }>
-> = {
-	1: FileText,
-	2: Landmark,
-	3: Scale,
-	4: HeartPulse,
-	5: ShieldCheck,
-	6: Star,
-	7: Archive,
-};
-
-function StageIcon({
-	stage,
-	active,
-}: { stage: number; active: boolean }) {
-	const IconComponent = stageIconMap[stage];
-	if (!IconComponent) return null;
-	return (
-		<IconComponent
-			className={`w-4 h-4 ${active ? "text-gray-600" : "text-gray-300"}`}
-		/>
 	);
 }

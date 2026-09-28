@@ -564,6 +564,22 @@ export const CASE_INFORME_ENDPOINT = (caseId: number) =>
 export const CASE_INFORME_GENERATE_PDF_ENDPOINT = (caseId: number) =>
 	`${API_BASE_URL}/cases/${caseId}/informe/generate-pdf`;
 
+// Vista previa: el HTML del informe tal cual sale en el PDF ({ html }).
+export const CASE_INFORME_PREVIEW_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/informe/preview`;
+
+// Historial: versiones del informe con sus envíos al cliente.
+export const CASE_INFORMES_ENDPOINT = (caseId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/informes`;
+
+// Manda una versión del informe (EMAIL | WHATSAPP | PUSH) y registra el envío.
+export const CASE_INFORME_ENVIOS_ENDPOINT = (caseId: number, documentId: number) =>
+	`${API_BASE_URL}/cases/${caseId}/informes/${documentId}/envios`;
+
+// PDF de un informe por su token (público; lo que abre el link del cliente).
+export const INFORME_DESCARGA_URL = (token: string) =>
+	`${API_BASE_URL}/client-portal/public/descargas/${token}`;
+
 // LEXIA - Analista IA
 export const LEXIA_ANALYTICS_ENDPOINT = `${API_BASE_URL}/lexia/analytics`;
 
