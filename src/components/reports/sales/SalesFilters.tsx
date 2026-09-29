@@ -33,7 +33,7 @@ import {
 	SELLERS_ENDPOINT,
 	SETTINGS_COUNTRIES_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { SOURCE_CHANNEL, SERVICES_TYPE } from "@/constant/crm";
+import { SOURCE_CHANNEL, SERVICES_TYPE, VENDEDORES_EXCLUIDOS_KPI } from "@/constant/crm";
 import type { FilterOption, SalesFiltersState } from "./types";
 
 interface SalesFiltersProps {
@@ -101,7 +101,13 @@ export function SalesFilters({ filters, onChange }: SalesFiltersProps) {
 					? arr.map((u: any) => ({ id: u.id, name: u.name }))
 					: [];
 			};
-			setSellers(mapUsers(sellersRes));
+			// Sin quienes no venden (no cuentan en el reporte; ver backend
+			// constants/kpi-exclusiones.ts).
+			setSellers(
+				mapUsers(sellersRes).filter(
+					(s: FilterOption) => !VENDEDORES_EXCLUIDOS_KPI.includes(Number(s.id)),
+				),
+			);
 
 			// Split lawyers by role
 			const allLawyers = (lawyersRes?.data ?? lawyersRes) || [];

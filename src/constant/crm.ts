@@ -239,3 +239,10 @@ export const WHATSAPP_MESSAGES: Record<
       "Hola *{nombre}*,\n\nTu caso se encuentra archivado. Si necesit\u00e1s reactivarlo, estamos a tu disposici\u00f3n.\n\n_Equipo Legalistas_",
   },
 };
+
+/**
+ * Usuarios que no cuentan como vendedores en los KPI de Ventas ni en el
+ * reporte de ventas: Legalistas Equipo (1), Andereggen Agustín (2) y Vilella
+ * Jonatan (562). Misma lista que el backend (constants/kpi-exclusiones.ts).
+ */
+export const VENDEDORES_EXCLUIDOS_KPI: readonly number[] = [1, 2, 562];
