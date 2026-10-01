@@ -323,6 +323,12 @@ export default function CashBoxPage() {
 							}),
 						)
 					: [];
+				// Del más nuevo al más viejo. El backend ordena año/mes como texto
+				// ("10" antes que "9"), por eso se ordena acá como número.
+				formattedClosedMonths.sort(
+					(a: ClosedMonthReport, b: ClosedMonthReport) =>
+						Number(b.year) - Number(a.year) || Number(b.month) - Number(a.month),
+				);
 				setClosedMonths(formattedClosedMonths);
 			}
 		} catch (error) {
@@ -339,7 +345,7 @@ export default function CashBoxPage() {
 	useEffect(() => {
 		if (isNewBoxModalOpen && closedMonths.length > 0) {
 			// Ordenar los reportes por año y mes para encontrar el más reciente
-			const latestReport = closedMonths.sort((a, b) => {
+			const latestReport = [...closedMonths].sort((a, b) => {
 				const dateA = new Date(
 					Number.parseInt(a.year),
 					Number.parseInt(a.month) - 1,
@@ -741,8 +747,15 @@ export default function CashBoxPage() {
 				userBalance.income += amount;
 			});
 
+			// Redondeo a centavos: sumar cientos de montos con decimales deja restos
+			// (-0,000000001) que se mostraban como "-$ 0,00". `|| 0` evita el -0.
+			const centavos = (n: number) => Math.round(n * 100) / 100 || 0;
 			userMap.forEach((userBalance) => {
-				userBalance.totalBalance = userBalance.income - userBalance.expenses;
+				userBalance.income = centavos(userBalance.income);
+				userBalance.expenses = centavos(userBalance.expenses);
+				userBalance.totalBalance = centavos(
+					userBalance.income - userBalance.expenses,
+				);
 			});
 
 			const filteredUserBalances = Array.from(userMap.values()).filter(
@@ -750,25 +763,26 @@ export default function CashBoxPage() {
 			);
 
 			// Usuarios que no vienen en `apiUsers` (esa lista excluye a los
-			// abogados representantes) se ocultan de la tabla, pero sus montos
-			// siguen sumando en los totales de abajo. Por eso los totales se
-			// calculan sobre `filteredUserBalances` y no sobre los visibles.
+			// abogados representantes) y las cajas con saldo 0 se ocultan de la
+			// tabla, pero sus montos siguen sumando en los totales de abajo. Por
+			// eso los totales se calculan sobre `filteredUserBalances` y no sobre
+			// los visibles.
 			const knownUserIds = new Set(apiUsers.map((u) => Number(u.id)));
-			const visibleUserBalances = filteredUserBalances.filter((u) =>
-				knownUserIds.has(Number(u.id)),
+			const visibleUserBalances = filteredUserBalances.filter(
+				(u) => knownUserIds.has(Number(u.id)) && u.totalBalance !== 0,
 			);
 
 			setCalculatedUserBalances(
 				visibleUserBalances.sort((a, b) => a.name.localeCompare(b.name)),
 			);
 			setTotalCalculatedUsersBalance(
-				filteredUserBalances.reduce((sum, u) => sum + u.totalBalance, 0),
+				centavos(filteredUserBalances.reduce((sum, u) => sum + u.totalBalance, 0)),
 			);
 			setTotalCalculatedUsersIncome(
-				filteredUserBalances.reduce((sum, u) => sum + u.income, 0),
+				centavos(filteredUserBalances.reduce((sum, u) => sum + u.income, 0)),
 			);
 			setTotalCalculatedUsersExpenses(
-				filteredUserBalances.reduce((sum, u) => sum + u.expenses, 0),
+				centavos(filteredUserBalances.reduce((sum, u) => sum + u.expenses, 0)),
 			);
 		};
 
