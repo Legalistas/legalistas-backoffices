@@ -26,6 +26,7 @@ import {
 	DollarSign,
 	FileText,
 	HandCoins,
+	History,
 	type LucideIcon,
 	Pencil,
 	Plus,
@@ -83,6 +84,7 @@ import { MOVEMENTS } from "@/constant/cash"; // Importar MOVEMENTS y su tipo
 import { Role } from "@/constant/user";
 import { cn } from "@/lib/utils";
 import type { User } from "@/types/users";
+import CajaHistorialDialog from "./CajaHistorialDialog";
 import { CreditCardsPanel, type CreditCardWithPending } from "./CreditCardsPanel";
 import EditTransactionDialog from "./EditTransactionDialog";
 
@@ -135,6 +137,9 @@ export default function CashBoxPage() {
 	const [editingTransaction, setEditingTransaction] =
 		useState<Transaction | null>(null);
 	const [isEditMovementModalOpen, setIsEditMovementModalOpen] = useState(false);
+	// Historial de cambios: general o filtrado por un movimiento.
+	const [historialAbierto, setHistorialAbierto] = useState(false);
+	const [historialMovimiento, setHistorialMovimiento] = useState<number | null>(null);
 
 	// Form states for new movement
 	const [newType, setNewType] = useState<string>(""); // Cambiado a string para incluir "transfer"
@@ -1665,9 +1670,22 @@ export default function CashBoxPage() {
 			<div className="mb-8">
 				<div className="flex items-center justify-between mb-4">
 					<h2 className="text-lg font-semibold text-foreground">Saldo Cajas Usuarios</h2>
-					<Button variant="outline" size="sm" onClick={handleViewDetailedMovements}>
-						Ver Movimientos Detallados
-					</Button>
+					<div className="flex flex-wrap justify-end gap-2">
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={() => {
+								setHistorialMovimiento(null);
+								setHistorialAbierto(true);
+							}}
+						>
+							<History className="h-4 w-4" />
+							Historial de cambios
+						</Button>
+						<Button variant="outline" size="sm" onClick={handleViewDetailedMovements}>
+							Ver Movimientos Detallados
+						</Button>
+					</div>
 				</div>
 				{/* Sin <Card>: el propio <Table> ya aporta borde, redondeo y sombra;
 				    envolverlo duplicaba el marco y agregaba el py-6 de la Card. */}
@@ -1927,6 +1945,17 @@ export default function CashBoxPage() {
 																<Pencil className="h-4 w-4" />
 															</Button>
 															<Button
+																onClick={() => {
+																	setHistorialMovimiento(t.id);
+																	setHistorialAbierto(true);
+																}}
+																variant="outline"
+																className="h-7 w-7"
+																title="Historial de cambios"
+															>
+																<History className="h-4 w-4" />
+															</Button>
+															<Button
 																onClick={() => handleDeleteTransaction(t.id)}
 																variant="default"
 																className="h-7 w-7 bg-red-500 hover:bg-red-700 text-white"
@@ -2157,6 +2186,13 @@ export default function CashBoxPage() {
 					loadData();
 					fetchCreditCards();
 				}}
+			/>
+			<CajaHistorialDialog
+				open={historialAbierto}
+				onOpenChange={setHistorialAbierto}
+				token={session?.user?.accessToken}
+				users={apiUsers}
+				transactionId={historialMovimiento}
 			/>
 			{ConfirmationDialog}
 		</div>
