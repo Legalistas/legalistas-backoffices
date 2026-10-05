@@ -3,13 +3,7 @@
 import {
 	ArrowLeft,
 	Briefcase,
-	ClipboardCheck,
-	Clock,
 	FileText,
-	FileWarning,
-	FolderOpen,
-	GraduationCap,
-	ListChecks,
 	Loader2,
 	Palmtree,
 	Receipt,
@@ -26,16 +20,10 @@ import { Role } from "@/constant/user";
 import { SUPERADMIN } from "@/constant/menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { USERS_ENDPOINT } from "@/constant/api-endpoints";
-import AttendanceTab from "./AttendanceTab";
-import ChecklistsTab from "./ChecklistsTab";
 import ContractsTab from "./ContractsTab";
-import DisciplinaryTab from "./DisciplinaryTab";
 import EmploymentDataForm from "./EmploymentDataForm";
 import LeavesTab from "./LeavesTab";
 import PayrollsTab from "./PayrollsTab";
-import PerformanceTab from "./PerformanceTab";
-import TrainingsTab from "./TrainingsTab";
-import LegajoTab from "@/components/rrhh/LegajoTab";
 
 const EMPLOYMENT_ALLOWED_ROLES = [
 	...SUPERADMIN,
@@ -47,17 +35,11 @@ const EMPLOYMENT_ALLOWED_ROLES = [
 	Role.AUDITOR_INTERNO,
 ];
 
-type SectionKey =
-	| "data"
-	| "contracts"
-	| "attendance"
-	| "leaves"
-	| "payrolls"
-	| "legajo"
-	| "disciplinary"
-	| "trainings"
-	| "performance"
-	| "checklists";
+// Ocultas desde el 05/10/2026 (las pestañas y sus datos siguen existiendo:
+// AttendanceTab, LegajoTab, DisciplinaryTab, TrainingsTab, PerformanceTab y
+// ChecklistsTab): Asistencia, Legajo digital, Legajo disciplinario,
+// Capacitaciones, Evaluaciones y Onboarding / Offboarding.
+type SectionKey = "data" | "contracts" | "leaves" | "payrolls";
 
 const SECTIONS: {
 	key: SectionKey;
@@ -67,14 +49,8 @@ const SECTIONS: {
 }[] = [
 	{ key: "data", label: "Datos laborales", icon: Briefcase, color: "text-primary" },
 	{ key: "contracts", label: "Contratos", icon: FileText, color: "text-blue-600" },
-	{ key: "attendance", label: "Asistencia", icon: Clock, color: "text-cyan-600" },
 	{ key: "leaves", label: "Licencias y vacaciones", icon: Palmtree, color: "text-emerald-600" },
 	{ key: "payrolls", label: "Recibos de sueldo", icon: Receipt, color: "text-amber-600" },
-	{ key: "legajo", label: "Legajo digital", icon: FolderOpen, color: "text-slate-600" },
-	{ key: "disciplinary", label: "Legajo disciplinario", icon: FileWarning, color: "text-red-600" },
-	{ key: "trainings", label: "Capacitaciones", icon: GraduationCap, color: "text-indigo-600" },
-	{ key: "performance", label: "Evaluaciones", icon: ClipboardCheck, color: "text-fuchsia-600" },
-	{ key: "checklists", label: "Onboarding / Offboarding", icon: ListChecks, color: "text-teal-600" },
 ];
 
 const getInitials = (name: string | null | undefined) => {
@@ -274,14 +250,8 @@ export default function EmployeeHrPage({ userId }: EmployeeHrPageProps) {
 									/>
 								)}
 								{s.key === "contracts" && <ContractsTab userId={userId} />}
-								{s.key === "attendance" && <AttendanceTab userId={userId} />}
 								{s.key === "leaves" && <LeavesTab userId={userId} />}
 								{s.key === "payrolls" && <PayrollsTab userId={userId} />}
-								{s.key === "legajo" && <LegajoTab userId={userId} />}
-								{s.key === "disciplinary" && <DisciplinaryTab userId={userId} />}
-								{s.key === "trainings" && <TrainingsTab userId={userId} />}
-								{s.key === "performance" && <PerformanceTab userId={userId} />}
-								{s.key === "checklists" && <ChecklistsTab userId={userId} />}
 							</TabsContent>
 						))}
 					</Tabs>

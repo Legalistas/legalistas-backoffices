@@ -919,7 +919,7 @@ export default function AccountingDashboard() {
 								<div>
 									<p className="text-sm font-medium">Equipo</p>
 									<p className="text-xs text-muted-foreground">
-										Empleados y asistencia
+										Empleados y datos laborales
 									</p>
 								</div>
 							</div>

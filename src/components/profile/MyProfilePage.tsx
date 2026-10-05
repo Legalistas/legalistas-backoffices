@@ -1,11 +1,7 @@
 "use client";
 
 import {
-	Clock,
-	ClipboardCheck,
 	FileText,
-	FolderOpen,
-	ListChecks,
 	Loader2,
 	Palmtree,
 	Receipt,
@@ -21,38 +17,25 @@ import {
 	EMPLOYMENT_BY_USER_ENDPOINT,
 	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
-import AttendanceTab from "@/components/members/AttendanceTab";
-import ChecklistsTab from "@/components/members/ChecklistsTab";
 import ContractsTab from "@/components/members/ContractsTab";
 import LeavesTab from "@/components/members/LeavesTab";
 import PayrollsTab from "@/components/members/PayrollsTab";
-import PerformanceTab from "@/components/members/PerformanceTab";
-import LegajoTab from "@/components/rrhh/LegajoTab";
 
 // Todo es de solo lectura (los botones de carga los ve solo RR.HH.), salvo
 // pedir licencias y adjuntar el certificado de las propias.
-type SectionKey =
-	| "contracts"
-	| "attendance"
-	| "leaves"
-	| "legajo"
-	| "payrolls"
-	| "performance"
-	| "checklists";
+// Ocultas desde el 05/10/2026, igual que en el legajo de RR.HH.
+// (EmployeeHrPage): Mi asistencia, Mi legajo, Mis evaluaciones y Mi onboarding.
+type SectionKey = "contracts" | "leaves" | "payrolls";
 
 const SECTIONS: {
 	key: SectionKey;
 	label: string;
-	icon: typeof Clock;
+	icon: typeof FileText;
 	color: string;
 }[] = [
 	{ key: "contracts", label: "Mi contrato", icon: FileText, color: "text-indigo-600" },
 	{ key: "payrolls", label: "Mis recibos", icon: Receipt, color: "text-amber-600" },
 	{ key: "leaves", label: "Mis licencias", icon: Palmtree, color: "text-emerald-600" },
-	{ key: "attendance", label: "Mi asistencia", icon: Clock, color: "text-cyan-600" },
-	{ key: "legajo", label: "Mi legajo", icon: FolderOpen, color: "text-slate-600" },
-	{ key: "performance", label: "Mis evaluaciones", icon: ClipboardCheck, color: "text-fuchsia-600" },
-	{ key: "checklists", label: "Mi onboarding", icon: ListChecks, color: "text-teal-600" },
 ];
 
 const getInitials = (name: string | null | undefined) => {
@@ -233,12 +216,8 @@ export default function MyProfilePage() {
 							className="rounded-lg border border-border bg-card p-4 sm:p-6 mt-4"
 						>
 							{s.key === "contracts" && <ContractsTab userId={userId} />}
-							{s.key === "attendance" && <AttendanceTab userId={userId} />}
-							{s.key === "legajo" && <LegajoTab userId={userId} />}
 							{s.key === "leaves" && <LeavesTab userId={userId} />}
 							{s.key === "payrolls" && <PayrollsTab userId={userId} />}
-							{s.key === "performance" && <PerformanceTab userId={userId} />}
-							{s.key === "checklists" && <ChecklistsTab userId={userId} />}
 						</TabsContent>
 					))}
 				</Tabs>

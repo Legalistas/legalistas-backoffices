@@ -9,7 +9,6 @@ import {
   HardDrive,
   Handshake,
   LayoutDashboard,
-  Medal,
   MessageCircle,
   MessageSquare,
   Pencil,
@@ -20,7 +19,6 @@ import {
   User,
   Users2,
   Vault,
-  Wallet,
   Wrench,
 } from "lucide-react";
 import { CAJA_ADMIN_ROLES } from "@/constant/caja";
@@ -33,9 +31,7 @@ import type { MenuSection, NavItem } from "@/types/navigation";
 const {
   ADMINISTRATOR,
   DIRECTOR_GENERAL_CEO,
-  GERENTE_GENERAL_COO,
   DIRECTORA_AREA_LEGAL,
-  COORDINADOR_LEGAL,
   DIRECTOR_AREA_IT,
   DIRECTORA_AREA_VENTAS,
   REPRESENTANTE_VENTAS,
@@ -68,13 +64,6 @@ const LEGAL = [
 ];
 const LEGAL_INTERNO = [...SUPERADMIN, ASISTENTE_LEGAL, DIRECTORA_AREA_LEGAL];
 const VENTAS = [...SUPERADMIN, DIRECTORA_AREA_VENTAS, REPRESENTANTE_VENTAS];
-const CAJA = [
-  ...SUPERADMIN,
-  ASISTENTE_LEGAL,
-  DIRECTORA_AREA_VENTAS,
-  REPRESENTANTE_VENTAS,
-  DIRECTORA_AREA_CONTABLE,
-];
 const CONTABLE = [...SUPERADMIN, DIRECTORA_AREA_CONTABLE];
 const MARKETING = [
   ...SUPERADMIN,
@@ -82,14 +71,6 @@ const MARKETING = [
   GESTOR_CONTENIDOS,
   DISENADOR_GRAFICO,
 ];
-const REPRESENTANTES_ACCESS = [
-  ...SUPERADMIN,
-  GERENTE_GENERAL_COO,
-  DIRECTORA_AREA_LEGAL,
-  COORDINADOR_LEGAL,
-  ASISTENTE_LEGAL,
-];
-
 
 // Reporte RR.HH.: los que administran RR.HH. (ven costos) + coordinación legal.
 // Espejo de RRHH_REPORTE_ROLES del backend.
@@ -236,14 +217,9 @@ export const MENU_SECTIONS: MenuSection[] = [
     label: "Finanzas",
     type: "menu",
     items: [
-      {
-        icon: Wallet,
-        name: "Mi Caja",
-        path: "/admin/my-cashbox",
-        roles: [...CAJA, ...MARKETING],
-      },
-      // "Caja Principal" (/admin/cashbox) quedó fuera del menú por ahora
-      // (05/10/2026): la pantalla y sus datos siguen, solo no se enlaza.
+      // "Mi Caja" (/admin/my-cashbox) y "Caja Principal" (/admin/cashbox)
+      // quedaron fuera del menú por ahora (05/10/2026): las pantallas y sus
+      // datos siguen, solo no se enlazan.
       {
         icon: Receipt,
         name: "Gastos e Ingresos",
@@ -262,12 +238,9 @@ export const MENU_SECTIONS: MenuSection[] = [
     label: "Equipo",
     type: "menu",
     items: [
-      {
-        icon: Medal,
-        name: "Representantes",
-        path: "/admin/representantes",
-        roles: REPRESENTANTES_ACCESS,
-      },
+      // Fuera del menú desde el 05/10/2026 (las pantallas siguen, sin
+      // enlace): "Representantes" (/admin/representantes), "Reclutamiento"
+      // (/admin/rrhh/recruitment) y "Abogados SRT" (/admin/lawyers).
       {
         icon: User,
         name: "Equipo",
@@ -279,18 +252,6 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Reportes RRHH",
         path: "/admin/rrhh/reports",
         roles: RRHH_REPORTS_ACCESS,
-      },
-      {
-        icon: Users2,
-        name: "Reclutamiento",
-        path: "/admin/rrhh/recruitment",
-        roles: SUPERADMIN,
-      },
-      {
-        icon: Scale,
-        name: "Abogados SRT",
-        path: "/admin/lawyers",
-        roles: LEGAL_INTERNO,
       },
     ],
   },
