@@ -635,12 +635,6 @@ export default function AccountingDashboard() {
 								<Receipt className="size-5 text-primary" />
 								Últimos movimientos · Caja Principal
 							</CardTitle>
-							<Link
-								href="/admin/cashbox"
-								className="text-xs text-primary hover:underline flex items-center gap-1"
-							>
-								Ver caja <ArrowRight className="size-3" />
-							</Link>
 						</div>
 					</CardHeader>
 					<CardContent>
@@ -884,7 +878,7 @@ export default function AccountingDashboard() {
 				</Card>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 				<Link href="/admin/accounting">
 					<Card className="hover:bg-muted/40 transition-colors cursor-pointer">
 						<CardContent className="p-4 flex items-center justify-between">
@@ -894,22 +888,6 @@ export default function AccountingDashboard() {
 									<p className="text-sm font-medium">Gastos e Ingresos</p>
 									<p className="text-xs text-muted-foreground">
 										A cobrar / A pagar
-									</p>
-								</div>
-							</div>
-							<ArrowRight className="size-4 text-muted-foreground" />
-						</CardContent>
-					</Card>
-				</Link>
-				<Link href="/admin/cashbox">
-					<Card className="hover:bg-muted/40 transition-colors cursor-pointer">
-						<CardContent className="p-4 flex items-center justify-between">
-							<div className="flex items-center gap-3">
-								<Wallet className="size-5 text-primary" />
-								<div>
-									<p className="text-sm font-medium">Caja Principal</p>
-									<p className="text-xs text-muted-foreground">
-										Movimientos y cierres
 									</p>
 								</div>
 							</div>

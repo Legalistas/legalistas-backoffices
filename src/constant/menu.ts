@@ -8,7 +8,6 @@ import {
   FolderCog,
   HardDrive,
   Handshake,
-  Landmark,
   LayoutDashboard,
   Medal,
   MessageCircle,
@@ -243,12 +242,8 @@ export const MENU_SECTIONS: MenuSection[] = [
         path: "/admin/my-cashbox",
         roles: [...CAJA, ...MARKETING],
       },
-      {
-        icon: Landmark,
-        name: "Caja Principal",
-        path: "/admin/cashbox",
-        roles: CONTABLE,
-      },
+      // "Caja Principal" (/admin/cashbox) quedó fuera del menú por ahora
+      // (05/10/2026): la pantalla y sus datos siguen, solo no se enlaza.
       {
         icon: Receipt,
         name: "Gastos e Ingresos",
