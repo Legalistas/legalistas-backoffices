@@ -4,10 +4,14 @@ export type CajaRubroTipo = "INGRESO" | "EGRESO" | "AMBOS";
 /** La moneda va en cada movimiento: una misma caja tiene saldo en pesos y en dólares. */
 export type CajaMoneda = "ARS" | "USD";
 
-/** Dólar MEP del día (dolarapi.com), para pasar a pesos los saldos en dólares. */
+/** Una cotización del dólar del día (dolarapi.com): MEP, blue, oficial… */
 export interface CotizacionDolar {
+	/** Tipo de dólar ("bolsa" = MEP). */
 	casa: string;
+	nombre: string;
+	/** A cuánto te lo compran (lo que recibís si vendés). */
 	compra: number;
+	/** A cuánto te lo venden (lo que pagás si comprás). */
 	venta: number;
 	/** YYYY-MM-DD */
 	fecha: string;

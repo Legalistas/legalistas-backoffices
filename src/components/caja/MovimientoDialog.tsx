@@ -29,7 +29,6 @@ import type {
 	CajaMovimiento,
 	CajaMovimientoTipo,
 	CajaRubro,
-	CotizacionDolar,
 } from "@/types/caja";
 import {
 	cajaFetch,
@@ -40,9 +39,11 @@ import {
 	leerNumero,
 	MONEDA_LABEL,
 } from "./api";
-import { useRubros } from "./useCajas";
+import CotizacionSelect, { A_MANO, aTexto } from "./CotizacionSelect";
+import { useCotizaciones, useRubros } from "./useCajas";
 
 const SIN_SUBRUBRO = "none";
+const CASA_INICIAL = "bolsa"; // MEP
 
 interface MovimientoDialogProps {
 	open: boolean;
@@ -77,7 +78,8 @@ export default function MovimientoDialog({
 	// Pesos por dólar del día (solo en dólares): con esto el movimiento entra en
 	// pesos a los resultados del mes.
 	const [cotizacion, setCotizacion] = useState("");
-	const [mep, setMep] = useState<CotizacionDolar | null>(null);
+	// Con qué dólar se toma (MEP, blue…) o A_MANO si se escribió el valor.
+	const [casa, setCasa] = useState(CASA_INICIAL);
 	const [fecha, setFecha] = useState(hoyISO());
 	const [rubroId, setRubroId] = useState("");
 	const [subRubroId, setSubRubroId] = useState(SIN_SUBRUBRO);
@@ -92,6 +94,7 @@ export default function MovimientoDialog({
 			setMonto(String(editando.monto).replace(".", ","));
 			setMoneda(editando.moneda);
 			setCotizacion(editando.cotizacion ? String(editando.cotizacion).replace(".", ",") : "");
+			setCasa(editando.cotizacion ? A_MANO : CASA_INICIAL);
 			setFecha(editando.fecha);
 			setRubroId(editando.rubroId ? String(editando.rubroId) : "");
 			setSubRubroId(editando.subRubroId ? String(editando.subRubroId) : SIN_SUBRUBRO);
@@ -104,30 +107,31 @@ export default function MovimientoDialog({
 		setMonto("");
 		setMoneda("ARS");
 		setCotizacion("");
+		setCasa(CASA_INICIAL);
 		setFecha(hoyISO());
 		setRubroId("");
 		setSubRubroId(SIN_SUBRUBRO);
 		setDescripcion("");
 	}, [open, defaultCajaId, cajas, editando]);
 
-	// En dólares: se propone el MEP del día (se puede corregir a mano).
+	// En dólares: se propone el MEP del día; se puede elegir otro dólar o
+	// escribir el valor a mano.
 	const pideCotizacion = moneda === "USD" && !esTransferencia;
+	const cotizaciones = useCotizaciones(token, open && pideCotizacion);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: solo al llegar las cotizaciones o pasar a dólares
 	useEffect(() => {
-		if (!open || !pideCotizacion || !token) return;
-		let vigente = true;
-		cajaFetch<{ data: CotizacionDolar | null }>("/cotizacion", token)
-			.then((r) => {
-				if (!vigente) return;
-				setMep(r.data);
-				if (r.data) setCotizacion((actual) => actual || String(r.data?.venta).replace(".", ","));
-			})
-			.catch(() => {
-				// Sin cotización de referencia: se carga a mano.
-			});
-		return () => {
-			vigente = false;
-		};
-	}, [open, pideCotizacion, token]);
+		if (!open || !pideCotizacion || cotizacion || casa === A_MANO) return;
+		const elegida = cotizaciones.find((c) => c.casa === casa) ?? cotizaciones[0];
+		if (!elegida) return;
+		setCasa(elegida.casa);
+		setCotizacion(aTexto(elegida.venta));
+	}, [open, pideCotizacion, cotizaciones]);
+
+	const usarCasa = (nueva: string) => {
+		setCasa(nueva);
+		const elegida = cotizaciones.find((c) => c.casa === nueva);
+		if (elegida) setCotizacion(aTexto(elegida.venta));
+	};
 
 	// Editando: la caja del movimiento puede no estar en la lista (inactiva).
 	const opcionesCaja = useMemo(() => {
@@ -315,10 +319,10 @@ export default function MovimientoDialog({
 										<Button
 											key={m}
 											type="button"
-											variant="outline"
+											variant={moneda === m ? "default" : "outline"}
+											aria-pressed={moneda === m}
 											disabled={!!editando}
 											onClick={() => setMoneda(m)}
-											className={cn(moneda === m && "border-primary bg-primary/10 text-primary")}
 										>
 											{MONEDA_LABEL[m]}
 										</Button>
@@ -358,17 +362,35 @@ export default function MovimientoDialog({
 
 					{pideCotizacion && (
 						<div className="space-y-2">
-							<Label htmlFor="caja-cotizacion">Valor del dólar ese día</Label>
-							<Input
-								id="caja-cotizacion"
-								inputMode="decimal"
-								placeholder="0,00"
-								value={cotizacion}
-								onChange={(e) => setCotizacion(e.target.value.replace(/[^\d.,]/g, ""))}
-							/>
+							<div className="grid grid-cols-2 gap-3">
+								<div className="space-y-2">
+									<Label>Cotización</Label>
+									<CotizacionSelect
+										cotizaciones={cotizaciones}
+										value={casa}
+										onChange={usarCasa}
+										lado="venta"
+									/>
+								</div>
+								<div className="space-y-2">
+									<Label htmlFor="caja-cotizacion">Valor del dólar ese día</Label>
+									<Input
+										id="caja-cotizacion"
+										inputMode="decimal"
+										placeholder="0,00"
+										value={cotizacion}
+										onChange={(e) => {
+											setCasa(A_MANO);
+											setCotizacion(e.target.value.replace(/[^\d.,]/g, ""));
+										}}
+									/>
+								</div>
+							</div>
 							<p className="text-xs text-muted-foreground">
-								Con este valor el movimiento se pasa a pesos en los informes.
-								{mep && ` Dólar MEP de hoy: ${formatARS(mep.venta)}.`}
+								Con este valor el movimiento se pasa a pesos en los informes
+								{leerNumero(monto) > 0 && leerNumero(cotizacion) > 0
+									? `: ${formatARS(leerNumero(monto) * leerNumero(cotizacion))}.`
+									: "."}
 							</p>
 						</div>
 					)}

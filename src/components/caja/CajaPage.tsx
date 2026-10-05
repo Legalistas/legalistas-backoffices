@@ -495,7 +495,6 @@ export default function CajaPage() {
 						onOpenChange={setCambioOpen}
 						token={token}
 						cajas={operables}
-						cotizacion={cotizacion}
 						defaultCajaId={operableSel}
 						onSaved={refrescar}
 					/>

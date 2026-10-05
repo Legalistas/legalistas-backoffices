@@ -22,7 +22,6 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import type { Caja, CajaMoneda } from "@/types/caja";
 import { cajaFetch, formatMonto, hoyISO, leerNumero, MONEDA_LABEL } from "./api";
 
@@ -141,9 +140,9 @@ export default function TransferenciaDialog({
 							<Button
 								key={m}
 								type="button"
-								variant="outline"
+								variant={moneda === m ? "default" : "outline"}
+								aria-pressed={moneda === m}
 								onClick={() => setMoneda(m)}
-								className={cn(moneda === m && "border-primary bg-primary/10 text-primary")}
 							>
 								{MONEDA_LABEL[m]}
 							</Button>

@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
-import type { CajaRubro, CajasResponse } from "@/types/caja";
+import type { CajaRubro, CajasResponse, CotizacionDolar } from "@/types/caja";
 import { CajaApiError, cajaFetch } from "./api";
 
 /**
@@ -78,4 +78,26 @@ export function useRubros(token: string | undefined, enabled = true, incluirInac
 	}, [reload]);
 
 	return { rubros, loading, reload };
+}
+
+/** Cotizaciones del dólar del día (MEP primero). Vacío si no se pudieron consultar. */
+export function useCotizaciones(token: string | undefined, enabled = true) {
+	const [cotizaciones, setCotizaciones] = useState<CotizacionDolar[]>([]);
+
+	useEffect(() => {
+		if (!token || !enabled) return;
+		let vigente = true;
+		cajaFetch<{ data: CotizacionDolar[] }>("/cotizaciones", token)
+			.then((r) => {
+				if (vigente) setCotizaciones(r.data ?? []);
+			})
+			.catch(() => {
+				// Sin cotizaciones de referencia: el valor se carga a mano.
+			});
+		return () => {
+			vigente = false;
+		};
+	}, [token, enabled]);
+
+	return cotizaciones;
 }
