@@ -23,8 +23,23 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { Caja, CajaMovimiento, CajaMovimientoTipo, CajaRubro } from "@/types/caja";
-import { cajaFetch, formatARS, hoyISO } from "./api";
+import type {
+	Caja,
+	CajaMoneda,
+	CajaMovimiento,
+	CajaMovimientoTipo,
+	CajaRubro,
+	CotizacionDolar,
+} from "@/types/caja";
+import {
+	cajaFetch,
+	esCambio,
+	formatARS,
+	formatUSD,
+	hoyISO,
+	leerNumero,
+	MONEDA_LABEL,
+} from "./api";
 import { useRubros } from "./useCajas";
 
 const SIN_SUBRUBRO = "none";
@@ -52,10 +67,17 @@ export default function MovimientoDialog({
 }: MovimientoDialogProps) {
 	const editando = movimiento ?? null;
 	const esTransferencia = !!editando?.transferenciaId;
+	// Compra o venta de dólares: cada punta tiene su monto, no se corrige acá.
+	const cambioDeMoneda = !!editando && esCambio(editando);
 	const { rubros, loading: loadingRubros } = useRubros(token, open && !esTransferencia);
 	const [cajaId, setCajaId] = useState("");
 	const [tipo, setTipo] = useState<CajaMovimientoTipo>("INGRESO");
 	const [monto, setMonto] = useState("");
+	const [moneda, setMoneda] = useState<CajaMoneda>("ARS");
+	// Pesos por dólar del día (solo en dólares): con esto el movimiento entra en
+	// pesos a los resultados del mes.
+	const [cotizacion, setCotizacion] = useState("");
+	const [mep, setMep] = useState<CotizacionDolar | null>(null);
 	const [fecha, setFecha] = useState(hoyISO());
 	const [rubroId, setRubroId] = useState("");
 	const [subRubroId, setSubRubroId] = useState(SIN_SUBRUBRO);
@@ -68,6 +90,8 @@ export default function MovimientoDialog({
 			setCajaId(String(editando.cajaId));
 			setTipo(editando.tipo);
 			setMonto(String(editando.monto).replace(".", ","));
+			setMoneda(editando.moneda);
+			setCotizacion(editando.cotizacion ? String(editando.cotizacion).replace(".", ",") : "");
 			setFecha(editando.fecha);
 			setRubroId(editando.rubroId ? String(editando.rubroId) : "");
 			setSubRubroId(editando.subRubroId ? String(editando.subRubroId) : SIN_SUBRUBRO);
@@ -78,11 +102,32 @@ export default function MovimientoDialog({
 		setCajaId(inicial ? String(inicial.caja.id) : "");
 		setTipo("INGRESO");
 		setMonto("");
+		setMoneda("ARS");
+		setCotizacion("");
 		setFecha(hoyISO());
 		setRubroId("");
 		setSubRubroId(SIN_SUBRUBRO);
 		setDescripcion("");
 	}, [open, defaultCajaId, cajas, editando]);
+
+	// En dólares: se propone el MEP del día (se puede corregir a mano).
+	const pideCotizacion = moneda === "USD" && !esTransferencia;
+	useEffect(() => {
+		if (!open || !pideCotizacion || !token) return;
+		let vigente = true;
+		cajaFetch<{ data: CotizacionDolar | null }>("/cotizacion", token)
+			.then((r) => {
+				if (!vigente) return;
+				setMep(r.data);
+				if (r.data) setCotizacion((actual) => actual || String(r.data?.venta).replace(".", ","));
+			})
+			.catch(() => {
+				// Sin cotización de referencia: se carga a mano.
+			});
+		return () => {
+			vigente = false;
+		};
+	}, [open, pideCotizacion, token]);
 
 	// Editando: la caja del movimiento puede no estar en la lista (inactiva).
 	const opcionesCaja = useMemo(() => {
@@ -90,9 +135,10 @@ export default function MovimientoDialog({
 			id: caja.id,
 			label,
 			saldo: caja.saldo as number | null,
+			saldoUsd: caja.saldoUsd,
 		}));
 		if (editando && !lista.some((o) => o.id === editando.cajaId)) {
-			lista.push({ id: editando.cajaId, label: editando.caja.nombre, saldo: null });
+			lista.push({ id: editando.cajaId, label: editando.caja.nombre, saldo: null, saldoUsd: 0 });
 		}
 		return lista;
 	}, [cajas, editando]);
@@ -136,27 +182,43 @@ export default function MovimientoDialog({
 	};
 
 	const guardar = async () => {
-		const montoNum = Number(monto.replace(",", "."));
+		const montoNum = leerNumero(monto);
 		if (esTransferencia ? !fecha || !(montoNum > 0) : !cajaId || !rubroId || !fecha || !(montoNum > 0)) {
 			toast.error(esTransferencia ? "Completá monto y fecha" : "Completá caja, monto, fecha y rubro");
 			return;
 		}
-		const datos = esTransferencia
-			? { monto: montoNum, fecha, descripcion }
-			: {
-					cajaId: Number(cajaId),
-					tipo,
-					monto: montoNum,
-					fecha,
-					rubroId: Number(rubroId),
-					subRubroId: subRubroId === SIN_SUBRUBRO ? null : Number(subRubroId),
-					descripcion,
-				};
+		const cotizacionNum = leerNumero(cotizacion);
+		if (pideCotizacion && !(cotizacionNum > 0)) {
+			toast.error("Cargá a cuánto estaba el dólar");
+			return;
+		}
+		const datos = cambioDeMoneda
+			? { fecha, descripcion }
+			: esTransferencia
+				? { monto: montoNum, fecha, descripcion }
+				: {
+						cajaId: Number(cajaId),
+						tipo,
+						monto: montoNum,
+						// La moneda se elige al cargar; después no se cambia.
+						...(editando ? {} : { moneda }),
+						...(pideCotizacion ? { cotizacion: cotizacionNum } : {}),
+						fecha,
+						rubroId: Number(rubroId),
+						subRubroId: subRubroId === SIN_SUBRUBRO ? null : Number(subRubroId),
+						descripcion,
+					};
 		setSaving(true);
 		try {
 			if (editando) {
 				await cajaFetch(`/movimientos/${editando.id}`, token, { method: "PUT", json: datos });
-				toast.success(esTransferencia ? "Transferencia actualizada" : "Movimiento actualizado");
+				toast.success(
+					cambioDeMoneda
+						? "Operación actualizada"
+						: esTransferencia
+							? "Transferencia actualizada"
+							: "Movimiento actualizado",
+				);
 			} else {
 				await cajaFetch("/movimientos", token, { method: "POST", json: datos });
 				toast.success(`${tipo === "INGRESO" ? "Ingreso" : "Egreso"} registrado`);
@@ -175,12 +237,20 @@ export default function MovimientoDialog({
 			<DialogContent className="sm:max-w-md">
 				<DialogHeader>
 					<DialogTitle>
-						{esTransferencia ? "Editar transferencia" : editando ? "Editar movimiento" : "Registrar movimiento"}
+						{cambioDeMoneda
+							? "Editar compra o venta de dólares"
+							: esTransferencia
+								? "Editar transferencia"
+								: editando
+									? "Editar movimiento"
+									: "Registrar movimiento"}
 					</DialogTitle>
 					<DialogDescription>
-						{esTransferencia
-							? `${editando?.tipo === "EGRESO" ? "De" : "Hacia"} ${editando?.caja.nombre}, ${editando?.tipo === "EGRESO" ? "a" : "desde"} ${editando?.cajaContraparte?.nombre ?? "otra caja"}. El monto y la fecha cambian en las dos cajas.`
-							: "Ingreso o egreso de una caja."}
+						{cambioDeMoneda
+							? "Se pueden corregir la fecha y la descripción. Para cambiar los montos, anulala y cargala de nuevo."
+							: esTransferencia
+								? `${editando?.tipo === "EGRESO" ? "De" : "Hacia"} ${editando?.caja.nombre}, ${editando?.tipo === "EGRESO" ? "a" : "desde"} ${editando?.cajaContraparte?.nombre ?? "otra caja"}. El monto y la fecha cambian en las dos cajas.`
+								: "Ingreso o egreso de una caja, en pesos o en dólares."}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -228,6 +298,35 @@ export default function MovimientoDialog({
 								{cajaSel?.saldo != null && (
 									<p className="text-xs text-muted-foreground">
 										Saldo actual: <span className="tabular-nums">{formatARS(cajaSel.saldo)}</span>
+										{(!!cajaSel.saldoUsd || moneda === "USD") && (
+											<>
+												{" · "}
+												<span className="tabular-nums">{formatUSD(cajaSel.saldoUsd ?? 0)}</span>
+											</>
+										)}
+									</p>
+								)}
+							</div>
+
+							<div className="space-y-2">
+								<Label>Moneda</Label>
+								<div className="grid grid-cols-2 gap-2">
+									{(["ARS", "USD"] as const).map((m) => (
+										<Button
+											key={m}
+											type="button"
+											variant="outline"
+											disabled={!!editando}
+											onClick={() => setMoneda(m)}
+											className={cn(moneda === m && "border-primary bg-primary/10 text-primary")}
+										>
+											{MONEDA_LABEL[m]}
+										</Button>
+									))}
+								</div>
+								{editando && (
+									<p className="text-xs text-muted-foreground">
+										La moneda no se cambia: si está mal, anulá el movimiento y cargalo de nuevo.
 									</p>
 								)}
 							</div>
@@ -236,12 +335,13 @@ export default function MovimientoDialog({
 
 					<div className="grid grid-cols-2 gap-3">
 						<div className="space-y-2">
-							<Label htmlFor="caja-monto">Monto</Label>
+							<Label htmlFor="caja-monto">{moneda === "USD" ? "Monto en dólares" : "Monto"}</Label>
 							<Input
 								id="caja-monto"
 								inputMode="decimal"
 								placeholder="0,00"
 								value={monto}
+								disabled={cambioDeMoneda}
 								onChange={(e) => setMonto(e.target.value.replace(/[^\d.,]/g, ""))}
 							/>
 						</div>
@@ -255,6 +355,23 @@ export default function MovimientoDialog({
 							/>
 						</div>
 					</div>
+
+					{pideCotizacion && (
+						<div className="space-y-2">
+							<Label htmlFor="caja-cotizacion">Valor del dólar ese día</Label>
+							<Input
+								id="caja-cotizacion"
+								inputMode="decimal"
+								placeholder="0,00"
+								value={cotizacion}
+								onChange={(e) => setCotizacion(e.target.value.replace(/[^\d.,]/g, ""))}
+							/>
+							<p className="text-xs text-muted-foreground">
+								Con este valor el movimiento se pasa a pesos en los informes.
+								{mep && ` Dólar MEP de hoy: ${formatARS(mep.venta)}.`}
+							</p>
+						</div>
+					)}
 
 					{!esTransferencia && (
 						<div className="space-y-2">

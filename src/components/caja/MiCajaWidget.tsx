@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaMovimiento, CajaMovimientosResponse } from "@/types/caja";
-import { aplanarCajas, cajaFetch, formatARS, formatFecha } from "./api";
+import { aplanarCajas, cajaFetch, formatARS, formatFecha, formatMonto, formatUSD } from "./api";
 import MovimientoDialog from "./MovimientoDialog";
 import { useCajas } from "./useCajas";
 
@@ -54,7 +54,7 @@ function UltimosMovimientos({
 						)}
 					>
 						{m.tipo === "INGRESO" ? "+" : "−"}
-						{formatARS(m.monto)}
+						{formatMonto(m.monto, m.moneda)}
 					</span>
 				</li>
 			))}
@@ -100,6 +100,11 @@ function CajaPropiaCard({
 						>
 							{formatARS(caja.saldo)}
 						</p>
+						{!!caja.saldoUsd && (
+							<p className="text-sm font-medium tabular-nums text-muted-foreground">
+								{formatUSD(caja.saldoUsd)}
+							</p>
+						)}
 					</div>
 					<div className="text-right text-sm">
 						<p className="text-muted-foreground">Este mes</p>

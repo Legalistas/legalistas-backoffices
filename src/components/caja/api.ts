@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { CAJA_ENDPOINT } from "@/constant/api-endpoints";
-import type { Caja, CajaMovimiento, CajaMovimientosResponse } from "@/types/caja";
+import type { Caja, CajaMoneda, CajaMovimiento, CajaMovimientosResponse } from "@/types/caja";
 
 export class CajaApiError extends Error {
 	constructor(
@@ -31,6 +31,24 @@ export async function cajaFetch<T>(
 
 const ars = new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" });
 export const formatARS = (n: number) => ars.format(n);
+
+const usd = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+export const formatUSD = (n: number) => `${n < 0 ? "-" : ""}US$ ${usd.format(Math.abs(n))}`;
+export const formatMonto = (n: number, moneda: CajaMoneda) =>
+	moneda === "USD" ? formatUSD(n) : formatARS(n);
+
+export const MONEDA_LABEL: Record<CajaMoneda, string> = { ARS: "Pesos", USD: "Dólares" };
+
+/** Compra o venta de dólares: las dos puntas del movimiento están en monedas distintas. */
+export const esCambio = (m: Pick<CajaMovimiento, "moneda" | "contraparte">) =>
+	!!m.contraparte && m.contraparte.moneda !== m.moneda;
+
+/** En una compra salen pesos y entran dólares; en una venta, al revés. */
+export const esCompraDeDolares = (m: Pick<CajaMovimiento, "moneda" | "tipo">) =>
+	(m.moneda === "ARS") === (m.tipo === "EGRESO");
+
+/** "1.454,55" o "1454.55" → 1454.55 (coma o punto como decimal, sin separador de miles). */
+export const leerNumero = (texto: string) => Number(texto.replace(",", "."));
 
 export const MESES = [
 	"Enero",
@@ -80,7 +98,7 @@ export async function traerTodosLosMovimientos(
 	filtros: URLSearchParams,
 ): Promise<CajaMovimientosResponse> {
 	const todos: CajaMovimiento[] = [];
-	let totales = { ingresos: 0, egresos: 0 };
+	let totales = { ingresos: 0, egresos: 0, ingresosUsd: 0, egresosUsd: 0 };
 	for (let page = 1; ; page++) {
 		const params = new URLSearchParams(filtros);
 		params.set("page", String(page));

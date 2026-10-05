@@ -1,14 +1,29 @@
 export type CajaGrupo = "PRINCIPAL" | "MONOTRIBUTO";
 export type CajaMovimientoTipo = "INGRESO" | "EGRESO";
 export type CajaRubroTipo = "INGRESO" | "EGRESO" | "AMBOS";
+/** La moneda va en cada movimiento: una misma caja tiene saldo en pesos y en dólares. */
+export type CajaMoneda = "ARS" | "USD";
+
+/** Dólar MEP del día (dolarapi.com), para pasar a pesos los saldos en dólares. */
+export interface CotizacionDolar {
+	casa: string;
+	compra: number;
+	venta: number;
+	/** YYYY-MM-DD */
+	fecha: string;
+	/** "guardada": la API no respondió y es la última conocida. */
+	origen: "dolarapi" | "guardada";
+}
 
 /** Los "Mes" son del mes pedido a la API (`?mes=YYYY-MM`). */
 export interface CajaTotales {
-	/** Saldo hoy. */
+	/** Saldo hoy, en pesos. */
 	saldo: number;
+	/** Saldo hoy, en dólares. */
+	saldoUsd: number;
 	/** Saldo al 1° del mes (arrastre del mes anterior). */
 	saldoApertura: number;
-	/** Ingresos y egresos reales del mes, sin transferencias entre cajas. */
+	/** Ingresos y egresos reales del mes, sin transferencias entre cajas ni compras/ventas de dólares. En pesos: los que son en dólares, al valor del día en que se cargaron. */
 	ingresosMes: number;
 	egresosMes: number;
 	transfEntradaMes: number;
@@ -24,6 +39,7 @@ export interface Caja extends CajaTotales {
 	ownerUserId: number | null;
 	owner: { id: number; name: string } | null;
 	saldoInicial: number;
+	saldoInicialUsd: number;
 	orden: number;
 	activa: boolean;
 	/** Agrupa sub-cajas: no recibe movimientos, su saldo es la suma de las hijas. */
@@ -38,6 +54,8 @@ export interface CajasResponse {
 	cajas: Caja[];
 	/** Caja General (solo admins). */
 	general: CajaTotales | null;
+	/** MEP del día; null si no se pudo consultar y no hay ninguna guardada. */
+	cotizacion: CotizacionDolar | null;
 }
 
 export interface CajaRubro {
@@ -54,7 +72,11 @@ export interface CajaMovimiento {
 	id: number;
 	cajaId: number;
 	tipo: CajaMovimientoTipo;
+	/** En la moneda de `moneda`. */
 	monto: number;
+	moneda: CajaMoneda;
+	/** Pesos por dólar: en una compra/venta, el de la operación; en un ingreso/egreso en dólares, el del día. */
+	cotizacion: number | null;
 	/** YYYY-MM-DD */
 	fecha: string;
 	rubroId: number | null;
@@ -85,11 +107,14 @@ export interface CajaMovimiento {
 	anuladoBy: { id: number; name: string } | null;
 	/** En transferencias: la caja de la otra punta. */
 	cajaContraparte: { id: number; nombre: string } | null;
+	/** La otra punta. Si su moneda es distinta, es una compra o venta de dólares. */
+	contraparte: { moneda: CajaMoneda; monto: number } | null;
 }
 
 export interface CajaMovimientosResponse {
 	data: CajaMovimiento[];
-	totales: { ingresos: number; egresos: number };
+	/** Cada moneda por separado: pesos y dólares no se suman entre sí. */
+	totales: { ingresos: number; egresos: number; ingresosUsd: number; egresosUsd: number };
 	pagination: { page: number; limit: number; total: number; totalPages: number };
 }
 

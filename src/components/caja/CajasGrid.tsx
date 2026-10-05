@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { Caja } from "@/types/caja";
-import { formatARS } from "./api";
+import { formatARS, formatUSD } from "./api";
 
 interface CajasGridProps {
 	cajas: Caja[];
@@ -43,6 +43,16 @@ function Saldo({ valor, className }: { valor: number; className?: string }) {
 	return (
 		<span className={cn("tabular-nums", valor < 0 && "text-red-600", className)}>
 			{formatARS(valor)}
+		</span>
+	);
+}
+
+/** Dólares de la caja; no se muestra si no tiene. */
+function SaldoUsd({ valor, className }: { valor: number; className?: string }) {
+	if (!valor) return null;
+	return (
+		<span className={cn("tabular-nums text-muted-foreground", valor < 0 && "text-red-600", className)}>
+			{formatUSD(valor)}
 		</span>
 	);
 }
@@ -95,6 +105,7 @@ export default function CajasGrid({
 								)}
 							</div>
 							<Saldo valor={caja.saldo} className="mt-2 block text-2xl font-semibold" />
+							<SaldoUsd valor={caja.saldoUsd} className="block text-sm font-medium" />
 							<div className="mt-1">
 								<MesResumen caja={caja} mesLabel={mesLabel} />
 							</div>
@@ -117,7 +128,10 @@ export default function CajasGrid({
 										)}
 									>
 										<span>{h.nombre}</span>
-										<Saldo valor={h.saldo} />
+										<span className="text-right">
+											<Saldo valor={h.saldo} className="block" />
+											<SaldoUsd valor={h.saldoUsd} className="block text-xs" />
+										</span>
 									</button>
 									{onEdit && <EditButton caja={h} onEdit={onEdit} />}
 								</div>

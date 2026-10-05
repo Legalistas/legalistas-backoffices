@@ -3,6 +3,7 @@
 import {
 	ArrowLeftRight,
 	Ban,
+	DollarSign,
 	FileDown,
 	FileSpreadsheet,
 	Loader2,
@@ -46,7 +47,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { exportarExcel, exportarPdf } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaMovimiento, CajaMovimientosResponse } from "@/types/caja";
-import { cajaFetch, formatARS, formatFecha, traerTodosLosMovimientos } from "./api";
+import {
+	cajaFetch,
+	esCambio,
+	esCompraDeDolares,
+	formatARS,
+	formatFecha,
+	formatMonto,
+	formatUSD,
+	traerTodosLosMovimientos,
+} from "./api";
 import { tablaMovimientos } from "./informes";
 import MovimientoDialog from "./MovimientoDialog";
 
@@ -68,6 +78,16 @@ interface MovimientosPanelProps {
 	rango?: { desde: string; hasta: string };
 	/** Para el nombre del informe ("septiembre 2026", "año 2026"). */
 	periodoLabel?: string;
+}
+
+/** En un ingreso o egreso en dólares, a cuánto se tomó el dólar. */
+function ValorDelDolar({ movimiento: m }: { movimiento: CajaMovimiento }) {
+	if (m.moneda !== "USD" || !m.cotizacion || m.transferenciaId) return null;
+	return (
+		<span className="block text-[11px] font-normal text-muted-foreground">
+			a {formatARS(m.cotizacion)}
+		</span>
+	);
 }
 
 function AnularDialog({
@@ -114,19 +134,23 @@ function AnularDialog({
 				<DialogHeader>
 					<DialogTitle>Anular movimiento</DialogTitle>
 					<DialogDescription>
-						{movimiento?.transferenciaId
-							? "Es una transferencia: se anulan las dos puntas."
-							: movimiento?.closingId
-								? "Es el cobro de un cierre: el cierre vuelve a Parcial o Pendiente y su fila de Gastos e Ingresos, a pendiente."
-								: movimiento?.scheduledTransactionId
-									? "Paga una fila de Gastos e Ingresos: la fila vuelve a pendiente."
-									: "El movimiento queda en el historial marcado como anulado y deja de sumar al saldo."}
+						{movimiento && esCambio(movimiento)
+							? "Es una compra o venta de dólares: se anulan las dos puntas (los pesos y los dólares)."
+							: movimiento?.transferenciaId
+								? "Es una transferencia: se anulan las dos puntas."
+								: movimiento?.closingId
+									? "Es el cobro de un cierre: el cierre vuelve a Parcial o Pendiente y su fila de Gastos e Ingresos, a pendiente."
+									: movimiento?.scheduledTransactionId
+										? "Paga una fila de Gastos e Ingresos: la fila vuelve a pendiente."
+										: "El movimiento queda en el historial marcado como anulado y deja de sumar al saldo."}
 					</DialogDescription>
 				</DialogHeader>
 				{movimiento && (
 					<p className="text-sm">
 						{formatFecha(movimiento.fecha)} · {movimiento.caja.nombre} ·{" "}
-						<span className="font-medium tabular-nums">{formatARS(movimiento.monto)}</span>
+						<span className="font-medium tabular-nums">
+							{formatMonto(movimiento.monto, movimiento.moneda)}
+						</span>
 					</p>
 				)}
 				<div className="space-y-2">
@@ -179,6 +203,7 @@ export default function MovimientosPanel({
 		setHasta(rangoHasta);
 	}, [rangoDesde, rangoHasta]);
 	const [tipo, setTipo] = useState("todos");
+	const [moneda, setMoneda] = useState("todas");
 	const [incluirAnulados, setIncluirAnulados] = useState(false);
 	const [page, setPage] = useState(1);
 	const [data, setData] = useState<CajaMovimientosResponse | null>(null);
@@ -190,7 +215,7 @@ export default function MovimientosPanel({
 	const [editOpen, setEditOpen] = useState(false);
 
 	// Al cambiar de caja o de filtros, volver a la primera página.
-	useEffect(() => setPage(1), [cajaId, desde, hasta, tipo, incluirAnulados]);
+	useEffect(() => setPage(1), [cajaId, desde, hasta, tipo, moneda, incluirAnulados]);
 
 	const cargar = useCallback(async () => {
 		if (!token) return;
@@ -200,6 +225,7 @@ export default function MovimientosPanel({
 		if (desde) params.set("desde", desde);
 		if (hasta) params.set("hasta", hasta);
 		if (tipo !== "todos") params.set("tipo", tipo);
+		if (moneda !== "todas") params.set("moneda", moneda);
 		if (incluirAnulados) params.set("incluirAnulados", "true");
 		try {
 			setData(await cajaFetch<CajaMovimientosResponse>(`/movimientos?${params}`, token));
@@ -208,7 +234,7 @@ export default function MovimientosPanel({
 		} finally {
 			setLoading(false);
 		}
-	}, [token, cajaId, desde, hasta, tipo, incluirAnulados, page, limit]);
+	}, [token, cajaId, desde, hasta, tipo, moneda, incluirAnulados, page, limit]);
 
 	useEffect(() => {
 		cargar();
@@ -223,6 +249,7 @@ export default function MovimientosPanel({
 			if (desde) params.set("desde", desde);
 			if (hasta) params.set("hasta", hasta);
 			if (tipo !== "todos") params.set("tipo", tipo);
+			if (moneda !== "todas") params.set("moneda", moneda);
 			if (incluirAnulados) params.set("incluirAnulados", "true");
 			const { data: movs, totales } = await traerTodosLosMovimientos(token, params);
 
@@ -236,7 +263,11 @@ export default function MovimientosPanel({
 			else
 				await exportarPdf(archivo, {
 					titulo,
-					subtitulo: `${rangoTexto} · Neto ${formatARS(totales.ingresos - totales.egresos)}`,
+					subtitulo: `${rangoTexto} · Neto ${formatARS(totales.ingresos - totales.egresos)}${
+						totales.ingresosUsd || totales.egresosUsd
+							? ` · Neto en dólares ${formatUSD(totales.ingresosUsd - totales.egresosUsd)}`
+							: ""
+					}`,
 					tablas: [tabla],
 					horizontal: true,
 				});
@@ -316,6 +347,19 @@ export default function MovimientosPanel({
 							</SelectContent>
 						</Select>
 					</div>
+					<div className="space-y-1">
+						<Label className="text-xs text-muted-foreground">Moneda</Label>
+						<Select value={moneda} onValueChange={setMoneda}>
+							<SelectTrigger className="h-9 w-32">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="todas">Todas</SelectItem>
+								<SelectItem value="ARS">Pesos</SelectItem>
+								<SelectItem value="USD">Dólares</SelectItem>
+							</SelectContent>
+						</Select>
+					</div>
 					<Label className="flex h-9 items-center gap-2 text-sm font-normal">
 						<Checkbox
 							checked={incluirAnulados}
@@ -323,7 +367,7 @@ export default function MovimientosPanel({
 						/>
 						Ver anulados
 					</Label>
-					{(desde || hasta || tipo !== "todos") && (
+					{(desde || hasta || tipo !== "todos" || moneda !== "todas") && (
 						<Button
 							variant="ghost"
 							size="sm"
@@ -331,6 +375,7 @@ export default function MovimientosPanel({
 								setDesde("");
 								setHasta("");
 								setTipo("todos");
+								setMoneda("todas");
 							}}
 						>
 							Limpiar
@@ -371,7 +416,12 @@ export default function MovimientosPanel({
 										<TableCell className="whitespace-nowrap">{m.caja.nombre}</TableCell>
 									)}
 									<TableCell>
-										{m.transferenciaId ? (
+										{esCambio(m) ? (
+											<Badge variant="secondary" className="gap-1">
+												<DollarSign className="h-3 w-3" />
+												{esCompraDeDolares(m) ? "Compra de dólares" : "Venta de dólares"}
+											</Badge>
+										) : m.transferenciaId ? (
 											<Badge variant="secondary" className="gap-1">
 												<ArrowLeftRight className="h-3 w-3" />
 												{m.tipo === "EGRESO" ? "A" : "Desde"}{" "}
@@ -432,11 +482,13 @@ export default function MovimientosPanel({
 									<TableCell className="whitespace-nowrap text-muted-foreground">
 										{m.createdBy.name}
 									</TableCell>
-									<TableCell className="text-right tabular-nums text-emerald-600">
-										{m.tipo === "INGRESO" ? formatARS(m.monto) : ""}
+									<TableCell className="whitespace-nowrap text-right tabular-nums text-emerald-600">
+										{m.tipo === "INGRESO" ? formatMonto(m.monto, m.moneda) : ""}
+										{m.tipo === "INGRESO" && <ValorDelDolar movimiento={m} />}
 									</TableCell>
-									<TableCell className="text-right tabular-nums text-red-600">
-										{m.tipo === "EGRESO" ? formatARS(m.monto) : ""}
+									<TableCell className="whitespace-nowrap text-right tabular-nums text-red-600">
+										{m.tipo === "EGRESO" ? formatMonto(m.monto, m.moneda) : ""}
+										{m.tipo === "EGRESO" && <ValorDelDolar movimiento={m} />}
 									</TableCell>
 									{esAdmin && (
 										<TableCell>
@@ -489,6 +541,17 @@ export default function MovimientosPanel({
 								+{formatARS(data.totales.ingresos)}
 							</span>{" "}
 							<span className="text-red-600 tabular-nums">−{formatARS(data.totales.egresos)}</span>
+							{(data.totales.ingresosUsd > 0 || data.totales.egresosUsd > 0) && (
+								<>
+									{" · en dólares: "}
+									<span className="text-emerald-600 tabular-nums">
+										+{formatUSD(data.totales.ingresosUsd)}
+									</span>{" "}
+									<span className="text-red-600 tabular-nums">
+										−{formatUSD(data.totales.egresosUsd)}
+									</span>
+								</>
+							)}
 						</p>
 						{pagination && pagination.totalPages > 1 && (
 							<div className="flex items-center gap-2">

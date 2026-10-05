@@ -17,6 +17,8 @@ export interface TablaInforme {
 	totales?: Celda[];
 	/** Índices de las columnas con montos en pesos (formato $ y alineadas a la derecha). */
 	montos?: number[];
+	/** Índices de las columnas con montos en dólares (formato US$). */
+	montosUsd?: number[];
 }
 
 /** Un total destacado arriba del informe en PDF ("Saldo", "Ingresos"…). */
@@ -33,7 +35,7 @@ export interface OpcionesPdf {
 	subtitulo?: string;
 	tablas: TablaInforme[];
 	horizontal?: boolean;
-	/** Hasta 4 totales en tarjetas, debajo del encabezado. */
+	/** Hasta 5 totales en tarjetas, debajo del encabezado. */
 	resumen?: DatoResumen[];
 }
 
@@ -42,6 +44,11 @@ const pesos = new Intl.NumberFormat("es-AR", {
 	currency: "ARS",
 	minimumFractionDigits: 2,
 });
+const dosDecimales = new Intl.NumberFormat("es-AR", {
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 2,
+});
+const dolares = (n: number) => `${n < 0 ? "-" : ""}US$ ${dosDecimales.format(Math.abs(n))}`;
 
 /** "Caja General septiembre 2026" → "Caja_General_septiembre_2026". */
 const nombreArchivo = (s: string) =>
@@ -60,12 +67,18 @@ export async function exportarExcel(archivo: string, tablas: TablaInforme[]): Pr
 		const aoa: Celda[][] = [t.columnas, ...t.filas, ...(t.totales ? [t.totales] : [])];
 		const hoja = XLSX.utils.aoa_to_sheet(aoa);
 
-		// Montos como número con formato de pesos (se pueden sumar en Excel).
-		for (const c of t.montos ?? []) {
-			for (let r = 1; r < aoa.length; r++) {
-				const ref = XLSX.utils.encode_cell({ r, c });
-				const celda = hoja[ref];
-				if (celda && typeof celda.v === "number") celda.z = '"$" #,##0.00';
+		// Montos como número con formato de moneda (se pueden sumar en Excel).
+		const formatos: [number[], string][] = [
+			[t.montos ?? [], '"$" #,##0.00'],
+			[t.montosUsd ?? [], '"US$" #,##0.00'],
+		];
+		for (const [columnas, formato] of formatos) {
+			for (const c of columnas) {
+				for (let r = 1; r < aoa.length; r++) {
+					const ref = XLSX.utils.encode_cell({ r, c });
+					const celda = hoja[ref];
+					if (celda && typeof celda.v === "number") celda.z = formato;
+				}
 			}
 		}
 		hoja["!cols"] = t.columnas.map((col, i) => ({
@@ -188,7 +201,7 @@ export function armarPdf(
 	let y = ALTO_BANDA + 10;
 
 	// Totales en tarjetas.
-	const resumen = (opciones.resumen ?? []).slice(0, 4);
+	const resumen = (opciones.resumen ?? []).slice(0, 5);
 	if (resumen.length > 0) {
 		const separacion = 4;
 		const anchoTarjeta = (util - separacion * (resumen.length - 1)) / resumen.length;
@@ -209,10 +222,13 @@ export function armarPdf(
 
 	for (const t of opciones.tablas) {
 		const montos = new Set(t.montos ?? []);
+		const montosUsd = new Set(t.montosUsd ?? []);
 		const formatear = (fila: Celda[]) =>
-			fila.map((v, i) =>
-				montos.has(i) && typeof v === "number" ? pesos.format(v) : String(v ?? ""),
-			);
+			fila.map((v, i) => {
+				if (typeof v !== "number") return String(v ?? "");
+				if (montos.has(i)) return pesos.format(v);
+				return montosUsd.has(i) ? dolares(v) : String(v);
+			});
 
 		// Si la sección arrancaría al pie de la hoja, pasa a la siguiente.
 		if (y > alto - 38) {
@@ -261,7 +277,8 @@ export function armarPdf(
 			footStyles: { fillColor: [222, 242, 245], textColor: TINTA, fontStyle: "bold" },
 			// Los montos a la derecha, también en el encabezado y en los totales.
 			didParseCell: (celda) => {
-				if (montos.has(celda.column.index) && celda.cell.colSpan === 1) {
+				const esMonto = montos.has(celda.column.index) || montosUsd.has(celda.column.index);
+				if (esMonto && celda.cell.colSpan === 1) {
 					celda.cell.styles.halign = "right";
 				}
 			},

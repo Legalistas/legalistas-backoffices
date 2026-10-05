@@ -2,6 +2,7 @@
 
 import {
 	ArrowLeftRight,
+	DollarSign,
 	FileDown,
 	FileSpreadsheet,
 	Landmark,
@@ -30,10 +31,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CAJA_GRUPO_LABEL } from "@/constant/caja";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaGrupo } from "@/types/caja";
-import { aplanarCajas, cajasOperables, formatARS, MESES, mesParam, rangoPeriodo } from "./api";
+import {
+	aplanarCajas,
+	cajasOperables,
+	formatARS,
+	formatUSD,
+	MESES,
+	mesParam,
+	rangoPeriodo,
+} from "./api";
 import CajaEditDialog from "./CajaEditDialog";
 import CajaGeneralPanel from "./CajaGeneralPanel";
 import CajasGrid from "./CajasGrid";
+import CambioDialog from "./CambioDialog";
 import { exportarInformeCaja } from "./informes";
 import MovimientoDialog from "./MovimientoDialog";
 import MovimientosPanel from "./MovimientosPanel";
@@ -52,11 +62,14 @@ function Kpi({
 	valor,
 	icon: Icon,
 	color,
+	detalle,
 }: {
 	titulo: string;
 	valor: number;
 	icon: typeof Landmark;
 	color: string;
+	/** Aclaración debajo del monto (cómo se compone). */
+	detalle?: string;
 }) {
 	return (
 		<Card className={cn("border-l-4 py-4", color)}>
@@ -66,8 +79,9 @@ function Kpi({
 					<p className={cn("text-2xl font-semibold tabular-nums", valor < 0 && "text-red-600")}>
 						{formatARS(valor)}
 					</p>
+					{detalle && <p className="mt-0.5 text-xs text-muted-foreground">{detalle}</p>}
 				</div>
-				<Icon className="h-6 w-6 text-muted-foreground" />
+				<Icon className="h-6 w-6 shrink-0 text-muted-foreground" />
 			</CardContent>
 		</Card>
 	);
@@ -208,6 +222,7 @@ export default function CajaPage() {
 	const [version, setVersion] = useState(0);
 	const [movOpen, setMovOpen] = useState(false);
 	const [trOpen, setTrOpen] = useState(false);
+	const [cambioOpen, setCambioOpen] = useState(false);
 	const [monoOpen, setMonoOpen] = useState(false);
 	const [exportando, setExportando] = useState<"xlsx" | "pdf" | null>(null);
 
@@ -270,7 +285,17 @@ export default function CajaPage() {
 		);
 	}
 
-	const { esAdmin, cajas, general } = data;
+	const { esAdmin, cajas, general, cotizacion } = data;
+	// Dólares de todas las cajas, pasados a pesos al MEP del día. Si no hay
+	// cotización, la Caja General muestra solo los pesos y los dólares aparte.
+	const dolares = general?.saldoUsd ?? 0;
+	const dolaresEnPesos = cotizacion ? dolares * cotizacion.venta : 0;
+	const detalleGeneral =
+		general && dolares !== 0
+			? cotizacion
+				? `${formatARS(general.saldo)} + ${formatUSD(dolares)} a ${formatARS(cotizacion.venta)} (MEP)`
+				: `Más ${formatUSD(dolares)} (sin cotización para pasarlos a pesos)`
+			: undefined;
 	const cajasDe = (g: CajaGrupo) => cajas.filter((c) => c.grupo === g);
 
 	return (
@@ -321,10 +346,16 @@ export default function CajaPage() {
 						Exportar PDF
 					</Button>
 					{esAdmin && (
-						<Button variant="outline" onClick={() => setTrOpen(true)}>
-							<ArrowLeftRight className="mr-2 h-4 w-4" />
-							Transferencia
-						</Button>
+						<>
+							<Button variant="outline" onClick={() => setCambioOpen(true)}>
+								<DollarSign className="mr-2 h-4 w-4" />
+								Comprar / vender dólares
+							</Button>
+							<Button variant="outline" onClick={() => setTrOpen(true)}>
+								<ArrowLeftRight className="mr-2 h-4 w-4" />
+								Transferencia
+							</Button>
+						</>
 					)}
 					<Button onClick={() => setMovOpen(true)} disabled={operables.length === 0}>
 						<Plus className="mr-2 h-4 w-4" />
@@ -337,9 +368,10 @@ export default function CajaPage() {
 				<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 					<Kpi
 						titulo="Caja General"
-						valor={general.saldo}
+						valor={general.saldo + dolaresEnPesos}
 						icon={Landmark}
 						color="border-l-primary"
+						detalle={detalleGeneral}
 					/>
 					<Kpi
 						titulo={anual ? `Ingresos ${year}` : "Ingresos del mes"}
@@ -458,6 +490,15 @@ export default function CajaPage() {
 			/>
 			{esAdmin && (
 				<>
+					<CambioDialog
+						open={cambioOpen}
+						onOpenChange={setCambioOpen}
+						token={token}
+						cajas={operables}
+						cotizacion={cotizacion}
+						defaultCajaId={operableSel}
+						onSaved={refrescar}
+					/>
 					<TransferenciaDialog
 						open={trOpen}
 						onOpenChange={setTrOpen}

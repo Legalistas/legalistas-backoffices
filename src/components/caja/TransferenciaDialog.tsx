@@ -22,8 +22,9 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { Caja } from "@/types/caja";
-import { cajaFetch, formatARS, hoyISO } from "./api";
+import { cn } from "@/lib/utils";
+import type { Caja, CajaMoneda } from "@/types/caja";
+import { cajaFetch, formatMonto, hoyISO, leerNumero, MONEDA_LABEL } from "./api";
 
 interface TransferenciaDialogProps {
 	open: boolean;
@@ -74,12 +75,14 @@ export default function TransferenciaDialog({
 	const [origenId, setOrigenId] = useState("");
 	const [destinoId, setDestinoId] = useState("");
 	const [monto, setMonto] = useState("");
+	const [moneda, setMoneda] = useState<CajaMoneda>("ARS");
 	const [fecha, setFecha] = useState(hoyISO());
 	const [descripcion, setDescripcion] = useState("");
 	const [saving, setSaving] = useState(false);
 
 	useEffect(() => {
 		if (!open) return;
+		setMoneda("ARS");
 		setOrigenId("");
 		setDestinoId("");
 		setMonto("");
@@ -88,8 +91,10 @@ export default function TransferenciaDialog({
 	}, [open]);
 
 	const origen = cajas.find((c) => String(c.caja.id) === origenId)?.caja;
-	const montoNum = Number(monto.replace(",", "."));
-	const quedaNegativo = origen && montoNum > 0 && origen.saldo - montoNum < 0;
+	const montoNum = leerNumero(monto);
+	// Cada caja tiene un saldo por moneda: se mira el de la moneda elegida.
+	const saldoOrigen = origen ? (moneda === "USD" ? origen.saldoUsd : origen.saldo) : 0;
+	const quedaNegativo = origen && montoNum > 0 && saldoOrigen - montoNum < 0;
 
 	const guardar = async () => {
 		if (!origenId || !destinoId || !fecha || !(montoNum > 0)) {
@@ -104,6 +109,7 @@ export default function TransferenciaDialog({
 					origenId: Number(origenId),
 					destinoId: Number(destinoId),
 					monto: montoNum,
+					moneda,
 					fecha,
 					descripcion,
 				},
@@ -124,12 +130,25 @@ export default function TransferenciaDialog({
 				<DialogHeader>
 					<DialogTitle>Transferencia entre cajas</DialogTitle>
 					<DialogDescription>
-						Saca el monto de una caja y lo suma en otra. No cuenta como ingreso ni egreso en la Caja
-						General.
+						Saca el monto de una caja y lo suma en otra, en pesos o en dólares. No cuenta como
+						ingreso ni egreso en la Caja General.
 					</DialogDescription>
 				</DialogHeader>
 
 				<div className="space-y-4">
+					<div className="grid grid-cols-2 gap-2">
+						{(["ARS", "USD"] as const).map((m) => (
+							<Button
+								key={m}
+								type="button"
+								variant="outline"
+								onClick={() => setMoneda(m)}
+								className={cn(moneda === m && "border-primary bg-primary/10 text-primary")}
+							>
+								{MONEDA_LABEL[m]}
+							</Button>
+						))}
+					</div>
 					<div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
 						<div className="space-y-2">
 							<Label>Desde</Label>
@@ -156,13 +175,13 @@ export default function TransferenciaDialog({
 					{origen && (
 						<p className="text-xs text-muted-foreground">
 							Saldo de {origen.nombre}:{" "}
-							<span className="tabular-nums">{formatARS(origen.saldo)}</span>
+							<span className="tabular-nums">{formatMonto(saldoOrigen, moneda)}</span>
 						</p>
 					)}
 
 					<div className="grid grid-cols-2 gap-3">
 						<div className="space-y-2">
-							<Label htmlFor="tr-monto">Monto</Label>
+							<Label htmlFor="tr-monto">{moneda === "USD" ? "Monto en dólares" : "Monto"}</Label>
 							<Input
 								id="tr-monto"
 								inputMode="decimal"
@@ -182,7 +201,9 @@ export default function TransferenciaDialog({
 						</div>
 					</div>
 					{quedaNegativo && (
-						<p className="text-xs text-amber-600">Ojo: {origen.nombre} queda con saldo negativo.</p>
+						<p className="text-xs text-amber-600">
+							Ojo: {origen.nombre} queda con saldo negativo{moneda === "USD" ? " en dólares" : ""}.
+						</p>
 					)}
 
 					<div className="space-y-2">

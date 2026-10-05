@@ -16,9 +16,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { Caja } from "@/types/caja";
-import { cajaFetch } from "./api";
+import { cajaFetch, leerNumero } from "./api";
 
-/** Admins: nombre, saldo inicial (con el que arranca la caja) y activa. */
+/** Admins: nombre, saldo inicial en pesos y en dólares (con los que arranca la caja) y activa. */
 export default function CajaEditDialog({
 	caja,
 	onClose,
@@ -32,6 +32,7 @@ export default function CajaEditDialog({
 }) {
 	const [nombre, setNombre] = useState("");
 	const [saldoInicial, setSaldoInicial] = useState("");
+	const [saldoInicialUsd, setSaldoInicialUsd] = useState("");
 	const [activa, setActiva] = useState(true);
 	const [saving, setSaving] = useState(false);
 
@@ -39,6 +40,7 @@ export default function CajaEditDialog({
 		if (!caja) return;
 		setNombre(caja.nombre);
 		setSaldoInicial(String(caja.saldoInicial).replace(".", ","));
+		setSaldoInicialUsd(String(caja.saldoInicialUsd).replace(".", ","));
 		setActiva(caja.activa);
 	}, [caja]);
 
@@ -48,8 +50,9 @@ export default function CajaEditDialog({
 			return;
 		}
 		// Igual que el monto: coma o punto como decimal, sin separador de miles.
-		const saldo = Number(saldoInicial.replace(",", ".") || 0);
-		if (!Number.isFinite(saldo)) {
+		const saldo = leerNumero(saldoInicial || "0");
+		const saldoUsd = leerNumero(saldoInicialUsd || "0");
+		if (!Number.isFinite(saldo) || !Number.isFinite(saldoUsd)) {
 			toast.error("Saldo inicial inválido");
 			return;
 		}
@@ -57,7 +60,9 @@ export default function CajaEditDialog({
 		try {
 			await cajaFetch(`/cajas/${caja.id}`, token, {
 				method: "PUT",
-				json: caja.esContenedora ? { nombre, activa } : { nombre, activa, saldoInicial: saldo },
+				json: caja.esContenedora
+					? { nombre, activa }
+					: { nombre, activa, saldoInicial: saldo, saldoInicialUsd: saldoUsd },
 			});
 			toast.success("Caja actualizada");
 			onClose();
@@ -96,6 +101,20 @@ export default function CajaEditDialog({
 							/>
 							<p className="text-xs text-muted-foreground">
 								El saldo con el que arranca la caja. Se suma a los movimientos.
+							</p>
+						</div>
+					)}
+					{!caja?.esContenedora && (
+						<div className="space-y-2">
+							<Label htmlFor="caja-saldo-inicial-usd">Saldo inicial en dólares</Label>
+							<Input
+								id="caja-saldo-inicial-usd"
+								inputMode="decimal"
+								value={saldoInicialUsd}
+								onChange={(e) => setSaldoInicialUsd(e.target.value.replace(/[^d.,-]/g, ""))}
+							/>
+							<p className="text-xs text-muted-foreground">
+								Los dólares que ya había en la cuenta. Dejalo en 0 si no tenía.
 							</p>
 						</div>
 					)}
