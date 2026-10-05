@@ -3,11 +3,8 @@
 import {
 	AlertCircle,
 	ArrowDownCircle,
-	ArrowDownRight,
 	ArrowRight,
-	ArrowRightLeft,
 	ArrowUpCircle,
-	ArrowUpRight,
 	Ban,
 	Calendar,
 	Check,
@@ -32,7 +29,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-	CASH_ENDPOINT,
 	LEAVE_APPROVE_ENDPOINT,
 	LEAVE_REJECT_ENDPOINT,
 	LEAVES_BY_USER_ENDPOINT,
@@ -40,10 +36,8 @@ import {
 	SCHEDULED_TX_SUMMARY_ENDPOINT,
 	USERS_ENDPOINT,
 } from "@/constant/api-endpoints";
-import { MOVEMENTS } from "@/constant/cash";
 import { Role } from "@/constant/user";
 import { apiErrorMessage } from "@/lib/api-error";
-import type { Transaction } from "@/types/cash";
 import type {
 	ScheduledSummary,
 	ScheduledTransaction,
@@ -70,16 +64,6 @@ const typeLabel: Record<string, string> = {
 	PATERNITY: "Paternidad",
 	UNPAID: "Sin goce",
 	OTHER: "Otra",
-};
-
-const getSubtypeLabel = (type: string, subtype: string): string => {
-	const movement = MOVEMENTS.find((m) => m.value === type);
-	if (movement?.subMovements?.length) {
-		const sm = movement.subMovements.find((s) => s.value === subtype);
-		if (sm) return sm.label;
-	}
-	// Fallback al label del tipo (ej. "Transferencia") cuando no hay submovimiento.
-	return movement?.label ?? subtype;
 };
 
 interface PendingLeave {
@@ -112,7 +96,6 @@ export default function AccountingDashboard() {
 	);
 	const [pendingLeaves, setPendingLeaves] = useState<PendingLeave[]>([]);
 	const [activeLeaves, setActiveLeaves] = useState<ActiveLeave[]>([]);
-	const [recentMovements, setRecentMovements] = useState<Transaction[]>([]);
 	const [actingId, setActingId] = useState<number | null>(null);
 	const [upcomingIncomes, setUpcomingIncomes] = useState<ScheduledTransaction[]>(
 		[],
@@ -141,12 +124,9 @@ export default function AccountingDashboard() {
 			const horizonEndStr = horizonEnd.toISOString().slice(0, 10);
 			const todayStr = new Date().toISOString().slice(0, 10);
 
-			const [usersRes, cashRes, scheduledRes, scheduledSummaryRes] =
+			const [usersRes, scheduledRes, scheduledSummaryRes] =
 				await Promise.all([
 					fetch(`${USERS_ENDPOINT}?limit=500`, {
-						headers: { Authorization: `Bearer ${token}` },
-					}),
-					fetch(CASH_ENDPOINT, {
 						headers: { Authorization: `Bearer ${token}` },
 					}),
 					fetch(
@@ -203,18 +183,6 @@ export default function AccountingDashboard() {
 				if (isRep) repIds.add(u.id);
 			}
 			setRepresentativeIds(repIds);
-
-			if (cashRes.ok) {
-				const cashJson = await cashRes.json();
-				const txs = (
-					Array.isArray(cashJson.transactions) ? cashJson.transactions : []
-				) as Transaction[];
-				const sorted = [...txs].sort(
-					(a, b) =>
-						new Date(b.date).getTime() - new Date(a.date).getTime(),
-				);
-				setRecentMovements(sorted.slice(0, 8));
-			}
 
 			const withEmployment = mapped.filter((e) => e.employment);
 			const leavesByUser = await Promise.all(
@@ -627,85 +595,7 @@ export default function AccountingDashboard() {
 				</CardContent>
 			</Card>
 
-			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				<Card>
-					<CardHeader>
-						<div className="flex items-center justify-between">
-							<CardTitle className="text-base flex items-center gap-2">
-								<Receipt className="size-5 text-primary" />
-								Últimos movimientos · Caja Principal
-							</CardTitle>
-						</div>
-					</CardHeader>
-					<CardContent>
-						{loading ? (
-							<div className="space-y-3">
-								{[1, 2, 3, 4].map((i) => (
-									<Skeleton key={i} className="h-12 w-full" />
-								))}
-							</div>
-						) : recentMovements.length === 0 ? (
-							<div className="text-center py-6 text-sm text-muted-foreground">
-								Sin movimientos registrados
-							</div>
-						) : (
-							<div className="divide-y divide-border">
-								{recentMovements.map((t) => {
-									const isIncome = t.type === "income";
-									const isExpense = t.type === "expense";
-									const sign = isIncome ? "+" : isExpense ? "−" : "";
-									const colorClass = isIncome
-										? "text-emerald-600"
-										: isExpense
-											? "text-destructive"
-											: "text-muted-foreground";
-									const Icon = isIncome
-										? ArrowUpRight
-										: isExpense
-											? ArrowDownRight
-											: ArrowRightLeft;
-									return (
-										<div
-											key={t.id}
-											className="flex items-center justify-between gap-3 py-2.5 first:pt-0 last:pb-0"
-										>
-											<div className="flex items-center gap-2 min-w-0 flex-1">
-												<div
-													className={`size-8 rounded-full bg-muted flex items-center justify-center shrink-0 ${colorClass}`}
-												>
-													<Icon className="size-4" />
-												</div>
-												<div className="min-w-0 flex-1">
-													<div className="flex items-center gap-2 flex-wrap">
-														<p className="text-sm font-medium truncate">
-															{getSubtypeLabel(t.type, t.subtype)}
-														</p>
-														<span className="text-[10px] text-muted-foreground">
-															{formatDay(t.date)}
-														</span>
-													</div>
-													{(t.description || t.user?.name) && (
-														<p className="text-xs text-muted-foreground truncate">
-															{t.user?.name}
-															{t.description ? ` · ${t.description}` : ""}
-														</p>
-													)}
-												</div>
-											</div>
-											<p
-												className={`text-sm font-semibold tabular-nums shrink-0 ${colorClass}`}
-											>
-												{sign}
-												{formatCurrency(Math.abs(Number(t.amount) || 0))}
-											</p>
-										</div>
-									);
-								})}
-							</div>
-						)}
-					</CardContent>
-				</Card>
-
+			<div className="grid grid-cols-1 gap-6">
 				<Card>
 					<CardHeader>
 						<div className="flex items-center justify-between">

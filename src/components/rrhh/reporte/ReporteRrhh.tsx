@@ -1,7 +1,6 @@
 "use client";
 
 import {
-	Clock,
 	FileDown,
 	FileSpreadsheet,
 	Loader2,
@@ -53,8 +52,10 @@ import { armarTablas, nombreMesCorto, type SeccionKey } from "./tablas";
 import type { ReporteRrhhData, TipoLicencia } from "./types";
 
 // Centro de información de RR.HH.: equipo interno y representantes, altas y
-// bajas, vacaciones, licencias, asistencia, legajo y costo laboral (este
-// último solo para quienes administran RR.HH.). Todo sale de GET /rrhh/reporte.
+// bajas, vacaciones, licencias y costo laboral (este último solo para quienes
+// administran RR.HH.). Todo sale de GET /rrhh/reporte.
+// Asistencia y legajo quedaron fuera de la pantalla el 05/10/2026 (las tablas
+// se siguen armando en tablas.ts; alcanza con volver a listarlas en SECCIONES).
 
 const TODAS = "todas";
 const hoy = new Date();
@@ -91,9 +92,7 @@ const SECCIONES: { key: SeccionKey; label: string }[] = [
 	{ key: "personas", label: "Personas" },
 	{ key: "vacaciones", label: "Vacaciones" },
 	{ key: "licencias", label: "Licencias" },
-	{ key: "asistencia", label: "Asistencia" },
 	{ key: "costos", label: "Costos" },
-	{ key: "legajo", label: "Legajo" },
 ];
 
 function Tarjeta({
@@ -269,7 +268,6 @@ export default function ReporteRrhh() {
 			diasEnfermedad: diasTipo("SICK"),
 			vacDisponibles: activos.reduce((s, p) => s + Math.max(0, p.vacaciones.disponibles ?? 0), 0),
 			vacPedidas: activos.reduce((s, p) => s + p.vacaciones.pedidos, 0),
-			horas: personas.reduce((s, p) => s + p.asistencia.horas, 0),
 			costo: personas.reduce((s, p) => s + (p.costos?.total ?? 0), 0),
 			pagado: personas.reduce((s, p) => s + (p.costos?.pagado ?? 0), 0),
 			pendiente: personas.reduce((s, p) => s + (p.costos?.pendiente ?? 0), 0),
@@ -347,7 +345,6 @@ export default function ReporteRrhh() {
 						["Días de licencia", resumen.diasLicencia],
 						["Días por enfermedad", resumen.diasEnfermedad],
 						["Vacaciones disponibles (días)", resumen.vacDisponibles],
-						["Horas registradas", Math.round(resumen.horas * 100) / 100],
 						...(verCostos
 							? ([
 									["Costo laboral", resumen.costo],
@@ -379,8 +376,8 @@ export default function ReporteRrhh() {
 				<div>
 					<h1 className="text-2xl font-bold text-foreground">Reporte de RR.HH.</h1>
 					<p className="text-muted-foreground">
-						Equipo interno y representantes: vacaciones, licencias, asistencia, legajo
-						{verCostos ? " y costo laboral" : ""}
+						Equipo interno y representantes: vacaciones
+						{verCostos ? ", licencias y costo laboral" : " y licencias"}
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
@@ -496,7 +493,7 @@ export default function ReporteRrhh() {
 			</Card>
 
 			{/* Indicadores */}
-			<div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+			<div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
 				<Tarjeta
 					icon={Users}
 					titulo="Personas activas"
@@ -528,13 +525,6 @@ export default function ReporteRrhh() {
 							: "Sin pedidos pendientes"
 					}
 					color="border-l-sky-500"
-				/>
-				<Tarjeta
-					icon={Clock}
-					titulo="Horas registradas"
-					valor={Math.round(resumen.horas).toLocaleString("es-AR")}
-					detalle="Asistencia del período"
-					color="border-l-cyan-500"
 				/>
 				{verCostos ? (
 					<Tarjeta
