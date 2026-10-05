@@ -58,6 +58,11 @@ export const PAYROLLS_BY_USER_ENDPOINT = (userId: number) =>
 	`${API_BASE_URL}/employment/${userId}/payrolls`;
 export const PAYROLL_BY_ID_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/payrolls/${id}`;
+// El recibo armado por el sistema: HTML para la vista previa y el PDF.
+export const PAYROLL_RECIBO_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/payrolls/${id}/recibo`;
+export const PAYROLL_RECIBO_PDF_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/payrolls/${id}/recibo/pdf`;
 
 // RRHH — Legajo disciplinario
 export const DISCIPLINARY_BY_USER_ENDPOINT = (userId: number) =>

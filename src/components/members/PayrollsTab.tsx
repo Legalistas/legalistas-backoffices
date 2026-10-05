@@ -4,6 +4,7 @@ import {
 	CheckCircle2,
 	Clock,
 	DollarSign,
+	FileText,
 	Loader2,
 	Pencil,
 	Plus,
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 import PagarProgramadoDialog from "@/components/caja/PagarProgramadoDialog";
 import Adjuntos from "@/components/rrhh/Adjuntos";
 import { useDocumentos, useEsRrhhAdmin } from "@/components/rrhh/api";
+import ReciboPreviewDialog from "@/components/rrhh/ReciboPreviewDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -171,6 +173,8 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [pagar, setPagar] = useState<number | null>(null);
+	// Recibo abierto en la vista previa (el PDF que arma el sistema).
+	const [verRecibo, setVerRecibo] = useState<Payroll | null>(null);
 
 	const token = session?.user?.accessToken;
 	// El costo (con cargas del empleador) lo ve RR.HH.; la persona ve su neto y bruto.
@@ -723,28 +727,39 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 									/>
 								</div>
 							</div>
-							{esAdmin && (
-								<div className="flex items-center gap-0.5 shrink-0">
-									<Button
-										size="icon"
-										variant="ghost"
-										onClick={() => openEditForm(p)}
-										title="Editar"
-										className="h-8 w-8"
-									>
-										<Pencil className="h-3.5 w-3.5" />
-									</Button>
-									<Button
-										size="icon"
-										variant="ghost"
-										onClick={() => handleDelete(p)}
-										title="Eliminar"
-										className="h-8 w-8 text-destructive hover:text-destructive"
-									>
-										<Trash2 className="h-3.5 w-3.5" />
-									</Button>
-								</div>
-							)}
+							<div className="flex items-center gap-0.5 shrink-0">
+								<Button
+									size="sm"
+									variant="outline"
+									onClick={() => setVerRecibo(p)}
+									className="h-8 px-2.5 text-xs"
+								>
+									<FileText className="h-3.5 w-3.5 mr-1" />
+									Ver recibo
+								</Button>
+								{esAdmin && (
+									<>
+										<Button
+											size="icon"
+											variant="ghost"
+											onClick={() => openEditForm(p)}
+											title="Editar"
+											className="h-8 w-8"
+										>
+											<Pencil className="h-3.5 w-3.5" />
+										</Button>
+										<Button
+											size="icon"
+											variant="ghost"
+											onClick={() => handleDelete(p)}
+											title="Eliminar"
+											className="h-8 w-8 text-destructive hover:text-destructive"
+										>
+											<Trash2 className="h-3.5 w-3.5" />
+										</Button>
+									</>
+								)}
+							</div>
 						</div>
 					))}
 				</div>
@@ -757,6 +772,11 @@ export default function PayrollsTab({ userId }: PayrollsTabProps) {
 					setPagar(null);
 					loadPayrolls();
 				}}
+			/>
+			<ReciboPreviewDialog
+				payrollId={verRecibo?.id ?? null}
+				periodo={verRecibo ? periodLabel(verRecibo.period) : undefined}
+				onClose={() => setVerRecibo(null)}
 			/>
 		</div>
 	);
