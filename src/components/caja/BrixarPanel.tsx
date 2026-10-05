@@ -1,6 +1,6 @@
 "use client";
 
-import { FileSpreadsheet, Link2Off, RefreshCw } from "lucide-react";
+import { FileDown, FileSpreadsheet, Link2Off, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { exportarExcel, type TablaInforme } from "@/lib/exportar";
+import { exportarExcel, exportarPdf, type TablaInforme } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import { cajaFetch, formatARS, formatFecha } from "./api";
 
@@ -137,7 +137,7 @@ export default function BrixarPanel({
 		cargar();
 	}, [cargar]);
 
-	const exportar = async () => {
+	const exportar = async (formato: "xlsx" | "pdf") => {
 		if (!datos) return;
 		const tablas: TablaInforme[] = datos.cajas.map((c) => ({
 			titulo: c.nombre,
@@ -155,7 +155,15 @@ export default function BrixarPanel({
 			montos: [6],
 		}));
 		try {
-			await exportarExcel(`Brixar cajas Agustín ${periodoLabel}`, tablas);
+			const archivo = `Brixar cajas Agustín ${periodoLabel}`;
+			if (formato === "xlsx") await exportarExcel(archivo, tablas);
+			else
+				await exportarPdf(archivo, {
+					titulo: "Brixar · cajas de Agustín",
+					subtitulo: `Movimientos de ${periodoLabel}`,
+					tablas,
+					horizontal: true,
+				});
 		} catch (err) {
 			toast.error((err as Error).message || "No se pudo exportar");
 		}
@@ -178,10 +186,16 @@ export default function BrixarPanel({
 			</div>
 			<div className="flex shrink-0 gap-2">
 				{datos?.configurado && datos.cajas.length > 0 && (
-					<Button variant="outline" size="sm" onClick={exportar}>
-						<FileSpreadsheet className="mr-1 h-4 w-4" />
-						Excel
-					</Button>
+					<>
+						<Button variant="outline" size="sm" onClick={() => exportar("xlsx")}>
+							<FileSpreadsheet className="mr-1 h-4 w-4" />
+							Excel
+						</Button>
+						<Button variant="outline" size="sm" onClick={() => exportar("pdf")}>
+							<FileDown className="mr-1 h-4 w-4" />
+							PDF
+						</Button>
+					</>
 				)}
 				<Button variant="ghost" size="icon" onClick={cargar} disabled={cargando} title="Actualizar">
 					<RefreshCw className={cn("h-4 w-4", cargando && "animate-spin")} />

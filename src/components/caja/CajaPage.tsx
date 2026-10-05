@@ -2,6 +2,8 @@
 
 import {
 	ArrowLeftRight,
+	FileDown,
+	FileSpreadsheet,
 	Landmark,
 	Loader2,
 	Lock,
@@ -13,6 +15,7 @@ import {
 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -31,6 +34,7 @@ import { aplanarCajas, cajasOperables, formatARS, MESES, mesParam, rangoPeriodo 
 import CajaEditDialog from "./CajaEditDialog";
 import CajaGeneralPanel from "./CajaGeneralPanel";
 import CajasGrid from "./CajasGrid";
+import { exportarInformeCaja } from "./informes";
 import MovimientoDialog from "./MovimientoDialog";
 import MovimientosPanel from "./MovimientosPanel";
 import BrixarPanel from "./BrixarPanel";
@@ -205,6 +209,7 @@ export default function CajaPage() {
 	const [movOpen, setMovOpen] = useState(false);
 	const [trOpen, setTrOpen] = useState(false);
 	const [monoOpen, setMonoOpen] = useState(false);
+	const [exportando, setExportando] = useState<"xlsx" | "pdf" | null>(null);
 
 	const refrescar = () => {
 		reload();
@@ -220,6 +225,19 @@ export default function CajaPage() {
 			setSelectedId(caja.id);
 		}
 	}, [data, cajaIdParam]);
+
+	// Informe general del período elegido (totales, saldos, rubros y movimientos).
+	const exportar = async (formato: "xlsx" | "pdf") => {
+		if (!data) return;
+		setExportando(formato);
+		try {
+			await exportarInformeCaja(formato, { token, datos: data, periodo: mes, rango });
+		} catch (e) {
+			toast.error((e as Error).message || "No se pudo exportar el informe");
+		} finally {
+			setExportando(null);
+		}
+	};
 
 	const operables = useMemo(() => (data ? cajasOperables(data.cajas) : []), [data]);
 	const operableSel = operables.some((o) => o.caja.id === selectedId) ? selectedId : null;
@@ -276,6 +294,32 @@ export default function CajaPage() {
 							setMonth0(m);
 						}}
 					/>
+					<Button
+						variant="outline"
+						onClick={() => exportar("xlsx")}
+						disabled={!!exportando || fetching}
+						title="Informe del período en Excel"
+					>
+						{exportando === "xlsx" ? (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+						) : (
+							<FileSpreadsheet className="mr-2 h-4 w-4" />
+						)}
+						Exportar Excel
+					</Button>
+					<Button
+						variant="outline"
+						onClick={() => exportar("pdf")}
+						disabled={!!exportando || fetching}
+						title="Informe del período en PDF"
+					>
+						{exportando === "pdf" ? (
+							<Loader2 className="mr-2 h-4 w-4 animate-spin" />
+						) : (
+							<FileDown className="mr-2 h-4 w-4" />
+						)}
+						Exportar PDF
+					</Button>
 					{esAdmin && (
 						<Button variant="outline" onClick={() => setTrOpen(true)}>
 							<ArrowLeftRight className="mr-2 h-4 w-4" />

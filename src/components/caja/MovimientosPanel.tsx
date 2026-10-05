@@ -43,10 +43,11 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
-import { exportarExcel, exportarPdf, type TablaInforme } from "@/lib/exportar";
+import { exportarExcel, exportarPdf } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaMovimiento, CajaMovimientosResponse } from "@/types/caja";
 import { cajaFetch, formatARS, formatFecha, traerTodosLosMovimientos } from "./api";
+import { tablaMovimientos } from "./informes";
 import MovimientoDialog from "./MovimientoDialog";
 
 interface MovimientosPanelProps {
@@ -225,45 +226,7 @@ export default function MovimientosPanel({
 			if (incluirAnulados) params.set("incluirAnulados", "true");
 			const { data: movs, totales } = await traerTodosLosMovimientos(token, params);
 
-			const tabla: TablaInforme = {
-				titulo: "Movimientos",
-				columnas: [
-					"Fecha",
-					...(mostrarCaja ? ["Caja"] : []),
-					"Rubro",
-					"Descripción",
-					"Cargado por",
-					"Ingreso",
-					"Egreso",
-				],
-				filas: movs.map((m) => [
-					formatFecha(m.fecha),
-					...(mostrarCaja ? [m.caja.nombre] : []),
-					m.transferenciaId
-						? `Transferencia ${m.tipo === "EGRESO" ? "a" : "desde"} ${m.cajaContraparte?.nombre ?? "otra caja"}`
-						: [m.rubro?.nombre, m.subRubro?.nombre].filter(Boolean).join(" › ") || "—",
-					[
-						m.descripcion,
-						m.anulado ? `ANULADO: ${m.motivoAnulacion ?? ""}` : null,
-						m.informativo ? "(réplica, no suma)" : null,
-					]
-						.filter(Boolean)
-						.join(" · "),
-					m.createdBy.name,
-					m.tipo === "INGRESO" ? m.monto : null,
-					m.tipo === "EGRESO" ? m.monto : null,
-				]),
-				totales: [
-					"Total",
-					...(mostrarCaja ? [""] : []),
-					"",
-					"",
-					"",
-					totales.ingresos,
-					totales.egresos,
-				],
-				montos: mostrarCaja ? [5, 6] : [4, 5],
-			};
+			const tabla = tablaMovimientos(movs, totales, !!mostrarCaja);
 			const rangoTexto =
 				desde || hasta
 					? `${desde ? formatFecha(desde) : "inicio"} al ${hasta ? formatFecha(hasta) : "hoy"}`

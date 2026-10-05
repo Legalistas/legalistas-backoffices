@@ -16,10 +16,11 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { CAJA_GRUPO_LABEL } from "@/constant/caja";
-import { exportarExcel, exportarPdf, type TablaInforme } from "@/lib/exportar";
+import { exportarExcel, exportarPdf } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaGrupo, CajaResumen, CajaTotales } from "@/types/caja";
 import { cajaFetch, finDeMes, formatARS } from "./api";
+import { tablaPorMes, tablaPorRubro, tablaSaldos } from "./informes";
 
 const Monto = ({ valor, className }: { valor: number; className?: string }) => (
 	<span className={cn("tabular-nums", valor < 0 && "text-red-600", className)}>
@@ -80,46 +81,10 @@ export default function CajaGeneralPanel({
 		setExportando(formato);
 		try {
 			const periodo = mes.length === 4 ? `año ${mes}` : nombreMes(mes);
-			const tablas: TablaInforme[] = [
-				{
-					titulo: "Saldo por caja",
-					columnas: ["Caja", "Grupo", "Saldo", "Ingresos del período", "Egresos del período"],
-					filas: grupos.flatMap(({ grupo, cajas: delGrupo }) =>
-						delGrupo.flatMap((c) => [
-							[c.nombre, CAJA_GRUPO_LABEL[grupo], c.saldo, c.ingresosMes, c.egresosMes],
-							...c.hijas.map((h) => [
-								`   ${h.nombre}`,
-								CAJA_GRUPO_LABEL[grupo],
-								h.saldo,
-								h.ingresosMes,
-								h.egresosMes,
-							]),
-						]),
-					),
-					totales: ["Caja General", "", general.saldo, general.ingresosMes, general.egresosMes],
-					montos: [2, 3, 4],
-				},
-				{
-					titulo: "Resultado por mes",
-					columnas: ["Mes", "Ingresos", "Egresos", "Diferencia"],
-					filas: resumen.porMes.map((f) => [
-						nombreMes(f.mes),
-						f.ingresos,
-						f.egresos,
-						f.ingresos - f.egresos,
-					]),
-					montos: [1, 2, 3],
-				},
-				{
-					titulo: "Por rubro",
-					columnas: ["Rubro", "Tipo", "Total"],
-					filas: resumen.porRubro.map((r) => [
-						r.nombre,
-						r.tipo === "INGRESO" ? "Ingreso" : "Egreso",
-						r.total,
-					]),
-					montos: [2],
-				},
+			const tablas = [
+				tablaSaldos(cajas, general),
+				tablaPorMes(resumen),
+				tablaPorRubro(resumen),
 			];
 			const archivo = `Caja General ${periodo}`;
 			if (formato === "xlsx") await exportarExcel(archivo, tablas);
