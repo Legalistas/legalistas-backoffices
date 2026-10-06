@@ -181,6 +181,12 @@ export interface ProgramadoACobrar {
 	periodoTarjeta: string | null;
 	/** Monto en pesos (las filas en USD ya convertidas con su cotización). */
 	montoPesos: number;
+	/** Como se cargó la fila. En dólares se elige en qué moneda se paga. */
+	currency: CajaMoneda;
+	/** Monto en la moneda de la fila. */
+	amount: number;
+	/** Cotización cargada en la fila (solo en dólares). */
+	exchangeRate: number | null;
 	/** Rubro sugerido según la categoría. */
 	rubroId: number | null;
 	subRubroId: number | null;
