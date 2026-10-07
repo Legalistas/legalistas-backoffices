@@ -9,6 +9,7 @@ import {
 	ChevronRight,
 	FileDown,
 	FileSpreadsheet,
+	FolderOpen,
 	Loader2,
 	Minus,
 	MoreHorizontal,
@@ -20,6 +21,7 @@ import {
 	SlidersHorizontal,
 	Trash2,
 } from "lucide-react";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -630,6 +632,9 @@ export default function CollectionsManager() {
 							<tbody>
 								{pageItems.map((tx) => {
 									const income = tx.type === "income";
+									// Los que vienen de un cierre, de una tarjeta o de una causa se
+									// corrigen en su origen: acá solo se cobran o se pagan.
+									const editable = !tx.closingId && !tx.creditCardId && !tx.caseExpense;
 									return (
 										<tr
 											key={tx.id}
@@ -650,7 +655,14 @@ export default function CollectionsManager() {
 												</span>
 											</td>
 											<td className="whitespace-nowrap px-3 py-3">{fechaDia(tx.dueDate)}</td>
-											<td className="px-3 py-3 font-medium text-foreground">{tx.concept}</td>
+											<td className="px-3 py-3 font-medium text-foreground">
+												{tx.concept}
+												{tx.caseExpense && tx.status === "pending" && (
+													<span className="block text-xs font-normal text-amber-600">
+														Gasto de causa — pagalo para aprobarlo
+													</span>
+												)}
+											</td>
 											<td className="px-3 py-3 text-muted-foreground">
 												{tx.category}
 												{tx.subcategory && <span className="block text-xs">{tx.subcategory}</span>}
@@ -737,10 +749,18 @@ export default function CollectionsManager() {
 														</Button>
 													</DropdownMenuTrigger>
 													<DropdownMenuContent align="end" className="w-48">
-														{/* Los movimientos que vienen de un cierre no se
-														    editan ni se borran acá: sus datos son del
-														    cierre que los generó. */}
-														{!tx.closingId && !tx.creditCardId && (
+														{tx.caseExpense && (
+															<DropdownMenuItem asChild>
+																<Link
+																	href={`/admin/legal-cases/${tx.caseExpense.caseId}?tab=gastos`}
+																>
+																	<FolderOpen className="mr-2 h-4 w-4" />
+																	Ver en la causa
+																</Link>
+															</DropdownMenuItem>
+														)}
+
+														{editable && (
 															<DropdownMenuItem
 																onClick={() => {
 																	setEditing(tx);
@@ -768,7 +788,7 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{tx.status === "pending" && !tx.closingId && !tx.creditCardId && (
+														{tx.status === "pending" && editable && (
 															<DropdownMenuItem
 																onClick={() =>
 																	runAction(
@@ -784,7 +804,7 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{!tx.closingId && !tx.creditCardId && (
+														{editable && (
 															<DropdownMenuItem
 																variant="destructive"
 																onClick={() => {

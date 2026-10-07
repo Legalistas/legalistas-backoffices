@@ -318,9 +318,6 @@ export const CASE_EXPENSE_BY_ID_ENDPOINT = (
 	caseId: number,
 	expenseId: number,
 ) => `${API_BASE_URL}/cases/${caseId}/expenses/${expenseId}`;
-// Cajas de origen para un gasto pagado por transferencia (relevamiento 11).
-export const CASE_EXPENSE_CAJAS_ORIGEN_ENDPOINT = (caseId: number) =>
-	`${API_BASE_URL}/cases/${caseId}/expenses/cajas-origen`;
 
 // CASE EVENTS
 export const CASE_EVENTS_ENDPOINT = (caseId: number) =>

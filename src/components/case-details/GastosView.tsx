@@ -1,8 +1,9 @@
 "use client";
 
 import {
-	Banknote,
 	Calendar,
+	CheckCircle2,
+	Clock,
 	DollarSign,
 	FileText,
 	Landmark,
@@ -33,11 +34,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import {
-	CASE_EXPENSE_BY_ID_ENDPOINT,
-	CASE_EXPENSE_CAJAS_ORIGEN_ENDPOINT,
-	CASE_EXPENSES_ENDPOINT,
-} from "@/constant/api-endpoints";
+import { CASE_EXPENSE_BY_ID_ENDPOINT, CASE_EXPENSES_ENDPOINT } from "@/constant/api-endpoints";
 import { GASTO_CATEGORIAS, gastoCategoriaLabel, PAGADO_POR_LABEL } from "@/constant/gastos";
 import { useConfirm } from "@/hooks/useConfirm";
 import { apiErrorMessage } from "@/lib/api-error";
@@ -47,14 +44,6 @@ import type { CaseExpense, CasesFiles } from "@/types/cases";
 import { ExpedienteSelect } from "./ExpedienteSelect";
 
 type PagadoPor = "ESTUDIO" | "ABOGADO_EXTERNO";
-type MedioPago = "EFECTIVO" | "TRANSFERENCIA";
-
-interface CajaOrigen {
-	id: number;
-	nombre: string;
-	slug: string;
-	parent: { nombre: string } | null;
-}
 
 const SIN_CATEGORIA = "none";
 
@@ -71,17 +60,48 @@ const EMPTY_FORM = {
 	date: "",
 	category: "",
 	pagadoPor: null as PagadoPor | null,
-	medioPago: null as MedioPago | null,
-	cajaId: "",
 };
 
-/** De dónde salió la plata, para la tarjeta del gasto. */
-function origenDelGasto(gasto: CaseExpense): string | null {
-	if (gasto.pagadoPor === "ABOGADO_EXTERNO") return PAGADO_POR_LABEL.ABOGADO_EXTERNO;
+type TonoEstado = "pendiente" | "pagado" | "reintegro" | "caja";
+
+const TONO_CLASS: Record<TonoEstado, string> = {
+	pendiente:
+		"bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800",
+	pagado:
+		"bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-800",
+	reintegro:
+		"bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-900/20 dark:text-violet-300 dark:border-violet-800",
+	caja: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
+};
+
+/** El gasto ya fue pagado por Contabilidad desde una caja. */
+const estaPago = (gasto: CaseExpense) => gasto.scheduledTransaction?.status === "paid";
+
+/** Caja de la que salió un gasto viejo (los que descontaban al cargarse). */
+const cajaDelGastoViejo = (gasto: CaseExpense) =>
+	gasto.cajaMovimientos?.find((m) => !m.informativo)?.caja.nombre ?? null;
+
+/** En qué está el gasto, para su tarjeta: pendiente en Contabilidad, pagado o a reintegrar. */
+function estadoDelGasto(gasto: CaseExpense): { texto: string; tono: TonoEstado } | null {
+	if (gasto.pagadoPor === "ABOGADO_EXTERNO") {
+		return { texto: PAGADO_POR_LABEL.ABOGADO_EXTERNO, tono: "reintegro" };
+	}
 	if (gasto.pagadoPor !== "ESTUDIO") return null;
-	const caja = gasto.cajaMovimientos?.find((m) => !m.informativo)?.caja.nombre;
+
+	const fila = gasto.scheduledTransaction;
+	if (fila?.status === "paid") {
+		const pago = fila.cajaMovimientos[0];
+		return {
+			texto: pago ? `Pagado el ${formatFecha(pago.fecha)} desde ${pago.caja.nombre}` : "Pagado",
+			tono: "pagado",
+		};
+	}
+	if (fila) return { texto: "Pendiente de aprobación en Contabilidad", tono: "pendiente" };
+
+	const caja = cajaDelGastoViejo(gasto);
+	if (!caja && !gasto.medioPago) return { texto: PAGADO_POR_LABEL.ESTUDIO, tono: "caja" };
 	const medio = gasto.medioPago === "TRANSFERENCIA" ? "Transferencia" : "Efectivo";
-	return caja ? `${medio} · ${caja}` : medio;
+	return { texto: caja ? `${medio} · ${caja}` : medio, tono: "caja" };
 }
 
 interface GastosViewProps {
@@ -92,10 +112,10 @@ interface GastosViewProps {
 
 /**
  * Gastos de la causa (relevamiento 11). Cada gasto es de un expediente y dice
- * quién lo pagó: si fue el estudio, el egreso queda en la Caja Contable (en
- * efectivo, Caja Chica Efectivo; por transferencia, la caja elegida); si lo
- * adelantó el abogado externo, queda a reintegrarle. En los dos casos se ve en
- * Caja Chica Efectivo para control. Todos se suman en "Liquidar honorarios".
+ * quién lo paga. Cargarlo no descuenta de ninguna caja: si lo paga el estudio
+ * queda pendiente en Gastos e Ingresos con su fecha de pago, y Contabilidad lo
+ * aprueba pagándolo desde la caja que corresponda; si lo adelantó el abogado
+ * externo, queda a reintegrarle. Todos se suman en "Liquidar honorarios".
  */
 export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps) => {
 	const { data: session } = useSession();
@@ -108,7 +128,6 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [editingExpenseId, setEditingExpenseId] = useState<number | null>(null);
 	const [form, setForm] = useState(EMPTY_FORM);
-	const [cajas, setCajas] = useState<CajaOrigen[]>([]);
 
 	const totalExpenses = useMemo(() => expenses.reduce((acc, e) => acc + e.amount, 0), [expenses]);
 
@@ -132,17 +151,6 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 		else setLoading(false);
 	}, [fetchExpenses, token]);
 
-	// Cajas para "Transferencia": se piden al abrir el formulario.
-	useEffect(() => {
-		if (!isModalOpen || !token || cajas.length > 0) return;
-		fetch(CASE_EXPENSE_CAJAS_ORIGEN_ENDPOINT(Number(caseId)), {
-			headers: { Authorization: `Bearer ${token}` },
-		})
-			.then((res) => (res.ok ? res.json() : { data: [] }))
-			.then((body) => setCajas(body.data ?? []))
-			.catch(() => setCajas([]));
-	}, [isModalOpen, token, caseId, cajas.length]);
-
 	const handleOpenNew = () => {
 		setForm({ ...EMPTY_FORM, date: hoyISO() });
 		setEditingExpenseId(null);
@@ -158,11 +166,16 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 			date: expense.date ? expense.date.slice(0, 10) : "",
 			category: expense.category || "",
 			pagadoPor: expense.pagadoPor ?? null,
-			medioPago: expense.medioPago ?? null,
-			cajaId: String(expense.cajaMovimientos?.find((m) => !m.informativo)?.caja.id ?? ""),
 		});
 		setIsModalOpen(true);
 	};
+
+	const editando =
+		editingExpenseId !== null ? expenses.find((e) => e.id === editingExpenseId) : undefined;
+	// Ya lo pagó Contabilidad: el monto, la fecha y quién lo paga quedan fijos
+	// hasta que se anule el pago en la Caja.
+	const bloqueado = editando ? estaPago(editando) : false;
+	const cajaVieja = editando ? cajaDelGastoViejo(editando) : null;
 
 	const handleSave = async () => {
 		const amount = Number(form.amount.replace(",", "."));
@@ -174,20 +187,15 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 			toast.error("El monto es obligatorio y debe ser mayor a 0");
 			return;
 		}
-		// Un gasto cargado antes (sin "quién pagó") se puede editar sin elegirlo:
-		// así no genera un egreso en Caja por algo que quizás ya se registró.
-		const gastoViejo =
-			editingExpenseId !== null && !expenses.find((e) => e.id === editingExpenseId)?.pagadoPor;
+		// Un gasto cargado antes (sin "quién paga") se puede editar sin elegirlo:
+		// así no pasa a Gastos e Ingresos algo que quizás ya se registró.
+		const gastoViejo = editando !== undefined && !editando.pagadoPor;
 		if (!form.pagadoPor && !gastoViejo) {
-			toast.error("Indicá quién pagó el gasto");
+			toast.error("Indicá quién paga el gasto");
 			return;
 		}
-		if (form.pagadoPor === "ESTUDIO" && !form.medioPago) {
-			toast.error("Indicá si se pagó en efectivo o por transferencia");
-			return;
-		}
-		if (form.pagadoPor === "ESTUDIO" && form.medioPago === "TRANSFERENCIA" && !form.cajaId) {
-			toast.error("Elegí la caja de origen de la transferencia");
+		if (form.pagadoPor === "ESTUDIO" && !form.date) {
+			toast.error("Indicá la fecha en que se va a pagar");
 			return;
 		}
 
@@ -197,8 +205,6 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 			const url = isEditing
 				? CASE_EXPENSE_BY_ID_ENDPOINT(Number(caseId), editingExpenseId)
 				: CASE_EXPENSES_ENDPOINT(Number(caseId));
-			const estudio = form.pagadoPor === "ESTUDIO";
-			const transferencia = estudio && form.medioPago === "TRANSFERENCIA";
 
 			const res = await fetch(url, {
 				method: isEditing ? "PUT" : "POST",
@@ -213,8 +219,6 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 					date: form.date || null,
 					category: form.category || null,
 					pagadoPor: form.pagadoPor,
-					medioPago: estudio ? form.medioPago : null,
-					cajaId: transferencia ? Number(form.cajaId) : null,
 					// El backend nuevo toma el usuario del token; el anterior lo exige acá.
 					userId: session?.user?.id ? Number(session.user.id) : null,
 				}),
@@ -228,7 +232,13 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 				);
 			}
 
-			toast.success(isEditing ? "Gasto actualizado" : "Gasto registrado");
+			toast.success(
+				isEditing
+					? "Gasto actualizado"
+					: form.pagadoPor === "ESTUDIO"
+						? "Gasto enviado a Contabilidad para su aprobación"
+						: "Gasto registrado",
+			);
 			setIsModalOpen(false);
 			setEditingExpenseId(null);
 			await fetchExpenses();
@@ -241,12 +251,18 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 	};
 
 	const handleDelete = async (expense: CaseExpense) => {
+		if (estaPago(expense)) {
+			toast.error("El gasto ya está pago: anulá el pago en la Caja antes de eliminarlo");
+			return;
+		}
 		const conCaja = (expense.cajaMovimientos?.length ?? 0) > 0;
 		if (
 			!(await confirm({
-				description: conCaja
-					? "¿Eliminar este gasto? Sus movimientos en la Caja quedan anulados."
-					: "¿Estás seguro de eliminar este gasto?",
+				description: expense.scheduledTransaction
+					? "¿Eliminar este gasto? También se quita de Gastos e Ingresos, donde está pendiente de pago."
+					: conCaja
+						? "¿Eliminar este gasto? Sus movimientos en la Caja quedan anulados."
+						: "¿Estás seguro de eliminar este gasto?",
 				confirmLabel: "Eliminar",
 			}))
 		)
@@ -323,8 +339,9 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 						</div>
 						<p className="text-sm font-medium text-foreground mb-1">No hay gastos registrados</p>
 						<p className="text-xs text-muted-foreground mb-3 text-center">
-							Gastos y cédulas que pagó el estudio o adelantó el abogado externo. Lo que paga el
-							cliente directamente no se carga.
+							Gastos y cédulas que paga el estudio o adelantó el abogado externo. Los del estudio
+							pasan a Contabilidad, que los aprueba y los paga. Lo que paga el cliente directamente
+							no se carga.
 						</p>
 						<button
 							type="button"
@@ -338,7 +355,14 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 				) : (
 					<div className="p-4 space-y-3">
 						{expenses.map((gasto) => {
-							const origen = origenDelGasto(gasto);
+							const estado = estadoDelGasto(gasto);
+							const pendiente = estado?.tono === "pendiente";
+							const EstadoIcon =
+								estado?.tono === "pendiente"
+									? Clock
+									: estado?.tono === "pagado"
+										? CheckCircle2
+										: Wallet;
 							return (
 								<div key={gasto.id} className="rounded-lg border p-5 bg-card border-border">
 									<div className="flex items-start justify-between gap-4">
@@ -356,24 +380,25 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 															{gastoCategoriaLabel(gasto.category)}
 														</span>
 													)}
-													{origen && (
+													{estado && (
 														<span
 															className={cn(
 																"inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium border",
-																gasto.pagadoPor === "ABOGADO_EXTERNO"
-																	? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800"
-																	: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-800",
+																TONO_CLASS[estado.tono],
 															)}
 														>
-															<Wallet className="h-3 w-3" />
-															{origen}
+															<EstadoIcon className="h-3 w-3" />
+															{estado.texto}
 														</span>
 													)}
 												</div>
 												<div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
 													{gasto.date && (
 														<>
-															<span>{formatFecha(gasto.date)}</span>
+															<span>
+																{pendiente ? "Se paga el " : ""}
+																{formatFecha(gasto.date)}
+															</span>
 															<span>•</span>
 														</>
 													)}
@@ -448,6 +473,12 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 					</DialogHeader>
 
 					<div className="space-y-4 overflow-y-auto flex-1 pr-1">
+						{bloqueado && (
+							<p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
+								Contabilidad ya pagó este gasto. Para cambiar el monto, la fecha o quién lo paga hay
+								que anular antes el pago en la Caja.
+							</p>
+						)}
 						<div>
 							<label className={labelClass}>
 								<FileText className="h-3.5 w-3.5 text-muted-foreground" />
@@ -483,9 +514,10 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 								</label>
 								<input
 									inputMode="decimal"
-									className={inputClass}
+									className={cn(inputClass, "disabled:opacity-60")}
 									placeholder="0,00"
 									value={form.amount}
+									disabled={bloqueado}
 									onChange={(e) =>
 										setForm({ ...form, amount: e.target.value.replace(/[^\d.,]/g, "") })
 									}
@@ -494,12 +526,14 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 							<div>
 								<label className={labelClass}>
 									<Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-									Fecha
+									Fecha de pago
+									{form.pagadoPor === "ESTUDIO" && <span className="text-red-500">*</span>}
 								</label>
 								<input
 									type="date"
-									className={inputClass}
+									className={cn(inputClass, "disabled:opacity-60")}
 									value={form.date}
+									disabled={bloqueado}
 									onChange={(e) => setForm({ ...form, date: e.target.value })}
 								/>
 							</div>
@@ -532,12 +566,13 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 							<div>
 								<label className={labelClass}>
 									<Wallet className="h-3.5 w-3.5 text-muted-foreground" />
-									¿Quién lo pagó? <span className="text-red-500">*</span>
+									¿Quién lo paga? <span className="text-red-500">*</span>
 								</label>
 								<div className="flex gap-2">
 									<button
 										type="button"
-										className={opcionClass(form.pagadoPor === "ESTUDIO")}
+										disabled={bloqueado}
+										className={cn(opcionClass(form.pagadoPor === "ESTUDIO"), "disabled:opacity-60")}
 										onClick={() => setForm({ ...form, pagadoPor: "ESTUDIO" })}
 									>
 										<Landmark className="h-4 w-4" />
@@ -545,8 +580,12 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 									</button>
 									<button
 										type="button"
-										className={opcionClass(form.pagadoPor === "ABOGADO_EXTERNO")}
-										onClick={() => setForm({ ...form, pagadoPor: "ABOGADO_EXTERNO", medioPago: null })}
+										disabled={bloqueado}
+										className={cn(
+											opcionClass(form.pagadoPor === "ABOGADO_EXTERNO"),
+											"disabled:opacity-60",
+										)}
+										onClick={() => setForm({ ...form, pagadoPor: "ABOGADO_EXTERNO" })}
 									>
 										<UserRound className="h-4 w-4" />
 										Abogado externo
@@ -554,9 +593,24 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 								</div>
 								{!form.pagadoPor && editingExpenseId !== null && (
 									<p className="mt-1.5 text-xs text-muted-foreground">
-										Gasto cargado antes de registrar quién pagó: si no lo elegís, no toca la Caja.
+										Gasto cargado antes de registrar quién paga: si no lo elegís, no pasa a
+										Contabilidad.
 									</p>
 								)}
+								{form.pagadoPor === "ESTUDIO" &&
+									!bloqueado &&
+									(cajaVieja ? (
+										<p className="mt-1.5 text-xs text-muted-foreground">
+											Este gasto ya salió de {cajaVieja} cuando se cargó: si corregís el monto o la
+											fecha, se corrige ese movimiento.
+										</p>
+									) : (
+										<p className="mt-1.5 text-xs text-muted-foreground">
+											No descuenta de ninguna caja: queda pendiente en Gastos e Ingresos con esa
+											fecha de pago, y Contabilidad lo aprueba y lo paga desde la caja que
+											corresponda.
+										</p>
+									))}
 								{form.pagadoPor === "ABOGADO_EXTERNO" && (
 									<p className="mt-1.5 text-xs text-muted-foreground">
 										Queda a reintegrarle: no sale plata de ninguna caja y se suma a lo que se le
@@ -564,58 +618,6 @@ export const GastosView = ({ caseId, files = [], customerName }: GastosViewProps
 									</p>
 								)}
 							</div>
-
-							{form.pagadoPor === "ESTUDIO" && (
-								<div>
-									<label className={labelClass}>
-										<Banknote className="h-3.5 w-3.5 text-muted-foreground" />
-										¿Cómo? <span className="text-red-500">*</span>
-									</label>
-									<div className="flex gap-2">
-										<button
-											type="button"
-											className={opcionClass(form.medioPago === "EFECTIVO")}
-											onClick={() => setForm({ ...form, medioPago: "EFECTIVO" })}
-										>
-											Efectivo
-										</button>
-										<button
-											type="button"
-											className={opcionClass(form.medioPago === "TRANSFERENCIA")}
-											onClick={() => setForm({ ...form, medioPago: "TRANSFERENCIA" })}
-										>
-											Transferencia
-										</button>
-									</div>
-									{form.medioPago === "EFECTIVO" && (
-										<p className="mt-1.5 text-xs text-muted-foreground">
-											Sale de la Caja Chica Efectivo.
-										</p>
-									)}
-									{form.medioPago === "TRANSFERENCIA" && (
-										<div className="mt-2">
-											<Select
-												value={form.cajaId}
-												onValueChange={(v) => setForm({ ...form, cajaId: v })}
-											>
-												<SelectTrigger className="w-full">
-													<SelectValue placeholder="Caja de origen…" />
-												</SelectTrigger>
-												<SelectContent>
-													{cajas.map((c) => (
-														<SelectItem key={c.id} value={String(c.id)}>
-															{c.parent ? `${c.parent.nombre} › ${c.nombre}` : c.nombre}
-														</SelectItem>
-													))}
-												</SelectContent>
-											</Select>
-											<p className="mt-1.5 text-xs text-muted-foreground">
-												Sale de esa caja y se replica en la Caja Chica Efectivo para control.
-											</p>
-										</div>
-									)}
-								</div>
-							)}
 						</div>
 					</div>
 

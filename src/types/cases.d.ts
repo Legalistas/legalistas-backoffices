@@ -84,14 +84,25 @@ export interface CaseExpense {
 	category?: string | null;
 	/** ESTUDIO | ABOGADO_EXTERNO; null en gastos cargados antes del relevamiento 11. */
 	pagadoPor?: "ESTUDIO" | "ABOGADO_EXTERNO" | null;
-	/** Si pagó el estudio: EFECTIVO | TRANSFERENCIA. */
+	/** Solo en gastos viejos del estudio: EFECTIVO | TRANSFERENCIA. */
 	medioPago?: "EFECTIVO" | "TRANSFERENCIA" | null;
 	userId: number;
 	createdAt: string;
 	updatedAt: string;
 	file?: { id: number; title: string } | null;
 	user?: { id: number; name: string } | null;
-	/** Movimientos de Caja vigentes: el egreso real y la réplica informativa. */
+	/**
+	 * Fila del gasto en Gastos e Ingresos: pendiente hasta que Contabilidad lo
+	 * paga desde una caja. null si lo adelantó el abogado externo o es un gasto viejo.
+	 */
+	scheduledTransaction?: {
+		id: number;
+		status: "pending" | "paid" | "cancelled";
+		dueDate: string;
+		paidAt: string | null;
+		cajaMovimientos: { id: number; fecha: string; caja: { id: number; nombre: string } }[];
+	} | null;
+	/** Gastos viejos: movimientos de Caja que generaron al cargarse (egreso y réplica). */
 	cajaMovimientos?: { id: number; informativo: boolean; caja: { id: number; nombre: string } }[];
 }
 
