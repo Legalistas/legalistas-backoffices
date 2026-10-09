@@ -88,14 +88,9 @@ export default function DashboardComponent() {
 		return "default";
 	}, [userRole]);
 
-	// MiCajaWidget solo se ve si el usuario es dueño de una caja (Agustín,
-	// monotributos); para el resto no renderiza nada.
-	const baseDashboard = (
-		<div className="space-y-6">
-			<MiCajaWidget />
-			{dashboardType === "sales" ? <SalesDashboard /> : <LegalDashboard />}
-		</div>
-	);
+	// Los dos muestran, debajo del saludo, la caja propia (MiCajaWidget) de quien
+	// es dueño de una (Agustín, monotributos); para el resto no renderiza nada.
+	const baseDashboard = dashboardType === "sales" ? <SalesDashboard /> : <LegalDashboard />;
 
 	const showAccountingTab =
 		userRole !== undefined && accountingPanelRoles.includes(userRole);
@@ -422,6 +417,8 @@ function LegalDashboard() {
 				isRefreshing={isRefreshing}
 				lastUpdated={lastUpdated}
 			/>
+
+			<MiCajaWidget />
 
 			{/* Mi Día + Stats */}
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -802,6 +799,7 @@ function SalesDashboard() {
 	return (
 		<div className="flex flex-col gap-6">
 			<DashboardGreetingHeader />
+			<MiCajaWidget />
 			<SalesOverview />
 			<EventosPorConfirmar />
 			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
