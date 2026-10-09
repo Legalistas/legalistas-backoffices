@@ -59,6 +59,8 @@ export default function NotificationCard({
 				return <Calendar className="h-5 w-5 text-indigo-500" />;
 			case "caja":
 				return <Wallet className="h-5 w-5 text-emerald-500" />;
+			case "cierre_reclamo":
+				return <AlertTriangle className="h-5 w-5 text-red-500" />;
 			case "success":
 				return <CheckCircle className="h-5 w-5 text-green-500" />;
 			case "warning":
@@ -86,6 +88,8 @@ export default function NotificationCard({
 				return "Eventos";
 			case "caja":
 				return "Caja";
+			case "cierre_reclamo":
+				return "Reclamo de cobro · Prioritaria";
 			case "success":
 				return "Éxito";
 			case "warning":
@@ -115,6 +119,8 @@ export default function NotificationCard({
 				return "bg-indigo-100 text-indigo-800";
 			case "caja":
 				return "bg-emerald-100 text-emerald-800";
+			case "cierre_reclamo":
+				return "bg-red-100 text-red-800";
 			case "success":
 				return "bg-green-100 text-green-800";
 			case "warning":
@@ -130,7 +136,7 @@ export default function NotificationCard({
 
 	return (
 		<Card
-			className={`overflow-hidden transition-all ${notification.read ? "bg-background" : "bg-muted/30"}`}
+			className={`overflow-hidden transition-all ${notification.read ? "bg-background" : notification.type === "cierre_reclamo" ? "border-red-300 bg-red-50/60 dark:border-red-900/60 dark:bg-red-950/20" : "bg-muted/30"}`}
 		>
 			<CardContent className="p-4">
 				<div className="flex items-start gap-4">

@@ -131,6 +131,9 @@ export default function CreateClosingPage() {
 	const [pclAgreed, setPclAgreed] = useState("20");
 	const [pclTotal, setPclTotal] = useState("");
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
+	// Fechas estimadas de cobro (AAAA-MM-DD): con ellas se proyecta el ingreso.
+	const [hpFechaEstimada, setHpFechaEstimada] = useState("");
+	const [pclFechaEstimada, setPclFechaEstimada] = useState("");
 	const [aportes, setAportes] = useState(APORTES_VACIOS);
 	const [detail, setDetail] = useState("");
 
@@ -404,6 +407,8 @@ export default function CreateClosingPage() {
 							pclTotal: parseFloat(pclTotal) || 0,
 							pclDistribution: withRepresentante,
 							pclStatus,
+							hpFechaEstimada: hpFechaEstimada || undefined,
+							pclFechaEstimada: pclFechaEstimada || undefined,
 							aportes,
 							detail: detail || null,
 						}),
@@ -439,6 +444,8 @@ export default function CreateClosingPage() {
 						pclTotal: parseFloat(pclTotal) || 0,
 						pclDistribution: withRepresentante,
 						pclStatus,
+						hpFechaEstimada: hpFechaEstimada || undefined,
+						pclFechaEstimada: pclFechaEstimada || undefined,
 						aportes,
 						detail: detail || null,
 					}),
@@ -1214,7 +1221,36 @@ export default function CreateClosingPage() {
 												</SelectContent>
 											</Select>
 										</div>
+										<div className="space-y-1.5">
+											<label htmlFor="hp-estimada" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+												Cobro estimado HP
+											</label>
+											<input
+												id="hp-estimada"
+												type="date"
+												value={hpFechaEstimada}
+												onChange={(e) => setHpFechaEstimada(e.target.value)}
+												className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+											/>
+										</div>
+										<div className="space-y-1.5">
+											<label htmlFor="pcl-estimada" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+												Cobro estimado PCL
+											</label>
+											<input
+												id="pcl-estimada"
+												type="date"
+												value={pclFechaEstimada}
+												onChange={(e) => setPclFechaEstimada(e.target.value)}
+												className="w-full h-11 px-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all"
+											/>
+										</div>
 									</div>
+									<p className="mt-3 text-xs text-muted-foreground">
+										Con las fechas estimadas se proyectan los ingresos en Gastos e Ingresos y en la Caja; vacías,
+										va la fecha del cierre. Si la PCL queda en Solicitado, arranca un plazo de gracia de 5 días
+										hábiles; vencido sin cobrar, se le avisa a Contable para reclamarla.
+									</p>
 								</div>
 
 								{/* Distribución con representante */}

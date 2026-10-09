@@ -58,6 +58,13 @@ export interface ClosingManagerEntry {
 	pclChargedById?: number | null;
 	pclChargedBy?: ChargeCollector | null;
 
+	/** Fecha estimada de cobro (AAAA-MM-DD): con ella se proyecta el ingreso pendiente. */
+	hpFechaEstimada?: string | null;
+	pclFechaEstimada?: string | null;
+	/** PCL solicitada: último día del plazo de gracia. Pasado sin cobrar, hay que reclamarla. */
+	pclGraciaHasta?: string | null;
+	pclReclamar?: boolean;
+
 	// Aportes
 	contributionsAmount: number;
 	applyContributions: boolean;

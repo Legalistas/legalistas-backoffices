@@ -32,6 +32,9 @@ import type {
 	ClosingManagerEntry,
 } from "@/types/closing-manager";
 
+/** Fecha del servidor → valor de un <input type="date">. */
+const soloDia = (v: unknown) => (v ? String(v).slice(0, 10) : "");
+
 const inputClass =
 	"w-full h-11 px-3 rounded-lg border border-input bg-background text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all";
 
@@ -78,6 +81,10 @@ export default function EditClosingPage() {
 	const [pclTotal, setPclTotal] = useState("0");
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
 	const [pclChargedAt, setPclChargedAt] = useState("");
+	// Fechas estimadas de cobro y plazo de gracia de la PCL solicitada (AAAA-MM-DD).
+	const [hpFechaEstimada, setHpFechaEstimada] = useState("");
+	const [pclFechaEstimada, setPclFechaEstimada] = useState("");
+	const [pclGraciaHasta, setPclGraciaHasta] = useState("");
 	const [pclChargedById, setPclChargedById] = useState<string>("");
 	const [aportes, setAportes] = useState<AportesDetalle>(APORTES_VACIOS);
 	// Cierre cargado antes de las tarjetas: sus aportes (un total a mano y un %)
@@ -239,6 +246,9 @@ export default function EditClosingPage() {
 				setPclChargedById(
 					data.pclChargedById != null ? String(data.pclChargedById) : "",
 				);
+				setHpFechaEstimada(soloDia(data.hpFechaEstimada));
+				setPclFechaEstimada(soloDia(data.pclFechaEstimada));
+				setPclGraciaHasta(soloDia(data.pclGraciaHasta));
 				setAportes(data.aportesDetalle ?? APORTES_VACIOS);
 				const aportesRep = Number(data.aportesRepresentante) || 0;
 				const aportesLeg = Number(data.aportesLegalistas) || 0;
@@ -294,6 +304,16 @@ export default function EditClosingPage() {
 						pclStatus === "CHARGED" && pclChargedById
 							? Number(pclChargedById)
 							: null,
+					hpFechaEstimada: hpFechaEstimada || null,
+					pclFechaEstimada: pclFechaEstimada || null,
+					// Plazo vacío: al pasar a Solicitado lo pone el servidor (5 días
+					// hábiles); en uno que ya estaba solicitado, se quita.
+					...(pclStatus === "REQUESTED"
+						? {
+								pclGraciaHasta:
+									pclGraciaHasta || (closing?.pclStatus === "REQUESTED" ? null : undefined),
+							}
+						: {}),
 					// Un cierre anterior sin tocar conserva sus aportes: no se mandan.
 					...(aportesAnteriores && !algunaTarjetaActiva(aportes) ? {} : { aportes }),
 					detail: detail || null,
@@ -501,6 +521,27 @@ export default function EditClosingPage() {
 							</Select>
 						</div>
 					</div>
+
+					{feeStatus !== "CHARGED" && (
+						<div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+							<div className="space-y-1.5">
+								<label htmlFor="hp-estimada" className="text-sm font-medium text-foreground">
+									Fecha estimada de cobro de honorarios
+								</label>
+								<input
+									id="hp-estimada"
+									type="date"
+									value={hpFechaEstimada}
+									onChange={(e) => setHpFechaEstimada(e.target.value)}
+									className={inputClass}
+								/>
+								<p className="text-xs text-muted-foreground">
+									Con esta fecha se proyecta el ingreso en Gastos e Ingresos y en la Caja. Vacía: la
+									fecha del cierre.
+								</p>
+							</div>
+						</div>
+					)}
 
 					{/* Datos de cobro HP — solo cuando el estado está CHARGED */}
 					{feeStatus === "CHARGED" && (
@@ -793,7 +834,55 @@ export default function EditClosingPage() {
 								</SelectContent>
 							</Select>
 						</div>
+						{pclStatus !== "CHARGED" && (
+							<div className="space-y-1.5">
+								<label htmlFor="pcl-estimada" className="text-sm font-medium text-foreground">
+									Fecha estimada de cobro de PCL
+								</label>
+								<input
+									id="pcl-estimada"
+									type="date"
+									value={pclFechaEstimada}
+									onChange={(e) => setPclFechaEstimada(e.target.value)}
+									className={inputClass}
+								/>
+							</div>
+						)}
 					</div>
+
+					{pclStatus === "REQUESTED" && (
+						<div className="rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/50 dark:bg-amber-900/10 p-4 space-y-3">
+							<p className="text-xs font-semibold uppercase tracking-wider text-amber-800 dark:text-amber-300">
+								PCL solicitada: plazo de gracia
+							</p>
+							<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+								<div className="space-y-1">
+									<label htmlFor="pcl-gracia" className="text-xs text-muted-foreground">
+										Último día del plazo
+									</label>
+									<input
+										id="pcl-gracia"
+										type="date"
+										value={pclGraciaHasta}
+										onChange={(e) => setPclGraciaHasta(e.target.value)}
+										className={inputClass}
+									/>
+								</div>
+								<p className="text-xs text-muted-foreground md:pt-6">
+									{pclGraciaHasta
+										? "Si pasa ese día y la PCL sigue sin cobrarse, le llega a Contable un aviso prioritario para reclamarla."
+										: closing?.pclStatus === "REQUESTED"
+											? "Sin plazo: no se le va a avisar a Contable."
+											: "Al guardar se ponen 5 días hábiles desde hoy. Si querés otro plazo, elegí la fecha."}
+								</p>
+							</div>
+							{closing?.pclReclamar && (
+								<p className="text-sm font-medium text-red-600 dark:text-red-400">
+									El plazo ya venció: hay que reclamar esta PCL.
+								</p>
+							)}
+						</div>
+					)}
 
 					{/* Datos de cobro PCL — solo cuando el estado está CHARGED */}
 					{pclStatus === "CHARGED" && (

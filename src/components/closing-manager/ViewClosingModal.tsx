@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFecha } from "@/components/caja/api";
 import {
 	ArrowDownRight,
 	ArrowUpRight,
@@ -210,6 +211,34 @@ export default function ViewClosingModal({
 							)}
 						</div>
 					</div>
+
+					{/* Cuándo se espera cobrar y, si la PCL está solicitada, hasta cuándo hay plazo */}
+					{(closing.hpFechaEstimada || closing.pclFechaEstimada || closing.pclGraciaHasta) && (
+						<dl className="flex flex-wrap gap-x-8 gap-y-2 rounded-xl border border-border p-4 text-sm">
+							{closing.hpFechaEstimada && (
+								<div>
+									<dt className="text-xs text-muted-foreground">Cobro estimado de honorarios</dt>
+									<dd>{formatFecha(closing.hpFechaEstimada.slice(0, 10))}</dd>
+								</div>
+							)}
+							{closing.pclFechaEstimada && (
+								<div>
+									<dt className="text-xs text-muted-foreground">Cobro estimado de PCL</dt>
+									<dd>{formatFecha(closing.pclFechaEstimada.slice(0, 10))}</dd>
+								</div>
+							)}
+							{closing.pclGraciaHasta && (
+								<div>
+									<dt className="text-xs text-muted-foreground">Plazo de gracia de la PCL</dt>
+									<dd className={closing.pclReclamar ? "font-medium text-red-600 dark:text-red-400" : ""}>
+										{closing.pclReclamar ? "Venció el " : "Hasta el "}
+										{formatFecha(closing.pclGraciaHasta.slice(0, 10))}
+										{closing.pclReclamar ? ": hay que reclamarla" : ""}
+									</dd>
+								</div>
+							)}
+						</dl>
+					)}
 
 					{/* Gestión de cobros — solo si hay algún registro */}
 					{(closing.hpChargedAt ||

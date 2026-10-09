@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
 	createContext,
@@ -10,6 +11,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { toast } from "sonner";
 import {
 	NOTIFICATIONS_ENDPOINT,
 	NOTIFICATIONS_READ_ENDPOINT,
@@ -53,10 +55,17 @@ const NotificationContext = createContext<NotificationContextType | undefined>(
 
 // Tipos de notificación que deben sonar (@ mención directa a este usuario,
 // ingreso en la Caja contable).
-const SOUND_NOTIFICATION_TYPES = new Set(["nota_crm_mencion", "caja"]);
+const SOUND_NOTIFICATION_TYPES = new Set(["nota_crm_mencion", "caja", "cierre_reclamo"]);
+
+// Prioritarias (reclamo de una PCL con el plazo de gracia vencido, solo para
+// Contable): mientras no se leen quedan arriba de todo, y avisan con un cartel.
+export const PRIORITY_NOTIFICATION_TYPES = new Set(["cierre_reclamo"]);
+const esPrioritaria = (n: { type: string; read: boolean }) =>
+	!n.read && PRIORITY_NOTIFICATION_TYPES.has(n.type);
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
 	const { data: session } = useSession();
+	const router = useRouter();
 	const [notifications, setNotifications] = useState<Notification[]>([]);
 	const [users, setUsers] = useState<User[]>([]);
 	const [loading, setLoading] = useState(false);
@@ -196,6 +205,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 					}),
 				);
 
+				formattedNotifications.sort(
+					(x: Notification, y: Notification) =>
+						Number(esPrioritaria(y)) - Number(esPrioritaria(x)),
+				);
 				setNotifications(formattedNotifications);
 				setUnreadCount(
 					formattedNotifications.filter((n: Notification) => !n.read).length,
@@ -220,6 +233,29 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 							new Audio("/notificacion.mp3").play().catch(() => {});
 						}
 					}
+				}
+				const urgentes = formattedNotifications.filter(
+					(n: Notification) => esPrioritaria(n) && !previouslySeen?.has(n.id),
+				);
+				if (urgentes.length > 0) {
+					const una = urgentes.length === 1 ? urgentes[0] : null;
+					toast.warning(
+						una ? una.message : `Tenés ${urgentes.length} avisos prioritarios sin leer`,
+						{
+							id: "avisos-prioritarios",
+							position: "top-center",
+							duration: Number.POSITIVE_INFINITY,
+							closeButton: true,
+							action: {
+								label: "Ver",
+								// Abrirlo desde el cartel cuenta como leído: no vuelve a saltar.
+								onClick: () => {
+									if (una) markNotificationAsRead(una.id);
+									router.push(una?.link ?? "/admin/notifications");
+								},
+							},
+						},
+					);
 				}
 				seenNotificationIdsRef.current = new Set(
 					formattedNotifications.map((n: Notification) => n.id),

@@ -1,5 +1,6 @@
 "use client";
 
+import { formatFecha } from "@/components/caja/api";
 import { AlertTriangle, Check, CheckCircle2, Eye, Loader2, Pencil, Receipt, Trash2, Wallet, X } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -293,6 +294,7 @@ export default function ClosingManagerTable({
 				const tooltip = fullyCharged
 					? "Cobrado por completo"
 					: [
+							closing.pclReclamar ? "Reclamar PCL: venció el plazo de gracia" : null,
 							feePending ? "HP pendiente" : null,
 							pclPending ? "PCL pendiente" : null,
 						]
@@ -303,7 +305,14 @@ export default function ClosingManagerTable({
 						{fullyCharged ? (
 							<CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
 						) : (
-							<AlertTriangle className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+							<AlertTriangle
+								className={cn(
+									"h-5 w-5",
+									closing.pclReclamar
+										? "text-red-600 dark:text-red-400"
+										: "text-amber-500 dark:text-amber-400",
+								)}
+							/>
 						)}
 					</div>
 				);
@@ -493,6 +502,19 @@ export default function ClosingManagerTable({
 						>
 							{label}
 						</Badge>
+						{closing.pclReclamar ? (
+							<span className="text-[10px] font-semibold text-red-600 dark:text-red-400 whitespace-normal">
+								Reclamar: venció el plazo
+								{closing.pclGraciaHasta ? ` el ${formatFecha(closing.pclGraciaHasta.slice(0, 10))}` : ""}
+							</span>
+						) : (
+							closing.pclStatus === "REQUESTED" &&
+							closing.pclGraciaHasta && (
+								<span className="text-[10px] text-muted-foreground whitespace-normal">
+									Plazo hasta el {formatFecha(closing.pclGraciaHasta.slice(0, 10))}
+								</span>
+							)
+						)}
 						{closing.pclStatus === "PARTIAL" && (
 							<>
 								<span className="text-[10px] text-muted-foreground whitespace-normal">
@@ -554,6 +576,11 @@ export default function ClosingManagerTable({
 								title={`Falta cobrar — HP ${formatCurrency(closing.hpFalta)} · PCL ${formatCurrency(closing.pclFalta)}`}
 							>
 								Falta {formatCurrency(closing.faltaCobrar)}
+							</span>
+						)}
+						{closing.pclReclamar && (
+							<span className="block text-[11px] font-semibold text-red-600 dark:text-red-400">
+								Reclamar PCL
 							</span>
 						)}
 					</div>

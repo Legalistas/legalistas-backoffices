@@ -82,6 +82,8 @@ export default function NotificationDropdown() {
 				return <Calendar className="h-4 w-4 text-indigo-500" />;
 			case "caja":
 				return <Wallet className="h-4 w-4 text-emerald-500" />;
+			case "cierre_reclamo":
+				return <AlertTriangle className="h-4 w-4 text-red-500" />;
 			case "success":
 				return <CheckCircle className="h-4 w-4 text-green-500" />;
 			case "warning":
@@ -166,7 +168,7 @@ export default function NotificationDropdown() {
 								<button
 									type="button"
 									onClick={() => handleNotificationClick(notification)}
-									className="w-full flex items-start gap-2.5 px-4 py-2.5 text-left hover:bg-muted border-b border-border last:border-b-0 transition-colors"
+									className={`w-full flex items-start gap-2.5 px-4 py-2.5 text-left border-b border-border last:border-b-0 transition-colors ${!notification.read && notification.type === "cierre_reclamo" ? "bg-red-50 hover:bg-red-100 dark:bg-red-950/30 dark:hover:bg-red-950/50" : "hover:bg-muted"}`}
 								>
 									<span className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-muted mt-0.5">
 										{getIcon(notification.type)}
