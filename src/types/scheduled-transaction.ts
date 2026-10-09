@@ -20,6 +20,8 @@ export interface ScheduledTransaction {
 	periodoTarjeta?: string | null;
 	/** Gasto cargado en una causa: se corrige o se borra desde la causa, acá solo se paga. */
 	caseExpense?: { id: number; caseId: number } | null;
+	/** Parte del abogado representante de un cierre: se ajusta sola con los cobros, acá solo se paga. */
+	repClosingId?: number | null;
 	category: string;
 	subcategory: string | null;
 	currency: ScheduledCurrency;

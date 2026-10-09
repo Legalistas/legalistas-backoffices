@@ -16,6 +16,7 @@ export const EXPENSE_CATEGORIES = [
 	"Créditos / Tarjetas",
 	"Marketing",
 	"Referentes",
+	"Representantes",
 	"Brixar",
 	"Otros",
 ] as const;

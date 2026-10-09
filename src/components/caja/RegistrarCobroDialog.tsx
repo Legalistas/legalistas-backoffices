@@ -34,6 +34,8 @@ import { CajaApiError, cajaFetch, cajasOperables, formatARS, formatFecha, hoyISO
 // caja elegida y el cierre queda Parcial o Cobrado (y la fila de Gastos e
 // Ingresos, cobrada). Se abre desde el Gestor de Cierres y desde Gastos e
 // Ingresos.
+// Lo que entra por encima de la parte de Legalistas es del abogado
+// representante: el backend lo deja pendiente de pago en Gastos e Ingresos.
 
 const LABEL: Record<ConceptoCobro, string> = { fee: "HP", pcl: "PCL" };
 
@@ -45,6 +47,14 @@ const ESTADO_LABEL: Record<string, string> = {
 };
 
 const aTexto = (n: number) => (n > 0 ? n.toFixed(2).replace(".", ",") : "");
+
+/** Ya no entra nada más: se llegó al total, o el cierre se marcó Cobrado a mano. */
+const agotado = (s: SituacionCobro) =>
+	s.disponible <= 0.01 || (s.estado === "CHARGED" && !s.completo);
+
+/** Lo que falta de la parte de Legalistas o, ya cobrada, lo que queda del total. */
+const montoSugerido = (s: SituacionCobro | null | undefined) =>
+	s ? (s.completo ? s.disponible : s.restante) : 0;
 
 function Situacion({
 	concepto,
@@ -61,11 +71,11 @@ function Situacion({
 		<button
 			type="button"
 			onClick={onElegir}
-			disabled={s.completo}
+			disabled={agotado(s)}
 			className={cn(
 				"rounded-lg border p-3 text-left transition-colors disabled:cursor-default",
 				activo ? "border-primary bg-primary/5" : "hover:bg-muted/50",
-				s.completo && "opacity-70",
+				agotado(s) && "opacity-70",
 			)}
 		>
 			<div className="flex items-center justify-between gap-2">
@@ -88,6 +98,12 @@ function Situacion({
 					<dt>Falta</dt>
 					<dd className="tabular-nums text-foreground">{formatARS(s.restante)}</dd>
 				</div>
+				{s.completo && !agotado(s) && (
+					<div className="flex justify-between">
+						<dt>Queda del total</dt>
+						<dd className="tabular-nums">{formatARS(s.disponible)}</dd>
+					</div>
+				)}
 			</dl>
 		</button>
 	);
@@ -135,6 +151,7 @@ export default function RegistrarCobroDialog({
 				setCajas(c.data);
 				// Arranca en el concepto pedido o en el primero que falte cobrar.
 				const { fee, pcl } = e.data.conceptos;
+				// Primero lo que le falta a Legalistas; si ya está, lo que queda del total.
 				const inicial =
 					conceptoInicial && !e.data.conceptos[conceptoInicial]?.completo
 						? conceptoInicial
@@ -142,9 +159,11 @@ export default function RegistrarCobroDialog({
 							? "fee"
 							: pcl && !pcl.completo
 								? "pcl"
-								: "fee";
+								: pcl && !agotado(pcl) && (!fee || agotado(fee))
+									? "pcl"
+									: "fee";
 				setConcepto(inicial);
-				setMonto(aTexto(e.data.conceptos[inicial]?.restante ?? 0));
+				setMonto(aTexto(montoSugerido(e.data.conceptos[inicial])));
 			})
 			.catch((err) =>
 				setSinAcceso(
@@ -163,12 +182,12 @@ export default function RegistrarCobroDialog({
 	const sit = estado?.conceptos[concepto] ?? null;
 	const todoCobrado =
 		!!estado &&
-		(!estado.conceptos.fee || estado.conceptos.fee.completo) &&
-		(!estado.conceptos.pcl || estado.conceptos.pcl.completo);
+		(!estado.conceptos.fee || agotado(estado.conceptos.fee)) &&
+		(!estado.conceptos.pcl || agotado(estado.conceptos.pcl));
 
 	const elegir = (c: ConceptoCobro) => {
 		setConcepto(c);
-		setMonto(aTexto(estado?.conceptos[c]?.restante ?? 0));
+		setMonto(aTexto(montoSugerido(estado?.conceptos[c])));
 	};
 
 	const guardar = async () => {
@@ -294,9 +313,10 @@ export default function RegistrarCobroDialog({
 											value={monto}
 											onChange={(e) => setMonto(e.target.value.replace(/[^\d.,]/g, ""))}
 										/>
-										{sit && sit.disponible > sit.restante && (
+										{sit && !sit.completo && sit.disponible > sit.restante && (
 											<p className="text-xs text-muted-foreground">
-												Hasta {formatARS(sit.disponible)} si entra el total bruto.
+												Hasta {formatARS(sit.disponible)} si entra el total: lo que pase de la parte
+												de Legalistas queda pendiente para pagarle al representante.
 											</p>
 										)}
 									</div>
@@ -310,6 +330,12 @@ export default function RegistrarCobroDialog({
 										/>
 									</div>
 								</div>
+								{sit?.completo && (
+									<p className="rounded-md bg-amber-50 p-3 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+										La parte de Legalistas ya está cobrada. Lo que entre ahora es de la parte del
+										representante y queda pendiente de pago en Gastos e Ingresos.
+									</p>
+								)}
 								<div className="space-y-2">
 									<Label htmlFor="cobro-desc">Descripción (opcional)</Label>
 									<Textarea
@@ -330,7 +356,7 @@ export default function RegistrarCobroDialog({
 						{todoCobrado || sinAcceso ? "Cerrar" : "Cancelar"}
 					</Button>
 					{estado && !todoCobrado && !sinAcceso && (
-						<Button onClick={guardar} disabled={saving || !sit || sit.completo}>
+						<Button onClick={guardar} disabled={saving || !sit || agotado(sit)}>
 							{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
 							Registrar cobro
 						</Button>

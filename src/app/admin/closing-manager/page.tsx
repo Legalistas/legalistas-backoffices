@@ -20,6 +20,7 @@ import ClosingFilters, {
 	type ClosingFiltersState,
 } from "@/components/closing-manager/ClosingFilters";
 import ClosingManagerTable from "@/components/closing-manager/closing-manager-table";
+import CobrosDelMes from "@/components/closing-manager/CobrosDelMes";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -103,11 +104,13 @@ export default function ClosingManagerPage() {
 
 	// Tab actual: "all" o "pending". "pending" fuerza paymentPending=true en la
 	// query + muestra columnas de estado (feeStatus/pclStatus) + ordena por
-	// fecha ascendente (más viejo primero — spec KPIs #108).
-	const [activeTab, setActiveTab] = useState<"all" | "pending">("all");
+	// fecha ascendente (más viejo primero — spec KPIs #108). "cobros" muestra los
+	// cobros del mes por fecha de cobro y la parte de los representantes.
+	const [activeTab, setActiveTab] = useState<"all" | "pending" | "cobros">("all");
 
 	// Cuando el user cambia de tab, ajustar filtro + columnas + orden.
 	useEffect(() => {
+		if (activeTab === "cobros") return;
 		if (activeTab === "pending") {
 			setFilters((prev) => ({ ...prev, paymentPending: "true" }));
 			setVisibleColumns((prev) => {
@@ -552,7 +555,7 @@ export default function ClosingManagerPage() {
 			{/* Tabs: Todos / Pendientes de cobro */}
 			<Tabs
 				value={activeTab}
-				onValueChange={(v) => setActiveTab(v as "all" | "pending")}
+				onValueChange={(v) => setActiveTab(v as "all" | "pending" | "cobros")}
 				className="w-full"
 			>
 				<TabsList>
@@ -565,9 +568,14 @@ export default function ClosingManagerPage() {
 							</span>
 						)}
 					</TabsTrigger>
+					<TabsTrigger value="cobros">Cobros del mes</TabsTrigger>
 				</TabsList>
 			</Tabs>
 
+			{activeTab === "cobros" ? (
+				<CobrosDelMes />
+			) : (
+				<>
 			{/* KPI Cards */}
 			<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
 				{kpiCards.map((kpi) => (
@@ -678,6 +686,8 @@ export default function ClosingManagerPage() {
 					/>
 				) : null}
 			</div>
+				</>
+			)}
 		</div>
 	);
 }

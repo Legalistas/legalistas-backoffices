@@ -687,21 +687,19 @@ export default function ClosingManagerTable({
 									)}
 									<TableCell className="px-4 py-3 text-right">
 										<div className="flex items-center justify-end gap-2">
-											{puedeCobrar &&
-												!(
-													closing.feeStatus === "CHARGED" &&
-													(!closing.pclStatus || closing.pclStatus === "CHARGED")
-												) && (
-													<button
-														type="button"
-														onClick={() => setCobrarId(closing.id)}
-														className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 transition-colors"
-														title="Registrar cobro en la Caja"
-													>
-														<Wallet className="h-4 w-4" />
-														<span className="sr-only">Registrar cobro</span>
-													</button>
-												)}
+											{/* También en los ya cobrados: puede entrar el resto del
+											    total (la parte del representante) y se ven los cobros. */}
+											{puedeCobrar && (
+												<button
+													type="button"
+													onClick={() => setCobrarId(closing.id)}
+													className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 transition-colors"
+													title="Registrar cobro en la Caja"
+												>
+													<Wallet className="h-4 w-4" />
+													<span className="sr-only">Registrar cobro</span>
+												</button>
+											)}
 											<button
 												onClick={() => setViewClosing(closing)}
 												className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 transition-colors"

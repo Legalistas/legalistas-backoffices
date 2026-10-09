@@ -519,6 +519,9 @@ export const CLOSINGS_FROM_NEGOTIATION_ENDPOINT = (negotiationId: number) =>
 // KPIs financieros (mensuales/anuales)
 export const CLOSINGS_KPIS_ENDPOINT = `${API_BASE_URL}/closings/kpis`;
 
+// Cobros del mes (por fecha de cobro) y parte de los abogados representantes
+export const CLOSINGS_COBROS_ENDPOINT = `${API_BASE_URL}/closings/cobros`;
+
 // Exportar cierres a Excel/CSV
 export const CLOSINGS_EXPORT_ENDPOINT = `${API_BASE_URL}/closings/export`;
 

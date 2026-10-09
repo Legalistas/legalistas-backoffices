@@ -634,7 +634,8 @@ export default function CollectionsManager() {
 									const income = tx.type === "income";
 									// Los que vienen de un cierre, de una tarjeta o de una causa se
 									// corrigen en su origen: acá solo se cobran o se pagan.
-									const editable = !tx.closingId && !tx.creditCardId && !tx.caseExpense;
+									const editable =
+										!tx.closingId && !tx.creditCardId && !tx.caseExpense && !tx.repClosingId;
 									return (
 										<tr
 											key={tx.id}
@@ -756,6 +757,15 @@ export default function CollectionsManager() {
 																>
 																	<FolderOpen className="mr-2 h-4 w-4" />
 																	Ver en la causa
+																</Link>
+															</DropdownMenuItem>
+														)}
+
+														{tx.repClosingId && (
+															<DropdownMenuItem asChild>
+																<Link href={`/admin/closing-manager?openId=${tx.repClosingId}`}>
+																	<FolderOpen className="mr-2 h-4 w-4" />
+																	Ver el cierre
 																</Link>
 															</DropdownMenuItem>
 														)}
