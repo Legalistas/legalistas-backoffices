@@ -80,6 +80,9 @@ const PLANTILLAS: Plantilla[] = [
 	},
 ];
 
+// Si el abogado contraparte no tiene mail cargado, sale a esta casilla (se puede cambiar).
+const MAIL_POR_DEFECTO = "legalistas.legales@gmail.com";
+
 const pesos = (n: number) =>
 	new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 0 }).format(n);
 
@@ -129,7 +132,7 @@ export default function RedactarMailDialog({ negotiation, open, onOpenChange, on
 	// biome-ignore lint/correctness/useExhaustiveDependencies: solo al abrir
 	useEffect(() => {
 		if (!open || !negotiation) return;
-		setPara(negotiation.abogadoContraparte?.email ?? "");
+		setPara(negotiation.abogadoContraparte?.email || MAIL_POR_DEFECTO);
 		setCc("");
 		setMonto("");
 		setPlantillaId("seguimiento");
@@ -259,7 +262,8 @@ export default function RedactarMailDialog({ negotiation, open, onOpenChange, on
 							/>
 							{!negotiation?.abogadoContraparte?.email && (
 								<p className="text-[11px] text-amber-600">
-									El abogado contraparte no tiene mail cargado (se completa en Editar).
+									El abogado contraparte no tiene mail cargado: va a {MAIL_POR_DEFECTO}. Podés
+									cambiarlo acá o cargar el suyo en Editar.
 								</p>
 							)}
 						</div>
