@@ -759,6 +759,7 @@ export default function EditClosingPage() {
 
 					{/* Aportes */}
 					<AportesCards
+						desdeNegociacion={!!closing?.negotiationId}
 						value={aportes}
 						onChange={setAportes}
 						capital={Number(capitalAmount) || 0}

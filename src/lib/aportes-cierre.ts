@@ -1,7 +1,8 @@
 // Aportes de un cierre — las tres tarjetas (pedido de Contabilidad, 09/10/2026):
 //   1. 13 % fijo sobre el capital cerrado.
 //   2. 7 % fijo de la Caja, sobre el monto que se cargue.
-//   3. 5,4 % o 9 % (a elección), sobre el monto que se cargue.
+//   3. 5,4 % o 9 % (a elección), sobre el monto que se cargue. En los cierres
+//      que salen de una negociación, el 9 % es 9,3 %.
 // Cada una se activa por cierre y lleva a mano cuánto aporta el representante;
 // lo que resta es de Legalistas. El reparto NO sigue el 25 % de HP/PCL.
 // Mismo cálculo que el backend (src/utils/closing-aportes.ts): si cambia uno,
@@ -9,7 +10,13 @@
 
 export const PORCENTAJE_CAPITAL = 13;
 export const PORCENTAJE_CAJA = 7;
-export const PORCENTAJES_OTRO: readonly number[] = [5.4, 9];
+/** Los que acepta el backend. */
+export const PORCENTAJES_OTRO: readonly number[] = [5.4, 9, 9.3];
+/** Los que se ofrecen al cargar: 9 % en un cierre directo, 9,3 % si sale de una negociación. */
+export const porcentajesOtro = (desdeNegociacion: boolean): readonly number[] => [
+	5.4,
+	desdeNegociacion ? 9.3 : 9,
+];
 
 export interface AportesDetalle {
 	capital: { activa: boolean; representante: number };

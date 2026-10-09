@@ -11,6 +11,7 @@ import {
 	PORCENTAJE_CAJA,
 	PORCENTAJE_CAPITAL,
 	PORCENTAJES_OTRO,
+	porcentajesOtro,
 	type TarjetaAporte,
 	textoPagoAporte,
 } from "@/lib/aportes-cierre";
@@ -176,9 +177,12 @@ export default function AportesCards({
 	conRepresentante,
 	anteriores,
 	pagos = [],
+	desdeNegociacion = false,
 }: {
 	value: AportesDetalle;
 	onChange: (v: AportesDetalle) => void;
+	/** El cierre sale de una negociación: la tercera tarjeta ofrece 9,3 % en vez de 9 %. */
+	desdeNegociacion?: boolean;
 	/** Capital cerrado: base de la tarjeta del 13 %. */
 	capital: number;
 	conRepresentante: boolean;
@@ -188,6 +192,13 @@ export default function AportesCards({
 	pagos?: AportePago[];
 }) {
 	const calc = calcularAportes(value, capital, conRepresentante);
+	// Las que tocan según de dónde sale el cierre. Si el cierre ya tenía guardada
+	// otra válida (un 9 % en uno de negociación), se sigue mostrando.
+	const baseOtro = porcentajesOtro(desdeNegociacion);
+	const opcionesOtro =
+		baseOtro.includes(value.otro.porcentaje) || !PORCENTAJES_OTRO.includes(value.otro.porcentaje)
+			? baseOtro
+			: [...baseOtro, value.otro.porcentaje];
 	const usaAnteriores = !!anteriores && !algunaTarjetaActiva(value);
 	const totales = usaAnteriores
 		? {
@@ -258,7 +269,7 @@ export default function AportesCards({
 
 				<Tarjeta
 					id="aporte-otro"
-					titulo={`${PORCENTAJES_OTRO.map(pct).join(" o ")}`}
+					titulo={porcentajesOtro(desdeNegociacion).map(pct).join(" o ")}
 					detalle="Elegís el porcentaje y el monto."
 					activa={value.otro.activa}
 					onActiva={(activa) => onChange({ ...value, otro: { ...value.otro, activa } })}
@@ -273,7 +284,7 @@ export default function AportesCards({
 					<div className="space-y-1">
 						<span className="text-xs text-muted-foreground">Porcentaje</span>
 						<div className="grid grid-cols-2 gap-2">
-							{PORCENTAJES_OTRO.map((p) => (
+							{opcionesOtro.map((p) => (
 								<button
 									key={p}
 									type="button"

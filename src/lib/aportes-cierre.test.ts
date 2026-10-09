@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { APORTES_VACIOS, algunaTarjetaActiva, calcularAportes } from "./aportes-cierre";
+import { APORTES_VACIOS, algunaTarjetaActiva, calcularAportes, porcentajesOtro } from "./aportes-cierre";
 
 // Mismos casos que backend/src/utils/closing-aportes.test.ts: los dos cálculos
 // tienen que dar igual.
@@ -11,6 +11,13 @@ describe("calcularAportes", () => {
 			legalistas: 0,
 		});
 		expect(algunaTarjetaActiva(APORTES_VACIOS)).toBe(false);
+	});
+
+	test("la tercera ofrece 9 % en un cierre directo y 9,3 % si sale de una negociación", () => {
+		expect(porcentajesOtro(false)).toEqual([5.4, 9]);
+		expect(porcentajesOtro(true)).toEqual([5.4, 9.3]);
+		const con93 = { ...APORTES_VACIOS, otro: { activa: true, porcentaje: 9.3, base: 1_000_000, representante: 0 } };
+		expect(calcularAportes(con93, 0, true).tarjetas.otro.aporte).toBe(93_000);
 	});
 
 	test("las tres juntas: 13 % del capital, 7 % de la Caja y 9 %", () => {

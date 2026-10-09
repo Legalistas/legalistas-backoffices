@@ -188,6 +188,8 @@ export default function CreateClosingPage() {
 		setPclTotal("");
 		setPclStatus("EARRINGS");
 		setAportes(APORTES_VACIOS);
+		setHpFechaEstimada("");
+		setPclFechaEstimada("");
 		setDetail("");
 		setSelectedNegotiationId("");
 		setSelectedNegotiation(null);
@@ -1460,6 +1462,7 @@ export default function CreateClosingPage() {
 
 								{/* Aportes */}
 								<AportesCards
+									desdeNegociacion={activeTab === "from-negotiation"}
 									value={aportes}
 									onChange={setAportes}
 									capital={capitalCierre}
