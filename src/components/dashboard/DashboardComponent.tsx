@@ -19,6 +19,8 @@ import {
 	CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { resolveImageSrc } from "@/components/shared/GroupAvatar";
 import MiCajaWidget from "@/components/caja/MiCajaWidget";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DASHBOARD_LEGAL_STATS_ENDPOINT } from "@/constant/api-endpoints";
@@ -171,8 +173,8 @@ interface LegalDashboardData {
 		status: string;
 		createdAt: string;
 		customer: { id: number; name: string } | null;
-		internalLawyer: { id: number; name: string } | null;
-		responsibleLawyer: { id: number; name: string } | null;
+		internalLawyer: { id: number; name: string; image?: string | null } | null;
+		responsibleLawyer: { id: number; name: string; image?: string | null } | null;
 		files: { id: number; title: string }[];
 	}[];
 	urgentDeadlines: {
@@ -361,6 +363,36 @@ function FilaDelDia({
 			</div>
 			{children}
 		</li>
+	);
+}
+
+// ── Abogado de un caso reciente ────────────────────────────────────
+
+// La foto al lado del nombre; sin foto (o si no carga), el ícono de su rol.
+function AbogadoDelCaso({
+	persona,
+	rol,
+	icon: Icon,
+}: {
+	persona: { name: string; image?: string | null };
+	rol: string;
+	icon: React.ComponentType<{ className?: string }>;
+}) {
+	return (
+		<span
+			className="flex min-w-0 items-center gap-1.5"
+			title={`${rol}: ${persona.name}`}
+		>
+			<Avatar className="size-5">
+				{persona.image && (
+					<AvatarImage src={resolveImageSrc(persona.image)} alt="" className="object-cover" />
+				)}
+				<AvatarFallback>
+					<Icon className="size-3" />
+				</AvatarFallback>
+			</Avatar>
+			<span className="truncate">{persona.name}</span>
+		</span>
 	);
 }
 
@@ -656,21 +688,19 @@ function LegalDashboard() {
 														)}
 													</div>
 													{/* El cliente solo si el título de la causa no lo nombra ya. */}
-													<div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-														{c.customer && !c.title.includes(c.customer.name) && (
-															<span className="max-w-full min-w-0 truncate">{c.customer.name}</span>
-														)}
+													{c.customer && !c.title.includes(c.customer.name) && (
+														<p className="truncate text-xs text-muted-foreground">{c.customer.name}</p>
+													)}
+													<div className="mt-0.5 flex items-center gap-3 text-xs text-muted-foreground">
 														{c.internalLawyer && (
-															<span className="max-w-full min-w-0 truncate" title="Abogado interno">
-																<Users2 className="mr-1 inline size-3 align-[-1px]" />
-																{c.internalLawyer.name}
-															</span>
+															<AbogadoDelCaso persona={c.internalLawyer} rol="Abogado interno" icon={Users2} />
 														)}
 														{c.responsibleLawyer && (
-															<span className="max-w-full min-w-0 truncate" title="Abogado responsable">
-																<Scale className="mr-1 inline size-3 align-[-1px]" />
-																{c.responsibleLawyer.name}
-															</span>
+															<AbogadoDelCaso
+																persona={c.responsibleLawyer}
+																rol="Abogado representante"
+																icon={Scale}
+															/>
 														)}
 													</div>
 												</div>

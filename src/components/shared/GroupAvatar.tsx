@@ -39,7 +39,7 @@ const imageSize = {
 	md: 32,
 };
 
-function resolveImageSrc(image: string): string {
+export function resolveImageSrc(image: string): string {
 	if (image.startsWith("http")) return image;
 	return `${process.env.NEXT_PUBLIC_BACKEND_URL}${image}`;
 }
