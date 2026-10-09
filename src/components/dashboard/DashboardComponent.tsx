@@ -1,20 +1,16 @@
 "use client";
 import {
-	Activity,
 	ArrowRight,
 	CalendarDays,
 	CheckCircle2,
-	ChevronRight,
 	Clock,
 	ListChecks,
-	MapPin,
 	Scale,
 	Users2,
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import {
 	Card,
 	CardContent,
@@ -46,6 +42,14 @@ function formatTime(): string {
 		minute: "2-digit",
 		hour12: true,
 	});
+}
+
+/** "08-oct"; raya si la fecha no se puede leer. */
+function fechaCorta(iso: string): string {
+	const d = new Date(iso);
+	return Number.isNaN(d.getTime())
+		? "—"
+		: d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
 }
 
 function isRecentCase(createdAt: string): boolean {
@@ -223,7 +227,7 @@ function LegalDashboardSkeleton() {
 
 			{/* Columna principal + columna lateral */}
 			<div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-				<div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
+				<div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:col-span-2 xl:grid-cols-2">
 					<Card>
 						<CardHeader>
 							<div className="flex items-center gap-2">
@@ -320,6 +324,43 @@ function StatCard({
 				</div>
 			</CardContent>
 		</Card>
+	);
+}
+
+// ── Renglón de "Mi Día" ────────────────────────────────────────────
+
+// Ícono del tipo, qué es y, abajo, de qué causa, a qué hora o dónde.
+function FilaDelDia({
+	icon: Icon,
+	tono,
+	titulo,
+	detalle,
+	children,
+}: {
+	icon: React.ComponentType<{ className?: string }>;
+	tono: string;
+	titulo: string;
+	detalle: (string | false | null | undefined)[];
+	children?: React.ReactNode;
+}) {
+	const texto = detalle.filter(Boolean).join(" · ");
+	return (
+		<li className="flex items-center gap-3 py-2 text-sm">
+			<div className={`shrink-0 rounded-lg p-1.5 ${tono}`}>
+				<Icon className="size-4" />
+			</div>
+			<div className="min-w-0 flex-1">
+				<p className="font-medium truncate" title={titulo}>
+					{titulo}
+				</p>
+				{texto && (
+					<p className="text-xs text-muted-foreground truncate" title={texto}>
+						{texto}
+					</p>
+				)}
+			</div>
+			{children}
+		</li>
 	);
 }
 
@@ -450,124 +491,88 @@ function LegalDashboard() {
 				/>
 			</div>
 
-			{/* Columna principal y columna lateral: cada una crece por su lado, así
-			    ninguna tarjeta se estira para igualar a la de al lado. */}
+			{/* Cada tarjeta crece por su lado: ninguna se estira para igualar a la de
+			    al lado. */}
 			<div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
-				<div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
-					<Card>
+				{/* Mi Día y Casos Recientes: lado a lado en pantallas anchas, para que
+				    la home entre casi sin scroll; cada una con su propio alto. */}
+				<div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:col-span-2 xl:grid-cols-2">
+					<Card className="gap-3">
 						<CardHeader>
 							<div className="flex items-center gap-2">
 								<CalendarDays className="size-5 text-muted-foreground" />
 								<CardTitle className="text-base">Mi Día</CardTitle>
 							</div>
-							<CardDescription>
-								Plazos, tareas y audiencias de hoy
-							</CardDescription>
+							<CardDescription>Plazos, tareas y audiencias de hoy</CardDescription>
 						</CardHeader>
 						<CardContent>
 							{myDay.clear ? (
-								<div className="flex flex-col items-center justify-center py-8">
-									<CheckCircle2 className="size-12 text-emerald-400 mb-3" />
-									<p className="text-base font-medium">
-										¡Todo despejado hoy!
-									</p>
-									<p className="text-sm text-muted-foreground">
+								<div className="flex flex-col items-center justify-center py-4">
+									<CheckCircle2 className="size-8 text-emerald-400 mb-2" />
+									<p className="text-sm font-medium">¡Todo despejado hoy!</p>
+									<p className="text-xs text-muted-foreground mt-0.5">
 										No tienes plazos, tareas ni audiencias pendientes
 									</p>
 								</div>
 							) : (
-								<ul className="space-y-3">
+								<ul className="divide-y divide-border/70">
 									{myDay.deadlines.map((d) => (
-										<li
+										<FilaDelDia
 											key={`d-${d.id}`}
-											className="flex items-center gap-3 text-sm rounded-lg p-2 hover:bg-muted/50 transition-colors"
-										>
-											<div className="rounded-lg bg-amber-100 dark:bg-amber-900/30 p-1.5">
-												<Clock className="size-4 text-amber-600 dark:text-amber-400" />
-											</div>
-											<div className="min-w-0">
-												<p className="font-medium truncate">{d.title}</p>
-												<p className="text-xs text-muted-foreground">
-													{d.case?.title ?? "Sin causa"}
-													{d.dueTime ? ` · ${d.dueTime}` : ""}
-												</p>
-											</div>
-										</li>
+											icon={Clock}
+											tono="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+											titulo={d.title}
+											detalle={[d.case?.title ?? "Sin causa", d.dueTime]}
+										/>
 									))}
 									{myDay.events.map((e) => (
-										<li
+										<FilaDelDia
 											key={`e-${e.id}`}
-											className="flex items-center gap-3 text-sm rounded-lg p-2 hover:bg-muted/50 transition-colors"
-										>
-											<div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-1.5">
-												<CalendarDays className="size-4 text-blue-600 dark:text-blue-400" />
-											</div>
-											<div className="min-w-0">
-												<p className="font-medium truncate">{e.title}</p>
-												<p className="text-xs text-muted-foreground">
-													{e.case?.title ?? "Sin causa"}
-													{e.time ? ` · ${e.time}` : ""}
-													{e.location ? ` · ${e.location}` : ""}
-												</p>
-											</div>
-										</li>
+											icon={CalendarDays}
+											tono="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+											titulo={e.title}
+											detalle={[e.case?.title ?? "Sin causa", e.time, e.location]}
+										/>
 									))}
 									{myDay.tasks.map((t) => (
-										<li
+										<FilaDelDia
 											key={`t-${t.id}`}
-											className="flex items-center gap-3 text-sm rounded-lg p-2 hover:bg-muted/50 transition-colors"
-										>
-											<div className="rounded-lg bg-primary/10 p-1.5">
-												<ListChecks className="size-4 text-primary" />
-											</div>
-											<div className="min-w-0">
-												<p className="font-medium truncate">{t.title}</p>
-												<p className="text-xs text-muted-foreground">
-													{t.priority} · {t.status}
-												</p>
-											</div>
-										</li>
+											icon={ListChecks}
+											tono="bg-primary/10 text-primary"
+											titulo={t.title}
+											detalle={[t.priority, t.status]}
+										/>
 									))}
 									{myDay.calendarEvents.map((ce) => (
-										<li
+										<FilaDelDia
 											key={`ce-${ce.id}`}
-											className="flex items-center gap-3 text-sm rounded-xl border p-3 hover:bg-muted/40 transition-colors group"
+											icon={CalendarDays}
+											tono="bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400"
+											titulo={ce.title}
+											detalle={[
+												"Evento",
+												ce.allDay
+													? "todo el día"
+													: ce.start &&
+														new Date(ce.start).toLocaleTimeString("es-AR", {
+															hour: "2-digit",
+															minute: "2-digit",
+															timeZone: "UTC",
+														}),
+												ce.responsiblePerson?.name,
+											]}
 										>
-											<div className="shrink-0 size-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-												<CalendarDays className="size-5 text-purple-600 dark:text-purple-400" />
-											</div>
-											<div className="min-w-0 flex-1">
-												<div className="flex items-center gap-2 mb-0.5">
-													<Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800">
-														EVENTO
-													</Badge>
-													{ce.allDay && (
-														<Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
-															todo el día
-														</Badge>
-													)}
-												</div>
-												<p className="font-medium truncate">{ce.title}</p>
-												<p className="text-xs text-muted-foreground">
-													{!ce.allDay && ce.start
-														? new Date(ce.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
-														: ""}
-													{ce.responsiblePerson ? `${!ce.allDay ? " · " : ""}${ce.responsiblePerson.name}` : ""}
-												</p>
-											</div>
-											{ce.meetLink ? (
+											{ce.meetLink && (
 												<a
 													href={ce.meetLink}
 													target="_blank"
 													rel="noopener noreferrer"
-													className="shrink-0 text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors"
+													className="shrink-0 text-xs font-medium text-purple-600 hover:text-purple-800 dark:text-purple-400 transition-colors"
 												>
 													Meet
 												</a>
-											) : (
-												<ChevronRight className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
 											)}
-										</li>
+										</FilaDelDia>
 									))}
 								</ul>
 							)}
@@ -575,134 +580,116 @@ function LegalDashboard() {
 					</Card>
 
 					{/* Casos Recientes */}
-					<div>
-						<div className="flex items-center justify-between mb-4">
-							<div className="flex items-center gap-4">
-								<h2 className="text-lg font-semibold tracking-tight">
-									Casos Recientes
-								</h2>
+					<Card className="@container gap-3 overflow-hidden pb-0">
+						<CardHeader>
+							<div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+								<div className="flex items-center gap-2">
+									<Scale className="size-5 text-muted-foreground" />
+									<CardTitle className="text-base">Casos Recientes</CardTitle>
+								</div>
 								{!isRepresentative && (
 									<div className="flex rounded-lg border text-sm overflow-hidden">
 										<button
 											type="button"
 											onClick={() => handleFilterChange("all")}
-											className={`px-3 py-1 transition-colors ${casesFilter === "all" ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
+											className={`px-2.5 py-0.5 transition-colors ${casesFilter === "all" ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
 										>
 											Todos
 										</button>
 										<button
 											type="button"
 											onClick={() => handleFilterChange("mine")}
-											className={`px-3 py-1 transition-colors ${casesFilter === "mine" ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
+											className={`px-2.5 py-0.5 transition-colors ${casesFilter === "mine" ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
 										>
 											Mis casos
 										</button>
 									</div>
 								)}
+								<Link
+									href="/admin/legal-cases"
+									className="ml-auto flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+								>
+									Ver todos <ArrowRight className="size-4" />
+								</Link>
 							</div>
-							<Link
-								href="/admin/legal-cases"
-								className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-							>
-								Ver todos <ArrowRight className="size-4" />
-							</Link>
-						</div>
-						<Card className="overflow-hidden py-0">
-							<CardContent className="p-0">
-								{recentCases.length === 0 ? (
-									<div className="flex flex-col items-center justify-center py-10">
-										<Scale className="size-9 text-muted-foreground/30 mb-3" />
-										<p className="text-sm font-medium text-muted-foreground">
-											No hay casos recientes
-										</p>
-										<p className="text-xs text-muted-foreground/60 mt-0.5">
-											Los nuevos casos aparecerán aquí
-										</p>
-									</div>
-								) : (
-									<ul className="divide-y divide-border">
-										{recentCases.map((c) => (
-											<li key={c.id}>
-												<Link
-													href={`/admin/legal-cases/${c.id}`}
-													className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-muted/40 transition-colors group"
-												>
-													{/* Avatar con iniciales */}
-													<div className="shrink-0 size-9 rounded-lg bg-primary/10 flex items-center justify-center">
-														<span className="text-xs font-bold text-primary">
-															{c.title.slice(0, 2).toUpperCase()}
-														</span>
-													</div>
+						</CardHeader>
+						<CardContent className="p-0">
+							{recentCases.length === 0 ? (
+								<div className="flex flex-col items-center justify-center pt-2 pb-6">
+									<Scale className="size-8 text-muted-foreground/30 mb-2" />
+									<p className="text-sm font-medium text-muted-foreground">
+										No hay casos recientes
+									</p>
+									<p className="text-xs text-muted-foreground/60 mt-0.5">
+										Los nuevos casos aparecerán aquí
+									</p>
+								</div>
+							) : (
+								<ul className="divide-y divide-border border-t">
+									{recentCases.map((c) => (
+										<li key={c.id}>
+											<Link
+												href={`/admin/legal-cases/${c.id}`}
+												className="flex items-center gap-3 px-6 py-2.5 hover:bg-muted/40 transition-colors"
+											>
+												{/* Avatar con iniciales */}
+												<div className="shrink-0 size-8 rounded-lg bg-primary/10 flex items-center justify-center">
+													<span className="text-xs font-bold text-primary">
+														{c.title.slice(0, 2).toUpperCase()}
+													</span>
+												</div>
 
-													{/* Contenido */}
-													<div className="flex-1 min-w-0">
-														<div className="flex items-center gap-2 mb-0.5">
-															<p className="text-sm font-semibold truncate">
-																{c.title}
-															</p>
-															{c.number && (
-																<span className="shrink-0 text-[10px] text-muted-foreground/60 font-mono">
-																	#{c.number}
-																</span>
-															)}
-															{c.createdAt && isRecentCase(c.createdAt) && (
-																<span className="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-																	Nuevo
-																</span>
-															)}
-														</div>
-														{c.customer && (
-															<p className="text-xs text-muted-foreground truncate mb-1.5">
-																{c.customer.name}
-															</p>
+												<div className="flex-1 min-w-0">
+													<div className="flex items-center gap-2">
+														<p className="text-sm font-semibold truncate" title={c.title}>
+															{c.title}
+														</p>
+														{c.number && (
+															<span className="hidden @md:inline shrink-0 text-[10px] text-muted-foreground/60 font-mono">
+																#{c.number}
+															</span>
 														)}
-														<div className="flex items-center gap-3 flex-wrap">
-															{c.internalLawyer && (
-																<span className="flex items-center gap-1 text-xs text-muted-foreground">
-																	<Users2 className="size-3 shrink-0" />
-																	{c.internalLawyer.name}
-																</span>
-															)}
-															{c.responsibleLawyer && (
-																<span className="flex items-center gap-1 text-xs text-muted-foreground">
-																	<Scale className="size-3 shrink-0" />
-																	{c.responsibleLawyer.name}
-																</span>
-															)}
-															{c.files[0] && (
-																<span className="flex items-center gap-1 text-xs text-muted-foreground">
-																	<Activity className="size-3 shrink-0" />
-																	{c.files[0].title}
-																</span>
-															)}
-														</div>
+														{c.createdAt && isRecentCase(c.createdAt) && (
+															<span className="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+																Nuevo
+															</span>
+														)}
 													</div>
+													{/* El cliente solo si el título de la causa no lo nombra ya. */}
+													<div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+														{c.customer && !c.title.includes(c.customer.name) && (
+															<span className="max-w-full min-w-0 truncate">{c.customer.name}</span>
+														)}
+														{c.internalLawyer && (
+															<span className="max-w-full min-w-0 truncate" title="Abogado interno">
+																<Users2 className="mr-1 inline size-3 align-[-1px]" />
+																{c.internalLawyer.name}
+															</span>
+														)}
+														{c.responsibleLawyer && (
+															<span className="max-w-full min-w-0 truncate" title="Abogado responsable">
+																<Scale className="mr-1 inline size-3 align-[-1px]" />
+																{c.responsibleLawyer.name}
+															</span>
+														)}
+													</div>
+												</div>
 
-													{/* Fecha + flecha */}
-													<div className="flex flex-col items-end gap-1.5 shrink-0">
-														<span className="text-xs text-muted-foreground">
-															{(() => {
-															try {
-																const d = new Date(c.createdAt);
-																return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
-															} catch { return "—"; }
-														})()}
-														</span>
-														<ChevronRight className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
-													</div>
-												</Link>
-											</li>
-										))}
-									</ul>
-								)}
-							</CardContent>
-						</Card>
-					</div>
+												<span className="shrink-0 text-xs text-muted-foreground">
+													{fechaCorta(c.createdAt)}
+												</span>
+											</Link>
+										</li>
+									))}
+								</ul>
+							)}
+						</CardContent>
+					</Card>
 				</div>
 
 				{/* Plazos Urgentes + Próximas Audiencias */}
 				<div className="flex min-w-0 flex-col gap-6">
-					<Card>
+					<Card className="gap-3">
 						<CardHeader>
 							<div className="flex items-center gap-2">
 								<Clock className="size-5 text-muted-foreground" />
@@ -719,30 +706,27 @@ function LegalDashboard() {
 									</p>
 								</div>
 							) : (
-								<ul className="space-y-3">
+								<ul className="divide-y divide-border/70">
 									{urgentDeadlines.map((d) => (
-										<li
+										<FilaDelDia
 											key={d.id}
-											className="flex items-start gap-2.5 rounded-lg p-2 hover:bg-muted/50 transition-colors"
-										>
-											<div className="size-2 rounded-full bg-amber-500 mt-1.5 shrink-0" />
-											<div className="min-w-0">
-												<p className="text-sm font-medium truncate">
-													{d.title}
-												</p>
-												<p className="text-xs text-muted-foreground">
-													{d.case?.title ?? "Sin causa"} ·{" "}
-													{d.dueDate ? new Date(d.dueDate).toLocaleDateString("es-AR", { timeZone: "UTC" }) : "Sin fecha"}
-												</p>
-											</div>
-										</li>
+											icon={Clock}
+											tono="bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+											titulo={d.title}
+											detalle={[
+												d.dueDate
+													? new Date(d.dueDate).toLocaleDateString("es-AR", { timeZone: "UTC" })
+													: "Sin fecha",
+												d.case?.title ?? "Sin causa",
+											]}
+										/>
 									))}
 								</ul>
 							)}
 						</CardContent>
 					</Card>
 
-					<Card>
+					<Card className="gap-3">
 						<CardHeader>
 							<div className="flex items-center gap-2">
 								<CalendarDays className="size-5 text-muted-foreground" />
@@ -761,29 +745,22 @@ function LegalDashboard() {
 									</p>
 								</div>
 							) : (
-								<ul className="space-y-3">
+								<ul className="divide-y divide-border/70">
 									{upcomingEvents.map((e) => (
-										<li
+										<FilaDelDia
 											key={e.id}
-											className="flex items-start gap-2.5 rounded-lg p-2 hover:bg-muted/50 transition-colors"
-										>
-											<div className="size-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-											<div className="min-w-0">
-												<p className="text-sm font-medium truncate">
-													{e.title}
-												</p>
-												<p className="text-xs text-muted-foreground">
-													{e.case?.title ?? "Sin causa"} ·{" "}
-													{e.date ? new Date(e.date).toLocaleDateString("es-AR", { timeZone: "UTC" }) : "Sin fecha"}
-													{e.time ? ` · ${e.time}` : ""}
-												</p>
-												{e.location && (
-													<p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-														<MapPin className="size-3" /> {e.location}
-													</p>
-												)}
-											</div>
-										</li>
+											icon={CalendarDays}
+											tono="bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
+											titulo={e.title}
+											detalle={[
+												e.date
+													? new Date(e.date).toLocaleDateString("es-AR", { timeZone: "UTC" })
+													: "Sin fecha",
+												e.time,
+												e.case?.title ?? "Sin causa",
+												e.location,
+											]}
+										/>
 									))}
 								</ul>
 							)}
