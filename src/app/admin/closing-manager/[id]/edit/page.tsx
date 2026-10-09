@@ -73,6 +73,7 @@ export default function EditClosingPage() {
 	const [hpAgreed, setHpAgreed] = useState("20");
 	const [hpTotal, setHpTotal] = useState("0");
 	const [withRepresentante, setWithRepresentante] = useState(true);
+	const [representantePercent, setRepresentantePercent] = useState("25");
 	const [pclAgreed, setPclAgreed] = useState("20");
 	const [pclTotal, setPclTotal] = useState("0");
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
@@ -147,6 +148,12 @@ export default function EditClosingPage() {
 		return [...byId.values()];
 	}, [closing]);
 
+	// % de HP y PCL para el representante (25 si se deja vacío).
+	const repPct = Number.isFinite(parseFloat(representantePercent))
+		? Math.min(100, Math.max(0, parseFloat(representantePercent)))
+		: 25;
+	const repRatio = withRepresentante ? repPct / 100 : 0;
+
 	// Calculated fields
 	const calc = useMemo(() => {
 		const hp = Number(hpTotal) || 0;
@@ -160,9 +167,9 @@ export default function EditClosingPage() {
 		const anteriores =
 			aportesAnteriores && !algunaTarjetaActiva(aportes) ? aportesAnteriores : null;
 
-		const hpRep = withRepresentante ? hp * 0.25 : 0;
+		const hpRep = withRepresentante ? hp * repRatio : 0;
 		const hpLeg = hp - hpRep;
-		const pclRep = withRepresentante ? pcl * 0.25 : 0;
+		const pclRep = withRepresentante ? pcl * repRatio : 0;
 		const pclLeg = pcl - pclRep;
 		const aportesRep = anteriores ? anteriores.representante : tarjetas.representante;
 		const aportesLeg = anteriores ? anteriores.legalistas : tarjetas.legalistas;
@@ -182,6 +189,7 @@ export default function EditClosingPage() {
 	}, [
 		hpTotal,
 		withRepresentante,
+		repRatio,
 		pclTotal,
 		capitalAmount,
 		aportes,
@@ -221,6 +229,7 @@ export default function EditClosingPage() {
 				setHpAgreed(String(data.hpAgreed ?? 20));
 				setHpTotal(String(data.hpTotal ?? 0));
 				setWithRepresentante(data.hpDistribution ?? true);
+				setRepresentantePercent(String(Number(data.representantePercent ?? 25)));
 				setPclAgreed(String(data.pclAgreed ?? 20));
 				setPclTotal(String(data.pclTotal ?? 0));
 				setPclStatus(data.pclStatus || "EARRINGS");
@@ -274,6 +283,7 @@ export default function EditClosingPage() {
 					hpAgreed: parseFloat(hpAgreed) || 20,
 					hpTotal: parseFloat(hpTotal) || 0,
 					hpDistribution: withRepresentante,
+					representantePercent: repPct,
 					pclAgreed: parseFloat(pclAgreed) || 0,
 					pclTotal: parseFloat(pclTotal) || 0,
 					pclDistribution: withRepresentante,
@@ -546,10 +556,33 @@ export default function EditClosingPage() {
 					{/* Distribución con representante */}
 					<div className="flex items-center justify-between rounded-xl border border-border px-5 py-3.5">
 						<div>
-							<p className="text-sm font-medium text-foreground">Distribución con representante (25%)</p>
-							<p className="text-xs text-muted-foreground mt-0.5">Aplica tanto a HP como a PCL</p>
+							<p className="text-sm font-medium text-foreground">Distribución con representante</p>
+							<p className="text-xs text-muted-foreground mt-0.5">
+								Su porcentaje aplica tanto a HP como a PCL; el resto es lo que cobra Legalistas.
+							</p>
 						</div>
-						<Switch checked={withRepresentante} onCheckedChange={setWithRepresentante} />
+						<div className="flex items-center gap-3">
+							<label htmlFor="representante-percent" className="text-xs text-muted-foreground">
+								% del representante
+							</label>
+							<div className="relative w-24">
+								<input
+									id="representante-percent"
+									type="number"
+									step="0.01"
+									min="0"
+									max="100"
+									value={representantePercent}
+									onChange={(e) => setRepresentantePercent(e.target.value)}
+									disabled={!withRepresentante}
+									className="w-full h-10 px-3 pr-7 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-muted disabled:text-muted-foreground"
+								/>
+								<span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+									%
+								</span>
+							</div>
+							<Switch checked={withRepresentante} onCheckedChange={setWithRepresentante} />
+						</div>
 					</div>
 
 					{/* HP */}

@@ -282,6 +282,7 @@ export default function ClosingManagerPage() {
 				c.pclStatus ? (ESTADO[c.pclStatus] ?? c.pclStatus) : "—",
 				c.pclPaid,
 				c.montoTransferir,
+				c.faltaCobrar,
 			]);
 			const suma = (i: number) =>
 				filas.reduce((s, f) => s + (typeof f[i] === "number" ? (f[i] as number) : 0), 0);
@@ -299,13 +300,14 @@ export default function ClosingManagerPage() {
 							"Tipo",
 							"Capital",
 							"HP total",
-							"HP Legalistas",
+							"HP a cobrar",
 							"HP estado",
 							"HP cobrado",
 							"PCL total",
 							"PCL estado",
 							"PCL cobrado",
-							"A transferir",
+							"A cobrar",
+							"Falta cobrar",
 						],
 						filas,
 						totales: [
@@ -321,8 +323,9 @@ export default function ClosingManagerPage() {
 							"",
 							suma(10),
 							suma(11),
+							suma(12),
 						],
-						montos: [3, 4, 5, 7, 8, 10, 11],
+						montos: [3, 4, 5, 7, 8, 10, 11, 12],
 					},
 				],
 			});

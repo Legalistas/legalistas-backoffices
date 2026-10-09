@@ -263,7 +263,7 @@ export default function AportesCards({
 			<p className="text-xs text-muted-foreground">
 				Los aportes de Legalistas se descuentan de Honorarios (HP), no de PCL.{" "}
 				{conRepresentante
-					? "Lo que aporta el representante se carga a mano (no sigue el 25 % de HP y PCL) y se le descuenta de su parte cuando Legalistas se la paga."
+					? "Lo que aporta el representante se carga a mano (no sigue el porcentaje de HP y PCL) y se le descuenta de su parte cuando Legalistas se la paga."
 					: "Sin representante, todo el aporte es de Legalistas."}
 			</p>
 		</div>

@@ -61,12 +61,12 @@ const COLUMNS = [
 	{ id: "hpAgreed", label: "HP Convenido (%)", align: "right", width: "" },
 	{ id: "hpTotal", label: "HP Total ($)", align: "right", width: "w-[8%]" },
 	{ id: "hpRepresentante", label: "HP Representante ($)", align: "right", width: "" },
-	{ id: "hpLegalistas", label: "HP Legalistas ($)", align: "right", width: "" },
+	{ id: "hpLegalistas", label: "HP a cobrar ($)", align: "right", width: "" },
 	{ id: "feeStatus", label: "Estado Honorarios", align: "left", width: "" },
 	{ id: "pclAgreed", label: "PCL Convenido (%)", align: "right", width: "" },
 	{ id: "pclTotal", label: "PCL Total ($)", align: "right", width: "w-[8%]" },
 	{ id: "pclRepresentante", label: "PCL Representante ($)", align: "right", width: "" },
-	{ id: "pclLegalistas", label: "PCL Legalistas ($)", align: "right", width: "" },
+	{ id: "pclLegalistas", label: "PCL a cobrar ($)", align: "right", width: "" },
 	{ id: "pclStatus", label: "Estado PCL", align: "left", width: "" },
 	{ id: "contributionsAmount", label: "Aportes Totales ($)", align: "right", width: "" },
 	{
@@ -432,8 +432,8 @@ export default function ClosingManagerTable({
 						{closing.feeStatus === "PARTIAL" && (
 							<>
 								<span className="text-[10px] text-muted-foreground whitespace-nowrap">
-									{formatCurrency(Number(closing.hpTotal))} ={" "}
-									{formatCurrency(closing.hpPaid)}
+									{formatCurrency(closing.hpPaid)} de{" "}
+									{formatCurrency(closing.hpLegalistas)}
 								</span>
 								<button
 									type="button"
@@ -497,8 +497,8 @@ export default function ClosingManagerTable({
 						{closing.pclStatus === "PARTIAL" && (
 							<>
 								<span className="text-[10px] text-muted-foreground whitespace-nowrap">
-									{formatCurrency(Number(closing.pclTotal))} ={" "}
-									{formatCurrency(closing.pclPaid)}
+									{formatCurrency(closing.pclPaid)} de{" "}
+									{formatCurrency(closing.pclLegalistas)}
 								</span>
 								<button
 									type="button"
@@ -538,14 +538,26 @@ export default function ClosingManagerTable({
 
 			case "montoTransferir":
 				return (
-					<span
-						className={cn(
-							"text-right block font-bold",
-							closing.montoTransferir < 0 ? "text-red-600 dark:text-red-400" : "text-primary",
+					<div className="text-right">
+						<span
+							className={cn(
+								"block font-bold",
+								closing.montoTransferir < 0 ? "text-red-600 dark:text-red-400" : "text-primary",
+							)}
+						>
+							{formatCurrency(closing.montoTransferir)}
+						</span>
+						{/* El monto de arriba es el total del cierre; esto, lo que todavía no
+						    entró. Va en la misma celda: la tabla no tiene lugar para otra columna. */}
+						{closing.faltaCobrar > 0 && (
+							<span
+								className="block text-[11px] font-medium text-amber-600 dark:text-amber-400"
+								title={`Falta cobrar — HP ${formatCurrency(closing.hpFalta)} · PCL ${formatCurrency(closing.pclFalta)}`}
+							>
+								Falta {formatCurrency(closing.faltaCobrar)}
+							</span>
 						)}
-					>
-						{formatCurrency(closing.montoTransferir)}
-					</span>
+					</div>
 				);
 
 			case "totalCaseExpenses":

@@ -127,6 +127,7 @@ export default function CreateClosingPage() {
 	const [hpAgreedPercentage, setHpAgreedPercentage] = useState("20");
 	const [hpTotal, setHpTotal] = useState("");
 	const [withRepresentante, setWithRepresentante] = useState(true);
+	const [representantePercent, setRepresentantePercent] = useState("25");
 	const [pclAgreed, setPclAgreed] = useState("20");
 	const [pclTotal, setPclTotal] = useState("");
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
@@ -179,6 +180,7 @@ export default function CreateClosingPage() {
 		setHpAgreedPercentage("20");
 		setHpTotal("");
 		setWithRepresentante(true);
+		setRepresentantePercent("25");
 		setPclAgreed("20");
 		setPclTotal("");
 		setPclStatus("EARRINGS");
@@ -397,6 +399,7 @@ export default function CreateClosingPage() {
 							hpAgreed: parseFloat(hpAgreedPercentage) || 20,
 							hpTotal: parseFloat(hpTotal) || 0,
 							hpDistribution: withRepresentante,
+							representantePercent: repPct,
 							pclAgreed: parseFloat(pclAgreed) || 20,
 							pclTotal: parseFloat(pclTotal) || 0,
 							pclDistribution: withRepresentante,
@@ -431,6 +434,7 @@ export default function CreateClosingPage() {
 						hpAgreed: parseFloat(hpAgreedPercentage) || 20,
 						hpTotal: parseFloat(hpTotal) || 0,
 						hpDistribution: withRepresentante,
+						representantePercent: repPct,
 						pclAgreed: parseFloat(pclAgreed) || 20,
 						pclTotal: parseFloat(pclTotal) || 0,
 						pclDistribution: withRepresentante,
@@ -452,6 +456,12 @@ export default function CreateClosingPage() {
 			setIsSubmitting(false);
 		}
 	};
+
+	// % de HP y PCL para el representante (25 si se deja vacío).
+	const repPct = Number.isFinite(parseFloat(representantePercent))
+		? Math.min(100, Math.max(0, parseFloat(representantePercent)))
+		: 25;
+	const repRatio = withRepresentante ? repPct / 100 : 0;
 
 	const acceptedOffer = getAcceptedOffer();
 
@@ -1089,8 +1099,8 @@ export default function CreateClosingPage() {
 										{(() => {
 											const hp = Number(hpTotal) || 0;
 											const pcl = Number(pclTotal) || 0;
-											const hpLeg = hp - (withRepresentante ? hp * 0.25 : 0);
-											const pclLeg = pcl - (withRepresentante ? pcl * 0.25 : 0);
+											const hpLeg = hp - (withRepresentante ? hp * repRatio : 0);
+											const pclLeg = pcl - (withRepresentante ? pcl * repRatio : 0);
 											const aportesLeg = aportesCalc.legalistas;
 											const monto = hpLeg - aportesLeg + pclLeg;
 											return (
@@ -1210,13 +1220,36 @@ export default function CreateClosingPage() {
 								{/* Distribución con representante */}
 								<div className="flex items-center justify-between rounded-xl border border-border px-5 py-3.5">
 									<div>
-										<p className="text-sm font-medium text-foreground">Distribución con representante (25%)</p>
-										<p className="text-xs text-muted-foreground mt-0.5">Aplica tanto a HP como a PCL</p>
+										<p className="text-sm font-medium text-foreground">Distribución con representante</p>
+										<p className="text-xs text-muted-foreground mt-0.5">
+											Su porcentaje aplica tanto a HP como a PCL; el resto es lo que cobra Legalistas.
+										</p>
 									</div>
-									<Switch
-										checked={withRepresentante}
-										onCheckedChange={setWithRepresentante}
-									/>
+									<div className="flex items-center gap-3">
+										<label htmlFor="representante-percent" className="text-xs text-muted-foreground">
+											% del representante
+										</label>
+										<div className="relative w-24">
+											<input
+												id="representante-percent"
+												type="number"
+												step="0.01"
+												min="0"
+												max="100"
+												value={representantePercent}
+												onChange={(e) => setRepresentantePercent(e.target.value)}
+												disabled={!withRepresentante}
+												className="w-full h-10 px-3 pr-7 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-muted disabled:text-muted-foreground"
+											/>
+											<span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+												%
+											</span>
+										</div>
+										<Switch
+											checked={withRepresentante}
+											onCheckedChange={setWithRepresentante}
+										/>
+									</div>
 								</div>
 
 								{/* HP */}
@@ -1275,7 +1308,7 @@ export default function CreateClosingPage() {
 													style: "currency",
 													currency: "ARS",
 												}).format(
-													withRepresentante ? (Number(hpTotal) || 0) * 0.25 : 0,
+													withRepresentante ? (Number(hpTotal) || 0) * repRatio : 0,
 												)}
 											</div>
 										</div>
@@ -1283,7 +1316,7 @@ export default function CreateClosingPage() {
 											{(() => {
 												const hp = Number(hpTotal) || 0;
 												const hpLeg =
-													hp - (withRepresentante ? hp * 0.25 : 0);
+													hp - (withRepresentante ? hp * repRatio : 0);
 												const aportesLeg = aportesCalc.legalistas;
 												const hpLegNeto = hpLeg - aportesLeg;
 												return (
@@ -1366,7 +1399,7 @@ export default function CreateClosingPage() {
 													style: "currency",
 													currency: "ARS",
 												}).format(
-													withRepresentante ? (Number(pclTotal) || 0) * 0.25 : 0,
+													withRepresentante ? (Number(pclTotal) || 0) * repRatio : 0,
 												)}
 											</div>
 										</div>
@@ -1381,7 +1414,7 @@ export default function CreateClosingPage() {
 												}).format(
 													(Number(pclTotal) || 0) -
 														(withRepresentante
-															? (Number(pclTotal) || 0) * 0.25
+															? (Number(pclTotal) || 0) * repRatio
 															: 0),
 												)}
 											</div>

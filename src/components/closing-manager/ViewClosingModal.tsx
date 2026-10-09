@@ -64,6 +64,8 @@ export default function ViewClosingModal({
 	const montoPositivo = closing.montoTransferir >= 0;
 
 	// hpLegalistas viene del backend ya neto de aportes Legalistas.
+	// % de HP y PCL para el representante (25 en los cierres de antes).
+	const repLabel = `Dist. ${Number(closing.representantePercent ?? 25)}% Rep.`;
 	const aportesAplicados = closing.applyContributions
 		? Number(closing.aportesLegalistas || 0)
 		: 0;
@@ -265,6 +267,7 @@ export default function ViewClosingModal({
 						title="Honorarios Pactados (HP)"
 						color={closing.feeStatus === "CHARGED" ? "green" : "blue"}
 						distribution={closing.hpDistribution}
+						distributionLabel={closing.hpDistribution ? repLabel : undefined}
 						items={[
 							{ label: "Convenido", value: formatPercent(closing.hpAgreed) },
 							{ label: "Total", value: formatCurrency(closing.hpTotal), highlight: true },
@@ -289,6 +292,7 @@ export default function ViewClosingModal({
 						title="Pacto de Cuota Litis (PCL)"
 						color={closing.pclStatus === "CHARGED" ? "green" : "violet"}
 						distribution={closing.pclDistribution}
+						distributionLabel={closing.pclDistribution ? repLabel : undefined}
 						items={[
 							{ label: "Convenido", value: formatPercent(closing.pclAgreed) },
 							{ label: "Total", value: formatCurrency(closing.pclTotal), highlight: true },
