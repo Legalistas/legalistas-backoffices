@@ -45,44 +45,43 @@ import { useCajas } from "@/components/caja/useCajas";
 // =============================================================================
 const COLUMNS = [
 	// Columna indicador fija de cobro — siempre visible al inicio.
-	{ id: "paymentIndicator", label: "Cobro", align: "center", width: "w-[4%]" },
-	{ id: "date", label: "Fecha", align: "left", width: "w-[8%]" },
-	{ id: "case", label: "Causa", align: "left", width: "w-[14%]" },
-	{ id: "lawyer", label: "Representante", align: "left", width: "w-[11%]" },
-	{
-		id: "internalLawyer",
-		label: "Abogado Interno",
-		align: "left",
-		width: "w-[11%]",
-	},
-	{ id: "type", label: "Tipo de Cierre", align: "left", width: "w-[10%]" },
-	{ id: "capitalAmount", label: "Capital ($)", align: "right", width: "w-[9%]" },
-	{ id: "capitalState", label: "Estado Capital", align: "left", width: "w-[12%]" },
-	{ id: "hpAgreed", label: "HP Convenido (%)", align: "right", width: "" },
-	{ id: "hpTotal", label: "HP Total ($)", align: "right", width: "w-[8%]" },
-	{ id: "hpRepresentante", label: "HP Representante ($)", align: "right", width: "" },
-	{ id: "hpLegalistas", label: "HP a cobrar ($)", align: "right", width: "" },
-	{ id: "feeStatus", label: "Estado Honorarios", align: "left", width: "" },
-	{ id: "pclAgreed", label: "PCL Convenido (%)", align: "right", width: "" },
-	{ id: "pclTotal", label: "PCL Total ($)", align: "right", width: "w-[8%]" },
-	{ id: "pclRepresentante", label: "PCL Representante ($)", align: "right", width: "" },
-	{ id: "pclLegalistas", label: "PCL a cobrar ($)", align: "right", width: "" },
-	{ id: "pclStatus", label: "Estado PCL", align: "left", width: "" },
-	{ id: "contributionsAmount", label: "Aportes Totales ($)", align: "right", width: "" },
-	{
-		id: "aportesRepresentante",
-		label: "Aportes Representante ($)",
-		align: "right",
-		width: "",
-	},
-	{ id: "aportesLegalistas", label: "Aportes Legalistas ($)", align: "right", width: "" },
-	{ id: "montoTransferir", label: "Monto a Cobrar ($)", align: "right", width: "w-[10%]" },
-	{ id: "totalCaseExpenses", label: "Gastos Causa ($)", align: "right", width: "" },
-	{ id: "detail", label: "Detalle", align: "left", width: "" },
+	{ id: "paymentIndicator", label: "Cobro", align: "center", partes: 7 },
+	{ id: "date", label: "Fecha", align: "left", partes: 9 },
+	{ id: "case", label: "Causa", align: "left", partes: 14 },
+	{ id: "lawyer", label: "Representante", align: "left", partes: 12 },
+	{ id: "internalLawyer", label: "Abogado Interno", align: "left", partes: 12 },
+	{ id: "type", label: "Tipo de Cierre", align: "left", partes: 10 },
+	{ id: "capitalAmount", label: "Capital ($)", align: "right", partes: 12 },
+	{ id: "capitalState", label: "Estado Capital", align: "left", partes: 13 },
+	{ id: "hpAgreed", label: "HP Convenido (%)", align: "right", partes: 9 },
+	{ id: "hpTotal", label: "HP Total ($)", align: "right", partes: 11 },
+	{ id: "hpRepresentante", label: "HP Representante ($)", align: "right", partes: 12 },
+	{ id: "hpLegalistas", label: "HP a cobrar ($)", align: "right", partes: 12 },
+	{ id: "feeStatus", label: "Estado Honorarios", align: "left", partes: 15 },
+	{ id: "pclAgreed", label: "PCL Convenido (%)", align: "right", partes: 9 },
+	{ id: "pclTotal", label: "PCL Total ($)", align: "right", partes: 11 },
+	{ id: "pclRepresentante", label: "PCL Representante ($)", align: "right", partes: 12 },
+	{ id: "pclLegalistas", label: "PCL a cobrar ($)", align: "right", partes: 12 },
+	{ id: "pclStatus", label: "Estado PCL", align: "left", partes: 15 },
+	{ id: "contributionsAmount", label: "Aportes Totales ($)", align: "right", partes: 12 },
+	{ id: "aportesRepresentante", label: "Aportes Representante ($)", align: "right", partes: 12 },
+	{ id: "aportesLegalistas", label: "Aportes Legalistas ($)", align: "right", partes: 12 },
+	{ id: "montoTransferir", label: "Monto a Cobrar ($)", align: "right", partes: 13 },
+	{ id: "totalCaseExpenses", label: "Gastos Causa ($)", align: "right", partes: 12 },
+	{ id: "detail", label: "Detalle", align: "left", partes: 20 },
 ] as const;
 
 // Columna montoTransferir siempre visible (no se puede ocultar)
 const ALWAYS_VISIBLE = ["paymentIndicator", "montoTransferir"];
+
+// Los anchos van en "partes" que se reparten entre las columnas visibles, así
+// siempre suman 100 %. Con table-fixed y anchos en % que sumaban más de 100,
+// las últimas columnas se quedaban sin lugar y se encimaban (se notaba en
+// "Pendientes de cobro", que agrega las de estado). PARTE_MIN es lo mínimo que
+// mide una parte: si no entran todas, la tabla se desplaza hacia el costado en
+// vez de apretarse.
+const PARTE_MIN = 8; // px
+const PARTES_ACCION = 21; // los cinco botones
 
 interface ClosingManagerTableProps {
 	closings: ClosingManagerEntry[];
@@ -431,7 +430,7 @@ export default function ClosingManagerTable({
 						</Badge>
 						{closing.feeStatus === "PARTIAL" && (
 							<>
-								<span className="text-[10px] text-muted-foreground whitespace-nowrap">
+								<span className="text-[10px] text-muted-foreground whitespace-normal">
 									{formatCurrency(closing.hpPaid)} de{" "}
 									{formatCurrency(closing.hpLegalistas)}
 								</span>
@@ -496,7 +495,7 @@ export default function ClosingManagerTable({
 						</Badge>
 						{closing.pclStatus === "PARTIAL" && (
 							<>
-								<span className="text-[10px] text-muted-foreground whitespace-nowrap">
+								<span className="text-[10px] text-muted-foreground whitespace-normal">
 									{formatCurrency(closing.pclPaid)} de{" "}
 									{formatCurrency(closing.pclLegalistas)}
 								</span>
@@ -635,20 +634,30 @@ export default function ClosingManagerTable({
 	// =========================================================================
 	// Render
 	// =========================================================================
+	const partesTotales = COLUMNS.reduce(
+		(suma, col) => (isColumnVisible(col.id) ? suma + col.partes : suma),
+		PARTES_ACCION,
+	);
+	const ancho = (partes: number) => ({ width: `${(partes / partesTotales) * 100}%` });
+
 	return (
 		<div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
 			<div className="w-full">
-				<Table className="w-full table-fixed">
+				<Table className="w-full table-fixed" style={{ minWidth: partesTotales * PARTE_MIN }}>
 					<TableHeader className="bg-gray-50 dark:bg-white/5">
 						<TableRow>
 							{COLUMNS.map((col) =>
 								isColumnVisible(col.id) ? (
 									<TableCell
 										key={col.id}
+										style={ancho(col.partes)}
+										title={col.label}
 										className={cn(
 											headerCellClass,
+											"truncate",
 											col.align === "right" ? "text-right" : "text-left",
-											col.width,
+											// Columna angosta (solo un ícono): menos margen para que entre el título.
+											col.id === "paymentIndicator" && "px-1 text-center",
 											col.id === "montoTransferir" &&
 												"bg-primary/5 text-primary",
 										)}
@@ -658,7 +667,8 @@ export default function ClosingManagerTable({
 								) : null,
 							)}
 							<TableCell
-								className={cn(headerCellClass, "text-right w-[9%]")}
+								style={ancho(PARTES_ACCION)}
+								className={cn(headerCellClass, "text-right")}
 							>
 								Acción
 							</TableCell>
@@ -697,15 +707,15 @@ export default function ClosingManagerTable({
 											</TableCell>
 										) : null,
 									)}
-									<TableCell className="px-4 py-3 text-right">
-										<div className="flex items-center justify-end gap-2">
+									<TableCell className="px-2 py-3 text-right">
+										<div className="flex items-center justify-end gap-0.5">
 											{/* También en los ya cobrados: puede entrar el resto del
 											    total (la parte del representante) y se ven los cobros. */}
 											{puedeCobrar && (
 												<button
 													type="button"
 													onClick={() => setCobrarId(closing.id)}
-													className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 transition-colors"
+													className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 transition-colors"
 													title="Registrar cobro en la Caja"
 												>
 													<Wallet className="h-4 w-4" />
@@ -714,7 +724,7 @@ export default function ClosingManagerTable({
 											)}
 											<button
 												onClick={() => setViewClosing(closing)}
-												className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 transition-colors"
+												className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:text-primary hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-white/5 transition-colors"
 												title="Ver detalle"
 											>
 												<Eye className="h-4 w-4" />
@@ -722,7 +732,7 @@ export default function ClosingManagerTable({
 											</button>
 											<button
 												onClick={() => setLiquidarId(closing.id)}
-												className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-emerald-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-emerald-400 dark:hover:bg-white/5 transition-colors"
+												className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:text-emerald-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-emerald-400 dark:hover:bg-white/5 transition-colors"
 												title="Liquidar honorarios"
 											>
 												<Receipt className="h-4 w-4" />
@@ -730,14 +740,14 @@ export default function ClosingManagerTable({
 											</button>
 											<button
 												onClick={() => handleEdit(closing.id)}
-												className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-blue-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-white/5 transition-colors"
+												className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:text-blue-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-blue-400 dark:hover:bg-white/5 transition-colors"
 											>
 												<Pencil className="h-4 w-4" />
 												<span className="sr-only">Editar</span>
 											</button>
 											<button
 												onClick={() => handleDelete(closing.id)}
-												className="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 hover:text-red-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-white/5 transition-colors"
+												className="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 hover:text-red-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-white/5 transition-colors"
 											>
 												<Trash2 className="h-4 w-4" />
 												<span className="sr-only">Eliminar</span>
