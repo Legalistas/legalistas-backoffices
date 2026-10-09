@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+import AportesCards from "@/components/closing-manager/AportesCards";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -19,6 +20,12 @@ import {
 	statusCapital,
 	statusData,
 } from "@/constant/closing-manager";
+import {
+	type AportesDetalle,
+	APORTES_VACIOS,
+	algunaTarjetaActiva,
+	calcularAportes,
+} from "@/lib/aportes-cierre";
 import { cn } from "@/lib/utils";
 import type {
 	ChargeCollector,
@@ -71,10 +78,13 @@ export default function EditClosingPage() {
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
 	const [pclChargedAt, setPclChargedAt] = useState("");
 	const [pclChargedById, setPclChargedById] = useState<string>("");
-	const [contributionsAmount, setContributionsAmount] = useState("0");
-	const [applyContributions, setApplyContributions] = useState(true);
-	const [aportesRepresentantePercent, setAportesRepresentantePercent] =
-		useState("25");
+	const [aportes, setAportes] = useState<AportesDetalle>(APORTES_VACIOS);
+	// Cierre cargado antes de las tarjetas: sus aportes (un total a mano y un %)
+	// se conservan tal cual mientras no se active ninguna tarjeta.
+	const [aportesAnteriores, setAportesAnteriores] = useState<{
+		representante: number;
+		legalistas: number;
+	} | null>(null);
 	const [detail, setDetail] = useState("");
 
 	// Auto-calculate HP Total and PCL Total
@@ -141,19 +151,21 @@ export default function EditClosingPage() {
 	const calc = useMemo(() => {
 		const hp = Number(hpTotal) || 0;
 		const pcl = Number(pclTotal) || 0;
-		const aportes = applyContributions ? Number(contributionsAmount) || 0 : 0;
-		const aportesRepPctClamped = Math.max(
-			0,
-			Math.min(100, Number(aportesRepresentantePercent) || 0),
+		// Aportes: las tres tarjetas o, en un cierre anterior sin tocar, lo que ya tenía.
+		const tarjetas = calcularAportes(
+			aportes,
+			Number(capitalAmount) || 0,
+			withRepresentante,
 		);
-		const aportesRepRatio = withRepresentante ? aportesRepPctClamped / 100 : 0;
+		const anteriores =
+			aportesAnteriores && !algunaTarjetaActiva(aportes) ? aportesAnteriores : null;
 
 		const hpRep = withRepresentante ? hp * 0.25 : 0;
 		const hpLeg = hp - hpRep;
 		const pclRep = withRepresentante ? pcl * 0.25 : 0;
 		const pclLeg = pcl - pclRep;
-		const aportesRep = aportes * aportesRepRatio;
-		const aportesLeg = aportes - aportesRep;
+		const aportesRep = anteriores ? anteriores.representante : tarjetas.representante;
+		const aportesLeg = anteriores ? anteriores.legalistas : tarjetas.legalistas;
 		// Aportes Legalistas se descuentan de HP (NO de PCL).
 		const hpLegNeto = hpLeg - aportesLeg;
 		const montoTransferir = hpLegNeto + pclLeg;
@@ -171,9 +183,9 @@ export default function EditClosingPage() {
 		hpTotal,
 		withRepresentante,
 		pclTotal,
-		contributionsAmount,
-		applyContributions,
-		aportesRepresentantePercent,
+		capitalAmount,
+		aportes,
+		aportesAnteriores,
 	]);
 
 	// Fetch closing
@@ -218,10 +230,13 @@ export default function EditClosingPage() {
 				setPclChargedById(
 					data.pclChargedById != null ? String(data.pclChargedById) : "",
 				);
-				setContributionsAmount(String(data.contributionsAmount ?? 0));
-				setApplyContributions(data.applyContributions ?? true);
-				setAportesRepresentantePercent(
-					String(data.aportesRepresentantePercent ?? 25),
+				setAportes(data.aportesDetalle ?? APORTES_VACIOS);
+				const aportesRep = Number(data.aportesRepresentante) || 0;
+				const aportesLeg = Number(data.aportesLegalistas) || 0;
+				setAportesAnteriores(
+					!data.aportesDetalle && aportesRep + aportesLeg > 0
+						? { representante: aportesRep, legalistas: aportesLeg }
+						: null,
 				);
 				setDetail(data.detail || "");
 			} catch (err) {
@@ -269,10 +284,8 @@ export default function EditClosingPage() {
 						pclStatus === "CHARGED" && pclChargedById
 							? Number(pclChargedById)
 							: null,
-					contributionsAmount: parseFloat(contributionsAmount) || 0,
-					applyContributions,
-					aportesRepresentantePercent:
-						parseFloat(aportesRepresentantePercent) || 25,
+					// Un cierre anterior sin tocar conserva sus aportes: no se mandan.
+					...(aportesAnteriores && !algunaTarjetaActiva(aportes) ? {} : { aportes }),
 					detail: detail || null,
 				}),
 			});
@@ -671,85 +684,13 @@ export default function EditClosingPage() {
 					</div>
 
 					{/* Aportes */}
-					<div className="border border-border rounded-xl p-5 space-y-4">
-						<div className="flex items-center justify-between">
-							<h4 className="font-semibold text-sm text-foreground">Aportes</h4>
-							<div className="flex items-center gap-2 text-sm text-muted-foreground">
-								<span>Aplicar aportes</span>
-								<Switch checked={applyContributions} onCheckedChange={setApplyContributions} />
-							</div>
-						</div>
-						<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-							<div className="space-y-1">
-								<label className="text-xs text-muted-foreground">
-									Aportes Totales ($)
-								</label>
-								<div className="relative">
-									<span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-										$
-									</span>
-									<input
-										type="number"
-										step="0.01"
-										min="0"
-										value={contributionsAmount}
-										onChange={(e) => setContributionsAmount(e.target.value)}
-										disabled={!applyContributions}
-										className={`${inputClass} pl-7 disabled:bg-muted disabled:text-muted-foreground`}
-									/>
-								</div>
-							</div>
-							<div className="space-y-1">
-								<label className="text-xs text-muted-foreground">
-									% Representante
-								</label>
-								<div className="relative">
-									<input
-										type="number"
-										step="0.01"
-										min="0"
-										max="100"
-										value={aportesRepresentantePercent}
-										onChange={(e) =>
-											setAportesRepresentantePercent(e.target.value)
-										}
-										disabled={!applyContributions || !withRepresentante}
-										className={`${inputClass} pr-8 disabled:bg-muted disabled:text-muted-foreground`}
-									/>
-									<span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">
-										%
-									</span>
-								</div>
-							</div>
-							<div className="space-y-1">
-								<label className="text-xs text-muted-foreground">
-									Aportes Representante ($)
-								</label>
-								<div
-									className={`${displayClass} ${!applyContributions || !withRepresentante ? "text-muted-foreground" : "text-foreground"}`}
-								>
-									{formatARS(calc.aportesRep)}
-								</div>
-							</div>
-							<div className="space-y-1">
-								<label className="text-xs text-muted-foreground">
-									Aportes Legalistas ($)
-								</label>
-								<div
-									className={`${displayClass} ${!applyContributions ? "text-muted-foreground" : "text-foreground"}`}
-								>
-									{formatARS(calc.aportesLeg)}
-								</div>
-							</div>
-						</div>
-						<p className="text-xs text-muted-foreground">
-							Los aportes Legalistas se descuentan de Honorarios (HP), no de
-							PCL.{" "}
-							{withRepresentante
-								? `Distribución: ${100 - (parseFloat(aportesRepresentantePercent) || 0)}% Legalistas / ${parseFloat(aportesRepresentantePercent) || 0}% Representante.`
-								: "Distribución: 100% Legalistas."}
-						</p>
-					</div>
+					<AportesCards
+						value={aportes}
+						onChange={setAportes}
+						capital={Number(capitalAmount) || 0}
+						conRepresentante={withRepresentante}
+						anteriores={aportesAnteriores}
+					/>
 
 					{/* Monto a Cobrar + Gastos de la Causa */}
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

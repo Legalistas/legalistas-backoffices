@@ -21,6 +21,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState } from "react";
+import AportesCards from "@/components/closing-manager/AportesCards";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -45,6 +46,7 @@ import {
 	buildFilteredUrl,
 	useRolePermissions,
 } from "@/hooks/useRolePermissions";
+import { APORTES_VACIOS, calcularAportes } from "@/lib/aportes-cierre";
 import { getProcessTypeLabel } from "@/lib/functions";
 
 type TabMode = "from-negotiation" | "direct";
@@ -128,10 +130,7 @@ export default function CreateClosingPage() {
 	const [pclAgreed, setPclAgreed] = useState("20");
 	const [pclTotal, setPclTotal] = useState("");
 	const [pclStatus, setPclStatus] = useState("EARRINGS");
-	const [contributionsAmount, setContributionsAmount] = useState("0");
-	const [applyContributions, setApplyContributions] = useState(true);
-	const [aportesRepresentantePercent, setAportesRepresentantePercent] =
-		useState("25");
+	const [aportes, setAportes] = useState(APORTES_VACIOS);
 	const [detail, setDetail] = useState("");
 
 	// ── Tab 1: From Negotiation ──
@@ -183,8 +182,7 @@ export default function CreateClosingPage() {
 		setPclAgreed("20");
 		setPclTotal("");
 		setPclStatus("EARRINGS");
-		setContributionsAmount("0");
-		setApplyContributions(true);
+		setAportes(APORTES_VACIOS);
 		setDetail("");
 		setSelectedNegotiationId("");
 		setSelectedNegotiation(null);
@@ -403,10 +401,7 @@ export default function CreateClosingPage() {
 							pclTotal: parseFloat(pclTotal) || 0,
 							pclDistribution: withRepresentante,
 							pclStatus,
-							contributionsAmount: parseFloat(contributionsAmount) || 0,
-							applyContributions,
-							aportesRepresentantePercent:
-								parseFloat(aportesRepresentantePercent) || 25,
+							aportes,
 							detail: detail || null,
 						}),
 					},
@@ -440,10 +435,7 @@ export default function CreateClosingPage() {
 						pclTotal: parseFloat(pclTotal) || 0,
 						pclDistribution: withRepresentante,
 						pclStatus,
-						contributionsAmount: parseFloat(contributionsAmount) || 0,
-						applyContributions,
-						aportesRepresentantePercent:
-							parseFloat(aportesRepresentantePercent) || 25,
+						aportes,
 						detail: detail || null,
 					}),
 				});
@@ -462,6 +454,14 @@ export default function CreateClosingPage() {
 	};
 
 	const acceptedOffer = getAcceptedOffer();
+
+	// Aportes: el 13 % va sobre el capital cerrado (la oferta aceptada o el
+	// capital cargado a mano).
+	const capitalCierre =
+		activeTab === "from-negotiation"
+			? acceptedOffer?.amount || 0
+			: parseFloat(capitalAmount) || 0;
+	const aportesCalc = calcularAportes(aportes, capitalCierre, withRepresentante);
 
 	// ── Auto-calculate HP Total and PCL Total ──
 	useEffect(() => {
@@ -1089,20 +1089,9 @@ export default function CreateClosingPage() {
 										{(() => {
 											const hp = Number(hpTotal) || 0;
 											const pcl = Number(pclTotal) || 0;
-											const aportes = applyContributions ? Number(contributionsAmount) || 0 : 0;
-											const aportesRepPct = Math.max(
-												0,
-												Math.min(
-													100,
-													Number(aportesRepresentantePercent) || 0,
-												),
-											);
-											const aportesRepRatio = withRepresentante
-												? aportesRepPct / 100
-												: 0;
 											const hpLeg = hp - (withRepresentante ? hp * 0.25 : 0);
 											const pclLeg = pcl - (withRepresentante ? pcl * 0.25 : 0);
-											const aportesLeg = aportes * (1 - aportesRepRatio);
+											const aportesLeg = aportesCalc.legalistas;
 											const monto = hpLeg - aportesLeg + pclLeg;
 											return (
 												<div className={`rounded-lg p-3 border ${monto < 0 ? "border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-900/20" : "border-primary/30 bg-primary/5"}`}>
@@ -1293,22 +1282,9 @@ export default function CreateClosingPage() {
 										<div className="space-y-1">
 											{(() => {
 												const hp = Number(hpTotal) || 0;
-												const aportes = applyContributions
-													? Number(contributionsAmount) || 0
-													: 0;
-												const aportesRepPct = Math.max(
-													0,
-													Math.min(
-														100,
-														Number(aportesRepresentantePercent) || 0,
-													),
-												);
-												const aportesRepRatio = withRepresentante
-													? aportesRepPct / 100
-													: 0;
 												const hpLeg =
 													hp - (withRepresentante ? hp * 0.25 : 0);
-												const aportesLeg = aportes * (1 - aportesRepRatio);
+												const aportesLeg = aportesCalc.legalistas;
 												const hpLegNeto = hpLeg - aportesLeg;
 												return (
 													<>
@@ -1414,119 +1390,12 @@ export default function CreateClosingPage() {
 								</div>
 
 								{/* Aportes */}
-								<div className="border border-border rounded-xl p-5 space-y-4">
-									<div className="flex items-center justify-between">
-										<h4 className="font-semibold text-sm text-foreground">Aportes</h4>
-										<div className="flex items-center gap-2">
-											<span className="text-sm text-muted-foreground">Aplicar aportes</span>
-											<Switch checked={applyContributions} onCheckedChange={setApplyContributions} />
-										</div>
-									</div>
-									{(() => {
-										const aportesRepPct = Math.max(
-											0,
-											Math.min(
-												100,
-												Number(aportesRepresentantePercent) || 0,
-											),
-										);
-										const aportesRepRatio = withRepresentante
-											? aportesRepPct / 100
-											: 0;
-										const total = Number(contributionsAmount) || 0;
-										const repAmount = applyContributions
-											? total * aportesRepRatio
-											: 0;
-										const legAmount = applyContributions
-											? total * (1 - aportesRepRatio)
-											: 0;
-										return (
-											<div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-												<div className="space-y-1">
-													<label className="text-xs text-muted-foreground">
-														Aportes Totales ($)
-													</label>
-													<div className="relative">
-														<span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-															$
-														</span>
-														<input
-															type="number"
-															step="0.01"
-															min="0"
-															value={contributionsAmount}
-															onChange={(e) =>
-																setContributionsAmount(e.target.value)
-															}
-															disabled={!applyContributions}
-															className="w-full h-11 pl-7 pr-3 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:text-gray-400"
-															placeholder="0.00"
-														/>
-													</div>
-												</div>
-												<div className="space-y-1">
-													<label className="text-xs text-muted-foreground">
-														% Representante
-													</label>
-													<div className="relative">
-														<input
-															type="number"
-															step="0.01"
-															min="0"
-															max="100"
-															value={aportesRepresentantePercent}
-															onChange={(e) =>
-																setAportesRepresentantePercent(
-																	e.target.value,
-																)
-															}
-															disabled={
-																!applyContributions || !withRepresentante
-															}
-															className="w-full h-11 px-3 pr-8 rounded-lg border border-border bg-background text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:text-gray-400"
-														/>
-														<span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-															%
-														</span>
-													</div>
-												</div>
-												<div className="space-y-1">
-													<label className="text-xs text-muted-foreground">
-														Aportes Representante ($)
-													</label>
-													<div
-														className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm ${!applyContributions || !withRepresentante ? "text-gray-400" : "text-foreground"}`}
-													>
-														{new Intl.NumberFormat("es-AR", {
-															style: "currency",
-															currency: "ARS",
-														}).format(repAmount)}
-													</div>
-												</div>
-												<div className="space-y-1">
-													<label className="text-xs text-muted-foreground">
-														Aportes Legalistas ($)
-													</label>
-													<div
-														className={`h-11 flex items-center px-3 rounded-lg bg-muted border border-border text-sm ${!applyContributions ? "text-gray-400" : "text-foreground"}`}
-													>
-														{new Intl.NumberFormat("es-AR", {
-															style: "currency",
-															currency: "ARS",
-														}).format(legAmount)}
-													</div>
-												</div>
-											</div>
-										);
-									})()}
-									<p className="text-xs text-gray-400">
-										Los aportes Legalistas se descuentan de Honorarios (HP),
-										no de PCL.{" "}
-										{withRepresentante
-											? `Distribución: ${100 - (Number(aportesRepresentantePercent) || 0)}% Legalistas / ${Number(aportesRepresentantePercent) || 0}% Representante.`
-											: "Distribución: 100% Legalistas."}
-									</p>
-								</div>
+								<AportesCards
+									value={aportes}
+									onChange={setAportes}
+									capital={capitalCierre}
+									conRepresentante={withRepresentante}
+								/>
 
 								{/* Detalle */}
 								<div className="space-y-1.5">

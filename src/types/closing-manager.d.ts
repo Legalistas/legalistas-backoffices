@@ -63,6 +63,9 @@ export interface ClosingManagerEntry {
 	applyContributions: boolean;
 	// % que se asigna al representante sobre los aportes (default 25 si no viene del backend)
 	aportesRepresentantePercent?: number | null;
+	/** Tarjetas de aportes (13 % capital, 7 % Caja, 5,4 / 9 %). null en los cierres cargados antes. */
+	aportesDetalle?: import("@/lib/aportes-cierre").AportesDetalle | null;
+	aportesRepresentanteMonto?: number | string | null;
 
 	// Detalle
 	detail: string | null;

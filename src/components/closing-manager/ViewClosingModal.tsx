@@ -305,9 +305,12 @@ export default function ViewClosingModal({
 						distributionLabel={
 							!closing.applyContributions
 								? "No aplicados"
-								: closing.hpDistribution
-									? `${closing.aportesRepresentantePercent ?? 25}% Rep.`
-									: "100% Leg."
+								: !closing.hpDistribution
+									? "100% Leg."
+									: // Con las tarjetas de aportes, lo del representante se carga en pesos.
+										closing.aportesDetalle
+										? "Reparto a mano"
+										: `${closing.aportesRepresentantePercent ?? 25}% Rep.`
 						}
 						items={[
 							{ label: "Totales", value: formatCurrency(closing.contributionsAmount), highlight: true },
