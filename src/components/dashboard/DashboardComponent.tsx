@@ -88,8 +88,8 @@ export default function DashboardComponent() {
 		return "default";
 	}, [userRole]);
 
-	// Los dos muestran, debajo del saludo, la caja propia (MiCajaWidget) de quien
-	// es dueño de una (Agustín, monotributos); para el resto no renderiza nada.
+	// Los dos muestran, al final, la caja propia (MiCajaWidget) de quien es dueño
+	// de una (Agustín, monotributos); para el resto no renderiza nada.
 	const baseDashboard = dashboardType === "sales" ? <SalesDashboard /> : <LegalDashboard />;
 
 	const showAccountingTab =
@@ -206,66 +206,68 @@ function LegalDashboardSkeleton() {
 				<Skeleton className="h-9 w-28 rounded-lg" />
 			</div>
 
-			{/* Mi Día + Stats */}
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-				<Card className="lg:col-span-2">
-					<CardHeader>
-						<div className="flex items-center gap-2">
-							<Skeleton className="size-5 rounded" />
-							<Skeleton className="h-5 w-20" />
-						</div>
-						<Skeleton className="h-4 w-52" />
-					</CardHeader>
-					<CardContent className="space-y-4">
-						{[1, 2, 3].map((i) => (
-							<div key={i} className="flex items-center gap-3">
-								<Skeleton className="size-4 rounded shrink-0" />
-								<div className="space-y-1.5 flex-1">
-									<Skeleton className="h-4 w-3/4" />
-									<Skeleton className="h-3 w-1/2" />
-								</div>
-							</div>
-						))}
-					</CardContent>
-				</Card>
-
-				<div className="grid grid-cols-2 gap-4">
-					{[1, 2, 3, 4].map((i) => (
-						<Card key={i}>
-							<CardContent className="flex flex-col items-center justify-center p-5 gap-2">
-								<Skeleton className="size-10 rounded-full" />
-								<Skeleton className="h-7 w-12" />
+			{/* Indicadores */}
+			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+				{[1, 2, 3, 4].map((i) => (
+					<Card key={i} className="py-4">
+						<CardContent className="flex items-center gap-3 px-4">
+							<Skeleton className="size-10 shrink-0 rounded-xl" />
+							<div className="space-y-1.5">
+								<Skeleton className="h-6 w-12" />
 								<Skeleton className="h-3 w-20" />
-							</CardContent>
-						</Card>
-					))}
-				</div>
+							</div>
+						</CardContent>
+					</Card>
+				))}
 			</div>
 
-			{/* Casos Recientes + Plazos/Audiencias */}
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-				<div className="lg:col-span-2">
-					<div className="flex items-center justify-between mb-4">
-						<Skeleton className="h-6 w-40" />
-						<Skeleton className="h-5 w-20" />
-					</div>
+			{/* Columna principal + columna lateral */}
+			<div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+				<div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
 					<Card>
-						<CardContent className="p-0 divide-y divide-border">
-							{[1, 2, 3, 4, 5].map((i) => (
-								<div key={i} className="p-4 space-y-2">
-									<Skeleton className="h-4 w-2/3" />
-									<Skeleton className="h-3 w-1/3" />
-									<div className="flex gap-4">
-										<Skeleton className="h-3 w-24" />
-										<Skeleton className="h-3 w-24" />
+						<CardHeader>
+							<div className="flex items-center gap-2">
+								<Skeleton className="size-5 rounded" />
+								<Skeleton className="h-5 w-20" />
+							</div>
+							<Skeleton className="h-4 w-52" />
+						</CardHeader>
+						<CardContent className="space-y-4">
+							{[1, 2, 3].map((i) => (
+								<div key={i} className="flex items-center gap-3">
+									<Skeleton className="size-4 rounded shrink-0" />
+									<div className="space-y-1.5 flex-1">
+										<Skeleton className="h-4 w-3/4" />
+										<Skeleton className="h-3 w-1/2" />
 									</div>
 								</div>
 							))}
 						</CardContent>
 					</Card>
+
+					<div>
+						<div className="flex items-center justify-between mb-4">
+							<Skeleton className="h-6 w-40" />
+							<Skeleton className="h-5 w-20" />
+						</div>
+						<Card>
+							<CardContent className="p-0 divide-y divide-border">
+								{[1, 2, 3, 4, 5].map((i) => (
+									<div key={i} className="p-4 space-y-2">
+										<Skeleton className="h-4 w-2/3" />
+										<Skeleton className="h-3 w-1/3" />
+										<div className="flex gap-4">
+											<Skeleton className="h-3 w-24" />
+											<Skeleton className="h-3 w-24" />
+										</div>
+									</div>
+								))}
+							</CardContent>
+						</Card>
+					</div>
 				</div>
 
-				<div className="flex flex-col gap-4">
+				<div className="flex min-w-0 flex-col gap-6">
 					{[1, 2].map((i) => (
 						<Card key={i}>
 							<CardHeader>
@@ -307,13 +309,15 @@ function StatCard({
 	color: string;
 }) {
 	return (
-		<Card className="hover:shadow-md transition-shadow">
-			<CardContent className="flex flex-col items-center justify-center p-5 gap-1">
-				<div className={`rounded-xl p-2.5 ${color} mb-1`}>
+		<Card className="py-4">
+			<CardContent className="flex items-center gap-3 px-4">
+				<div className={`shrink-0 rounded-xl p-2.5 ${color}`}>
 					<Icon className="size-5 text-white" />
 				</div>
-				<span className="text-2xl font-bold tracking-tight">{value}</span>
-				<span className="text-xs text-muted-foreground">{label}</span>
+				<div className="min-w-0">
+					<p className="text-2xl font-bold leading-none tracking-tight tabular-nums">{value}</p>
+					<p className="mt-1.5 text-xs leading-tight text-muted-foreground">{label}</p>
+				</div>
 			</CardContent>
 		</Card>
 	);
@@ -418,288 +422,286 @@ function LegalDashboard() {
 				lastUpdated={lastUpdated}
 			/>
 
-			<MiCajaWidget />
-
-			{/* Mi Día + Stats */}
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-				<Card className="lg:col-span-2">
-					<CardHeader>
-						<div className="flex items-center gap-2">
-							<CalendarDays className="size-5 text-muted-foreground" />
-							<CardTitle className="text-base">Mi Día</CardTitle>
-						</div>
-						<CardDescription>
-							Plazos, tareas y audiencias de hoy
-						</CardDescription>
-					</CardHeader>
-					<CardContent>
-						{myDay.clear ? (
-							<div className="flex flex-col items-center justify-center py-8">
-								<CheckCircle2 className="size-12 text-emerald-400 mb-3" />
-								<p className="text-base font-medium">
-									¡Todo despejado hoy!
-								</p>
-								<p className="text-sm text-muted-foreground">
-									No tienes plazos, tareas ni audiencias pendientes
-								</p>
-							</div>
-						) : (
-							<ul className="space-y-3">
-								{myDay.deadlines.map((d) => (
-									<li
-										key={`d-${d.id}`}
-										className="flex items-center gap-3 text-sm rounded-lg p-2 hover:bg-muted/50 transition-colors"
-									>
-										<div className="rounded-lg bg-amber-100 dark:bg-amber-900/30 p-1.5">
-											<Clock className="size-4 text-amber-600 dark:text-amber-400" />
-										</div>
-										<div className="min-w-0">
-											<p className="font-medium truncate">{d.title}</p>
-											<p className="text-xs text-muted-foreground">
-												{d.case?.title ?? "Sin causa"}
-												{d.dueTime ? ` · ${d.dueTime}` : ""}
-											</p>
-										</div>
-									</li>
-								))}
-								{myDay.events.map((e) => (
-									<li
-										key={`e-${e.id}`}
-										className="flex items-center gap-3 text-sm rounded-lg p-2 hover:bg-muted/50 transition-colors"
-									>
-										<div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-1.5">
-											<CalendarDays className="size-4 text-blue-600 dark:text-blue-400" />
-										</div>
-										<div className="min-w-0">
-											<p className="font-medium truncate">{e.title}</p>
-											<p className="text-xs text-muted-foreground">
-												{e.case?.title ?? "Sin causa"}
-												{e.time ? ` · ${e.time}` : ""}
-												{e.location ? ` · ${e.location}` : ""}
-											</p>
-										</div>
-									</li>
-								))}
-								{myDay.tasks.map((t) => (
-									<li
-										key={`t-${t.id}`}
-										className="flex items-center gap-3 text-sm rounded-lg p-2 hover:bg-muted/50 transition-colors"
-									>
-										<div className="rounded-lg bg-primary/10 p-1.5">
-											<ListChecks className="size-4 text-primary" />
-										</div>
-										<div className="min-w-0">
-											<p className="font-medium truncate">{t.title}</p>
-											<p className="text-xs text-muted-foreground">
-												{t.priority} · {t.status}
-											</p>
-										</div>
-									</li>
-								))}
-								{myDay.calendarEvents.map((ce) => (
-									<li
-										key={`ce-${ce.id}`}
-										className="flex items-center gap-3 text-sm rounded-xl border p-3 hover:bg-muted/40 transition-colors group"
-									>
-										<div className="shrink-0 size-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-											<CalendarDays className="size-5 text-purple-600 dark:text-purple-400" />
-										</div>
-										<div className="min-w-0 flex-1">
-											<div className="flex items-center gap-2 mb-0.5">
-												<Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800">
-													EVENTO
-												</Badge>
-												{ce.allDay && (
-													<Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
-														todo el día
-													</Badge>
-												)}
-											</div>
-											<p className="font-medium truncate">{ce.title}</p>
-											<p className="text-xs text-muted-foreground">
-												{!ce.allDay && ce.start
-													? new Date(ce.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
-													: ""}
-												{ce.responsiblePerson ? `${!ce.allDay ? " · " : ""}${ce.responsiblePerson.name}` : ""}
-											</p>
-										</div>
-										{ce.meetLink ? (
-											<a
-												href={ce.meetLink}
-												target="_blank"
-												rel="noopener noreferrer"
-												className="shrink-0 text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors"
-											>
-												Meet
-											</a>
-										) : (
-											<ChevronRight className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
-										)}
-									</li>
-								))}
-							</ul>
-						)}
-					</CardContent>
-				</Card>
-
-				{/* Stats cards */}
-				<div className="grid grid-cols-2 gap-4">
-					<StatCard
-						icon={Scale}
-						value={stats.totalCases}
-						label="Total Casos"
-						color="bg-primary"
-					/>
-					<StatCard
-						icon={Clock}
-						value={stats.pendingDeadlines7Days}
-						label="Plazos (7 días)"
-						color="bg-amber-500"
-					/>
-					<StatCard
-						icon={ListChecks}
-						value={stats.pendingTasks}
-						label="Tareas Pendientes"
-						color="bg-blue-500"
-					/>
-					<StatCard
-						icon={CalendarDays}
-						value={stats.upcomingEvents7Days}
-						label="Audiencias (7 días)"
-						color="bg-emerald-500"
-					/>
-				</div>
+			{/* Indicadores */}
+			<div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+				<StatCard
+					icon={Scale}
+					value={stats.totalCases}
+					label="Total Casos"
+					color="bg-primary"
+				/>
+				<StatCard
+					icon={Clock}
+					value={stats.pendingDeadlines7Days}
+					label="Plazos (7 días)"
+					color="bg-amber-500"
+				/>
+				<StatCard
+					icon={ListChecks}
+					value={stats.pendingTasks}
+					label="Tareas Pendientes"
+					color="bg-blue-500"
+				/>
+				<StatCard
+					icon={CalendarDays}
+					value={stats.upcomingEvents7Days}
+					label="Audiencias (7 días)"
+					color="bg-emerald-500"
+				/>
 			</div>
 
-			{/* Casos Recientes + Plazos/Audiencias */}
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-				{/* Casos Recientes */}
-				<div className="lg:col-span-2">
-					<div className="flex items-center justify-between mb-4">
-						<div className="flex items-center gap-4">
-							<h2 className="text-lg font-semibold tracking-tight">
-								Casos Recientes
-							</h2>
-							{!isRepresentative && (
-								<div className="flex rounded-lg border text-sm overflow-hidden">
-									<button
-										type="button"
-										onClick={() => handleFilterChange("all")}
-										className={`px-3 py-1 transition-colors ${casesFilter === "all" ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
-									>
-										Todos
-									</button>
-									<button
-										type="button"
-										onClick={() => handleFilterChange("mine")}
-										className={`px-3 py-1 transition-colors ${casesFilter === "mine" ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
-									>
-										Mis casos
-									</button>
-								</div>
-							)}
-						</div>
-						<Link
-							href="/admin/legal-cases"
-							className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
-						>
-							Ver todos <ArrowRight className="size-4" />
-						</Link>
-					</div>
+			{/* Columna principal y columna lateral: cada una crece por su lado, así
+			    ninguna tarjeta se estira para igualar a la de al lado. */}
+			<div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+				<div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
 					<Card>
-						<CardContent className="p-0">
-							{recentCases.length === 0 ? (
-								<div className="flex flex-col items-center justify-center py-10">
-									<Scale className="size-9 text-muted-foreground/30 mb-3" />
-									<p className="text-sm font-medium text-muted-foreground">
-										No hay casos recientes
+						<CardHeader>
+							<div className="flex items-center gap-2">
+								<CalendarDays className="size-5 text-muted-foreground" />
+								<CardTitle className="text-base">Mi Día</CardTitle>
+							</div>
+							<CardDescription>
+								Plazos, tareas y audiencias de hoy
+							</CardDescription>
+						</CardHeader>
+						<CardContent>
+							{myDay.clear ? (
+								<div className="flex flex-col items-center justify-center py-8">
+									<CheckCircle2 className="size-12 text-emerald-400 mb-3" />
+									<p className="text-base font-medium">
+										¡Todo despejado hoy!
 									</p>
-									<p className="text-xs text-muted-foreground/60 mt-0.5">
-										Los nuevos casos aparecerán aquí
+									<p className="text-sm text-muted-foreground">
+										No tienes plazos, tareas ni audiencias pendientes
 									</p>
 								</div>
 							) : (
-								<ul className="divide-y divide-border">
-									{recentCases.map((c) => (
-										<li key={c.id}>
-											<Link
-												href={`/admin/legal-cases/${c.id}`}
-												className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-muted/40 transition-colors group"
-											>
-												{/* Avatar con iniciales */}
-												<div className="shrink-0 size-9 rounded-lg bg-primary/10 flex items-center justify-center">
-													<span className="text-xs font-bold text-primary">
-														{c.title.slice(0, 2).toUpperCase()}
-													</span>
-												</div>
-
-												{/* Contenido */}
-												<div className="flex-1 min-w-0">
-													<div className="flex items-center gap-2 mb-0.5">
-														<p className="text-sm font-semibold truncate">
-															{c.title}
-														</p>
-														{c.number && (
-															<span className="shrink-0 text-[10px] text-muted-foreground/60 font-mono">
-																#{c.number}
-															</span>
-														)}
-														{c.createdAt && isRecentCase(c.createdAt) && (
-															<span className="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
-																Nuevo
-															</span>
-														)}
-													</div>
-													{c.customer && (
-														<p className="text-xs text-muted-foreground truncate mb-1.5">
-															{c.customer.name}
-														</p>
+								<ul className="space-y-3">
+									{myDay.deadlines.map((d) => (
+										<li
+											key={`d-${d.id}`}
+											className="flex items-center gap-3 text-sm rounded-lg p-2 hover:bg-muted/50 transition-colors"
+										>
+											<div className="rounded-lg bg-amber-100 dark:bg-amber-900/30 p-1.5">
+												<Clock className="size-4 text-amber-600 dark:text-amber-400" />
+											</div>
+											<div className="min-w-0">
+												<p className="font-medium truncate">{d.title}</p>
+												<p className="text-xs text-muted-foreground">
+													{d.case?.title ?? "Sin causa"}
+													{d.dueTime ? ` · ${d.dueTime}` : ""}
+												</p>
+											</div>
+										</li>
+									))}
+									{myDay.events.map((e) => (
+										<li
+											key={`e-${e.id}`}
+											className="flex items-center gap-3 text-sm rounded-lg p-2 hover:bg-muted/50 transition-colors"
+										>
+											<div className="rounded-lg bg-blue-100 dark:bg-blue-900/30 p-1.5">
+												<CalendarDays className="size-4 text-blue-600 dark:text-blue-400" />
+											</div>
+											<div className="min-w-0">
+												<p className="font-medium truncate">{e.title}</p>
+												<p className="text-xs text-muted-foreground">
+													{e.case?.title ?? "Sin causa"}
+													{e.time ? ` · ${e.time}` : ""}
+													{e.location ? ` · ${e.location}` : ""}
+												</p>
+											</div>
+										</li>
+									))}
+									{myDay.tasks.map((t) => (
+										<li
+											key={`t-${t.id}`}
+											className="flex items-center gap-3 text-sm rounded-lg p-2 hover:bg-muted/50 transition-colors"
+										>
+											<div className="rounded-lg bg-primary/10 p-1.5">
+												<ListChecks className="size-4 text-primary" />
+											</div>
+											<div className="min-w-0">
+												<p className="font-medium truncate">{t.title}</p>
+												<p className="text-xs text-muted-foreground">
+													{t.priority} · {t.status}
+												</p>
+											</div>
+										</li>
+									))}
+									{myDay.calendarEvents.map((ce) => (
+										<li
+											key={`ce-${ce.id}`}
+											className="flex items-center gap-3 text-sm rounded-xl border p-3 hover:bg-muted/40 transition-colors group"
+										>
+											<div className="shrink-0 size-10 rounded-xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+												<CalendarDays className="size-5 text-purple-600 dark:text-purple-400" />
+											</div>
+											<div className="min-w-0 flex-1">
+												<div className="flex items-center gap-2 mb-0.5">
+													<Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800">
+														EVENTO
+													</Badge>
+													{ce.allDay && (
+														<Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800">
+															todo el día
+														</Badge>
 													)}
-													<div className="flex items-center gap-3 flex-wrap">
-														{c.internalLawyer && (
-															<span className="flex items-center gap-1 text-xs text-muted-foreground">
-																<Users2 className="size-3 shrink-0" />
-																{c.internalLawyer.name}
-															</span>
-														)}
-														{c.responsibleLawyer && (
-															<span className="flex items-center gap-1 text-xs text-muted-foreground">
-																<Scale className="size-3 shrink-0" />
-																{c.responsibleLawyer.name}
-															</span>
-														)}
-														{c.files[0] && (
-															<span className="flex items-center gap-1 text-xs text-muted-foreground">
-																<Activity className="size-3 shrink-0" />
-																{c.files[0].title}
-															</span>
-														)}
-													</div>
 												</div>
-
-												{/* Fecha + flecha */}
-												<div className="flex flex-col items-end gap-1.5 shrink-0">
-													<span className="text-xs text-muted-foreground">
-														{(() => {
-														try {
-															const d = new Date(c.createdAt);
-															return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
-														} catch { return "—"; }
-													})()}
-													</span>
-													<ChevronRight className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
-												</div>
-											</Link>
+												<p className="font-medium truncate">{ce.title}</p>
+												<p className="text-xs text-muted-foreground">
+													{!ce.allDay && ce.start
+														? new Date(ce.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })
+														: ""}
+													{ce.responsiblePerson ? `${!ce.allDay ? " · " : ""}${ce.responsiblePerson.name}` : ""}
+												</p>
+											</div>
+											{ce.meetLink ? (
+												<a
+													href={ce.meetLink}
+													target="_blank"
+													rel="noopener noreferrer"
+													className="shrink-0 text-xs font-medium text-purple-600 hover:text-purple-800 transition-colors"
+												>
+													Meet
+												</a>
+											) : (
+												<ChevronRight className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors shrink-0" />
+											)}
 										</li>
 									))}
 								</ul>
 							)}
 						</CardContent>
 					</Card>
+
+					{/* Casos Recientes */}
+					<div>
+						<div className="flex items-center justify-between mb-4">
+							<div className="flex items-center gap-4">
+								<h2 className="text-lg font-semibold tracking-tight">
+									Casos Recientes
+								</h2>
+								{!isRepresentative && (
+									<div className="flex rounded-lg border text-sm overflow-hidden">
+										<button
+											type="button"
+											onClick={() => handleFilterChange("all")}
+											className={`px-3 py-1 transition-colors ${casesFilter === "all" ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
+										>
+											Todos
+										</button>
+										<button
+											type="button"
+											onClick={() => handleFilterChange("mine")}
+											className={`px-3 py-1 transition-colors ${casesFilter === "mine" ? "bg-primary text-primary-foreground font-medium" : "text-muted-foreground hover:bg-muted"}`}
+										>
+											Mis casos
+										</button>
+									</div>
+								)}
+							</div>
+							<Link
+								href="/admin/legal-cases"
+								className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+							>
+								Ver todos <ArrowRight className="size-4" />
+							</Link>
+						</div>
+						<Card className="overflow-hidden py-0">
+							<CardContent className="p-0">
+								{recentCases.length === 0 ? (
+									<div className="flex flex-col items-center justify-center py-10">
+										<Scale className="size-9 text-muted-foreground/30 mb-3" />
+										<p className="text-sm font-medium text-muted-foreground">
+											No hay casos recientes
+										</p>
+										<p className="text-xs text-muted-foreground/60 mt-0.5">
+											Los nuevos casos aparecerán aquí
+										</p>
+									</div>
+								) : (
+									<ul className="divide-y divide-border">
+										{recentCases.map((c) => (
+											<li key={c.id}>
+												<Link
+													href={`/admin/legal-cases/${c.id}`}
+													className="flex items-center gap-3.5 px-4 py-3.5 hover:bg-muted/40 transition-colors group"
+												>
+													{/* Avatar con iniciales */}
+													<div className="shrink-0 size-9 rounded-lg bg-primary/10 flex items-center justify-center">
+														<span className="text-xs font-bold text-primary">
+															{c.title.slice(0, 2).toUpperCase()}
+														</span>
+													</div>
+
+													{/* Contenido */}
+													<div className="flex-1 min-w-0">
+														<div className="flex items-center gap-2 mb-0.5">
+															<p className="text-sm font-semibold truncate">
+																{c.title}
+															</p>
+															{c.number && (
+																<span className="shrink-0 text-[10px] text-muted-foreground/60 font-mono">
+																	#{c.number}
+																</span>
+															)}
+															{c.createdAt && isRecentCase(c.createdAt) && (
+																<span className="shrink-0 rounded-full bg-emerald-100 dark:bg-emerald-900/30 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400">
+																	Nuevo
+																</span>
+															)}
+														</div>
+														{c.customer && (
+															<p className="text-xs text-muted-foreground truncate mb-1.5">
+																{c.customer.name}
+															</p>
+														)}
+														<div className="flex items-center gap-3 flex-wrap">
+															{c.internalLawyer && (
+																<span className="flex items-center gap-1 text-xs text-muted-foreground">
+																	<Users2 className="size-3 shrink-0" />
+																	{c.internalLawyer.name}
+																</span>
+															)}
+															{c.responsibleLawyer && (
+																<span className="flex items-center gap-1 text-xs text-muted-foreground">
+																	<Scale className="size-3 shrink-0" />
+																	{c.responsibleLawyer.name}
+																</span>
+															)}
+															{c.files[0] && (
+																<span className="flex items-center gap-1 text-xs text-muted-foreground">
+																	<Activity className="size-3 shrink-0" />
+																	{c.files[0].title}
+																</span>
+															)}
+														</div>
+													</div>
+
+													{/* Fecha + flecha */}
+													<div className="flex flex-col items-end gap-1.5 shrink-0">
+														<span className="text-xs text-muted-foreground">
+															{(() => {
+															try {
+																const d = new Date(c.createdAt);
+																return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+															} catch { return "—"; }
+														})()}
+														</span>
+														<ChevronRight className="size-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
+													</div>
+												</Link>
+											</li>
+										))}
+									</ul>
+								)}
+							</CardContent>
+						</Card>
+					</div>
 				</div>
 
 				{/* Plazos Urgentes + Próximas Audiencias */}
-				<div className="flex flex-col gap-4">
+				<div className="flex min-w-0 flex-col gap-6">
 					<Card>
 						<CardHeader>
 							<div className="flex items-center gap-2">
@@ -789,6 +791,8 @@ function LegalDashboard() {
 					</Card>
 				</div>
 			</div>
+
+			<MiCajaWidget />
 		</div>
 	);
 }
@@ -799,18 +803,24 @@ function SalesDashboard() {
 	return (
 		<div className="flex flex-col gap-6">
 			<DashboardGreetingHeader />
-			<MiCajaWidget />
 			<SalesOverview />
-			<EventosPorConfirmar />
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-				<SalesPerformance />
-				<SalesConversion />
+			{/* Mismo armado que el panel legal: columna principal (lo que hay que
+			    hacer y los gráficos anchos) y columna lateral, cada una con su alto. */}
+			<div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+				<div className="flex min-w-0 flex-col gap-6 lg:col-span-2">
+					<EventosPorConfirmar />
+					<div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+						<SalesPerformance />
+						<SalesConversion />
+					</div>
+					<SalesSource />
+				</div>
+				<div className="flex min-w-0 flex-col gap-6">
+					<SalesLead />
+					<SalesLocation />
+				</div>
 			</div>
-			<div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-				<SalesLead />
-				<SalesSource />
-				<SalesLocation />
-			</div>
+			<MiCajaWidget />
 		</div>
 	);
 }

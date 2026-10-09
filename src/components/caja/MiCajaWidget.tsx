@@ -82,7 +82,7 @@ function UltimosMovimientos({
 // menú (saldo, lo del mes y el botón para cargar) y al lado los últimos
 // movimientos. Se acomoda según el ancho disponible, no el de la pantalla; a lo
 // ancho usa las mismas tres columnas que el resto de la home, así los bordes
-// quedan alineados con "Mi Día" y los indicadores.
+// quedan alineados con la columna principal y la lateral.
 function CajaPropiaCard({
 	caja,
 	token,

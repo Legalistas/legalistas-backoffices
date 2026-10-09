@@ -108,10 +108,8 @@ export default function SalesOverview() {
 		<div>
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
 				<div>
-					<h2 className="text-2xl font-bold text-gray-900">
-						Resumen de Ventas
-					</h2>
-					<p className="text-gray-600">Estadísticas clave de rendimiento</p>
+					<h2 className="text-lg font-semibold tracking-tight">Resumen de Ventas</h2>
+					<p className="text-sm text-muted-foreground">Estadísticas clave de rendimiento</p>
 				</div>
 				<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
 					{/* Month Selector */}
@@ -183,8 +181,8 @@ function StatCard({
 	icon: React.ReactNode;
 }) {
 	return (
-		<Card>
-			<CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+		<Card className="gap-2 py-5">
+			<CardHeader className="flex flex-row items-center justify-between space-y-0">
 				<CardTitle className="text-sm font-medium">{title}</CardTitle>
 				{icon}
 			</CardHeader>

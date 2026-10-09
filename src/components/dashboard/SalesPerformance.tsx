@@ -109,7 +109,7 @@ export default function SalesPerformance() {
 				plotOptions: {
 					bar: {
 						borderRadius: 0,
-						columnWidth: "60%",
+						columnWidth: "35%",
 					},
 				},
 				dataLabels: {
