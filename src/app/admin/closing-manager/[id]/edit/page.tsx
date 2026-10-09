@@ -723,6 +723,7 @@ export default function EditClosingPage() {
 						capital={Number(capitalAmount) || 0}
 						conRepresentante={withRepresentante}
 						anteriores={aportesAnteriores}
+						pagos={closing?.aportesPagos}
 					/>
 
 					{/* Monto a Cobrar + Gastos de la Causa */}

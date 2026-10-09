@@ -22,6 +22,8 @@ export interface ScheduledTransaction {
 	caseExpense?: { id: number; caseId: number } | null;
 	/** Parte del abogado representante de un cierre: se ajusta sola con los cobros, acá solo se paga. */
 	repClosingId?: number | null;
+	/** Aporte de un cierre (una fila por tarjeta): se ajusta desde el cierre, acá solo se paga. */
+	aporteClosingId?: number | null;
 	category: string;
 	subcategory: string | null;
 	currency: ScheduledCurrency;

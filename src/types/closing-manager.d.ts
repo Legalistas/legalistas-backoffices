@@ -66,6 +66,8 @@ export interface ClosingManagerEntry {
 	/** Tarjetas de aportes (13 % capital, 7 % Caja, 5,4 / 9 %). null en los cierres cargados antes. */
 	aportesDetalle?: import("@/lib/aportes-cierre").AportesDetalle | null;
 	aportesRepresentanteMonto?: number | string | null;
+	/** Pago de cada aporte: pendiente en Gastos e Ingresos o ya pagado (fecha, caja y detalle). */
+	aportesPagos?: import("@/lib/aportes-cierre").AportePago[];
 	/** % de HP y PCL para el representante cuando el cierre reparte con él (25 por defecto). */
 	representantePercent?: number | string | null;
 

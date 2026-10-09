@@ -1,8 +1,10 @@
 "use client";
 
+import { CheckSquare, Square } from "lucide-react";
 import type { ReactNode } from "react";
 import { Switch } from "@/components/ui/switch";
 import {
+	type AportePago,
 	type AportesDetalle,
 	algunaTarjetaActiva,
 	calcularAportes,
@@ -10,12 +12,15 @@ import {
 	PORCENTAJE_CAPITAL,
 	PORCENTAJES_OTRO,
 	type TarjetaAporte,
+	textoPagoAporte,
 } from "@/lib/aportes-cierre";
 import { cn } from "@/lib/utils";
 
 // Aportes de un cierre en tres tarjetas (alta y edición): 13 % del capital,
 // 7 % de la Caja y 5,4 % / 9 %. Cada una se activa por cierre y lleva a mano
 // lo que aporta el representante; lo que resta es de Legalistas.
+// Al guardar el cierre, cada aporte queda pendiente en Gastos e Ingresos;
+// cuando Contabilidad lo paga desde una caja, acá figura "Aporte pagado".
 
 const ars = (n: number) =>
 	new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n);
@@ -84,6 +89,7 @@ function Tarjeta({
 	onRepresentante,
 	conRepresentante,
 	id,
+	pagos,
 	children,
 }: {
 	titulo: string;
@@ -96,6 +102,8 @@ function Tarjeta({
 	onRepresentante: (n: number) => void;
 	conRepresentante: boolean;
 	id: string;
+	/** Filas de Gastos e Ingresos de esta tarjeta (vacío si el cierre todavía no se guardó así). */
+	pagos: AportePago[];
 	children: ReactNode;
 }) {
 	return (
@@ -129,6 +137,32 @@ function Tarjeta({
 						}
 					/>
 					<Lectura label="Aporta Legalistas" valor={ars(calculo.legalistas)} />
+					<div className="space-y-1 border-t border-border/60 pt-2">
+						{pagos.length === 0 ? (
+							<p className="text-xs text-muted-foreground">
+								Al guardar queda pendiente en Gastos e Ingresos, para pagarlo desde una caja.
+							</p>
+						) : (
+							pagos.map((p) => (
+								<p
+									key={p.id}
+									className={cn(
+										"flex items-start gap-1.5 text-xs",
+										p.pagado
+											? "text-emerald-700 dark:text-emerald-400"
+											: "text-amber-700 dark:text-amber-400",
+									)}
+								>
+									{p.pagado ? (
+										<CheckSquare className="mt-px h-3.5 w-3.5 shrink-0" />
+									) : (
+										<Square className="mt-px h-3.5 w-3.5 shrink-0" />
+									)}
+									<span>{textoPagoAporte(p)}</span>
+								</p>
+							))
+						)}
+					</div>
 				</>
 			)}
 		</div>
@@ -141,6 +175,7 @@ export default function AportesCards({
 	capital,
 	conRepresentante,
 	anteriores,
+	pagos = [],
 }: {
 	value: AportesDetalle;
 	onChange: (v: AportesDetalle) => void;
@@ -149,6 +184,8 @@ export default function AportesCards({
 	conRepresentante: boolean;
 	/** Cierre cargado antes de las tarjetas: sus aportes se conservan mientras no se active ninguna. */
 	anteriores?: { representante: number; legalistas: number } | null;
+	/** Estado de pago de cada aporte (viene del cierre guardado). */
+	pagos?: AportePago[];
 }) {
 	const calc = calcularAportes(value, capital, conRepresentante);
 	const usaAnteriores = !!anteriores && !algunaTarjetaActiva(value);
@@ -192,6 +229,7 @@ export default function AportesCards({
 						onChange({ ...value, capital: { ...value.capital, representante } })
 					}
 					conRepresentante={conRepresentante}
+					pagos={pagos.filter((p) => p.tarjeta === "capital")}
 				>
 					<Lectura label="Capital cerrado" valor={ars(capital)} />
 				</Tarjeta>
@@ -208,6 +246,7 @@ export default function AportesCards({
 						onChange({ ...value, caja: { ...value.caja, representante } })
 					}
 					conRepresentante={conRepresentante}
+					pagos={pagos.filter((p) => p.tarjeta === "caja")}
 				>
 					<Monto
 						id="aporte-caja-base"
@@ -229,6 +268,7 @@ export default function AportesCards({
 						onChange({ ...value, otro: { ...value.otro, representante } })
 					}
 					conRepresentante={conRepresentante}
+					pagos={pagos.filter((p) => p.tarjeta === "otro")}
 				>
 					<div className="space-y-1">
 						<span className="text-xs text-muted-foreground">Porcentaje</span>

@@ -5,9 +5,11 @@ import {
 	ArrowUpRight,
 	Briefcase,
 	Calendar,
+	CheckSquare,
 	DollarSign,
 	FileText,
 	Scale,
+	Square,
 	User,
 	X,
 } from "lucide-react";
@@ -28,6 +30,7 @@ import {
 	statusColors,
 	statusData,
 } from "@/constant/closing-manager";
+import { nombreTarjeta, textoPagoAporte } from "@/lib/aportes-cierre";
 import { cn } from "@/lib/utils";
 import type { ClosingManagerEntry } from "@/types/closing-manager";
 
@@ -322,6 +325,31 @@ export default function ViewClosingModal({
 							{ label: "Legalistas", value: formatCurrency(closing.aportesLegalistas), bold: true },
 						]}
 					/>
+					{/* Pago de cada aporte: pendiente en Gastos e Ingresos o ya pagado. */}
+					{(closing.aportesPagos?.length ?? 0) > 0 && (
+						<ul className="-mt-3 space-y-1 px-1 text-[11px]">
+							{closing.aportesPagos?.map((p) => (
+								<li
+									key={p.id}
+									className={cn(
+										"flex items-start gap-1.5",
+										p.pagado
+											? "text-emerald-700 dark:text-emerald-400"
+											: "text-amber-700 dark:text-amber-400",
+									)}
+								>
+									{p.pagado ? (
+										<CheckSquare className="mt-px h-3.5 w-3.5 shrink-0" />
+									) : (
+										<Square className="mt-px h-3.5 w-3.5 shrink-0" />
+									)}
+									<span>
+										{nombreTarjeta(p.tarjeta, closing.aportesDetalle)}: {textoPagoAporte(p)}
+									</span>
+								</li>
+							))}
+						</ul>
+					)}
 
 					{/* Gastos + Detalle */}
 					<div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

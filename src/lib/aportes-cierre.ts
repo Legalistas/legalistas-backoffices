@@ -69,3 +69,38 @@ export function calcularAportes(d: AportesDetalle, capital: number, conRepresent
 
 export const algunaTarjetaActiva = (d: AportesDetalle) =>
 	d.capital.activa || d.caja.activa || d.otro.activa;
+
+/** Pago de un aporte del cierre: la fila de Gastos e Ingresos de esa tarjeta. */
+export interface AportePago {
+	id: number;
+	tarjeta: string | null;
+	monto: number;
+	pagado: boolean;
+	/** Del pago en la Caja ("2026-10-09"); null mientras está pendiente. */
+	fecha: string | null;
+	caja: string | null;
+	detalle: string | null;
+}
+
+const pesos = (n: number) =>
+	new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n);
+
+/** "Aporte pagado el 09/10/2026 · Banco Patagonia · detalle", o lo que falta pagar. */
+export const textoPagoAporte = (p: AportePago) =>
+	p.pagado
+		? [
+				`Aporte pagado${p.fecha ? ` el ${p.fecha.split("-").reverse().join("/")}` : ""}`,
+				p.caja,
+				p.detalle,
+			]
+				.filter(Boolean)
+				.join(" · ")
+		: `Sin pagar: ${pesos(p.monto)} pendiente en Gastos e Ingresos`;
+
+/** Nombre corto de cada tarjeta ("13 % capital", "7 % Caja", "9 %"). */
+export const nombreTarjeta = (tarjeta: string | null, detalle?: AportesDetalle | null) =>
+	tarjeta === "capital"
+		? `${PORCENTAJE_CAPITAL} % capital`
+		: tarjeta === "caja"
+			? `${PORCENTAJE_CAJA} % Caja`
+			: `${String(detalle?.otro.porcentaje ?? "5,4 / 9").replace(".", ",")} %`;
