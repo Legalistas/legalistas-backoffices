@@ -640,6 +640,15 @@ export default function CollectionsManager() {
 										!tx.caseExpense &&
 										!tx.repClosingId &&
 										!tx.aporteClosingId;
+									// Cierre del que sale la fila: un cobro de HP/PCL, la parte del
+									// representante o un aporte.
+									const cierreId = tx.closingId ?? tx.repClosingId ?? tx.aporteClosingId;
+									const puedeVolverAPendiente =
+										tx.status !== "pending" && !tx.closingId && !tx.creditCardId;
+									// Sin ninguna opción (ej. una cuota de tarjeta) no se muestran los
+									// tres puntos: antes abrían un menú vacío.
+									const tieneMenu =
+										!!tx.caseExpense || !!cierreId || editable || puedeVolverAPendiente;
 									return (
 										<tr
 											key={tx.id}
@@ -742,6 +751,7 @@ export default function CollectionsManager() {
 													<span className="text-xs text-muted-foreground">—</span>
 												)}
 
+												{tieneMenu && (
 												<DropdownMenu>
 													<DropdownMenuTrigger asChild>
 														<Button
@@ -765,11 +775,9 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{(tx.repClosingId ?? tx.aporteClosingId) && (
+														{cierreId && (
 															<DropdownMenuItem asChild>
-																<Link
-																	href={`/admin/closing-manager?openId=${tx.repClosingId ?? tx.aporteClosingId}`}
-																>
+																<Link href={`/admin/closing-manager?openId=${cierreId}`}>
 																	<FolderOpen className="mr-2 h-4 w-4" />
 																	Ver el cierre
 																</Link>
@@ -788,7 +796,7 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{tx.status !== "pending" && !tx.closingId && !tx.creditCardId && (
+														{puedeVolverAPendiente && (
 															<DropdownMenuItem
 																onClick={() =>
 																	runAction(
@@ -844,6 +852,7 @@ export default function CollectionsManager() {
 														)}
 													</DropdownMenuContent>
 												</DropdownMenu>
+												)}
 											</td>
 										</tr>
 									);
