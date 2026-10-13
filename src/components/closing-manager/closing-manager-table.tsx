@@ -147,16 +147,37 @@ export default function ClosingManagerTable({
 	const [savingDetail, setSavingDetail] = useState(false);
 	const detailInputRef = useRef<HTMLTextAreaElement>(null);
 
-	// Auto-open detail drawer from global search
+	// Abre el detalle desde un enlace (?openId=): la búsqueda global o "Ver el
+	// cierre" de Gastos e Ingresos. Si el cierre no está en la página cargada
+	// (otro mes, otra página, otro filtro), se pide aparte: antes no abría nada.
+	const token = session?.user?.accessToken;
 	useEffect(() => {
-		if (openClosingId && closings.length > 0) {
-			const found = closings.find((c) => c.id === openClosingId);
-			if (found) {
-				setViewClosing(found);
-				onOpenClosingHandled?.();
-			}
+		if (!openClosingId) return;
+		const found = closings.find((c) => c.id === openClosingId);
+		if (found) {
+			setViewClosing(found);
+			onOpenClosingHandled?.();
+			return;
 		}
-	}, [openClosingId, closings, onOpenClosingHandled]);
+		if (!token) return;
+		let vigente = true;
+		fetch(CLOSING_BY_ID_ENDPOINT(openClosingId), {
+			headers: { Authorization: `Bearer ${token}` },
+		})
+			.then(async (res) => {
+				const body = await res.json().catch(() => null);
+				if (!vigente) return;
+				if (res.ok && body?.data) setViewClosing(body.data);
+				else toast.error(body?.error ?? "No se pudo abrir el cierre");
+				onOpenClosingHandled?.();
+			})
+			.catch(() => {
+				if (vigente) toast.error("No se pudo abrir el cierre");
+			});
+		return () => {
+			vigente = false;
+		};
+	}, [openClosingId, closings, onOpenClosingHandled, token]);
 
 	useEffect(() => {
 		if (editingDetailId && detailInputRef.current) {
