@@ -91,13 +91,23 @@ export default function TransferenciaDialog({
 	const [descripcion, setDescripcion] = useState("");
 	const [saving, setSaving] = useState(false);
 	const [cajasBrixar, setCajasBrixar] = useState<CajaBrixar[]>([]);
+	const [avisoBrixar, setAvisoBrixar] = useState("");
 
-	// Las cajas de Brixar como destino. Si Brixar no responde, no se ofrecen.
+	// Las cajas de Brixar como destino. Si no se pueden traer, no se ofrecen y
+	// se dice por qué (antes faltaban sin explicación).
 	useEffect(() => {
 		if (!open || !token) return;
-		cajaFetch<{ cajas: CajaBrixar[] }>("/brixar", token)
-			.then((r) => setCajasBrixar(r.cajas))
-			.catch(() => setCajasBrixar([]));
+		setAvisoBrixar("");
+		cajaFetch<{ configurado: boolean; cajas: CajaBrixar[] }>("/brixar", token)
+			.then((r) => {
+				setCajasBrixar(r.cajas);
+				if (!r.configurado) setAvisoBrixar("la integración con Brixar no está configurada");
+				else if (r.cajas.length === 0) setAvisoBrixar("Brixar no devolvió ninguna caja");
+			})
+			.catch((e) => {
+				setCajasBrixar([]);
+				setAvisoBrixar((e as Error).message);
+			});
 	}, [open, token]);
 
 	useEffect(() => {
@@ -213,6 +223,11 @@ export default function TransferenciaDialog({
 							/>
 						</div>
 					</div>
+					{avisoBrixar && (
+						<p className="text-xs text-amber-600">
+							No se pueden ofrecer las cajas de Brixar como destino: {avisoBrixar}.
+						</p>
+					)}
 					{aBrixar && (
 						<p className="rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
 							Transferencia externa: la plata sale de esta caja y entra sola en la caja de Brixar.
