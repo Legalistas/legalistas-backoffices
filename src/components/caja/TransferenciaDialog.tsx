@@ -25,6 +25,11 @@ import { Textarea } from "@/components/ui/textarea";
 import type { Caja, CajaMoneda } from "@/types/caja";
 import { cajaFetch, formatMonto, hoyISO, leerNumero, MONEDA_LABEL } from "./api";
 
+// Una caja de Brixar como destino: es una "transferencia externa". Sale de la
+// caja de acá y Brixar registra sola la entrada en la suya. Solo en pesos.
+const BRIXAR = "brixar:";
+type CajaBrixar = { id: string; nombre: string };
+
 interface TransferenciaDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
@@ -39,12 +44,14 @@ function CajaSelect({
 	cajas,
 	excluir,
 	placeholder,
+	brixar = [],
 }: {
 	value: string;
 	onChange: (v: string) => void;
 	cajas: { caja: Caja; label: string }[];
 	excluir: string;
 	placeholder: string;
+	brixar?: CajaBrixar[];
 }) {
 	return (
 		<Select value={value} onValueChange={onChange}>
@@ -59,6 +66,11 @@ function CajaSelect({
 							{label}
 						</SelectItem>
 					))}
+				{brixar.map((c) => (
+					<SelectItem key={c.id} value={`${BRIXAR}${c.id}`}>
+						Brixar · {c.nombre}
+					</SelectItem>
+				))}
 			</SelectContent>
 		</Select>
 	);
@@ -78,6 +90,15 @@ export default function TransferenciaDialog({
 	const [fecha, setFecha] = useState(hoyISO());
 	const [descripcion, setDescripcion] = useState("");
 	const [saving, setSaving] = useState(false);
+	const [cajasBrixar, setCajasBrixar] = useState<CajaBrixar[]>([]);
+
+	// Las cajas de Brixar como destino. Si Brixar no responde, no se ofrecen.
+	useEffect(() => {
+		if (!open || !token) return;
+		cajaFetch<{ cajas: CajaBrixar[] }>("/brixar", token)
+			.then((r) => setCajasBrixar(r.cajas))
+			.catch(() => setCajasBrixar([]));
+	}, [open, token]);
 
 	useEffect(() => {
 		if (!open) return;
@@ -89,6 +110,7 @@ export default function TransferenciaDialog({
 		setDescripcion("");
 	}, [open]);
 
+	const aBrixar = destinoId.startsWith(BRIXAR);
 	const origen = cajas.find((c) => String(c.caja.id) === origenId)?.caja;
 	const montoNum = leerNumero(monto);
 	// Cada caja tiene un saldo por moneda: se mira el de la moneda elegida.
@@ -102,18 +124,33 @@ export default function TransferenciaDialog({
 		}
 		setSaving(true);
 		try {
-			await cajaFetch("/transferencias", token, {
-				method: "POST",
-				json: {
-					origenId: Number(origenId),
-					destinoId: Number(destinoId),
-					monto: montoNum,
-					moneda,
-					fecha,
-					descripcion,
-				},
-			});
-			toast.success("Transferencia registrada");
+			if (aBrixar) {
+				await cajaFetch("/transferencias-externas", token, {
+					method: "POST",
+					json: {
+						origenId: Number(origenId),
+						cajaBrixarId: destinoId.slice(BRIXAR.length),
+						monto: montoNum,
+						fecha,
+						descripcion,
+					},
+				});
+			} else {
+				await cajaFetch("/transferencias", token, {
+					method: "POST",
+					json: {
+						origenId: Number(origenId),
+						destinoId: Number(destinoId),
+						monto: montoNum,
+						moneda,
+						fecha,
+						descripcion,
+					},
+				});
+			}
+			toast.success(
+				aBrixar ? "Transferencia registrada acá y en Brixar" : "Transferencia registrada",
+			);
 			onOpenChange(false);
 			onSaved();
 		} catch (e) {
@@ -142,6 +179,7 @@ export default function TransferenciaDialog({
 								type="button"
 								variant={moneda === m ? "default" : "outline"}
 								aria-pressed={moneda === m}
+								disabled={aBrixar && m === "USD"}
 								onClick={() => setMoneda(m)}
 							>
 								{MONEDA_LABEL[m]}
@@ -164,13 +202,23 @@ export default function TransferenciaDialog({
 							<Label>Hacia</Label>
 							<CajaSelect
 								value={destinoId}
-								onChange={setDestinoId}
+								onChange={(v) => {
+									setDestinoId(v);
+									if (v.startsWith(BRIXAR)) setMoneda("ARS");
+								}}
 								cajas={cajas}
 								excluir={origenId}
 								placeholder="Destino"
+								brixar={cajasBrixar}
 							/>
 						</div>
 					</div>
+					{aBrixar && (
+						<p className="rounded-md border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+							Transferencia externa: la plata sale de esta caja y entra sola en la caja de Brixar.
+							No hay que cargarla allá.
+						</p>
+					)}
 					{origen && (
 						<p className="text-xs text-muted-foreground">
 							Saldo de {origen.nombre}:{" "}
