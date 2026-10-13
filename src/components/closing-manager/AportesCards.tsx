@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils";
 // lo que aporta el representante; lo que resta es de Legalistas.
 // Al guardar el cierre, cada aporte queda pendiente en Gastos e Ingresos;
 // cuando Contabilidad lo paga desde una caja, acá figura "Aporte pagado".
+// La excepción es el 13 % sobre el capital: lo afronta la aseguradora, así que
+// no genera ningún pendiente (solo baja el HP de Legalistas).
 
 const ars = (n: number) =>
 	new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n);
@@ -91,6 +93,7 @@ function Tarjeta({
 	conRepresentante,
 	id,
 	pagos,
+	sinPago = false,
 	children,
 }: {
 	titulo: string;
@@ -105,6 +108,8 @@ function Tarjeta({
 	id: string;
 	/** Filas de Gastos e Ingresos de esta tarjeta (vacío si el cierre todavía no se guardó así). */
 	pagos: AportePago[];
+	/** El aporte no lo paga Legalistas: no genera pendiente en Gastos e Ingresos. */
+	sinPago?: boolean;
 	children: ReactNode;
 }) {
 	return (
@@ -139,7 +144,13 @@ function Tarjeta({
 					/>
 					<Lectura label="Aporta Legalistas" valor={ars(calculo.legalistas)} />
 					<div className="space-y-1 border-t border-border/60 pt-2">
-						{pagos.length === 0 ? (
+						{sinPago && (
+							<p className="text-xs text-muted-foreground">
+								Lo afronta la aseguradora: no pasa por Gastos e Ingresos ni por la Caja. Solo baja
+								el HP de Legalistas.
+							</p>
+						)}
+						{sinPago && pagos.every((p) => !p.pagado) ? null : pagos.length === 0 ? (
 							<p className="text-xs text-muted-foreground">
 								Al guardar queda pendiente en Gastos e Ingresos, para pagarlo desde una caja.
 							</p>
@@ -241,6 +252,7 @@ export default function AportesCards({
 					}
 					conRepresentante={conRepresentante}
 					pagos={pagos.filter((p) => p.tarjeta === "capital")}
+					sinPago
 				>
 					<Lectura label="Capital cerrado" valor={ars(capital)} />
 				</Tarjeta>
