@@ -19,13 +19,19 @@ export const porcentajesOtro = (desdeNegociacion: boolean): readonly number[] =>
 ];
 
 export interface AportesDetalle {
-	capital: { activa: boolean; representante: number };
+	/**
+	 * `aseguradora`: el 13 % lo paga la aseguradora (cierres cargados desde el
+	 * 13/10/2026). No se reparte con el representante ni va a Gastos e Ingresos:
+	 * solo baja el HP de Legalistas. Los cierres anteriores no traen la marca y
+	 * siguen con la regla con la que se guardaron. Al guardar manda el servidor.
+	 */
+	capital: { activa: boolean; representante: number; aseguradora?: boolean };
 	caja: { activa: boolean; base: number; representante: number };
 	otro: { activa: boolean; porcentaje: number; base: number; representante: number };
 }
 
 export const APORTES_VACIOS: AportesDetalle = {
-	capital: { activa: false, representante: 0 },
+	capital: { activa: false, representante: 0, aseguradora: true },
 	caja: { activa: false, base: 0, representante: 0 },
 	otro: { activa: false, porcentaje: 5.4, base: 0, representante: 0 },
 };
@@ -59,8 +65,13 @@ export function calcularAportes(d: AportesDetalle, capital: number, conRepresent
 		: PORCENTAJES_OTRO[0];
 
 	const tarjetas = {
-		// El 13 % lo paga la aseguradora: el representante no aporta nada ahí.
-		capital: tarjeta(d.capital.activa, PORCENTAJE_CAPITAL, capital, 0),
+		// Si lo paga la aseguradora, el representante no aporta nada ahí.
+		capital: tarjeta(
+			d.capital.activa,
+			PORCENTAJE_CAPITAL,
+			capital,
+			d.capital.aseguradora === true ? 0 : d.capital.representante,
+		),
 		caja: tarjeta(d.caja.activa, PORCENTAJE_CAJA, d.caja.base, d.caja.representante),
 		otro: tarjeta(d.otro.activa, porcentajeOtro, d.otro.base, d.otro.representante),
 	};

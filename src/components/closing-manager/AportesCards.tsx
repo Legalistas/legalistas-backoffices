@@ -22,8 +22,10 @@ import { cn } from "@/lib/utils";
 // lo que aporta el representante; lo que resta es de Legalistas.
 // Al guardar el cierre, cada aporte queda pendiente en Gastos e Ingresos;
 // cuando Contabilidad lo paga desde una caja, acá figura "Aporte pagado".
-// La excepción es el 13 % sobre el capital: lo afronta la aseguradora, así que
-// no genera ningún pendiente (solo baja el HP de Legalistas).
+// La excepción es el 13 % sobre el capital de los cierres cargados desde el
+// 13/10/2026: lo paga la aseguradora, así que no genera ningún pendiente ni
+// tiene aporte del representante (solo baja el HP de Legalistas). Los cierres
+// anteriores siguen como se guardaron.
 
 const ars = (n: number) =>
 	new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS" }).format(n);
@@ -258,7 +260,7 @@ export default function AportesCards({
 					}
 					conRepresentante={conRepresentante}
 					pagos={pagos.filter((p) => p.tarjeta === "capital")}
-					sinPago
+					sinPago={value.capital.aseguradora === true}
 				>
 					<Lectura label="Capital cerrado" valor={ars(capital)} />
 				</Tarjeta>
