@@ -27,6 +27,7 @@ const LEVEL_EDIT_ROLES: string[] = [
 	Role.GERENTE_GENERAL_COO,
 	Role.DIRECTORA_AREA_LEGAL,
 	Role.COORDINADOR_LEGAL,
+	Role.DIRECTORA_AREA_CONTABLE,
 ];
 
 export default function RepresentantesPage() {

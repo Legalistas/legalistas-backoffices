@@ -24,7 +24,13 @@ export const CasesHeader = ({ title }: CasesHeaderProps) => {
 			<div className="flex items-center justify-between">
 				<h1 className="text-3xl font-bold tracking-tight">{title}</h1>
 				<div className="flex items-center gap-2">
-					<Can permission={[Role.DIRECTOR_AREA_IT, Role.DIRECTOR_GENERAL_CEO]}>
+					<Can
+						permission={[
+							Role.DIRECTOR_AREA_IT,
+							Role.DIRECTOR_GENERAL_CEO,
+							Role.DIRECTORA_AREA_CONTABLE,
+						]}
+					>
 						<Button
 							onClick={() => setAnalistaOpen(true)}
 							variant="default"

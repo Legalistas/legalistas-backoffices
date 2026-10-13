@@ -163,6 +163,7 @@ export default function KanbanBoard() {
 			Role.COORDINADOR_LEGAL,
 			Role.DIRECTOR_AREA_IT,
 			Role.DIRECTORA_AREA_MARKETING,
+			Role.DIRECTORA_AREA_CONTABLE,
 		];
 
 		return sellerRoles.some((role) => role === session.user.role);

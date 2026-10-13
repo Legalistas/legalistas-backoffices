@@ -23,6 +23,7 @@ export const useRolePermissions = (): RolePermissions => {
 			Role.ASISTENTE_LEGAL,
 			Role.REFERENTES,
 			Role.DIRECTOR_AREA_IT,
+			Role.DIRECTORA_AREA_CONTABLE,
 		];
 
 		const lawyerRoles = [Role.ABOGADO_REPRESENTANTE];
