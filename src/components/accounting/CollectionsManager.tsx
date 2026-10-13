@@ -828,6 +828,32 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
+														{/* La parte del representante y los aportes de un cierre no se
+														    editan ni se borran (el cierre los volvería a generar): se
+														    dan de baja y quedan cancelados. */}
+														{(tx.repClosingId ?? tx.aporteClosingId) && tx.status === "pending" && (
+															<DropdownMenuItem
+																variant="destructive"
+																onClick={() => {
+																	if (
+																		!window.confirm(
+																			`¿Dar de baja "${tx.concept}"? Deja de figurar como pendiente y el cierre no lo vuelve a generar.`,
+																		)
+																	)
+																		return;
+																	runAction(
+																		tx.id,
+																		SCHEDULED_TX_CANCEL_ENDPOINT(tx.id),
+																		"PATCH",
+																		"Dado de baja",
+																	);
+																}}
+															>
+																<Trash2 className="mr-2 h-4 w-4" />
+																Dar de baja
+															</DropdownMenuItem>
+														)}
+
 														{editable && (
 															<DropdownMenuItem
 																variant="destructive"
