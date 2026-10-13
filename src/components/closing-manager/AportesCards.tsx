@@ -130,24 +130,30 @@ function Tarjeta({
 				<>
 					{children}
 					<Lectura label="Aporte" valor={ars(calculo.aporte)} fuerte />
-					<Monto
-						id={`${id}-representante`}
-						label="Aporta el representante ($)"
-						value={conRepresentante ? representante : 0}
-						onChange={onRepresentante}
-						disabled={!conRepresentante}
-						ayuda={
-							conRepresentante && representante > calculo.aporte
-								? `No puede superar el aporte: se toma ${ars(calculo.aporte)}.`
-								: undefined
-						}
-					/>
-					<Lectura label="Aporta Legalistas" valor={ars(calculo.legalistas)} />
+					{sinPago ? (
+						<Lectura label="Se descuenta del HP de Legalistas" valor={ars(calculo.legalistas)} />
+					) : (
+						<>
+							<Monto
+								id={`${id}-representante`}
+								label="Aporta el representante ($)"
+								value={conRepresentante ? representante : 0}
+								onChange={onRepresentante}
+								disabled={!conRepresentante}
+								ayuda={
+									conRepresentante && representante > calculo.aporte
+										? `No puede superar el aporte: se toma ${ars(calculo.aporte)}.`
+										: undefined
+								}
+							/>
+							<Lectura label="Aporta Legalistas" valor={ars(calculo.legalistas)} />
+						</>
+					)}
 					<div className="space-y-1 border-t border-border/60 pt-2">
 						{sinPago && (
 							<p className="text-xs text-muted-foreground">
-								Lo afronta la aseguradora: no pasa por Gastos e Ingresos ni por la Caja. Solo baja
-								el HP de Legalistas.
+								Lo paga la aseguradora: no pasa por Gastos e Ingresos ni por la Caja, y el
+								representante no aporta. Solo baja el HP de Legalistas.
 							</p>
 						)}
 						{sinPago && pagos.every((p) => !p.pagado) ? null : pagos.length === 0 ? (

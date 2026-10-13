@@ -59,7 +59,8 @@ export function calcularAportes(d: AportesDetalle, capital: number, conRepresent
 		: PORCENTAJES_OTRO[0];
 
 	const tarjetas = {
-		capital: tarjeta(d.capital.activa, PORCENTAJE_CAPITAL, capital, d.capital.representante),
+		// El 13 % lo paga la aseguradora: el representante no aporta nada ahí.
+		capital: tarjeta(d.capital.activa, PORCENTAJE_CAPITAL, capital, 0),
 		caja: tarjeta(d.caja.activa, PORCENTAJE_CAJA, d.caja.base, d.caja.representante),
 		otro: tarjeta(d.otro.activa, porcentajeOtro, d.otro.base, d.otro.representante),
 	};

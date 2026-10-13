@@ -30,10 +30,11 @@ describe("calcularAportes", () => {
 			2_000_000,
 			true,
 		);
-		expect(c.tarjetas.capital).toEqual({ aporte: 260_000, representante: 100_000, legalistas: 160_000 });
+		// En el 13 % el representante no aporta aunque venga cargado: lo paga la aseguradora.
+		expect(c.tarjetas.capital).toEqual({ aporte: 260_000, representante: 0, legalistas: 260_000 });
 		expect(c.tarjetas.caja).toEqual({ aporte: 70_000, representante: 20_000, legalistas: 50_000 });
 		expect(c.tarjetas.otro).toEqual({ aporte: 45_000, representante: 45_000, legalistas: 0 });
-		expect([c.total, c.representante, c.legalistas]).toEqual([375_000, 165_000, 210_000]);
+		expect([c.total, c.representante, c.legalistas]).toEqual([375_000, 65_000, 310_000]);
 	});
 
 	test("5,4 % en la tercera", () => {
