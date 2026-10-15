@@ -29,12 +29,13 @@ import { NotesView } from "./NotesView";
 import { PlazosView } from "./PlazosView";
 import SrtFormsHistory from "./SrtFormsHistory";
 import { TimelineView } from "./TimelineView";
+import { CaseAnalysisView } from "@/components/case-analyzer/CaseAnalysisView";
 
 // Navegación de la causa (relevamiento 7). Orden acordado:
 //   Notas → Expedientes → Cédulas → Escritos → Eventos → Liquidación
 // y después Información (Info + Partes unificadas) y Línea de tiempo. Las que
 // el relevamiento no ordena quedan al final, para no perder nada. "Análisis"
-// se mantiene pero deshabilitado hasta que se reestructure su API.
+// (informe con IA de un PDF del expediente) va último.
 
 const TABS = [
 	{ value: "notes", label: "Notas" },
@@ -50,6 +51,7 @@ const TABS = [
 	{ value: "gastos", label: "Gastos" },
 	{ value: "consultations", label: "Consultas" },
 	{ value: "informe", label: "Informe" },
+	{ value: "ia", label: "Análisis" },
 ] as const;
 
 type TabValue = (typeof TABS)[number]["value"];
@@ -140,10 +142,6 @@ export const CaseTabs = ({
 						{t.label}
 					</TabsTrigger>
 				))}
-				{/* Provisorio: se mantiene pero deshabilitado hasta reestructurar su API. */}
-				<TabsTrigger value="ia" disabled title="En reestructuración">
-					Análisis
-				</TabsTrigger>
 			</TabsList>
 
 			<TabsContent value="notes" className={tabContentClass}>
@@ -232,6 +230,10 @@ export const CaseTabs = ({
 
 			<TabsContent value="informe" className={tabContentClass}>
 				<InformeTrimestralView caseData={caseData} onCaseUpdated={onCaseUpdated} />
+			</TabsContent>
+
+			<TabsContent value="ia" className={tabContentClass}>
+				<CaseAnalysisView caseId={caseId} />
 			</TabsContent>
 		</Tabs>
 	);
