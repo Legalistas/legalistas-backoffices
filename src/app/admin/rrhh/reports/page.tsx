@@ -12,7 +12,7 @@ export default function RrhhReportsPage() {
 				<div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 text-center">
 					<p className="text-sm font-medium text-foreground">Sin acceso</p>
 					<p className="max-w-md text-xs text-muted-foreground">
-						El reporte de RR.HH. es para dirección, el área contable y la coordinación legal.
+						El reporte de RR.HH. es solo para dirección: CEO, administración, Sistemas y el director contable.
 					</p>
 				</div>
 			}

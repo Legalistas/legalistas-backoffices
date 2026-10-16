@@ -72,8 +72,8 @@ const MARKETING = [
   DISENADOR_GRAFICO,
 ];
 
-// Reporte RR.HH.: los que administran RR.HH. (ven costos) + coordinación legal.
-// Espejo de RRHH_REPORTE_ROLES del backend.
+// Equipo y Reporte RR.HH.: solo dirección (admin, CEO, Sistemas y director
+// contable). Espejo de RRHH_REPORTE_ROLES del backend.
 const RRHH_REPORTS_ACCESS = RRHH_REPORTE_ROLES;
 
 // ── Menú agrupado por área funcional ───────────────────────────────
@@ -245,7 +245,7 @@ export const MENU_SECTIONS: MenuSection[] = [
         icon: User,
         name: "Equipo",
         path: "/admin/teams",
-        roles: [...LEGAL_INTERNO, ...CONTABLE],
+        roles: RRHH_REPORTS_ACCESS,
       },
       {
         icon: PieChart,

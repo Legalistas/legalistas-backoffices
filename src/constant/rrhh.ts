@@ -20,12 +20,16 @@ export const RRHH_ADMIN_ROLES: string[] = [
 	Role.AUDITOR_INTERNO,
 ];
 
-/** Ven el Reporte RR.HH. (los costos, solo RRHH_ADMIN_ROLES). Espejo de RRHH_REPORTE_ROLES. */
+/**
+ * Ven "Equipo" y el Reporte RR.HH.: solo dirección (admin, CEO, Sistemas y
+ * director contable). Espejo de RRHH_REPORTE_ROLES / EQUIPO_ROLES del backend.
+ */
 export const RRHH_REPORTE_ROLES: string[] = [
-	...RRHH_ADMIN_ROLES,
-	Role.DIRECTORA_AREA_LEGAL,
-	Role.COORDINADOR_LEGAL,
-	Role.ASISTENTE_LEGAL,
+	Role.ADMINISTRATOR,
+	"administrator",
+	Role.DIRECTOR_GENERAL_CEO,
+	Role.DIRECTOR_AREA_IT,
+	Role.DIRECTORA_AREA_CONTABLE,
 ];
 
 export type Segmento = "INTERNO" | "REPRESENTANTE";
