@@ -9,6 +9,7 @@ import {
   HardDrive,
   Handshake,
   LayoutDashboard,
+  ListChecks,
   MessageCircle,
   MessageSquare,
   Pencil,
@@ -97,6 +98,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Calendario",
         path: "/admin/calendar",
         roles: [...LEGAL, ...VENTAS, ...MARKETING],
+      },
+      {
+        // Sin roles: lo ve todo el equipo; el backend muestra solo los tableros de cada uno.
+        icon: ListChecks,
+        name: "Workspace",
+        path: "/admin/workspace",
       },
       {
         icon: Bell,

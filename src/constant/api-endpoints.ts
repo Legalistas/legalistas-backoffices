@@ -672,3 +672,6 @@ export const POSTS_AI_INTERNAL_LINKS_ENDPOINT = `${API_BASE_URL}/posts/ai/sugges
 // CAJA CONTABLE — módulo /caja (cajas, movimientos, transferencias, rubros)
 // ============================================================================
 export const CAJA_ENDPOINT = `${API_BASE_URL}/caja`;
+
+// Workspace: gestión de trabajo tipo Asana (equipos, proyectos, tableros y tareas).
+export const WORKSPACE_ENDPOINT = `${API_BASE_URL}/workspace`;
