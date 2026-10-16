@@ -106,7 +106,7 @@ export default function WorkspaceHome() {
 		if (!token) return;
 		workspaceFetch<WorkHome>("/home", token)
 			.then(setHome)
-			.catch((e) => setError(errorMessage(e, "No se pudo cargar el workspace")));
+			.catch((e) => setError(errorMessage(e, "No se pudo cargar el espacio de trabajo")));
 	}, [token]);
 
 	const buckets = useMemo(() => bucketize(home?.myTasks ?? []), [home]);
@@ -139,7 +139,7 @@ export default function WorkspaceHome() {
 				<div className="rounded-xl border border-dashed border-border px-6 py-16 text-center">
 					<p className="font-medium">Todavía no estás en ningún equipo</p>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Pedile a Sistemas o a la dirección que te sumen a un equipo del workspace.
+						Pedile a Sistemas o a la dirección que te sumen a un equipo del espacio de trabajo.
 					</p>
 				</div>
 			) : (

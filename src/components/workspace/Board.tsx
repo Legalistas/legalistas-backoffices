@@ -166,7 +166,7 @@ export default function Board({ projectId }: { projectId: number }) {
 			<div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 text-center">
 				<p className="text-sm font-medium">{error}</p>
 				<Button variant="outline" asChild>
-					<Link href="/admin/workspace">Volver al workspace</Link>
+					<Link href="/admin/workspace">Volver al espacio de trabajo</Link>
 				</Button>
 			</div>
 		);
@@ -191,7 +191,7 @@ export default function Board({ projectId }: { projectId: number }) {
 		<div className="flex h-[calc(100vh-7rem)] flex-col gap-4">
 			<header className="flex flex-wrap items-center gap-x-4 gap-y-3">
 				<Button variant="ghost" size="icon" asChild className="shrink-0">
-					<Link href="/admin/workspace" aria-label="Volver al workspace">
+					<Link href="/admin/workspace" aria-label="Volver al espacio de trabajo">
 						<ArrowLeft className="size-4" />
 					</Link>
 				</Button>

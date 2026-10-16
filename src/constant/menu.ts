@@ -100,12 +100,6 @@ export const MENU_SECTIONS: MenuSection[] = [
         roles: [...LEGAL, ...VENTAS, ...MARKETING],
       },
       {
-        // Sin roles: lo ve todo el equipo; el backend muestra solo los tableros de cada uno.
-        icon: ListChecks,
-        name: "Workspace",
-        path: "/admin/workspace",
-      },
-      {
         icon: Bell,
         name: "Monitor de Gestión",
         path: "/admin/crm-monitor",
@@ -158,6 +152,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "KPIs",
         path: "/admin/kpis",
         roles: [...LEGAL_INTERNO, ...VENTAS, ...CONTABLE, ...MARKETING],
+      },
+      {
+        // Sin roles: lo ve todo el equipo; el backend muestra solo los tableros de cada uno.
+        icon: ListChecks,
+        name: "Espacio de trabajo",
+        path: "/admin/workspace",
       },
     ],
   },
