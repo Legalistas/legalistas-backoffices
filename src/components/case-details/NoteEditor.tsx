@@ -34,7 +34,7 @@ interface NoteEditorProps {
 	onMentionsChange?: (userIds: number[]) => void;
 	mentionUsers: MentionUser[];
 	placeholder?: string;
-	/** Si viene, `#` busca causas (lo usa el workspace; las notas de causas no). */
+	/** When present, `#` searches cases (used by the workspace; case notes do not pass it). */
 	mentionCases?: (query: string) => Promise<{ id: number; label: string }[]>;
 }
 
@@ -118,7 +118,7 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
 MentionList.displayName = "MentionList";
 
-// Popup de sugerencias (tippy + MentionList), el mismo para personas y causas.
+// Suggestion popup (tippy + MentionList), shared by people and cases.
 const mentionRender = (emptyText: string) => () => {
 	let component: ReactRenderer<MentionListRef> | null = null;
 	let popup: TippyInstance[] | null = null;

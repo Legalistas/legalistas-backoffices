@@ -11,7 +11,7 @@ export class WorkspaceApiError extends Error {
 	}
 }
 
-/** fetch contra /workspace con el token de la sesión. Tira WorkspaceApiError con el mensaje del backend. */
+/** fetch against /workspace with the session token. Throws WorkspaceApiError with the backend message. */
 export async function workspaceFetch<T>(
 	path: string,
 	token: string | undefined,
@@ -39,7 +39,7 @@ export const PRIORITY_LABEL: Record<WorkPriority, string> = {
 	URGENT: "Urgente",
 };
 
-/** Las fechas de vencimiento son días: se guardan a las 00:00 UTC y se leen sin zona horaria. */
+/** Due dates are days: stored at 00:00 UTC and read without a timezone. */
 export const dayOf = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : null);
 export const todayKey = () => format(new Date(), "yyyy-MM-dd");
 export const formatDay = (iso: string | null | undefined) => {
@@ -51,7 +51,7 @@ export const isOverdue = (iso: string | null | undefined, completed: boolean) =>
 	return !completed && !!d && d < todayKey();
 };
 
-/** Mismo cálculo que el backend (position.ts), para reordenar antes de que responda. */
+/** Same math as the backend (position.ts), to reorder before it answers. */
 export const positionAt = (sorted: number[], index: number) => {
 	if (sorted.length === 0) return 1;
 	if (index <= 0) return sorted[0] - 1;

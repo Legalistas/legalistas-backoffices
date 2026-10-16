@@ -5,9 +5,9 @@ import { io } from "socket.io-client";
 import type { TaskChangedEvent } from "@/types/workspace";
 
 /**
- * Avisos en vivo de un tablero (alguien creó, movió o comentó una tarea).
- * Llega solo el aviso; quien lo recibe vuelve a pedir los datos. `null` =
- * se reconectó y pudo perderse avisos: hay que recargar todo.
+ * Live notices for a board (someone created, moved or commented on a task).
+ * Only the notice arrives; the receiver re-fetches the data. `null` = the
+ * socket reconnected and may have missed notices: reload everything.
  */
 export function useProjectRealtime(
 	projectId: number,

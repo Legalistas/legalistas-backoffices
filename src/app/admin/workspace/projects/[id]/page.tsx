@@ -8,7 +8,7 @@ export const metadata = {
 export default async function ProjectBoardPage({ params }: { params: Promise<{ id: string }> }) {
 	const { id } = await params;
 	return (
-		// Board lee ?task= de la URL (useSearchParams).
+		// Board reads ?task= from the URL (useSearchParams).
 		<Suspense>
 			<Board projectId={Number(id)} />
 		</Suspense>

@@ -49,7 +49,7 @@ function AddTask({ onAdd }: { onAdd: (title: string) => Promise<void> }) {
 				setBusy(true);
 				await onAdd(t);
 				setBusy(false);
-				// Queda abierto para cargar varias seguidas.
+				// Stays open to add several in a row.
 				setTitle("");
 			}}
 		>
@@ -95,8 +95,8 @@ export default function Board({ projectId }: { projectId: number }) {
 		load();
 	}, [load]);
 
-	// En vivo: cuando alguien cambia algo (también desde otra pestaña), se
-	// recarga el tablero y, si es la tarea abierta, su detalle.
+	// Live: when someone changes something (also from another tab) the board
+	// reloads and, if it is the open task, its detail too.
 	const [detailRefresh, setDetailRefresh] = useState(0);
 	const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	useProjectRealtime(projectId, token, (e) => {
@@ -137,7 +137,7 @@ export default function Board({ projectId }: { projectId: number }) {
 		if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 		const id = Number(draggableId);
 		const columnId = Number(destination.droppableId);
-		// Se reordena enseguida; si el backend no acepta, se vuelve a cargar.
+		// Reorder right away; if the backend rejects it, reload.
 		const siblings = board.tasks
 			.filter((t) => t.columnId === columnId && t.id !== id)
 			.sort(byPosition);
@@ -290,7 +290,7 @@ export default function Board({ projectId }: { projectId: number }) {
 													Nada con ese filtro
 												</p>
 											)}
-											{/* Justo debajo de la última tarjeta, como en Trello o Asana. */}
+											{/* Right below the last card, like Trello or Asana. */}
 											{permissions.edit && !filtering && (
 												<AddTask onAdd={(title) => addTask(column.id, title)} />
 											)}

@@ -5,8 +5,8 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 
 /**
- * HTML del editor en solo lectura. Pasa por el esquema de tiptap en vez de
- * dangerouslySetInnerHTML: lo que no sea texto, listas o menciones se descarta.
+ * Read-only editor HTML. Goes through tiptap's schema instead of
+ * dangerouslySetInnerHTML: anything that is not text, lists or mentions is dropped.
  */
 export function RichTextView({ html }: { html: string }) {
 	const editor = useEditor({
@@ -19,7 +19,7 @@ export function RichTextView({ html }: { html: string }) {
 			}),
 			Mention.configure({
 				HTMLAttributes: { class: "mention rounded bg-primary/5 px-1 py-0.5 font-medium text-primary" },
-				// Para que cada mención se muestre con su @ o su #.
+				// So each mention shows its own @ or #.
 				suggestions: [{ char: "@" }, { char: "#" }],
 			}),
 		],

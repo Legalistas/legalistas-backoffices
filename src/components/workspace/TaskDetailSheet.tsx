@@ -45,16 +45,16 @@ interface Props {
 	taskId: number | null;
 	token: string | undefined;
 	myId: number | null;
-	/** Cambia cuando llega un aviso en vivo de esta tarea: se vuelve a pedir. */
+	/** Changes when a live notice for this task arrives: re-fetch it. */
 	refreshKey: number;
 	projectId: number;
 	people: WorkPerson[];
 	columns: WorkColumn[];
 	onClose: () => void;
-	/** La tarjeta cambió (título, columna, asignados...): el tablero la reemplaza. */
+	/** The card changed (title, column, assignees...): the board replaces it. */
 	onCardChange: (card: WorkCard) => void;
 	onArchived: (id: number) => void;
-	/** Cambió algo que el tablero cuenta (subtareas): que se recargue. */
+	/** Something the board counts changed (subtasks): reload it. */
 	onBoardStale: () => void;
 }
 
@@ -123,12 +123,12 @@ export function TaskDetailSheet({
 	const [saving, setSaving] = useState(false);
 	const [newSubtask, setNewSubtask] = useState("");
 	const [comment, setComment] = useState("");
-	// Cambia para vaciar el editor después de comentar (no se controla desde afuera).
+	// Bumped to clear the editor after commenting (it is uncontrolled).
 	const [composerKey, setComposerKey] = useState(0);
 	const [caseQuery, setCaseQuery] = useState("");
 	const [caseResults, setCaseResults] = useState<WorkCaseRef[]>([]);
 	const { confirm, ConfirmationDialog } = useConfirm();
-	// Mientras se escribe el título, una recarga en vivo no lo pisa.
+	// While the title is being typed, a live reload does not overwrite it.
 	const editingTitle = useRef(false);
 
 	const peopleById = useMemo(
@@ -159,7 +159,7 @@ export function TaskDetailSheet({
 		if (task && !descriptionDirty) setDescription(task.description ?? "");
 	}, [task, descriptionDirty]);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: solo cuando llega un aviso.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: only when a notice arrives.
 	useEffect(() => {
 		if (refreshKey) load();
 	}, [refreshKey]);
@@ -167,7 +167,7 @@ export function TaskDetailSheet({
 	const canEdit = !!task?.permissions.edit;
 	const canComment = !!task?.permissions.comment;
 
-	/** Causas que esta persona puede vincular o mencionar con #. */
+	/** Cases this person can link or mention with #. */
 	const searchCases = useCallback(
 		(q: string) =>
 			workspaceFetch<WorkCaseRef[]>(`/projects/${projectId}/cases?q=${encodeURIComponent(q)}`, token),
@@ -189,7 +189,7 @@ export function TaskDetailSheet({
 		};
 	}, [caseQuery, canEdit, searchCases]);
 
-	/** Guarda y refresca: la tarjeta del tablero y el detalle (con su historial). */
+	/** Saves and refreshes: the board card and the detail (with its history). */
 	const run = async (fn: () => Promise<WorkCard | null>, okMessage?: string) => {
 		setSaving(true);
 		try {
@@ -233,7 +233,7 @@ export function TaskDetailSheet({
 		run(() =>
 			workspaceFetch<WorkCard>(`/tasks/${taskId}/move`, token, {
 				method: "POST",
-				// Al final de la columna elegida.
+				// At the end of the chosen column.
 				json: { columnId, index: 1_000_000 },
 			}),
 		);

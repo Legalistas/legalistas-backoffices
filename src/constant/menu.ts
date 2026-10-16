@@ -154,7 +154,7 @@ export const MENU_SECTIONS: MenuSection[] = [
         roles: [...LEGAL_INTERNO, ...VENTAS, ...CONTABLE, ...MARKETING],
       },
       {
-        // Sin roles: lo ve todo el equipo; el backend muestra solo los tableros de cada uno.
+        // No roles: everyone sees it; the backend only returns each person's boards.
         icon: ListChecks,
         name: "Espacio de trabajo",
         path: "/admin/workspace",

@@ -12,7 +12,7 @@ import type { WorkHome, WorkHomeProject, WorkMyTask } from "@/types/workspace";
 
 type Bucket = { key: string; label: string; tasks: WorkMyTask[] };
 
-/** Vencidas, hoy, próximos 7 días, más adelante y sin fecha. */
+/** Overdue, today, next 7 days, later and no due date. */
 function bucketize(tasks: WorkMyTask[]): Bucket[] {
 	const today = todayKey();
 	const week = format(addDays(new Date(), 7), "yyyy-MM-dd");

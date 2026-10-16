@@ -26,7 +26,7 @@ export interface WorkHomeProject {
 export interface WorkMyTask {
 	id: number;
 	title: string;
-	/** ISO; el día es lo que importa (00:00 UTC). */
+	/** ISO; only the day matters (00:00 UTC). */
 	dueDate: string | null;
 	priority: WorkPriority;
 	parentTaskId: number | null;
@@ -79,7 +79,7 @@ export interface WorkBoard {
 	permissions: WorkPermissions;
 }
 
-/** Aviso en vivo del tablero (Socket.IO /workspace). */
+/** Live board notice (Socket.IO /workspace). */
 export interface TaskChangedEvent {
 	projectId: number;
 	taskId: number;
@@ -106,14 +106,14 @@ export interface WorkSubtask {
 
 export interface WorkCaseRef {
 	id: number;
-	/** Carátula (automática). */
+	/** Case title (generated automatically). */
 	title: string | null;
 	number: string | null;
 }
 
 export interface WorkComment {
 	id: number;
-	/** HTML del editor, con menciones. */
+	/** Editor HTML, with mentions. */
 	body: string;
 	createdAt: string;
 	editedAt: string | null;
