@@ -95,6 +95,22 @@ export interface WorkSubtask {
 	assignees: WorkPerson[];
 }
 
+export interface WorkCaseRef {
+	id: number;
+	/** Carátula (automática). */
+	title: string | null;
+	number: string | null;
+}
+
+export interface WorkComment {
+	id: number;
+	/** HTML del editor, con menciones. */
+	body: string;
+	createdAt: string;
+	editedAt: string | null;
+	author: WorkPerson;
+}
+
 export interface WorkTaskDetail extends Omit<WorkCard, "subtasks" | "comments" | "cases"> {
 	description: string | null;
 	startDate: string | null;
@@ -107,6 +123,8 @@ export interface WorkTaskDetail extends Omit<WorkCard, "subtasks" | "comments" |
 	completedBy: WorkPerson | null;
 	subtasks: WorkSubtask[];
 	activity: WorkActivity[];
+	cases: WorkCaseRef[];
+	comments: WorkComment[];
 	counts: { subtasks: number; comments: number; cases: number };
 	permissions: WorkPermissions;
 }

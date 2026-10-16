@@ -1,7 +1,8 @@
 "use client";
 
 import { format } from "date-fns";
-import { Archive, Check, CheckCircle2, Circle, Loader2, Plus, UserPlus } from "lucide-react";
+import { Archive, Check, CheckCircle2, Circle, Link2, Loader2, Plus, UserPlus, X } from "lucide-react";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { NoteEditor } from "@/components/case-details/NoteEditor";
@@ -27,11 +28,13 @@ import {
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConfirm } from "@/hooks/useConfirm";
+import { RichTextView } from "./RichTextView";
 import { dayOf, errorMessage, PRIORITY_LABEL, workspaceFetch } from "@/lib/workspace-api";
 import { cn } from "@/lib/utils";
 import type {
 	WorkActivity,
 	WorkCard,
+	WorkCaseRef,
 	WorkColumn,
 	WorkPerson,
 	WorkPriority,
@@ -41,6 +44,7 @@ import type {
 interface Props {
 	taskId: number | null;
 	token: string | undefined;
+	myId: number | null;
 	projectId: number;
 	people: WorkPerson[];
 	columns: WorkColumn[];
@@ -68,6 +72,12 @@ function describeActivity(a: WorkActivity, people: Map<number, string>) {
 			return "la reabrió";
 		case "task.archived":
 			return "la archivó";
+		case "comment.created":
+			return "comentó";
+		case "comment.archived":
+			return "archivó un comentario";
+		case "task.cases":
+			return "cambió las causas vinculadas";
 		case "task.assigned": {
 			const parts = [];
 			if (Array.isArray(d.added) && d.added.length) parts.push(`asignó a ${names(d.added, people)}`);
@@ -78,6 +88,8 @@ function describeActivity(a: WorkActivity, people: Map<number, string>) {
 			return "editó la tarea";
 	}
 }
+
+const caseLabel = (c: WorkCaseRef) => c.title || c.number || `Causa ${c.id}`;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
@@ -91,6 +103,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 export function TaskDetailSheet({
 	taskId,
 	token,
+	myId,
 	projectId,
 	people,
 	columns,
@@ -106,6 +119,11 @@ export function TaskDetailSheet({
 	const [descriptionDirty, setDescriptionDirty] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [newSubtask, setNewSubtask] = useState("");
+	const [comment, setComment] = useState("");
+	// Cambia para vaciar el editor después de comentar (no se controla desde afuera).
+	const [composerKey, setComposerKey] = useState(0);
+	const [caseQuery, setCaseQuery] = useState("");
+	const [caseResults, setCaseResults] = useState<WorkCaseRef[]>([]);
 	const { confirm, ConfirmationDialog } = useConfirm();
 
 	const peopleById = useMemo(
@@ -137,6 +155,29 @@ export function TaskDetailSheet({
 	}, [task, descriptionDirty]);
 
 	const canEdit = !!task?.permissions.edit;
+	const canComment = !!task?.permissions.comment;
+
+	/** Causas que esta persona puede vincular o mencionar con #. */
+	const searchCases = useCallback(
+		(q: string) =>
+			workspaceFetch<WorkCaseRef[]>(`/projects/${projectId}/cases?q=${encodeURIComponent(q)}`, token),
+		[projectId, token],
+	);
+	const searchCaseMentions = useCallback(
+		async (q: string) => (await searchCases(q)).map((c) => ({ id: c.id, label: caseLabel(c) })),
+		[searchCases],
+	);
+
+	useEffect(() => {
+		if (!canEdit) return;
+		let alive = true;
+		searchCases(caseQuery)
+			.then((r) => alive && setCaseResults(r))
+			.catch(() => alive && setCaseResults([]));
+		return () => {
+			alive = false;
+		};
+	}, [caseQuery, canEdit, searchCases]);
 
 	/** Guarda y refresca: la tarjeta del tablero y el detalle (con su historial). */
 	const run = async (fn: () => Promise<WorkCard | null>, okMessage?: string) => {
@@ -217,6 +258,40 @@ export function TaskDetailSheet({
 			await workspaceFetch(`/tasks/${id}`, token, { method: "PATCH", json: { completed } });
 			return null;
 		});
+
+	const setCases = (caseIds: number[]) =>
+		run(() =>
+			workspaceFetch<WorkCard>(`/tasks/${taskId}/cases`, token, { method: "PUT", json: { caseIds } }),
+		);
+
+	const sendComment = async () => {
+		if (!task) return;
+		setSaving(true);
+		try {
+			await workspaceFetch(`/tasks/${task.id}/comments`, token, {
+				method: "POST",
+				json: { body: comment },
+			});
+			setComment("");
+			setComposerKey((k) => k + 1);
+			await load();
+			onBoardStale();
+		} catch (e) {
+			toast.error(errorMessage(e, "No se pudo comentar"));
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const archiveComment = async (id: number) => {
+		try {
+			await workspaceFetch(`/comments/${id}/archive`, token, { method: "POST" });
+			await load();
+			onBoardStale();
+		} catch (e) {
+			toast.error(errorMessage(e, "No se pudo archivar el comentario"));
+		}
+	};
 
 	const archive = async () => {
 		if (!task) return;
@@ -384,6 +459,72 @@ export function TaskDetailSheet({
 										</SelectContent>
 									</Select>
 								</Field>
+								<Field label="Causas">
+									<div className="flex flex-wrap items-center gap-1.5">
+										{task.cases.map((c) => (
+											<span
+												key={c.id}
+												className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+											>
+												<Link
+													href={`/admin/legal-cases/${c.id}`}
+													className="truncate font-medium hover:underline"
+													title={caseLabel(c)}
+												>
+													{caseLabel(c)}
+												</Link>
+												{canEdit && (
+													<button
+														type="button"
+														aria-label={`Desvincular ${caseLabel(c)}`}
+														onClick={() => setCases(task.cases.filter((x) => x.id !== c.id).map((x) => x.id))}
+														className="rounded text-muted-foreground hover:text-foreground"
+													>
+														<X className="size-3.5" />
+													</button>
+												)}
+											</span>
+										))}
+										{canEdit && (
+											<Popover>
+												<PopoverTrigger asChild>
+													<Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground">
+														<Link2 className="size-3.5" />
+														Vincular
+													</Button>
+												</PopoverTrigger>
+												<PopoverContent className="w-80 p-0" align="start">
+													<Command shouldFilter={false}>
+														<CommandInput
+															placeholder="Carátula o número..."
+															value={caseQuery}
+															onValueChange={setCaseQuery}
+														/>
+														<CommandList>
+															<CommandEmpty>No hay causas con eso.</CommandEmpty>
+															<CommandGroup>
+																{caseResults
+																	.filter((c) => !task.cases.some((x) => x.id === c.id))
+																	.map((c) => (
+																		<CommandItem
+																			key={c.id}
+																			value={String(c.id)}
+																			onSelect={() => setCases([...task.cases.map((x) => x.id), c.id])}
+																		>
+																			<span className="truncate">{caseLabel(c)}</span>
+																		</CommandItem>
+																	))}
+															</CommandGroup>
+														</CommandList>
+													</Command>
+												</PopoverContent>
+											</Popover>
+										)}
+										{!canEdit && task.cases.length === 0 && (
+											<span className="text-sm text-muted-foreground">Ninguna</span>
+										)}
+									</div>
+								</Field>
 							</div>
 						</div>
 
@@ -408,7 +549,8 @@ export function TaskDetailSheet({
 									name: p.name ?? "Sin nombre",
 									image: p.image,
 								}))}
-								placeholder="Detalles de la tarea... Usá @ para mencionar a alguien"
+								mentionCases={canEdit ? searchCaseMentions : undefined}
+								placeholder="Detalles de la tarea... @ para mencionar a alguien, # para una causa"
 							/>
 						</section>
 
@@ -460,6 +602,69 @@ export function TaskDetailSheet({
 								)}
 							</section>
 						)}
+
+						<section className="space-y-3 border-b border-border px-6 py-5">
+							<h3 className="text-sm font-semibold">
+								Comentarios
+								{task.comments.length > 0 && (
+									<span className="ml-1.5 font-normal text-muted-foreground tabular-nums">
+										{task.comments.length}
+									</span>
+								)}
+							</h3>
+							<ol className="space-y-4">
+								{task.comments.map((c) => (
+									<li key={c.id} className="space-y-1">
+										<div className="flex items-center gap-2 text-sm">
+											<GroupAvatar
+												users={[{ name: c.author.name ?? undefined, image: c.author.image ?? undefined }]}
+											/>
+											<span className="font-medium">{c.author.name ?? "Alguien"}</span>
+											<time className="text-xs text-muted-foreground tabular-nums">
+												{format(new Date(c.createdAt), "dd/MM HH:mm")}
+											</time>
+											{(c.author.id === myId || task.permissions.manage) && (
+												<button
+													type="button"
+													onClick={() => archiveComment(c.id)}
+													className="ml-auto text-xs text-muted-foreground hover:text-destructive"
+												>
+													Archivar
+												</button>
+											)}
+										</div>
+										<div className="pl-7">
+											<RichTextView html={c.body} />
+										</div>
+									</li>
+								))}
+							</ol>
+							{canComment && (
+								<div className="space-y-2">
+									<NoteEditor
+										key={composerKey}
+										content=""
+										onChange={setComment}
+										mentionUsers={people.map((p) => ({
+											id: p.id,
+											name: p.name ?? "Sin nombre",
+											image: p.image,
+										}))}
+										mentionCases={searchCaseMentions}
+										placeholder="Escribí un comentario... @ para mencionar, # para una causa"
+									/>
+									<div className="flex justify-end">
+										<Button
+											size="sm"
+											onClick={sendComment}
+											disabled={saving || (!comment.replace(/<[^>]*>/g, "").trim() && !comment.includes("data-type=\"mention\""))}
+										>
+											Comentar
+										</Button>
+									</div>
+								</div>
+							)}
+						</section>
 
 						<section className="space-y-3 px-6 py-5">
 							<h3 className="text-sm font-semibold">Actividad</h3>

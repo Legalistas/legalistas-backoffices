@@ -297,6 +297,7 @@ export default function Board({ projectId }: { projectId: number }) {
 			<TaskDetailSheet
 				taskId={openTaskId}
 				token={token}
+				myId={myId}
 				projectId={projectId}
 				people={people}
 				columns={columns}

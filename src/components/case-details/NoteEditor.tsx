@@ -34,12 +34,15 @@ interface NoteEditorProps {
 	onMentionsChange?: (userIds: number[]) => void;
 	mentionUsers: MentionUser[];
 	placeholder?: string;
+	/** Si viene, `#` busca causas (lo usa el workspace; las notas de causas no). */
+	mentionCases?: (query: string) => Promise<{ id: number; label: string }[]>;
 }
 
 // ── Mention suggestion list component ──
 interface MentionListProps {
 	items: MentionUser[];
 	command: (item: { id: string; label: string }) => void;
+	emptyText?: string;
 }
 
 interface MentionListRef {
@@ -47,7 +50,7 @@ interface MentionListRef {
 }
 
 const MentionList = forwardRef<MentionListRef, MentionListProps>(
-	({ items, command }, ref) => {
+	({ items, command, emptyText = "No se encontraron usuarios" }, ref) => {
 		const [selectedIndex, setSelectedIndex] = useState(0);
 
 		const selectItem = useCallback(
@@ -85,7 +88,7 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
 		if (items.length === 0) {
 			return (
 				<div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-3">
-					<p className="text-xs text-gray-400">No se encontraron usuarios</p>
+					<p className="text-xs text-gray-400">{emptyText}</p>
 				</div>
 			);
 		}
@@ -115,6 +118,52 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
 MentionList.displayName = "MentionList";
 
+// Popup de sugerencias (tippy + MentionList), el mismo para personas y causas.
+const mentionRender = (emptyText: string) => () => {
+	let component: ReactRenderer<MentionListRef> | null = null;
+	let popup: TippyInstance[] | null = null;
+
+	return {
+		onStart: (props: any) => {
+			component = new ReactRenderer(MentionList, {
+				props: { ...props, emptyText },
+				editor: props.editor,
+			});
+
+			if (!props.clientRect) return;
+
+			popup = tippy("body", {
+				getReferenceClientRect: props.clientRect,
+				appendTo: () => document.body,
+				content: component.element,
+				showOnCreate: true,
+				interactive: true,
+				trigger: "manual",
+				placement: "bottom-start",
+			});
+		},
+		onUpdate: (props: any) => {
+			component?.updateProps({ ...props, emptyText });
+			if (popup && props.clientRect) {
+				popup[0]?.setProps({
+					getReferenceClientRect: props.clientRect,
+				});
+			}
+		},
+		onKeyDown: (props: any) => {
+			if (props.event.key === "Escape") {
+				popup?.[0]?.hide();
+				return true;
+			}
+			return component?.ref?.onKeyDown(props) ?? false;
+		},
+		onExit: () => {
+			popup?.[0]?.destroy();
+			component?.destroy();
+		},
+	};
+};
+
 // ── Main editor ──
 export const NoteEditor = ({
 	content,
@@ -122,9 +171,33 @@ export const NoteEditor = ({
 	onMentionsChange,
 	mentionUsers,
 	placeholder = "Escribe tu comentario... Usa @ para mencionar",
+	mentionCases,
 }: NoteEditorProps) => {
 	const mentionUsersRef = useRef(mentionUsers);
 	mentionUsersRef.current = mentionUsers;
+	const mentionCasesRef = useRef(mentionCases);
+	mentionCasesRef.current = mentionCases;
+
+	const peopleSuggestion = {
+		char: "@",
+		items: ({ query }: { query: string }) => {
+			return mentionUsersRef.current
+				.filter((user) =>
+					user.name.toLowerCase().includes(query.toLowerCase()),
+				)
+				.slice(0, 5);
+		},
+		render: mentionRender("No se encontraron usuarios"),
+	};
+	const caseSuggestion = {
+		char: "#",
+		items: async ({ query }: { query: string }) =>
+			((await mentionCasesRef.current?.(query).catch(() => [])) ?? []).map((c) => ({
+				id: c.id,
+				name: c.label,
+			})),
+		render: mentionRender("No hay causas con ese nombre"),
+	};
 
 	const editor = useEditor({
 		immediatelyRender: false,
@@ -138,59 +211,9 @@ export const NoteEditor = ({
 					class:
 						"mention bg-primary/5 dark:bg-primary/80/20 text-primary dark:text-primary rounded px-1 py-0.5 font-medium text-sm",
 				},
-				suggestion: {
-					items: ({ query }: { query: string }) => {
-						return mentionUsersRef.current
-							.filter((user) =>
-								user.name.toLowerCase().includes(query.toLowerCase()),
-							)
-							.slice(0, 5);
-					},
-					render: () => {
-						let component: ReactRenderer<MentionListRef> | null = null;
-						let popup: TippyInstance[] | null = null;
-
-						return {
-							onStart: (props: any) => {
-								component = new ReactRenderer(MentionList, {
-									props,
-									editor: props.editor,
-								});
-
-								if (!props.clientRect) return;
-
-								popup = tippy("body", {
-									getReferenceClientRect: props.clientRect,
-									appendTo: () => document.body,
-									content: component.element,
-									showOnCreate: true,
-									interactive: true,
-									trigger: "manual",
-									placement: "bottom-start",
-								});
-							},
-							onUpdate: (props: any) => {
-								component?.updateProps(props);
-								if (popup && props.clientRect) {
-									popup[0]?.setProps({
-										getReferenceClientRect: props.clientRect,
-									});
-								}
-							},
-							onKeyDown: (props: any) => {
-								if (props.event.key === "Escape") {
-									popup?.[0]?.hide();
-									return true;
-								}
-								return component?.ref?.onKeyDown(props) ?? false;
-							},
-							onExit: () => {
-								popup?.[0]?.destroy();
-								component?.destroy();
-							},
-						};
-					},
-				},
+				...(mentionCasesRef.current
+					? { suggestions: [peopleSuggestion, caseSuggestion] }
+					: { suggestion: peopleSuggestion }),
 			}),
 		],
 		content: content || "",
