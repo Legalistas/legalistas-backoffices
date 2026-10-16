@@ -363,7 +363,7 @@ export default function TeamsManager() {
 			</Dialog>
 
 			<NewProjectDialog
-				team={newProjectTeam}
+				teams={newProjectTeam ? [newProjectTeam] : null}
 				token={token}
 				onOpenChange={(open) => !open && setNewProjectTeam(null)}
 			/>

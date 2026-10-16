@@ -30,8 +30,9 @@ export interface WorkMyTask {
 	dueDate: string | null;
 	priority: WorkPriority;
 	parentTaskId: number | null;
-	project: { id: number; name: string };
+	project: { id: number; name: string; color: string | null };
 	column: { name: string } | null;
+	completedAt?: string | null;
 }
 
 export interface WorkHomeTeam {
@@ -42,7 +43,16 @@ export interface WorkHomeTeam {
 	canCreateProject: boolean;
 }
 
+export interface WorkHomePerson extends WorkPerson {
+	overdue: number;
+	done: number;
+	upcoming: number;
+}
+
 export interface WorkHome {
+	summary: { doneThisWeek: number; collaborators: number };
+	myDone: WorkMyTask[];
+	people: WorkHomePerson[];
 	orgs: { id: number; name: string; role: WorkOrgRole }[];
 	teams: WorkHomeTeam[];
 	projects: WorkHomeProject[];
@@ -168,4 +178,23 @@ export interface WorkTaskDetail extends Omit<WorkCard, "subtasks" | "comments" |
 	comments: WorkComment[];
 	counts: { subtasks: number; comments: number; cases: number };
 	permissions: WorkPermissions;
+}
+
+export type WorkProjectRole = "ADMIN" | "EDITOR" | "COMMENTER" | "VIEWER";
+
+/** Who sees a board (GET /projects/:id/access). */
+export interface WorkProjectAccess {
+	project: {
+		id: number;
+		name: string;
+		description: string | null;
+		color: string | null;
+		privacy: "TEAM" | "PRIVATE";
+		archivedAt: string | null;
+		team: { id: number; name: string } | null;
+	};
+	members: { role: WorkProjectRole; user: WorkPerson }[];
+	team: { role: WorkTeamRole; user: WorkPerson }[];
+	orgAdmins: WorkPerson[];
+	permissions: { manageMembers: boolean; edit: boolean };
 }

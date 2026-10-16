@@ -1,0 +1,141 @@
+"use client";
+
+import { Archive, Check } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useConfirm } from "@/hooks/useConfirm";
+import { errorMessage, PROJECT_COLORS, projectColor, workspaceFetch } from "@/lib/workspace-api";
+import { cn } from "@/lib/utils";
+import type { WorkBoard } from "@/types/workspace";
+
+interface Props {
+	open: boolean;
+	project: WorkBoard["project"];
+	token: string | undefined;
+	onOpenChange: (open: boolean) => void;
+	onSaved: () => void;
+}
+
+/** Name, description and color of the project; archive it. */
+export function ProjectSettingsDialog({ open, project, token, onOpenChange, onSaved }: Props) {
+	const router = useRouter();
+	const [name, setName] = useState(project.name);
+	const [description, setDescription] = useState(project.description ?? "");
+	const [color, setColor] = useState(projectColor(project));
+	const [busy, setBusy] = useState(false);
+	const { confirm, ConfirmationDialog } = useConfirm();
+
+	useEffect(() => {
+		if (!open) return;
+		setName(project.name);
+		setDescription(project.description ?? "");
+		setColor(projectColor(project));
+	}, [open, project]);
+
+	const save = async (e: React.FormEvent) => {
+		e.preventDefault();
+		if (!name.trim()) return;
+		setBusy(true);
+		try {
+			await workspaceFetch(`/projects/${project.id}`, token, {
+				method: "PATCH",
+				json: { name: name.trim(), description: description.trim() || null, color },
+			});
+			toast.success("Proyecto actualizado");
+			onSaved();
+			onOpenChange(false);
+		} catch (err) {
+			toast.error(errorMessage(err, "No se pudo guardar"));
+		} finally {
+			setBusy(false);
+		}
+	};
+
+	const archive = async () => {
+		const ok = await confirm({
+			title: "Archivar proyecto",
+			description: `"${project.name}" deja de aparecer en el inicio y en los equipos. No se borra nada.`,
+			confirmLabel: "Archivar",
+			variant: "destructive",
+		});
+		if (!ok) return;
+		try {
+			await workspaceFetch(`/projects/${project.id}/archive`, token, { method: "POST" });
+			toast.success("Proyecto archivado");
+			router.push("/admin/workspace");
+		} catch (err) {
+			toast.error(errorMessage(err, "No se pudo archivar"));
+		}
+	};
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="sm:max-w-md">
+				<form onSubmit={save} className="space-y-5">
+					<DialogHeader>
+						<DialogTitle>Editar proyecto</DialogTitle>
+						<DialogDescription>Nombre, descripción y color del tablero.</DialogDescription>
+					</DialogHeader>
+					<div className="space-y-1.5">
+						<Label htmlFor="settings-name">Nombre</Label>
+						<Input id="settings-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={160} />
+					</div>
+					<div className="space-y-1.5">
+						<Label htmlFor="settings-description">Descripción</Label>
+						<Textarea
+							id="settings-description"
+							value={description}
+							onChange={(e) => setDescription(e.target.value)}
+							rows={3}
+							placeholder="Para qué es este tablero"
+						/>
+					</div>
+					<fieldset className="space-y-1.5">
+						<legend className="text-sm font-medium">Color</legend>
+						<div className="flex flex-wrap gap-2">
+							{PROJECT_COLORS.map((c) => (
+								<button
+									key={c}
+									type="button"
+									onClick={() => setColor(c)}
+									aria-label={`Color ${c}`}
+									aria-pressed={color === c}
+									className={cn(
+										"grid size-8 place-items-center rounded-lg text-white ring-offset-2 ring-offset-background transition-shadow",
+										color === c && "ring-2 ring-foreground",
+									)}
+									style={{ backgroundColor: c }}
+								>
+									{color === c && <Check className="size-4" strokeWidth={3} />}
+								</button>
+							))}
+						</div>
+					</fieldset>
+					<DialogFooter className="items-center gap-2 sm:justify-between">
+						<Button type="button" variant="ghost" onClick={archive} className="text-muted-foreground hover:text-destructive">
+							<Archive className="size-4" />
+							Archivar proyecto
+						</Button>
+						<Button type="submit" disabled={busy || !name.trim()}>
+							Guardar
+						</Button>
+					</DialogFooter>
+				</form>
+				{ConfirmationDialog}
+			</DialogContent>
+		</Dialog>
+	);
+}

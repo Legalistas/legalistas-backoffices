@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,17 +18,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { errorMessage, workspaceFetch } from "@/lib/workspace-api";
 
 interface Props {
-	team: { id: number; name: string } | null;
+	/** Teams where the project can go; null = closed. With more than one, the user picks. */
+	teams: { id: number; name: string }[] | null;
 	token: string | undefined;
 	onOpenChange: (open: boolean) => void;
 }
 
 /** Creates a project in a team and opens its board. */
-export function NewProjectDialog({ team, token, onOpenChange }: Props) {
+export function NewProjectDialog({ teams, token, onOpenChange }: Props) {
 	const router = useRouter();
+	const [teamId, setTeamId] = useState<number | null>(null);
 	const [name, setName] = useState("");
 	const [privacy, setPrivacy] = useState<"TEAM" | "PRIVATE">("TEAM");
 	const [busy, setBusy] = useState(false);
+
+	useEffect(() => {
+		setTeamId(teams?.[0]?.id ?? null);
+	}, [teams]);
+
+	const team = teams?.find((t) => t.id === teamId) ?? null;
 
 	const submit = async (e: React.FormEvent) => {
 		e.preventDefault();
@@ -49,7 +57,7 @@ export function NewProjectDialog({ team, token, onOpenChange }: Props) {
 
 	return (
 		<Dialog
-			open={team !== null}
+			open={teams !== null}
 			onOpenChange={(open) => {
 				if (!open) {
 					setName("");
@@ -63,7 +71,7 @@ export function NewProjectDialog({ team, token, onOpenChange }: Props) {
 					<DialogHeader>
 						<DialogTitle>Nuevo proyecto</DialogTitle>
 						<DialogDescription>
-							En el equipo {team?.name}. Arranca con las columnas Por hacer, En curso, En revisión y Hecho.
+							Arranca con las columnas Por hacer, En curso, En revisión y Hecho. Después podés agregar más.
 						</DialogDescription>
 					</DialogHeader>
 					<div className="space-y-1.5">
@@ -77,6 +85,23 @@ export function NewProjectDialog({ team, token, onOpenChange }: Props) {
 							maxLength={160}
 						/>
 					</div>
+					{teams && teams.length > 1 && (
+						<div className="space-y-1.5">
+							<Label htmlFor="project-team">Equipo</Label>
+							<Select value={teamId ? String(teamId) : undefined} onValueChange={(v) => setTeamId(Number(v))}>
+								<SelectTrigger id="project-team" className="w-full">
+									<SelectValue placeholder="Elegí un equipo" />
+								</SelectTrigger>
+								<SelectContent>
+									{teams.map((t) => (
+										<SelectItem key={t.id} value={String(t.id)}>
+											{t.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					)}
 					<div className="space-y-1.5">
 						<Label htmlFor="project-privacy">Quién lo ve</Label>
 						<Select value={privacy} onValueChange={(v) => setPrivacy(v as "TEAM" | "PRIVATE")}>
@@ -84,13 +109,13 @@ export function NewProjectDialog({ team, token, onOpenChange }: Props) {
 								<SelectValue />
 							</SelectTrigger>
 							<SelectContent>
-								<SelectItem value="TEAM">Todo el equipo</SelectItem>
-								<SelectItem value="PRIVATE">Privado: solo quienes sumes</SelectItem>
+								<SelectItem value="TEAM">Todo el equipo {team ? team.name : ""}</SelectItem>
+								<SelectItem value="PRIVATE">Solo las personas que agregues</SelectItem>
 							</SelectContent>
 						</Select>
 					</div>
 					<DialogFooter>
-						<Button type="submit" disabled={busy || !name.trim()}>
+						<Button type="submit" disabled={busy || !name.trim() || !team}>
 							Crear proyecto
 						</Button>
 					</DialogFooter>

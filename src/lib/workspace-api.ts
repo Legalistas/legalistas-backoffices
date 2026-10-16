@@ -58,3 +58,29 @@ export const positionAt = (sorted: number[], index: number) => {
 	if (index >= sorted.length) return sorted[sorted.length - 1] + 1;
 	return (sorted[index - 1] + sorted[index]) / 2;
 };
+
+/** Project colors (Asana-like palette); a project without one gets one by id. */
+export const PROJECT_COLORS = [
+	"#4ECBC4",
+	"#E58EEA",
+	"#F1BD6C",
+	"#7A6FF0",
+	"#62D26F",
+	"#F06A6A",
+	"#4573D2",
+	"#FC979A",
+];
+export const projectColor = (p: { id: number; color?: string | null }) =>
+	p.color || PROJECT_COLORS[p.id % PROJECT_COLORS.length];
+
+/** "Buenos días" / "Buenas tardes" / "Buenas noches", by the local hour. */
+export const greeting = (d = new Date()) => {
+	const h = d.getHours();
+	return h < 12 ? "Buenos días" : h < 20 ? "Buenas tardes" : "Buenas noches";
+};
+
+/** Names are stored as "Surname Name(s)": the first name is the second word. */
+export const firstName = (name: string | null | undefined) => {
+	const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
+	return parts[1] ?? parts[0] ?? "";
+};
