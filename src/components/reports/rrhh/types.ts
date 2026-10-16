@@ -18,6 +18,7 @@ export interface LeaveSummary {
 	type:
 		| "VACATION"
 		| "SICK"
+		| "MEDICAL_APPOINTMENT"
 		| "STUDY"
 		| "MATERNITY"
 		| "PATERNITY"
@@ -47,6 +48,7 @@ export interface MonthlyAbsenteeismItem {
 	month: string;
 	VACATION: number;
 	SICK: number;
+	MEDICAL_APPOINTMENT: number;
 	STUDY: number;
 	MATERNITY: number;
 	PATERNITY: number;

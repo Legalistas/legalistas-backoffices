@@ -135,7 +135,8 @@ interface AbsenteeismChartProps {
 const LEAVE_LABELS: Record<string, string> = {
 	VACATION: "Vacaciones",
 	SICK: "Enfermedad",
-	STUDY: "Estudio",
+	MEDICAL_APPOINTMENT: "Turno médico / Salida temporal",
+	STUDY: "Estudios / Exámenes",
 	MATERNITY: "Maternidad",
 	PATERNITY: "Paternidad",
 	UNPAID: "Sin goce",
@@ -189,6 +190,7 @@ export function AbsenteeismChart({ data }: AbsenteeismChartProps) {
 		const types: Array<keyof MonthlyAbsenteeismItem> = [
 			"VACATION",
 			"SICK",
+			"MEDICAL_APPOINTMENT",
 			"STUDY",
 			"MATERNITY",
 			"PATERNITY",

@@ -5,6 +5,7 @@ import type { ConceptoTipo, Segmento, TipoDocumento } from "@/constant/rrhh";
 export type TipoLicencia =
 	| "VACATION"
 	| "SICK"
+	| "MEDICAL_APPOINTMENT"
 	| "STUDY"
 	| "MATERNITY"
 	| "PATERNITY"

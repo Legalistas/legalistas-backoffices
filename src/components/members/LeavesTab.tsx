@@ -51,6 +51,7 @@ const APPROVER_ROLES = [
 type LeaveType =
 	| "VACATION"
 	| "SICK"
+	| "MEDICAL_APPOINTMENT"
 	| "STUDY"
 	| "MATERNITY"
 	| "PATERNITY"
@@ -94,7 +95,10 @@ interface Stats {
 interface FormState {
 	type: LeaveType;
 	startDate: string;
+	/** "HH:mm"; vacía = sin hora (el día entero). */
+	startTime: string;
 	endDate: string;
+	endTime: string;
 	reason: string;
 	documentUrl: string;
 }
@@ -102,7 +106,9 @@ interface FormState {
 const EMPTY_FORM: FormState = {
 	type: "VACATION",
 	startDate: "",
+	startTime: "",
 	endDate: "",
+	endTime: "",
 	reason: "",
 	documentUrl: "",
 };
@@ -110,7 +116,8 @@ const EMPTY_FORM: FormState = {
 const typeLabel: Record<LeaveType, string> = {
 	VACATION: "Vacaciones",
 	SICK: "Enfermedad",
-	STUDY: "Estudio",
+	MEDICAL_APPOINTMENT: "Turno médico / Salida temporal",
+	STUDY: "Estudios / Exámenes",
 	MATERNITY: "Maternidad",
 	PATERNITY: "Paternidad",
 	UNPAID: "Sin goce",
@@ -158,6 +165,33 @@ const formatDate = (iso: string) =>
 	});
 
 const toInputDate = (iso: string) => iso.slice(0, 10);
+
+// La hora se guarda "literal" (lo que se carga es lo que queda, sin zona):
+// sale del ISO tal cual. Medianoche = sin hora (las licencias de días enteros).
+const toInputTime = (iso: string) => {
+	const hora = iso.slice(11, 16);
+	return hora === "00:00" ? "" : hora;
+};
+
+/** "2026-10-16" o "2026-10-16T10:00", como lo espera el backend. */
+const conHora = (fecha: string, hora: string) => (hora ? `${fecha}T${hora}` : fecha);
+
+/** "16/10/2026 → 20/10/2026", o con las horas si las tiene. */
+const rangoLicencia = (l: Leave) => {
+	const [hi, hf] = [toInputTime(l.startDate), toInputTime(l.endDate)];
+	const [di, df] = [formatDay(l.startDate), formatDay(l.endDate)];
+	if (!hi && !hf) return `${di} → ${df}`;
+	if (di === df) return `${di} · ${hi || "—"} a ${hf || "—"}`;
+	return `${di} ${hi} → ${df} ${hf}`.replace(/\s+→/, " →").trim();
+};
+
+/** Duración de una salida temporal: "2 h", "1 h 30 min", "45 min". */
+const duracion = (l: Leave) => {
+	const min = Math.round((Date.parse(l.endDate) - Date.parse(l.startDate)) / 60_000);
+	if (!(min > 0)) return null;
+	const [h, m] = [Math.floor(min / 60), min % 60];
+	return [h ? `${h} h` : "", m ? `${m} min` : ""].filter(Boolean).join(" ");
+};
 
 type FilterType = "all" | LeaveStatus;
 
@@ -224,7 +258,9 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 		setForm({
 			type: l.type,
 			startDate: toInputDate(l.startDate),
+			startTime: toInputTime(l.startDate),
 			endDate: toInputDate(l.endDate),
+			endTime: toInputTime(l.endDate),
 			reason: l.reason || "",
 			documentUrl: l.documentUrl || "",
 		});
@@ -243,14 +279,24 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 			toast.error("Fechas de inicio y fin son obligatorias");
 			return;
 		}
-		if (new Date(form.endDate) < new Date(form.startDate)) {
-			toast.error("La fecha de fin no puede ser anterior al inicio");
+		if (form.type === "MEDICAL_APPOINTMENT" && (!form.startTime || !form.endTime)) {
+			toast.error("Indicá la hora de salida y la de regreso");
+			return;
+		}
+		// Sin hora, el día cuenta entero (el fin, hasta las 23:59).
+		if (
+			conHora(form.endDate, form.endTime || "23:59") <
+			conHora(form.startDate, form.startTime || "00:00")
+		) {
+			toast.error("La licencia no puede terminar antes de empezar");
 			return;
 		}
 		setIsSaving(true);
 		try {
 			const payload = {
-				...form,
+				type: form.type,
+				startDate: conHora(form.startDate, form.startTime),
+				endDate: conHora(form.endDate, form.endTime),
 				reason: form.reason || null,
 				documentUrl: form.documentUrl || null,
 			};
@@ -449,7 +495,8 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 								<SelectContent>
 									<SelectItem value="VACATION">Vacaciones</SelectItem>
 									<SelectItem value="SICK">Enfermedad</SelectItem>
-									<SelectItem value="STUDY">Estudio</SelectItem>
+									<SelectItem value="MEDICAL_APPOINTMENT">Turno médico / Salida temporal</SelectItem>
+									<SelectItem value="STUDY">Estudios / Exámenes</SelectItem>
 									<SelectItem value="MATERNITY">Maternidad</SelectItem>
 									<SelectItem value="PATERNITY">Paternidad</SelectItem>
 									<SelectItem value="UNPAID">Sin goce</SelectItem>
@@ -458,21 +505,56 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 							</Select>
 						</div>
 						<div className="space-y-1.5">
-							<Label className="text-xs">Desde *</Label>
-							<Input
-								type="date"
-								value={form.startDate}
-								onChange={(e) => setF("startDate", e.target.value)}
-							/>
+							<Label htmlFor="licencia-desde" className="text-xs">Desde *</Label>
+							<div className="flex gap-2">
+								<Input
+									id="licencia-desde"
+									type="date"
+									value={form.startDate}
+									onChange={(e) => {
+										const startDate = e.target.value;
+										// El fin arranca en el mismo día (lo habitual en una salida).
+										setForm((f) => ({
+											...f,
+											startDate,
+											endDate: !f.endDate || f.endDate < startDate ? startDate : f.endDate,
+										}));
+									}}
+									className="min-w-0 flex-1"
+								/>
+								<Input
+									type="time"
+									aria-label="Hora desde"
+									value={form.startTime}
+									onChange={(e) => setF("startTime", e.target.value)}
+									className="w-28 shrink-0"
+								/>
+							</div>
 						</div>
 						<div className="space-y-1.5">
-							<Label className="text-xs">Hasta *</Label>
-							<Input
-								type="date"
-								value={form.endDate}
-								onChange={(e) => setF("endDate", e.target.value)}
-							/>
+							<Label htmlFor="licencia-hasta" className="text-xs">Hasta *</Label>
+							<div className="flex gap-2">
+								<Input
+									id="licencia-hasta"
+									type="date"
+									value={form.endDate}
+									onChange={(e) => setF("endDate", e.target.value)}
+									className="min-w-0 flex-1"
+								/>
+								<Input
+									type="time"
+									aria-label="Hora hasta"
+									value={form.endTime}
+									onChange={(e) => setF("endTime", e.target.value)}
+									className="w-28 shrink-0"
+								/>
+							</div>
 						</div>
+						<p className="text-xs text-muted-foreground md:col-span-2">
+							{form.type === "MEDICAL_APPOINTMENT"
+								? "Indicá la hora de salida y la de regreso. No descuenta días."
+								: "La hora es opcional: sin hora, cuenta el día entero."}
+						</p>
 						<div className="space-y-1.5 md:col-span-2">
 							<Label className="text-xs">Motivo / observaciones</Label>
 							<Input
@@ -527,12 +609,12 @@ export default function LeavesTab({ userId }: LeavesTabProps) {
 											{badge.label}
 										</Badge>
 										<span className="text-xs text-muted-foreground">
-											{l.daysRequested} {l.daysRequested === 1 ? "día" : "días"}
+											{l.type === "MEDICAL_APPOINTMENT"
+												? duracion(l)
+												: `${l.daysRequested} ${l.daysRequested === 1 ? "día" : "días"}`}
 										</span>
 									</div>
-									<p className="text-xs text-muted-foreground mt-0.5">
-										{formatDay(l.startDate)} → {formatDay(l.endDate)}
-									</p>
+									<p className="text-xs text-muted-foreground mt-0.5">{rangoLicencia(l)}</p>
 									{l.reason && (
 										<p className="text-xs text-muted-foreground mt-1 italic">
 											{l.reason}

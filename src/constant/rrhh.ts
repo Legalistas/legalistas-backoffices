@@ -85,7 +85,8 @@ export const CONCEPTO_LABEL: Record<ConceptoTipo, string> = {
 export const LICENCIA_LABEL: Record<string, string> = {
 	VACATION: "Vacaciones",
 	SICK: "Enfermedad",
-	STUDY: "Estudio",
+	MEDICAL_APPOINTMENT: "Turno médico / Salida temporal",
+	STUDY: "Estudios / Exámenes",
 	MATERNITY: "Maternidad",
 	PATERNITY: "Paternidad",
 	UNPAID: "Sin goce",

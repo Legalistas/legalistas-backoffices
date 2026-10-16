@@ -59,7 +59,8 @@ const formatDay = (iso: string) => {
 const typeLabel: Record<string, string> = {
 	VACATION: "Vacaciones",
 	SICK: "Enfermedad",
-	STUDY: "Estudio",
+	MEDICAL_APPOINTMENT: "Turno médico / Salida temporal",
+	STUDY: "Estudios / Exámenes",
 	MATERNITY: "Maternidad",
 	PATERNITY: "Paternidad",
 	UNPAID: "Sin goce",

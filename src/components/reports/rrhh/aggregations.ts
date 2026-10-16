@@ -13,6 +13,7 @@ import type {
 const LEAVE_TYPES = [
 	"VACATION",
 	"SICK",
+	"MEDICAL_APPOINTMENT",
 	"STUDY",
 	"MATERNITY",
 	"PATERNITY",
@@ -134,6 +135,7 @@ export function computeAbsenteeism(
 			month: formatMonthLabel(m),
 			VACATION: 0,
 			SICK: 0,
+			MEDICAL_APPOINTMENT: 0,
 			STUDY: 0,
 			MATERNITY: 0,
 			PATERNITY: 0,
