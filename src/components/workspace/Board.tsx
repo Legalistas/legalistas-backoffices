@@ -5,7 +5,7 @@ import { ArrowLeft, Lock, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { GroupAvatar } from "@/components/shared/GroupAvatar";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { useProjectRealtime } from "@/hooks/useWorkspaceSocket";
 import { errorMessage, positionAt, workspaceFetch } from "@/lib/workspace-api";
 import { cn } from "@/lib/utils";
 import type { WorkBoard, WorkCard, WorkColumn } from "@/types/workspace";
@@ -93,6 +94,18 @@ export default function Board({ projectId }: { projectId: number }) {
 	useEffect(() => {
 		load();
 	}, [load]);
+
+	// En vivo: cuando alguien cambia algo (también desde otra pestaña), se
+	// recarga el tablero y, si es la tarea abierta, su detalle.
+	const [detailRefresh, setDetailRefresh] = useState(0);
+	const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useProjectRealtime(projectId, token, (e) => {
+		if (reloadTimer.current) clearTimeout(reloadTimer.current);
+		reloadTimer.current = setTimeout(load, 250);
+		if (!e || (openTaskId && (e.taskId === openTaskId || e.parentTaskId === openTaskId))) {
+			setDetailRefresh((n) => n + 1);
+		}
+	});
 
 	const openTask = (id: number | null) => {
 		const params = new URLSearchParams(searchParams.toString());
@@ -298,6 +311,7 @@ export default function Board({ projectId }: { projectId: number }) {
 				taskId={openTaskId}
 				token={token}
 				myId={myId}
+				refreshKey={detailRefresh}
 				projectId={projectId}
 				people={people}
 				columns={columns}

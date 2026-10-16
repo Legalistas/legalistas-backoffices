@@ -3,7 +3,7 @@
 import { format } from "date-fns";
 import { Archive, Check, CheckCircle2, Circle, Link2, Loader2, Plus, UserPlus, X } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { NoteEditor } from "@/components/case-details/NoteEditor";
 import { GroupAvatar } from "@/components/shared/GroupAvatar";
@@ -45,6 +45,8 @@ interface Props {
 	taskId: number | null;
 	token: string | undefined;
 	myId: number | null;
+	/** Cambia cuando llega un aviso en vivo de esta tarea: se vuelve a pedir. */
+	refreshKey: number;
 	projectId: number;
 	people: WorkPerson[];
 	columns: WorkColumn[];
@@ -104,6 +106,7 @@ export function TaskDetailSheet({
 	taskId,
 	token,
 	myId,
+	refreshKey,
 	projectId,
 	people,
 	columns,
@@ -125,6 +128,8 @@ export function TaskDetailSheet({
 	const [caseQuery, setCaseQuery] = useState("");
 	const [caseResults, setCaseResults] = useState<WorkCaseRef[]>([]);
 	const { confirm, ConfirmationDialog } = useConfirm();
+	// Mientras se escribe el título, una recarga en vivo no lo pisa.
+	const editingTitle = useRef(false);
 
 	const peopleById = useMemo(
 		() => new Map(people.map((p) => [p.id, p.name ?? "Sin nombre"])),
@@ -136,7 +141,7 @@ export function TaskDetailSheet({
 		try {
 			const t = await workspaceFetch<WorkTaskDetail>(`/tasks/${taskId}`, token);
 			setTask(t);
-			setTitle(t.title);
+			if (!editingTitle.current) setTitle(t.title);
 			setLoadError(null);
 		} catch (e) {
 			setLoadError(errorMessage(e, "No se pudo abrir la tarea"));
@@ -153,6 +158,11 @@ export function TaskDetailSheet({
 	useEffect(() => {
 		if (task && !descriptionDirty) setDescription(task.description ?? "");
 	}, [task, descriptionDirty]);
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: solo cuando llega un aviso.
+	useEffect(() => {
+		if (refreshKey) load();
+	}, [refreshKey]);
 
 	const canEdit = !!task?.permissions.edit;
 	const canComment = !!task?.permissions.comment;
@@ -354,7 +364,13 @@ export function TaskDetailSheet({
 								value={title}
 								disabled={!canEdit}
 								onChange={(e) => setTitle(e.target.value)}
-								onBlur={saveTitle}
+								onFocus={() => {
+									editingTitle.current = true;
+								}}
+								onBlur={() => {
+									editingTitle.current = false;
+									saveTitle();
+								}}
 								onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
 								className="h-auto border-transparent px-2 py-1 text-lg font-semibold shadow-none hover:border-border focus-visible:border-ring md:text-lg"
 							/>

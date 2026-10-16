@@ -79,6 +79,15 @@ export interface WorkBoard {
 	permissions: WorkPermissions;
 }
 
+/** Aviso en vivo del tablero (Socket.IO /workspace). */
+export interface TaskChangedEvent {
+	projectId: number;
+	taskId: number;
+	parentTaskId?: number | null;
+	action: string;
+	actorId: number;
+}
+
 export interface WorkActivity {
 	id: number;
 	action: string;
