@@ -34,8 +34,17 @@ export interface WorkMyTask {
 	column: { name: string } | null;
 }
 
+export interface WorkHomeTeam {
+	id: number;
+	name: string;
+	color: string | null;
+	organizationId: number;
+	canCreateProject: boolean;
+}
+
 export interface WorkHome {
 	orgs: { id: number; name: string; role: WorkOrgRole }[];
+	teams: WorkHomeTeam[];
 	projects: WorkHomeProject[];
 	myTasks: WorkMyTask[];
 }
@@ -77,6 +86,29 @@ export interface WorkBoard {
 	tasks: WorkCard[];
 	people: WorkPerson[];
 	permissions: WorkPermissions;
+}
+
+export type WorkTeamRole = "ADMIN" | "MEMBER";
+
+export interface WorkStructureTeam {
+	id: number;
+	name: string;
+	description: string | null;
+	color: string | null;
+	members: { role: WorkTeamRole; user: WorkPerson }[];
+	projects: { id: number; name: string; privacy: "TEAM" | "PRIVATE"; color: string | null }[];
+	permissions: { manageMembers: boolean; createProject: boolean };
+}
+
+export interface WorkStructure {
+	teams: WorkStructureTeam[];
+	permissions: { createTeam: boolean; addPeople: boolean };
+}
+
+/** A firm account that can be added to a team. */
+export interface WorkCandidate extends WorkPerson {
+	email: string | null;
+	orgRole: WorkOrgRole | null;
 }
 
 /** Live board notice (Socket.IO /workspace). */

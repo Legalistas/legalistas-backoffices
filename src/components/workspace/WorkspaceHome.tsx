@@ -1,14 +1,16 @@
 "use client";
 
 import { addDays, format } from "date-fns";
-import { CalendarDays, ChevronRight, Lock } from "lucide-react";
+import { CalendarDays, ChevronRight, Lock, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { dayOf, errorMessage, formatDay, PRIORITY_LABEL, todayKey, workspaceFetch } from "@/lib/workspace-api";
 import { cn } from "@/lib/utils";
-import type { WorkHome, WorkHomeProject, WorkMyTask } from "@/types/workspace";
+import type { WorkHome, WorkHomeProject, WorkHomeTeam, WorkMyTask } from "@/types/workspace";
+import { NewProjectDialog } from "./NewProjectDialog";
 
 type Bucket = { key: string; label: string; tasks: WorkMyTask[] };
 
@@ -101,6 +103,7 @@ export default function WorkspaceHome() {
 	const token = session?.user?.accessToken;
 	const [home, setHome] = useState<WorkHome | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [newProjectTeam, setNewProjectTeam] = useState<WorkHomeTeam | null>(null);
 
 	useEffect(() => {
 		if (!token) return;
@@ -110,24 +113,35 @@ export default function WorkspaceHome() {
 	}, [token]);
 
 	const buckets = useMemo(() => bucketize(home?.myTasks ?? []), [home]);
-	const teams = useMemo(() => {
-		const groups = new Map<string, WorkHomeProject[]>();
-		for (const p of home?.projects ?? []) {
-			const key = p.team?.name ?? "Sin equipo";
-			groups.set(key, [...(groups.get(key) ?? []), p]);
-		}
-		return [...groups.entries()];
-	}, [home]);
+	// Every visible team, even without projects yet (so a project can be created there).
+	const teams = useMemo(
+		() =>
+			(home?.teams ?? []).map((team) => ({
+				team,
+				projects: (home?.projects ?? []).filter((p) => p.team?.id === team.id),
+			})),
+		[home],
+	);
 
 	if (error) return <p className="py-16 text-center text-sm text-muted-foreground">{error}</p>;
 
 	return (
 		<div className="mx-auto max-w-6xl space-y-6">
-			<header>
-				<h1 className="text-2xl font-semibold">Mi trabajo</h1>
-				<p className="text-sm text-muted-foreground">
-					Tus tareas abiertas y los tableros de tus equipos.
-				</p>
+			<header className="flex flex-wrap items-end justify-between gap-3">
+				<div>
+					<h1 className="text-2xl font-semibold">Mi trabajo</h1>
+					<p className="text-sm text-muted-foreground">
+						Tus tareas abiertas y los tableros de tus equipos.
+					</p>
+				</div>
+				{home && home.orgs.length > 0 && (
+					<Button variant="outline" asChild>
+						<Link href="/admin/workspace/teams">
+							<Users className="size-4" />
+							Equipos y personas
+						</Link>
+					</Button>
+				)}
 			</header>
 
 			{!home ? (
@@ -183,20 +197,42 @@ export default function WorkspaceHome() {
 							Tableros
 						</h2>
 						<div className="space-y-4">
-							{teams.map(([team, projects]) => (
-								<div key={team}>
-									<h3 className="px-2 pb-1 text-xs font-semibold text-muted-foreground">{team}</h3>
-									<ul>
-										{projects.map((p) => (
-											<ProjectRow key={p.id} project={p} />
-										))}
-									</ul>
+							{teams.map(({ team, projects }) => (
+								<div key={team.id}>
+									<div className="flex items-center justify-between px-2 pb-1">
+										<h3 className="text-xs font-semibold text-muted-foreground">{team.name}</h3>
+										{team.canCreateProject && (
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={() => setNewProjectTeam(team)}
+												className="h-7 px-2 text-xs text-muted-foreground"
+											>
+												<Plus className="size-3.5" />
+												Proyecto
+											</Button>
+										)}
+									</div>
+									{projects.length === 0 ? (
+										<p className="px-2 py-2 text-xs text-muted-foreground">Sin proyectos todavía.</p>
+									) : (
+										<ul>
+											{projects.map((p) => (
+												<ProjectRow key={p.id} project={p} />
+											))}
+										</ul>
+									)}
 								</div>
 							))}
 						</div>
 					</section>
 				</div>
 			)}
+			<NewProjectDialog
+				team={newProjectTeam}
+				token={token}
+				onOpenChange={(open) => !open && setNewProjectTeam(null)}
+			/>
 		</div>
 	);
 }
