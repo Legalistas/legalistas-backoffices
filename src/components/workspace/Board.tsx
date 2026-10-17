@@ -812,9 +812,11 @@ export default function Board({ projectId }: { projectId: number }) {
 				myId={myId}
 				refreshKey={detailRefresh}
 				projectId={projectId}
+				project={project}
 				people={people}
 				columns={columns}
 				onClose={() => openTask(null)}
+				onOpenTask={openTask}
 				onCardChange={replaceCard}
 				onArchived={(id) => setBoard((b) => (b ? { ...b, tasks: b.tasks.filter((t) => t.id !== id) } : b))}
 				onBoardStale={load}
