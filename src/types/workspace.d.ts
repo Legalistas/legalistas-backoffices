@@ -111,6 +111,8 @@ export interface WorkStructureTeam {
 }
 
 export interface WorkStructure {
+	/** Org owners/admins: they see and edit everything. */
+	direction: { role: WorkOrgRole; user: WorkPerson }[];
 	teams: WorkStructureTeam[];
 	permissions: { createTeam: boolean; addPeople: boolean };
 }

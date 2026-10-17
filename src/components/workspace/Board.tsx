@@ -98,7 +98,7 @@ function InlineAdd({
 				onKeyDown={(e) => e.key === "Escape" && onClose()}
 				onBlur={() => !text.trim() && onClose()}
 				placeholder={placeholder}
-				className="h-10 bg-card"
+				className="h-10 bg-board-card"
 			/>
 		</form>
 	);
@@ -268,7 +268,7 @@ export default function Board({ projectId }: { projectId: number }) {
 				<Skeleton className="h-10 w-80" />
 				<div className="flex gap-3">
 					{[0, 1, 2, 3].map((i) => (
-						<Skeleton key={i} className="h-[60vh] w-75 shrink-0 rounded-2xl" />
+						<Skeleton key={i} className="h-[60vh] w-75 shrink-0 rounded-xl" />
 					))}
 				</div>
 			</div>
@@ -434,9 +434,9 @@ export default function Board({ projectId }: { projectId: number }) {
 							<section
 								key={column.id}
 								aria-label={column.name}
-								className="flex w-75 shrink-0 flex-col rounded-2xl bg-muted/50 dark:bg-muted/20"
+								className="flex w-75 shrink-0 flex-col gap-2"
 							>
-								<div className="flex items-center gap-2 px-3 pt-3 pb-2">
+								<div className="flex min-h-12 items-center gap-2 rounded-xl bg-board-column px-4 py-2.5">
 									{renaming?.id === column.id ? (
 										<Input
 											autoFocus
@@ -452,7 +452,7 @@ export default function Board({ projectId }: { projectId: number }) {
 										/>
 									) : (
 										<>
-											<h2 className="truncate text-sm font-semibold">{column.name}</h2>
+											<h2 className="truncate text-[15px] font-semibold">{column.name}</h2>
 											{column.isDone && (
 												<CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Completa las tareas" />
 											)}
@@ -510,8 +510,8 @@ export default function Board({ projectId }: { projectId: number }) {
 											ref={provided.innerRef}
 											{...provided.droppableProps}
 											className={cn(
-												"min-h-16 flex-1 space-y-2 overflow-y-auto px-2 pb-2 [scrollbar-width:thin]",
-												snapshot.isDraggingOver && "rounded-xl bg-primary/5",
+												"min-h-24 flex-1 space-y-2 overflow-y-auto rounded-xl bg-board-column p-2 [scrollbar-width:thin]",
+												snapshot.isDraggingOver && "ring-2 ring-primary/40 ring-inset",
 											)}
 										>
 											{tasks.map((task, index) => (

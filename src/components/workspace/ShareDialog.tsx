@@ -251,11 +251,11 @@ export function ShareDialog({ open, projectId, orgId, token, onOpenChange, onCha
 
 						{data.orgAdmins.length > 0 && (
 							<section>
-								<h3 className="text-xs font-semibold text-muted-foreground">Dirección (ve todo)</h3>
+								<h3 className="text-xs font-semibold text-muted-foreground">Dirección (ve y edita todo)</h3>
 								<ul className="divide-y divide-border">
 									{data.orgAdmins.map((u) => (
 										<PersonRow key={u.id} user={u}>
-											<span className="text-xs text-muted-foreground">Ve todo</span>
+											<span className="text-xs text-muted-foreground">Ve y edita todo</span>
 										</PersonRow>
 									))}
 								</ul>

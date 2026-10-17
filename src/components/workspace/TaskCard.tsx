@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ListTree, MessageSquare, Scale } from "lucide-react";
+import { CalendarDays, ListTree, MessageSquare, Scale, UserRound } from "lucide-react";
 import { GroupAvatar } from "@/components/shared/GroupAvatar";
 import { formatDay, isOverdue, PRIORITY_LABEL } from "@/lib/workspace-api";
 import { cn } from "@/lib/utils";
@@ -38,7 +38,7 @@ export function TaskCard({ task, onOpen, onToggle }: Props) {
 			onKeyDown={(e) => {
 				if (e.key === "Enter") onOpen();
 			}}
-			className="group w-full cursor-pointer rounded-xl border border-border bg-card p-3.5 text-left shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-[box-shadow,border-color] hover:border-foreground/20 hover:shadow-[0_6px_16px_-8px_rgba(15,23,42,0.25)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+			className="group w-full cursor-pointer rounded-xl border border-board-card-border bg-board-card p-4 text-left shadow-[0_1px_2px_rgba(15,23,42,0.06)] transition-[box-shadow,border-color] hover:border-board-card-hover hover:shadow-[0_6px_16px_-8px_rgba(15,23,42,0.3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
 		>
 			<div className="flex items-start gap-2.5">
 				<span className="mt-px">
@@ -91,10 +91,12 @@ export function TaskCard({ task, onOpen, onToggle }: Props) {
 					/>
 				) : (
 					<span
-						className="grid size-6 place-items-center rounded-full border border-dashed border-muted-foreground/40"
+						className="grid size-6 place-items-center rounded-full border border-dashed border-muted-foreground/50 text-muted-foreground"
 						title="Sin asignar"
 						aria-label="Sin asignar"
-					/>
+					>
+						<UserRound className="size-3.5" />
+					</span>
 				)}
 				<span className="ml-auto flex items-center gap-2.5">
 					{counters.map(({ n, icon: Icon, label }) => (

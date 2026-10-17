@@ -40,7 +40,7 @@ function Panel({
 	className?: string;
 }) {
 	return (
-		<section className={cn("flex flex-col rounded-2xl border border-border bg-card", className)}>
+		<section className={cn("flex flex-col rounded-2xl border border-border bg-card dark:bg-board-column", className)}>
 			<header className="flex items-center gap-3 px-5 pt-5 pb-3">
 				{icon}
 				<h2 className="text-lg font-semibold">{title}</h2>

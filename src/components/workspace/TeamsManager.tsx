@@ -209,6 +209,29 @@ export default function TeamsManager() {
 				)}
 			</header>
 
+			{data && data.direction.length > 0 && (
+				<section
+					aria-labelledby="direccion"
+					className="rounded-xl border border-border bg-card p-4 dark:bg-board-column"
+				>
+					<div className="flex flex-wrap items-baseline justify-between gap-2">
+						<h2 id="direccion" className="text-base font-semibold">
+							Dirección
+						</h2>
+						<p className="text-xs text-muted-foreground">Ven y editan todos los equipos y tableros</p>
+					</div>
+					<ul className="mt-2 flex flex-wrap gap-x-6 gap-y-2">
+						{data.direction.map((m) => (
+							<li key={m.user.id} className="flex items-center gap-2">
+								<GroupAvatar size="sm" users={[{ name: m.user.name ?? undefined, image: m.user.image ?? undefined }]} />
+								<span className="text-sm">{m.user.name}</span>
+								<span className="text-xs text-muted-foreground">{m.role === "OWNER" ? "Dueño" : "Administra"}</span>
+							</li>
+						))}
+					</ul>
+				</section>
+			)}
+
 			{!data ? (
 				<div className="space-y-3">
 					{[0, 1, 2].map((i) => (
@@ -221,7 +244,7 @@ export default function TeamsManager() {
 						<Collapsible
 							key={team.id}
 							defaultOpen={team.members.length <= 12}
-							className="rounded-xl border border-border bg-card"
+							className="rounded-xl border border-border bg-card dark:bg-board-column"
 						>
 							<div className="flex flex-wrap items-center gap-3 p-4">
 								<CollapsibleTrigger className="group flex min-w-0 flex-1 items-center gap-3 text-left focus-visible:outline-2 focus-visible:outline-primary">
