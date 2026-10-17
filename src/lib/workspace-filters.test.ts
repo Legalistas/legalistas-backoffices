@@ -19,6 +19,7 @@ const card = (over: Partial<WorkCard>): WorkCard => ({
 	createdBy: { id: 9, name: "Ana", image: null },
 	version: 1,
 	assignees: [],
+	subtaskItems: [],
 	subtasks: 0,
 	comments: 0,
 	cases: 0,

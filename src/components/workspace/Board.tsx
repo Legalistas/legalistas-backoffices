@@ -6,6 +6,7 @@ import {
 	ArrowDownUp,
 	ArrowLeft,
 	ArrowLeftToLine,
+	ArrowRight,
 	ArrowRightToLine,
 	CalendarCheck,
 	CalendarDays,
@@ -13,13 +14,18 @@ import {
 	Check,
 	CheckCircle2,
 	Clock,
+	Columns3,
+	EyeOff,
 	Flag,
 	GripVertical,
+	ListTree,
 	Lock,
 	MoreHorizontal,
+	Pencil,
 	Plus,
 	Search,
 	Settings2,
+	Trash2,
 	UserPlus,
 	UserRound,
 	UserRoundPen,
@@ -38,10 +44,14 @@ import {
 	DropdownMenuContent,
 	DropdownMenuItem,
 	DropdownMenuSeparator,
+	DropdownMenuSub,
+	DropdownMenuSubContent,
+	DropdownMenuSubTrigger,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/hooks/useConfirm";
 import { useProjectRealtime } from "@/hooks/useWorkspaceSocket";
 import { errorMessage, positionAt, projectColor, workspaceFetch } from "@/lib/workspace-api";
 import {
@@ -58,6 +68,7 @@ import { BoardFilterPanel } from "./BoardFilterPanel";
 import { ProjectSettingsDialog } from "./ProjectSettingsDialog";
 import { ShareDialog } from "./ShareDialog";
 import { TaskCard } from "./TaskCard";
+import { type NewTaskInput, TaskComposer } from "./TaskComposer";
 import { TaskDetailSheet } from "./TaskDetailSheet";
 
 const SORT_OPTIONS: { key: SortKey; label: string; icon: typeof Clock }[] = [
@@ -84,7 +95,7 @@ const readCollapsed = (projectId: number): number[] => {
 	}
 };
 
-/** Inline input that stays open to add several in a row. */
+/** Inline input that stays open to add several in a row (new sections). */
 function InlineAdd({
 	placeholder,
 	onAdd,
@@ -130,6 +141,7 @@ export default function Board({ projectId }: { projectId: number }) {
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
 	const openTaskId = Number(searchParams.get("task")) || null;
+	const { confirm, ConfirmationDialog } = useConfirm();
 
 	const [board, setBoard] = useState<WorkBoard | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -137,11 +149,13 @@ export default function Board({ projectId }: { projectId: number }) {
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [filters, setFilters] = useState<BoardFilters>(EMPTY_FILTERS);
 	const [sort, setSort] = useState<SortKey>("manual");
-	/** Where the inline "new task" input is open: a column, at its top or bottom. */
+	/** Where the task composer is open: a column, at its top or bottom. */
 	const [adding, setAdding] = useState<{ columnId: number; atStart: boolean } | null>(null);
 	const [addingSection, setAddingSection] = useState(false);
 	const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
 	const [collapsed, setCollapsed] = useState<number[]>([]);
+	/** Cards with their subtasks listed. */
+	const [expanded, setExpanded] = useState<number[]>([]);
 	const [shareOpen, setShareOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -149,16 +163,19 @@ export default function Board({ projectId }: { projectId: number }) {
 		setCollapsed(readCollapsed(projectId));
 	}, [projectId]);
 
-	const toggleCollapsed = (id: number) =>
-		setCollapsed((prev) => {
-			const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+	const saveCollapsed = useCallback(
+		(next: number[]) => {
+			setCollapsed(next);
 			try {
 				localStorage.setItem(collapsedKey(projectId), JSON.stringify(next));
 			} catch {
 				// Private mode or blocked storage: it just won't be remembered.
 			}
-			return next;
-		});
+		},
+		[projectId],
+	);
+	const toggleCollapsed = (id: number) =>
+		saveCollapsed(collapsed.includes(id) ? collapsed.filter((x) => x !== id) : [...collapsed, id]);
 
 	const load = useCallback(async () => {
 		if (!token) return;
@@ -248,11 +265,11 @@ export default function Board({ projectId }: { projectId: number }) {
 		}
 	};
 
-	const addTask = async (columnId: number, title: string, atStart: boolean) => {
+	const addTask = async (columnId: number, input: NewTaskInput, atStart: boolean) => {
 		try {
 			const card = await workspaceFetch<WorkCard>(`/projects/${projectId}/tasks`, token, {
 				method: "POST",
-				json: { title, columnId, atStart },
+				json: { ...input, columnId, atStart },
 			});
 			setBoard((b) => (b ? { ...b, tasks: [...b.tasks, card] } : b));
 		} catch (e) {
@@ -260,21 +277,22 @@ export default function Board({ projectId }: { projectId: number }) {
 		}
 	};
 
-	/** Opens the "new task" input at the top of a column (expanding it and showing manual order). */
+	/** Opens the composer at the top of a column (expanding it and showing manual order). */
 	const startAddingAtTop = (columnId: number) => {
 		if (collapsed.includes(columnId)) toggleCollapsed(columnId);
 		setSort("manual");
 		setAdding({ columnId, atStart: true });
 	};
 
-	const toggleTask = async (task: WorkCard) => {
+	/** Completes or reopens a card or one of its subtasks. */
+	const toggleTask = async (id: number, completed: boolean) => {
 		try {
-			replaceCard(
-				await workspaceFetch<WorkCard>(`/tasks/${task.id}`, token, {
-					method: "PATCH",
-					json: { completed: !task.completedAt },
-				}),
-			);
+			const card = await workspaceFetch<WorkCard>(`/tasks/${id}`, token, {
+				method: "PATCH",
+				json: { completed },
+			});
+			if (board?.tasks.some((t) => t.id === id)) replaceCard(card);
+			else load(); // A subtask: its parent card shows it.
 		} catch (e) {
 			toast.error(errorMessage(e, "No se pudo actualizar la tarea"));
 		}
@@ -285,6 +303,39 @@ export default function Board({ projectId }: { projectId: number }) {
 		const column = board?.columns.find((c) => c.id === id);
 		if (!name.trim() || name.trim() === column?.name) return;
 		run(() => workspaceFetch(`/columns/${id}`, token, { method: "PATCH", json: { name: name.trim() } }));
+	};
+
+	/** New section next to another one, ready to be renamed in its header. */
+	const addSectionBeside = async (besideId: number, side: "left" | "right") => {
+		try {
+			const column = await workspaceFetch<WorkColumn>(`/projects/${projectId}/columns`, token, {
+				method: "POST",
+				json: { name: "Nueva sección", besideId, side },
+			});
+			await load();
+			setRenaming({ id: column.id, name: column.name });
+		} catch (e) {
+			toast.error(errorMessage(e, "No se pudo agregar la sección"));
+		}
+	};
+
+	const deleteSection = async (column: WorkColumn, count: number) => {
+		if (count > 0) {
+			toast.error("La sección tiene tareas: movelas o archivalas antes de eliminarla");
+			return;
+		}
+		const ok = await confirm({
+			title: "Eliminar sección",
+			description: `"${column.name}" deja de verse en el tablero.`,
+			confirmLabel: "Eliminar",
+			variant: "destructive",
+		});
+		if (ok) run(() => workspaceFetch(`/columns/${column.id}/archive`, token, { method: "POST" }), "Sección eliminada");
+	};
+
+	const setSubtasksExpanded = (column: WorkColumn, open: boolean) => {
+		const ids = (board?.tasks ?? []).filter((t) => t.columnId === column.id && t.subtasks > 0).map((t) => t.id);
+		setExpanded((prev) => (open ? [...new Set([...prev, ...ids])] : prev.filter((id) => !ids.includes(id))));
 	};
 
 	const clearAll = () => {
@@ -453,7 +504,8 @@ export default function Board({ projectId }: { projectId: number }) {
 									key={column.id}
 									type="button"
 									onClick={() => toggleCollapsed(column.id)}
-									aria-label={`Desplegar ${column.name}`}
+									aria-label={`Expandir la sección ${column.name}`}
+									title="Expandir la sección"
 									className="flex w-12 shrink-0 flex-col items-center gap-3 rounded-xl bg-board-column py-3 text-muted-foreground hover:text-foreground"
 								>
 									<ArrowRightToLine className="size-4" />
@@ -467,97 +519,176 @@ export default function Board({ projectId }: { projectId: number }) {
 
 						return (
 							<section key={column.id} aria-label={column.name} className="flex w-75 shrink-0 flex-col gap-2">
-								<div className="flex min-h-12 items-center gap-1.5 rounded-xl bg-board-column py-2 pr-2 pl-4">
+								<div className="flex min-h-12 items-center gap-1.5 rounded-xl bg-board-column py-2 pr-2 pl-3">
 									{renaming?.id === column.id ? (
 										<Input
 											autoFocus
+											onFocus={(e) => e.currentTarget.select()}
 											value={renaming.name}
-											aria-label="Nombre de la columna"
+											aria-label="Nombre de la sección"
 											onChange={(e) => setRenaming({ id: column.id, name: e.target.value })}
 											onBlur={() => saveColumnName(column.id, renaming.name)}
 											onKeyDown={(e) => {
 												if (e.key === "Enter") saveColumnName(column.id, renaming.name);
 												if (e.key === "Escape") setRenaming(null);
 											}}
-											className="h-8"
+											maxLength={80}
+											className="h-8 min-w-0 flex-1 border-foreground/40 bg-board-card text-[15px] font-semibold"
 										/>
+									) : permissions.manage ? (
+										<button
+											type="button"
+											onClick={() => setRenaming({ id: column.id, name: column.name })}
+											title="Renombrar la sección"
+											className="min-w-0 truncate rounded-md px-1 py-0.5 text-left text-[15px] font-semibold hover:bg-board-card"
+										>
+											{column.name}
+										</button>
 									) : (
-										<>
-											<h2 className="truncate text-[15px] font-semibold">{column.name}</h2>
-											{column.isDone && (
-												<CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Completa las tareas" />
-											)}
-											<span className="text-sm text-muted-foreground tabular-nums">{tasks.length}</span>
-											<span className="ml-auto flex items-center">
+										<h2 className="min-w-0 truncate px-1 text-[15px] font-semibold">{column.name}</h2>
+									)}
+									{column.isDone && (
+										<CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Completa las tareas" />
+									)}
+									<span className="text-sm text-muted-foreground tabular-nums">{tasks.length}</span>
+									<span className="ml-auto flex shrink-0 items-center">
+										<Button
+											variant="ghost"
+											size="icon"
+											className={headerButton}
+											aria-label={`Contraer la sección ${column.name}`}
+											title="Contraer la sección"
+											onClick={() => toggleCollapsed(column.id)}
+										>
+											<ArrowLeftToLine className="size-4" />
+										</Button>
+										{permissions.edit && (
+											<Button
+												variant="ghost"
+												size="icon"
+												className={headerButton}
+												aria-label={`Agregar tarea arriba de ${column.name}`}
+												title="Agregar tarea"
+												onClick={() => startAddingAtTop(column.id)}
+											>
+												<Plus className="size-4" />
+											</Button>
+										)}
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
 												<Button
 													variant="ghost"
 													size="icon"
 													className={headerButton}
-													aria-label={`Plegar ${column.name}`}
-													title="Plegar"
-													onClick={() => toggleCollapsed(column.id)}
+													aria-label={`Más opciones de ${column.name}`}
+													title="Más opciones"
 												>
-													<ArrowLeftToLine className="size-4" />
+													<MoreHorizontal className="size-4" />
 												</Button>
-												{permissions.edit && (
-													<Button
-														variant="ghost"
-														size="icon"
-														className={headerButton}
-														aria-label={`Agregar tarea arriba de ${column.name}`}
-														title="Agregar tarea"
-														onClick={() => startAddingAtTop(column.id)}
-													>
-														<Plus className="size-4" />
-													</Button>
-												)}
+											</DropdownMenuTrigger>
+											<DropdownMenuContent
+												align="end"
+												className="w-72"
+												// Do not return focus to "⋯": it would close the rename input that the menu opens.
+												onCloseAutoFocus={(e) => e.preventDefault()}
+											>
 												{permissions.manage && (
-													<DropdownMenu>
-														<DropdownMenuTrigger asChild>
-															<Button
-																variant="ghost"
-																size="icon"
-																className={headerButton}
-																aria-label={`Opciones de ${column.name}`}
-															>
-																<MoreHorizontal className="size-4" />
-															</Button>
-														</DropdownMenuTrigger>
-														<DropdownMenuContent align="end" className="w-64">
-															<DropdownMenuItem onSelect={() => setRenaming({ id: column.id, name: column.name })}>
-																Cambiar nombre
-															</DropdownMenuItem>
-															<DropdownMenuCheckboxItem
-																checked={column.isDone}
-																onCheckedChange={(v) =>
-																	run(() =>
-																		workspaceFetch(`/columns/${column.id}`, token, {
-																			method: "PATCH",
-																			json: { isDone: !!v },
-																		}),
-																	)
-																}
-															>
-																Las tareas que entran se completan
-															</DropdownMenuCheckboxItem>
-															<DropdownMenuSeparator />
-															<DropdownMenuItem
-																className="text-destructive focus:text-destructive"
-																onSelect={() =>
-																	run(
-																		() => workspaceFetch(`/columns/${column.id}/archive`, token, { method: "POST" }),
-																		"Columna archivada",
-																	)
-																}
-															>
-																Archivar columna
-															</DropdownMenuItem>
-														</DropdownMenuContent>
-													</DropdownMenu>
+													<>
+														<DropdownMenuItem onSelect={() => setRenaming({ id: column.id, name: column.name })}>
+															<Pencil className="size-4" />
+															Renombrar la sección
+														</DropdownMenuItem>
+														<DropdownMenuSub>
+															<DropdownMenuSubTrigger className="gap-2">
+																<Columns3 className="size-4 text-muted-foreground" />
+																Agregar sección
+															</DropdownMenuSubTrigger>
+															<DropdownMenuSubContent>
+																<DropdownMenuItem onSelect={() => addSectionBeside(column.id, "left")}>
+																	<ArrowLeft className="size-4" />
+																	Agregar sección a la izquierda
+																</DropdownMenuItem>
+																<DropdownMenuItem onSelect={() => addSectionBeside(column.id, "right")}>
+																	<ArrowRight className="size-4" />
+																	Agregar sección a la derecha
+																</DropdownMenuItem>
+															</DropdownMenuSubContent>
+														</DropdownMenuSub>
+														<DropdownMenuSeparator />
+													</>
 												)}
-											</span>
-										</>
-									)}
+												<DropdownMenuSub>
+													<DropdownMenuSubTrigger className="gap-2">
+														<ListTree className="size-4 text-muted-foreground" />
+														Expandir o contraer las subtareas
+													</DropdownMenuSubTrigger>
+													<DropdownMenuSubContent>
+														<DropdownMenuItem onSelect={() => setSubtasksExpanded(column, true)}>
+															Expandir todo
+														</DropdownMenuItem>
+														<DropdownMenuItem onSelect={() => setSubtasksExpanded(column, false)}>
+															Contraer todo
+														</DropdownMenuItem>
+													</DropdownMenuSubContent>
+												</DropdownMenuSub>
+												<DropdownMenuSub>
+													<DropdownMenuSubTrigger className="gap-2">
+														<Columns3 className="size-4 text-muted-foreground" />
+														Expandir o contraer las columnas
+													</DropdownMenuSubTrigger>
+													<DropdownMenuSubContent>
+														<DropdownMenuItem onSelect={() => saveCollapsed([])}>Expandir todo</DropdownMenuItem>
+														<DropdownMenuItem onSelect={() => saveCollapsed(columns.map((c) => c.id))}>
+															Contraer todo
+														</DropdownMenuItem>
+													</DropdownMenuSubContent>
+												</DropdownMenuSub>
+												<DropdownMenuItem
+													onSelect={() =>
+														saveCollapsed([
+															...new Set([
+																...collapsed,
+																...columns.filter((c) => columnTasks(c).length === 0).map((c) => c.id),
+															]),
+														])
+													}
+												>
+													<EyeOff className="size-4" />
+													Ocultar todas las columnas vacías
+												</DropdownMenuItem>
+												{permissions.manage && (
+													<>
+														<DropdownMenuCheckboxItem
+															checked={column.isDone}
+															onCheckedChange={(v) =>
+																run(() =>
+																	workspaceFetch(`/columns/${column.id}`, token, {
+																		method: "PATCH",
+																		json: { isDone: !!v },
+																	}),
+																)
+															}
+														>
+															Las tareas que entran se completan
+														</DropdownMenuCheckboxItem>
+														<DropdownMenuSeparator />
+														<DropdownMenuItem
+															variant="destructive"
+															onSelect={() =>
+																deleteSection(
+																	column,
+																	board.tasks.filter((t) => t.columnId === column.id).length,
+																)
+															}
+														>
+															<Trash2 className="size-4" />
+															Eliminar sección
+														</DropdownMenuItem>
+													</>
+												)}
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</span>
 								</div>
 								<Droppable droppableId={String(column.id)} isDropDisabled={!permissions.edit || reorderLocked}>
 									{(provided, snapshot) => (
@@ -570,9 +701,9 @@ export default function Board({ projectId }: { projectId: number }) {
 											)}
 										>
 											{adding?.columnId === column.id && adding.atStart && (
-												<InlineAdd
-													placeholder="Título y Enter"
-													onAdd={(title) => addTask(column.id, title, true)}
+												<TaskComposer
+													people={people}
+													onCreate={(input) => addTask(column.id, input, true)}
 													onClose={() => setAdding(null)}
 												/>
 											)}
@@ -587,8 +718,14 @@ export default function Board({ projectId }: { projectId: number }) {
 														<div ref={drag.innerRef} {...drag.draggableProps} {...drag.dragHandleProps}>
 															<TaskCard
 																task={task}
-																onOpen={() => openTask(task.id)}
-																onToggle={permissions.edit ? () => toggleTask(task) : undefined}
+																onOpen={openTask}
+																onToggle={permissions.edit ? toggleTask : undefined}
+																expanded={expanded.includes(task.id)}
+																onToggleExpand={() =>
+																	setExpanded((prev) =>
+																		prev.includes(task.id) ? prev.filter((x) => x !== task.id) : [...prev, task.id],
+																	)
+																}
 															/>
 														</div>
 													)}
@@ -601,9 +738,9 @@ export default function Board({ projectId }: { projectId: number }) {
 											{/* Right below the last card, like Trello or Asana. */}
 											{permissions.edit &&
 												(adding?.columnId === column.id && !adding.atStart ? (
-													<InlineAdd
-														placeholder="Título y Enter"
-														onAdd={(title) => addTask(column.id, title, false)}
+													<TaskComposer
+														people={people}
+														onCreate={(input) => addTask(column.id, input, false)}
 														onClose={() => setAdding(null)}
 													/>
 												) : (
@@ -680,6 +817,7 @@ export default function Board({ projectId }: { projectId: number }) {
 				onOpenChange={setSettingsOpen}
 				onSaved={load}
 			/>
+			{ConfirmationDialog}
 		</div>
 	);
 }

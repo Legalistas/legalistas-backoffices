@@ -80,6 +80,8 @@ export interface WorkCard {
 	createdBy: WorkPerson;
 	version: number;
 	assignees: WorkPerson[];
+	/** Subtasks listed when the card is expanded. */
+	subtaskItems: { id: number; title: string; completedAt: string | null }[];
 	subtasks: number;
 	comments: number;
 	cases: number;
