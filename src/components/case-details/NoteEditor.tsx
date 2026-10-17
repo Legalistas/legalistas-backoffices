@@ -26,6 +26,10 @@ interface MentionUser {
 	id: number;
 	name: string;
 	image?: string | null;
+	/** Second line in the list (cases: number and case files). */
+	subtitle?: string;
+	/** Text the mention leaves in the editor; defaults to the name. */
+	label?: string;
 }
 
 interface NoteEditorProps {
@@ -35,7 +39,9 @@ interface NoteEditorProps {
 	mentionUsers: MentionUser[];
 	placeholder?: string;
 	/** When present, `#` searches cases (used by the workspace; case notes do not pass it). */
-	mentionCases?: (query: string) => Promise<{ id: number; label: string }[]>;
+	mentionCases?: (
+		query: string,
+	) => Promise<{ id: number; label: string; title?: string; subtitle?: string }[]>;
 }
 
 // ── Mention suggestion list component ──
@@ -57,7 +63,7 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
 			(index: number) => {
 				const item = items[index];
 				if (item) {
-					command({ id: String(item.id), label: item.name });
+					command({ id: String(item.id), label: item.label ?? item.name });
 				}
 			},
 			[items, command],
@@ -108,7 +114,12 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
 						<div className="w-6 h-6 rounded-full bg-primary/10 dark:bg-primary/80/30 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
 							{item.name.charAt(0).toUpperCase()}
 						</div>
-						<span className="truncate">{item.name}</span>
+						<span className="min-w-0">
+							<span className="block truncate">{item.name}</span>
+							{item.subtitle && (
+								<span className="block truncate text-[11px] text-gray-500 dark:text-gray-400">{item.subtitle}</span>
+							)}
+						</span>
 					</button>
 				))}
 			</div>
@@ -194,7 +205,9 @@ export const NoteEditor = ({
 		items: async ({ query }: { query: string }) =>
 			((await mentionCasesRef.current?.(query).catch(() => [])) ?? []).map((c) => ({
 				id: c.id,
-				name: c.label,
+				name: c.title ?? c.label,
+				subtitle: c.subtitle,
+				label: c.label,
 			})),
 		render: mentionRender("No hay causas con ese nombre"),
 	};

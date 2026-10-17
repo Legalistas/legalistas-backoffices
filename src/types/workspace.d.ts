@@ -158,6 +158,10 @@ export interface WorkCaseRef {
 	/** Case title (generated automatically). */
 	title: string | null;
 	number: string | null;
+	customerId: number;
+	customer: { id: number; name: string | null } | null;
+	/** Case files, for "1 expediente · Nº ..." like the case manager. */
+	files: { cuij: string | null }[];
 }
 
 export interface WorkComment {

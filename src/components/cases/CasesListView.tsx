@@ -1,5 +1,6 @@
 "use client";
 
+import { resumenExpedientes } from "@/lib/expediente-label";
 import { AlertCircle, CalendarCheck, Pencil, Trash2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -39,14 +40,6 @@ const stripHtml = (html: string) => {
 	return html.replace(/<[^>]*>/g, "").trim();
 };
 
-/** "2 expedientes · Nº 21-23701468-2, 21-23701470-9" (debajo del título). */
-const resumenExpedientes = (files: Cases["files"] | undefined) => {
-	const cantidad = files?.length ?? 0;
-	if (!files || cantidad === 0) return "Sin expedientes";
-	const numeros = files.map((f) => f.cuij?.trim()).filter(Boolean);
-	const texto = `${cantidad} ${cantidad === 1 ? "expediente" : "expedientes"}`;
-	return numeros.length ? `${texto} · Nº ${numeros.join(", ")}` : texto;
-};
 
 /** "23/09/2026 14:30" en hora argentina. */
 const fechaNota = (fecha: string | Date) =>

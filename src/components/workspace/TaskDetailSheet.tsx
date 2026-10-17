@@ -29,7 +29,15 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConfirm } from "@/hooks/useConfirm";
 import { RichTextView } from "./RichTextView";
-import { dayOf, errorMessage, PRIORITY_LABEL, workspaceFetch } from "@/lib/workspace-api";
+import { resumenExpedientes } from "@/lib/expediente-label";
+import {
+	caseHeadline,
+	caseMentionLabel,
+	dayOf,
+	errorMessage,
+	PRIORITY_LABEL,
+	workspaceFetch,
+} from "@/lib/workspace-api";
 import { cn } from "@/lib/utils";
 import type {
 	WorkActivity,
@@ -91,7 +99,7 @@ function describeActivity(a: WorkActivity, people: Map<number, string>) {
 	}
 }
 
-const caseLabel = (c: WorkCaseRef) => c.title || c.number || `Causa ${c.id}`;
+const caseSubtitle = (c: WorkCaseRef) => `Caso ${c.number ?? c.id} · ${resumenExpedientes(c.files)}`;
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
@@ -174,7 +182,13 @@ export function TaskDetailSheet({
 		[projectId, token],
 	);
 	const searchCaseMentions = useCallback(
-		async (q: string) => (await searchCases(q)).map((c) => ({ id: c.id, label: caseLabel(c) })),
+		async (q: string) =>
+			(await searchCases(q)).map((c) => ({
+				id: c.id,
+				label: caseMentionLabel(c),
+				title: caseHeadline(c),
+				subtitle: caseSubtitle(c),
+			})),
 		[searchCases],
 	);
 
@@ -480,19 +494,20 @@ export function TaskDetailSheet({
 										{task.cases.map((c) => (
 											<span
 												key={c.id}
-												className="inline-flex max-w-full items-center gap-1 rounded-md bg-muted px-2 py-1 text-xs"
+												className="inline-flex max-w-full items-start gap-1.5 rounded-md bg-muted px-2 py-1.5 text-xs"
 											>
 												<Link
 													href={`/admin/legal-cases/${c.id}`}
-													className="truncate font-medium hover:underline"
-													title={caseLabel(c)}
+													className="min-w-0 hover:underline"
+													title={`${caseHeadline(c)} — ${caseSubtitle(c)}`}
 												>
-													{caseLabel(c)}
+													<span className="block truncate font-medium">{caseHeadline(c)}</span>
+													<span className="block truncate text-[11px] text-muted-foreground">{caseSubtitle(c)}</span>
 												</Link>
 												{canEdit && (
 													<button
 														type="button"
-														aria-label={`Desvincular ${caseLabel(c)}`}
+														aria-label={`Desvincular ${caseHeadline(c)}`}
 														onClick={() => setCases(task.cases.filter((x) => x.id !== c.id).map((x) => x.id))}
 														className="rounded text-muted-foreground hover:text-foreground"
 													>
@@ -512,7 +527,7 @@ export function TaskDetailSheet({
 												<PopoverContent className="w-80 p-0" align="start">
 													<Command shouldFilter={false}>
 														<CommandInput
-															placeholder="Carátula o número..."
+															placeholder="Cliente, #número o expediente..."
 															value={caseQuery}
 															onValueChange={setCaseQuery}
 														/>
@@ -527,7 +542,12 @@ export function TaskDetailSheet({
 																			value={String(c.id)}
 																			onSelect={() => setCases([...task.cases.map((x) => x.id), c.id])}
 																		>
-																			<span className="truncate">{caseLabel(c)}</span>
+																			<span className="min-w-0">
+																				<span className="block truncate text-sm">{caseHeadline(c)}</span>
+																				<span className="block truncate text-xs text-muted-foreground">
+																					{caseSubtitle(c)}
+																				</span>
+																			</span>
 																		</CommandItem>
 																	))}
 															</CommandGroup>

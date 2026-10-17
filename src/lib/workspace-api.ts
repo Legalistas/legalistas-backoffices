@@ -84,3 +84,20 @@ export const firstName = (name: string | null | undefined) => {
 	const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
 	return parts[1] ?? parts[0] ?? "";
 };
+
+/** Like the case manager: "#3486 | GONZALES FRANCISCO" (client number and name). */
+export const caseHeadline = (c: {
+	id: number;
+	title: string | null;
+	customerId?: number;
+	customer?: { id: number; name: string | null } | null;
+}) =>
+	`#${c.customer?.id ?? c.customerId ?? c.id} | ${(c.customer?.name ?? c.title ?? "Sin nombre").toUpperCase()}`;
+
+/** Text left in the editor by a # mention: "GONZALES FRANCISCO · 2265". */
+export const caseMentionLabel = (c: {
+	id: number;
+	number: string | null;
+	title: string | null;
+	customer?: { name: string | null } | null;
+}) => `${(c.customer?.name ?? c.title ?? "Causa").toUpperCase()} · ${c.number ?? c.id}`;

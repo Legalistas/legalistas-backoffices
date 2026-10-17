@@ -38,3 +38,12 @@ export function getExpedienteLabel(
 		: `Expediente #${f.id}`;
 	return `${caratula}${cuij}`;
 }
+
+/** "2 expedientes · Nº 21-23701468-2, 21-23701470-9" (debajo del título de la causa). */
+export const resumenExpedientes = (files: { cuij?: string | null }[] | undefined) => {
+	const cantidad = files?.length ?? 0;
+	if (!files || cantidad === 0) return "Sin expedientes";
+	const numeros = files.map((f) => f.cuij?.trim()).filter(Boolean);
+	const texto = `${cantidad} ${cantidad === 1 ? "expediente" : "expedientes"}`;
+	return numeros.length ? `${texto} · Nº ${numeros.join(", ")}` : texto;
+};
