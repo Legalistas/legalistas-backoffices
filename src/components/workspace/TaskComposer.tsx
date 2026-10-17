@@ -1,22 +1,12 @@
 "use client";
 
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import { CalendarDays, Check, UserRound, X } from "lucide-react";
 import { useRef, useState } from "react";
 import { GroupAvatar } from "@/components/shared/GroupAvatar";
-import { Calendar } from "@/components/ui/calendar";
-import {
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-} from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatDay } from "@/lib/workspace-api";
 import type { WorkPerson } from "@/types/workspace";
+import { DueCalendar, PeopleList } from "./pickers";
 
 export interface NewTaskInput {
 	title: string;
@@ -31,7 +21,7 @@ interface Props {
 	onClose: () => void;
 }
 
-const dashed =
+export const dashedIcon =
 	"grid size-7 place-items-center rounded-full border border-dashed border-muted-foreground/50 text-muted-foreground hover:border-foreground/60 hover:text-foreground";
 
 /** Card-shaped composer (like Asana's): name, assignee and due date. Enter creates and stays open. */
@@ -72,7 +62,7 @@ export function TaskComposer({ people, onCreate, onClose }: Props) {
 		>
 			<div className="flex items-start gap-2.5">
 				<span
-					className="mt-px grid size-[18px] shrink-0 place-items-center rounded-full border border-muted-foreground/50 text-muted-foreground/60"
+					className="mt-px grid size-4.5 shrink-0 place-items-center rounded-full border border-muted-foreground/50 text-muted-foreground/60"
 					aria-hidden
 				>
 					<Check className="size-3" strokeWidth={3} />
@@ -97,7 +87,12 @@ export function TaskComposer({ people, onCreate, onClose }: Props) {
 			<div className="mt-3 flex items-center gap-2 pl-6.5">
 				<Popover open={picking === "assignee"} onOpenChange={(o) => setPicking(o ? "assignee" : null)}>
 					<PopoverTrigger asChild>
-						<button type="button" aria-label="Responsable" title="Responsable" className={assignee ? "rounded-full" : dashed}>
+						<button
+							type="button"
+							aria-label="Responsable"
+							title="Responsable"
+							className={assignee ? "rounded-full" : dashedIcon}
+						>
 							{assignee ? (
 								<GroupAvatar size="sm" users={[{ name: assignee.name ?? undefined, image: assignee.image ?? undefined }]} />
 							) : (
@@ -106,28 +101,15 @@ export function TaskComposer({ people, onCreate, onClose }: Props) {
 						</button>
 					</PopoverTrigger>
 					<PopoverContent className="w-64 p-0" align="start">
-						<Command>
-							<CommandInput placeholder="Responsable..." />
-							<CommandList>
-								<CommandEmpty>Nadie con ese nombre.</CommandEmpty>
-								<CommandGroup>
-									{people.map((p) => (
-										<CommandItem
-											key={p.id}
-											value={`${p.name ?? ""} ${p.id}`}
-											onSelect={() => {
-												setAssignee(assignee?.id === p.id ? null : p);
-												setPicking(null);
-												input.current?.focus();
-											}}
-										>
-											<Check className={assignee?.id === p.id ? "size-4" : "size-4 opacity-0"} />
-											{p.name ?? "Sin nombre"}
-										</CommandItem>
-									))}
-								</CommandGroup>
-							</CommandList>
-						</Command>
+						<PeopleList
+							people={people}
+							selected={assignee ? [assignee.id] : []}
+							onPick={(p) => {
+								setAssignee(assignee?.id === p.id ? null : p);
+								setPicking(null);
+								input.current?.focus();
+							}}
+						/>
 					</PopoverContent>
 				</Popover>
 
@@ -140,7 +122,7 @@ export function TaskComposer({ people, onCreate, onClose }: Props) {
 							className={
 								due
 									? "inline-flex h-7 items-center gap-1 rounded-full border border-border px-2 text-xs tabular-nums text-foreground"
-									: dashed
+									: dashedIcon
 							}
 						>
 							<CalendarDays className="size-3.5" />
@@ -148,12 +130,10 @@ export function TaskComposer({ people, onCreate, onClose }: Props) {
 						</button>
 					</PopoverTrigger>
 					<PopoverContent className="w-auto p-0" align="start">
-						<Calendar
-							mode="single"
-							locale={es}
-							selected={due ? new Date(`${due}T12:00:00`) : undefined}
-							onSelect={(d) => {
-								setDue(d ? format(d, "yyyy-MM-dd") : "");
+						<DueCalendar
+							value={due || null}
+							onPick={(d) => {
+								setDue(d ?? "");
 								setPicking(null);
 								input.current?.focus();
 							}}

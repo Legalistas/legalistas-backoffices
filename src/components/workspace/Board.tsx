@@ -25,6 +25,7 @@ import {
 	Plus,
 	Search,
 	Settings2,
+	ThumbsUp,
 	Trash2,
 	UserPlus,
 	UserRound,
@@ -63,11 +64,11 @@ import {
 	type SortKey,
 } from "@/lib/workspace-filters";
 import { cn } from "@/lib/utils";
-import type { WorkBoard, WorkCard, WorkColumn } from "@/types/workspace";
+import type { WorkBoard, WorkCard, WorkColumn, WorkPriority } from "@/types/workspace";
 import { BoardFilterPanel } from "./BoardFilterPanel";
 import { ProjectSettingsDialog } from "./ProjectSettingsDialog";
 import { ShareDialog } from "./ShareDialog";
-import { TaskCard } from "./TaskCard";
+import { type CardActions, TaskCard } from "./TaskCard";
 import { type NewTaskInput, TaskComposer } from "./TaskComposer";
 import { TaskDetailSheet } from "./TaskDetailSheet";
 
@@ -80,6 +81,7 @@ const SORT_OPTIONS: { key: SortKey; label: string; icon: typeof Clock }[] = [
 	{ key: "updated", label: "Última modificación", icon: Clock },
 	{ key: "completed", label: "Fecha de finalización", icon: CalendarCheck },
 	{ key: "priority", label: "Prioridad", icon: Flag },
+	{ key: "likes", label: "Me gusta", icon: ThumbsUp },
 	{ key: "title", label: "Orden alfabético", icon: ArrowDownAZ },
 ];
 
@@ -284,19 +286,31 @@ export default function Board({ projectId }: { projectId: number }) {
 		setAdding({ columnId, atStart: true });
 	};
 
-	/** Completes or reopens a card or one of its subtasks. */
-	const toggleTask = async (id: number, completed: boolean) => {
+	/** Saves a change made right on a card (or on one of its subtasks) and updates it. */
+	const saveCard = async (id: number, request: () => Promise<WorkCard>) => {
 		try {
-			const card = await workspaceFetch<WorkCard>(`/tasks/${id}`, token, {
-				method: "PATCH",
-				json: { completed },
-			});
+			const card = await request();
 			if (board?.tasks.some((t) => t.id === id)) replaceCard(card);
 			else load(); // A subtask: its parent card shows it.
 		} catch (e) {
 			toast.error(errorMessage(e, "No se pudo actualizar la tarea"));
 		}
 	};
+	const patchCard = (id: number, json: Record<string, unknown>) =>
+		saveCard(id, () => workspaceFetch<WorkCard>(`/tasks/${id}`, token, { method: "PATCH", json }));
+
+	const cardActions: CardActions = {
+		toggle: (id, completed) => patchCard(id, { completed }),
+		rename: (id, title) => patchCard(id, { title }),
+		setDue: (id, dueDate) => patchCard(id, { dueDate }),
+		setPriority: (id, priority: WorkPriority) => patchCard(id, { priority }),
+		setAssignees: (id, userIds) =>
+			saveCard(id, () =>
+				workspaceFetch<WorkCard>(`/tasks/${id}/assignees`, token, { method: "PUT", json: { userIds } }),
+			),
+	};
+	const likeTask = (id: number) =>
+		saveCard(id, () => workspaceFetch<WorkCard>(`/tasks/${id}/like`, token, { method: "POST" }));
 
 	const saveColumnName = (id: number, name: string) => {
 		setRenaming(null);
@@ -718,8 +732,11 @@ export default function Board({ projectId }: { projectId: number }) {
 														<div ref={drag.innerRef} {...drag.draggableProps} {...drag.dragHandleProps}>
 															<TaskCard
 																task={task}
+																people={people}
+																myId={myId}
 																onOpen={openTask}
-																onToggle={permissions.edit ? toggleTask : undefined}
+																actions={permissions.edit ? cardActions : undefined}
+																onLike={permissions.comment ? likeTask : undefined}
 																expanded={expanded.includes(task.id)}
 																onToggleExpand={() =>
 																	setExpanded((prev) =>

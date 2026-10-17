@@ -112,6 +112,7 @@ export type SortKey =
 	| "updated"
 	| "completed"
 	| "priority"
+	| "likes"
 	| "title";
 
 const PRIORITY_RANK: Record<WorkPriority, number> = { URGENT: 3, HIGH: 2, MEDIUM: 1, LOW: 0 };
@@ -131,5 +132,6 @@ export const SORTERS: Record<SortKey, (a: WorkCard, b: WorkCard) => number> = {
 	updated: (a, b) => desc(a.updatedAt, b.updatedAt) || byPosition(a, b),
 	completed: (a, b) => desc(a.completedAt, b.completedAt) || byPosition(a, b),
 	priority: (a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority] || byPosition(a, b),
+	likes: (a, b) => (b.likes?.length ?? 0) - (a.likes?.length ?? 0) || byPosition(a, b),
 	title: (a, b) => a.title.localeCompare(b.title, "es"),
 };

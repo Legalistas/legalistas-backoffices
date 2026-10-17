@@ -19,7 +19,7 @@ export function CompleteToggle({
 			onClick={onClick}
 			aria-label={label}
 			className={cn(
-				"grid size-[18px] shrink-0 place-items-center rounded-full border transition-colors",
+				"grid size-4.5 shrink-0 place-items-center rounded-full border transition-colors",
 				done
 					? "border-emerald-600 bg-emerald-600 text-white"
 					: "border-muted-foreground/50 text-transparent hover:border-emerald-600 hover:text-emerald-600",
