@@ -75,6 +75,9 @@ export interface WorkCard {
 	priority: WorkPriority;
 	dueDate: string | null;
 	completedAt: string | null;
+	createdAt: string;
+	updatedAt: string;
+	createdBy: WorkPerson;
 	version: number;
 	assignees: WorkPerson[];
 	subtasks: number;

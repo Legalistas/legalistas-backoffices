@@ -2,16 +2,27 @@
 
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
 import {
+	ArrowDownAZ,
 	ArrowDownUp,
 	ArrowLeft,
+	ArrowLeftToLine,
+	ArrowRightToLine,
+	CalendarCheck,
+	CalendarDays,
+	CalendarPlus,
+	Check,
 	CheckCircle2,
-	ListFilter,
+	Clock,
+	Flag,
+	GripVertical,
 	Lock,
 	MoreHorizontal,
 	Plus,
 	Search,
 	Settings2,
 	UserPlus,
+	UserRound,
+	UserRoundPen,
 	X,
 } from "lucide-react";
 import Link from "next/link";
@@ -26,44 +37,51 @@ import {
 	DropdownMenuCheckboxItem,
 	DropdownMenuContent,
 	DropdownMenuItem,
-	DropdownMenuLabel,
-	DropdownMenuRadioGroup,
-	DropdownMenuRadioItem,
 	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProjectRealtime } from "@/hooks/useWorkspaceSocket";
+import { errorMessage, positionAt, projectColor, workspaceFetch } from "@/lib/workspace-api";
 import {
-	dayOf,
-	errorMessage,
-	isOverdue,
-	positionAt,
-	projectColor,
-	workspaceFetch,
-} from "@/lib/workspace-api";
+	type BoardFilters,
+	countFilters,
+	EMPTY_FILTERS,
+	matchesFilters,
+	SORTERS,
+	type SortKey,
+} from "@/lib/workspace-filters";
 import { cn } from "@/lib/utils";
-import type { WorkBoard, WorkCard, WorkColumn, WorkPriority } from "@/types/workspace";
+import type { WorkBoard, WorkCard, WorkColumn } from "@/types/workspace";
+import { BoardFilterPanel } from "./BoardFilterPanel";
 import { ProjectSettingsDialog } from "./ProjectSettingsDialog";
 import { ShareDialog } from "./ShareDialog";
 import { TaskCard } from "./TaskCard";
 import { TaskDetailSheet } from "./TaskDetailSheet";
 
-type Sort = "manual" | "due" | "priority" | "title";
-const SORT_LABEL: Record<Sort, string> = {
-	manual: "A mano (arrastrando)",
-	due: "Fecha de vencimiento",
-	priority: "Prioridad",
-	title: "Alfabético",
-};
-const PRIORITY_RANK: Record<WorkPriority, number> = { URGENT: 3, HIGH: 2, MEDIUM: 1, LOW: 0 };
+const SORT_OPTIONS: { key: SortKey; label: string; icon: typeof Clock }[] = [
+	{ key: "manual", label: "Sin ordenar (a mano)", icon: GripVertical },
+	{ key: "due", label: "Fecha de entrega", icon: CalendarDays },
+	{ key: "assignee", label: "Responsable", icon: UserRound },
+	{ key: "creator", label: "Creador", icon: UserRoundPen },
+	{ key: "created", label: "Fecha de creación", icon: CalendarPlus },
+	{ key: "updated", label: "Última modificación", icon: Clock },
+	{ key: "completed", label: "Fecha de finalización", icon: CalendarCheck },
+	{ key: "priority", label: "Prioridad", icon: Flag },
+	{ key: "title", label: "Orden alfabético", icon: ArrowDownAZ },
+];
+
 const byPosition = (a: WorkCard, b: WorkCard) => a.position - b.position;
-const SORTERS: Record<Sort, (a: WorkCard, b: WorkCard) => number> = {
-	manual: byPosition,
-	due: (a, b) => (dayOf(a.dueDate) ?? "9999").localeCompare(dayOf(b.dueDate) ?? "9999") || byPosition(a, b),
-	priority: (a, b) => PRIORITY_RANK[b.priority] - PRIORITY_RANK[a.priority] || byPosition(a, b),
-	title: (a, b) => a.title.localeCompare(b.title, "es"),
+
+/** Collapsed columns are a per-viewer convenience, kept in this browser. */
+const collapsedKey = (projectId: number) => `workspace-collapsed-${projectId}`;
+const readCollapsed = (projectId: number): number[] => {
+	try {
+		return JSON.parse(localStorage.getItem(collapsedKey(projectId)) ?? "[]");
+	} catch {
+		return [];
+	}
 };
 
 /** Inline input that stays open to add several in a row. */
@@ -117,15 +135,30 @@ export default function Board({ projectId }: { projectId: number }) {
 	const [error, setError] = useState<string | null>(null);
 	const [query, setQuery] = useState("");
 	const [searchOpen, setSearchOpen] = useState(false);
-	const [assignee, setAssignee] = useState<"all" | "me" | "none">("all");
-	const [onlyLate, setOnlyLate] = useState(false);
-	const [onlyHigh, setOnlyHigh] = useState(false);
-	const [sort, setSort] = useState<Sort>("manual");
-	const [addingIn, setAddingIn] = useState<number | null>(null);
+	const [filters, setFilters] = useState<BoardFilters>(EMPTY_FILTERS);
+	const [sort, setSort] = useState<SortKey>("manual");
+	/** Where the inline "new task" input is open: a column, at its top or bottom. */
+	const [adding, setAdding] = useState<{ columnId: number; atStart: boolean } | null>(null);
 	const [addingSection, setAddingSection] = useState(false);
 	const [renaming, setRenaming] = useState<{ id: number; name: string } | null>(null);
+	const [collapsed, setCollapsed] = useState<number[]>([]);
 	const [shareOpen, setShareOpen] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
+
+	useEffect(() => {
+		setCollapsed(readCollapsed(projectId));
+	}, [projectId]);
+
+	const toggleCollapsed = (id: number) =>
+		setCollapsed((prev) => {
+			const next = prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+			try {
+				localStorage.setItem(collapsedKey(projectId), JSON.stringify(next));
+			} catch {
+				// Private mode or blocked storage: it just won't be remembered.
+			}
+			return next;
+		});
 
 	const load = useCallback(async () => {
 		if (!token) return;
@@ -164,18 +197,14 @@ export default function Board({ projectId }: { projectId: number }) {
 	const replaceCard = (card: WorkCard) =>
 		setBoard((b) => (b ? { ...b, tasks: b.tasks.map((t) => (t.id === card.id ? card : t)) } : b));
 
-	const filterCount = (assignee !== "all" ? 1 : 0) + (onlyLate ? 1 : 0) + (onlyHigh ? 1 : 0);
+	const filterCount = countFilters(filters);
 	const visible = useMemo(() => {
 		const q = query.trim().toLowerCase();
+		const now = new Date();
 		return (board?.tasks ?? []).filter(
-			(t) =>
-				(!q || t.title.toLowerCase().includes(q)) &&
-				(assignee === "all" ||
-					(assignee === "me" ? t.assignees.some((p) => p.id === myId) : t.assignees.length === 0)) &&
-				(!onlyLate || isOverdue(t.dueDate, !!t.completedAt)) &&
-				(!onlyHigh || t.priority === "HIGH" || t.priority === "URGENT"),
+			(t) => (!q || t.title.toLowerCase().includes(q)) && matchesFilters(t, filters, myId, now),
 		);
-	}, [board, query, assignee, onlyLate, onlyHigh, myId]);
+	}, [board, query, filters, myId]);
 
 	const columnTasks = (c: WorkColumn) => visible.filter((t) => t.columnId === c.id).sort(SORTERS[sort]);
 	// Dragging only makes sense with every card shown in its manual order.
@@ -219,16 +248,23 @@ export default function Board({ projectId }: { projectId: number }) {
 		}
 	};
 
-	const addTask = async (columnId: number, title: string) => {
+	const addTask = async (columnId: number, title: string, atStart: boolean) => {
 		try {
 			const card = await workspaceFetch<WorkCard>(`/projects/${projectId}/tasks`, token, {
 				method: "POST",
-				json: { title, columnId },
+				json: { title, columnId, atStart },
 			});
 			setBoard((b) => (b ? { ...b, tasks: [...b.tasks, card] } : b));
 		} catch (e) {
 			toast.error(errorMessage(e, "No se pudo crear la tarea"));
 		}
+	};
+
+	/** Opens the "new task" input at the top of a column (expanding it and showing manual order). */
+	const startAddingAtTop = (columnId: number) => {
+		if (collapsed.includes(columnId)) toggleCollapsed(columnId);
+		setSort("manual");
+		setAdding({ columnId, atStart: true });
 	};
 
 	const toggleTask = async (task: WorkCard) => {
@@ -249,6 +285,12 @@ export default function Board({ projectId }: { projectId: number }) {
 		const column = board?.columns.find((c) => c.id === id);
 		if (!name.trim() || name.trim() === column?.name) return;
 		run(() => workspaceFetch(`/columns/${id}`, token, { method: "PATCH", json: { name: name.trim() } }));
+	};
+
+	const clearAll = () => {
+		setQuery("");
+		setSearchOpen(false);
+		setFilters(EMPTY_FILTERS);
 	};
 
 	if (error) {
@@ -277,6 +319,8 @@ export default function Board({ projectId }: { projectId: number }) {
 
 	const { project, columns, people, permissions } = board;
 	const toolbarButton = "h-8 gap-1.5 px-2.5 text-muted-foreground hover:text-foreground";
+	const sortLabel = SORT_OPTIONS.find((s) => s.key === sort)?.label;
+	const headerButton = "size-7 text-muted-foreground hover:text-foreground";
 
 	return (
 		<div className="flex h-[calc(100vh-7rem)] flex-col">
@@ -316,10 +360,7 @@ export default function Board({ projectId }: { projectId: number }) {
 					<Button
 						size="sm"
 						className="h-8"
-						onClick={() => {
-							setAddingIn(columns[0]?.id ?? null);
-							setSort("manual");
-						}}
+						onClick={() => columns[0] && startAddingAtTop(columns[0].id)}
 						disabled={columns.length === 0}
 					>
 						<Plus className="size-4" />
@@ -327,58 +368,22 @@ export default function Board({ projectId }: { projectId: number }) {
 					</Button>
 				)}
 				<div className="ml-auto flex flex-wrap items-center gap-1">
-					<DropdownMenu>
-						<DropdownMenuTrigger asChild>
-							<Button variant="ghost" size="sm" className={cn(toolbarButton, filterCount > 0 && "text-primary")}>
-								<ListFilter className="size-4" />
-								Filtrar{filterCount > 0 ? ` (${filterCount})` : ""}
-							</Button>
-						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-56">
-							<DropdownMenuLabel>Asignadas a</DropdownMenuLabel>
-							<DropdownMenuRadioGroup value={assignee} onValueChange={(v) => setAssignee(v as typeof assignee)}>
-								<DropdownMenuRadioItem value="all">Cualquiera</DropdownMenuRadioItem>
-								<DropdownMenuRadioItem value="me">Mí</DropdownMenuRadioItem>
-								<DropdownMenuRadioItem value="none">Nadie</DropdownMenuRadioItem>
-							</DropdownMenuRadioGroup>
-							<DropdownMenuSeparator />
-							<DropdownMenuCheckboxItem checked={onlyLate} onCheckedChange={(v) => setOnlyLate(!!v)}>
-								Solo vencidas
-							</DropdownMenuCheckboxItem>
-							<DropdownMenuCheckboxItem checked={onlyHigh} onCheckedChange={(v) => setOnlyHigh(!!v)}>
-								Solo prioridad alta o urgente
-							</DropdownMenuCheckboxItem>
-							{filterCount > 0 && (
-								<>
-									<DropdownMenuSeparator />
-									<DropdownMenuItem
-										onSelect={() => {
-											setAssignee("all");
-											setOnlyLate(false);
-											setOnlyHigh(false);
-										}}
-									>
-										Quitar filtros
-									</DropdownMenuItem>
-								</>
-							)}
-						</DropdownMenuContent>
-					</DropdownMenu>
+					<BoardFilterPanel filters={filters} onChange={setFilters} people={people} />
 					<DropdownMenu>
 						<DropdownMenuTrigger asChild>
 							<Button variant="ghost" size="sm" className={cn(toolbarButton, sort !== "manual" && "text-primary")}>
 								<ArrowDownUp className="size-4" />
-								Ordenar
+								{sort === "manual" ? "Ordenar" : sortLabel}
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-56">
-							<DropdownMenuRadioGroup value={sort} onValueChange={(v) => setSort(v as Sort)}>
-								{(Object.keys(SORT_LABEL) as Sort[]).map((s) => (
-									<DropdownMenuRadioItem key={s} value={s}>
-										{SORT_LABEL[s]}
-									</DropdownMenuRadioItem>
-								))}
-							</DropdownMenuRadioGroup>
+						<DropdownMenuContent align="end" className="w-60">
+							{SORT_OPTIONS.map(({ key, label, icon: Icon }) => (
+								<DropdownMenuItem key={key} onSelect={() => setSort(key)}>
+									<Icon className="size-4" />
+									<span className="flex-1">{label}</span>
+									{sort === key && <Check className="size-4" />}
+								</DropdownMenuItem>
+							))}
 						</DropdownMenuContent>
 					</DropdownMenu>
 					{permissions.manage && (
@@ -420,23 +425,49 @@ export default function Board({ projectId }: { projectId: number }) {
 				</div>
 			</div>
 
-			{reorderLocked && permissions.edit && (
-				<p className="pt-2 text-xs text-muted-foreground">
-					Con filtros, búsqueda u orden activos no se arrastran tarjetas.
-				</p>
+			{(filterCount > 0 || query.trim() || sort !== "manual") && (
+				<div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-2 text-xs text-muted-foreground">
+					{(filterCount > 0 || query.trim()) && (
+						<>
+							<span className="tabular-nums">
+								{visible.length} de {board.tasks.length} tareas
+							</span>
+							<button type="button" className="inline-flex items-center gap-1 hover:text-foreground" onClick={clearAll}>
+								<X className="size-3.5" />
+								Quitar filtros
+							</button>
+						</>
+					)}
+					{permissions.edit && <span>Con filtros, búsqueda u orden activos no se arrastran tarjetas.</span>}
+				</div>
 			)}
 
 			<DragDropContext onDragEnd={onDragEnd}>
 				<div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pt-3 pb-2 [scrollbar-width:thin]">
 					{columns.map((column) => {
 						const tasks = columnTasks(column);
+
+						if (collapsed.includes(column.id)) {
+							return (
+								<button
+									key={column.id}
+									type="button"
+									onClick={() => toggleCollapsed(column.id)}
+									aria-label={`Desplegar ${column.name}`}
+									className="flex w-12 shrink-0 flex-col items-center gap-3 rounded-xl bg-board-column py-3 text-muted-foreground hover:text-foreground"
+								>
+									<ArrowRightToLine className="size-4" />
+									<span className="text-sm font-semibold text-foreground [writing-mode:vertical-rl]">
+										{column.name}
+									</span>
+									<span className="text-xs tabular-nums">{tasks.length}</span>
+								</button>
+							);
+						}
+
 						return (
-							<section
-								key={column.id}
-								aria-label={column.name}
-								className="flex w-75 shrink-0 flex-col gap-2"
-							>
-								<div className="flex min-h-12 items-center gap-2 rounded-xl bg-board-column px-4 py-2.5">
+							<section key={column.id} aria-label={column.name} className="flex w-75 shrink-0 flex-col gap-2">
+								<div className="flex min-h-12 items-center gap-1.5 rounded-xl bg-board-column py-2 pr-2 pl-4">
 									{renaming?.id === column.id ? (
 										<Input
 											autoFocus
@@ -457,51 +488,75 @@ export default function Board({ projectId }: { projectId: number }) {
 												<CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Completa las tareas" />
 											)}
 											<span className="text-sm text-muted-foreground tabular-nums">{tasks.length}</span>
-										</>
-									)}
-									{permissions.manage && renaming?.id !== column.id && (
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
+											<span className="ml-auto flex items-center">
 												<Button
 													variant="ghost"
 													size="icon"
-													className="ml-auto size-7 text-muted-foreground"
-													aria-label={`Opciones de ${column.name}`}
+													className={headerButton}
+													aria-label={`Plegar ${column.name}`}
+													title="Plegar"
+													onClick={() => toggleCollapsed(column.id)}
 												>
-													<MoreHorizontal className="size-4" />
+													<ArrowLeftToLine className="size-4" />
 												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent align="end" className="w-64">
-												<DropdownMenuItem onSelect={() => setRenaming({ id: column.id, name: column.name })}>
-													Cambiar nombre
-												</DropdownMenuItem>
-												<DropdownMenuCheckboxItem
-													checked={column.isDone}
-													onCheckedChange={(v) =>
-														run(() =>
-															workspaceFetch(`/columns/${column.id}`, token, {
-																method: "PATCH",
-																json: { isDone: !!v },
-															}),
-														)
-													}
-												>
-													Las tareas que entran se completan
-												</DropdownMenuCheckboxItem>
-												<DropdownMenuSeparator />
-												<DropdownMenuItem
-													className="text-destructive focus:text-destructive"
-													onSelect={() =>
-														run(
-															() => workspaceFetch(`/columns/${column.id}/archive`, token, { method: "POST" }),
-															"Columna archivada",
-														)
-													}
-												>
-													Archivar columna
-												</DropdownMenuItem>
-											</DropdownMenuContent>
-										</DropdownMenu>
+												{permissions.edit && (
+													<Button
+														variant="ghost"
+														size="icon"
+														className={headerButton}
+														aria-label={`Agregar tarea arriba de ${column.name}`}
+														title="Agregar tarea"
+														onClick={() => startAddingAtTop(column.id)}
+													>
+														<Plus className="size-4" />
+													</Button>
+												)}
+												{permissions.manage && (
+													<DropdownMenu>
+														<DropdownMenuTrigger asChild>
+															<Button
+																variant="ghost"
+																size="icon"
+																className={headerButton}
+																aria-label={`Opciones de ${column.name}`}
+															>
+																<MoreHorizontal className="size-4" />
+															</Button>
+														</DropdownMenuTrigger>
+														<DropdownMenuContent align="end" className="w-64">
+															<DropdownMenuItem onSelect={() => setRenaming({ id: column.id, name: column.name })}>
+																Cambiar nombre
+															</DropdownMenuItem>
+															<DropdownMenuCheckboxItem
+																checked={column.isDone}
+																onCheckedChange={(v) =>
+																	run(() =>
+																		workspaceFetch(`/columns/${column.id}`, token, {
+																			method: "PATCH",
+																			json: { isDone: !!v },
+																		}),
+																	)
+																}
+															>
+																Las tareas que entran se completan
+															</DropdownMenuCheckboxItem>
+															<DropdownMenuSeparator />
+															<DropdownMenuItem
+																className="text-destructive focus:text-destructive"
+																onSelect={() =>
+																	run(
+																		() => workspaceFetch(`/columns/${column.id}/archive`, token, { method: "POST" }),
+																		"Columna archivada",
+																	)
+																}
+															>
+																Archivar columna
+															</DropdownMenuItem>
+														</DropdownMenuContent>
+													</DropdownMenu>
+												)}
+											</span>
+										</>
 									)}
 								</div>
 								<Droppable droppableId={String(column.id)} isDropDisabled={!permissions.edit || reorderLocked}>
@@ -514,6 +569,13 @@ export default function Board({ projectId }: { projectId: number }) {
 												snapshot.isDraggingOver && "ring-2 ring-primary/40 ring-inset",
 											)}
 										>
+											{adding?.columnId === column.id && adding.atStart && (
+												<InlineAdd
+													placeholder="Título y Enter"
+													onAdd={(title) => addTask(column.id, title, true)}
+													onClose={() => setAdding(null)}
+												/>
+											)}
 											{tasks.map((task, index) => (
 												<Draggable
 													key={task.id}
@@ -538,17 +600,17 @@ export default function Board({ projectId }: { projectId: number }) {
 											)}
 											{/* Right below the last card, like Trello or Asana. */}
 											{permissions.edit &&
-												(addingIn === column.id ? (
+												(adding?.columnId === column.id && !adding.atStart ? (
 													<InlineAdd
 														placeholder="Título y Enter"
-														onAdd={(title) => addTask(column.id, title)}
-														onClose={() => setAddingIn(null)}
+														onAdd={(title) => addTask(column.id, title, false)}
+														onClose={() => setAdding(null)}
 													/>
 												) : (
 													<Button
 														variant="ghost"
 														size="sm"
-														onClick={() => setAddingIn(column.id)}
+														onClick={() => setAdding({ columnId: column.id, atStart: false })}
 														className="w-full justify-start text-muted-foreground"
 													>
 														<Plus className="size-4" />
@@ -589,26 +651,6 @@ export default function Board({ projectId }: { projectId: number }) {
 					)}
 				</div>
 			</DragDropContext>
-
-			{(filterCount > 0 || query.trim()) && (
-				<div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
-					{visible.length} de {board.tasks.length} tareas
-					<button
-						type="button"
-						className="inline-flex items-center gap-1 hover:text-foreground"
-						onClick={() => {
-							setQuery("");
-							setSearchOpen(false);
-							setAssignee("all");
-							setOnlyLate(false);
-							setOnlyHigh(false);
-						}}
-					>
-						<X className="size-3.5" />
-						Quitar filtros
-					</button>
-				</div>
-			)}
 
 			<TaskDetailSheet
 				taskId={openTaskId}
