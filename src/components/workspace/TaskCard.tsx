@@ -120,9 +120,9 @@ export function TaskCard({ task, onOpen, onToggle, expanded, onToggleExpand }: P
 				</span>
 			</div>
 
-			{expanded && task.subtaskItems.length > 0 && (
+			{expanded && (task.subtaskItems?.length ?? 0) > 0 && (
 				<ul className="mt-3 space-y-1 border-t border-board-card-border pt-2.5 pl-6.5">
-					{task.subtaskItems.map((s) => (
+					{task.subtaskItems?.map((s) => (
 						<li key={s.id} className="flex items-center gap-2">
 							<CompleteToggle
 								done={!!s.completedAt}
