@@ -1,6 +1,12 @@
 "use client";
 
-import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd";
+import {
+	DragDropContext,
+	Draggable,
+	type DraggableProvidedDragHandleProps,
+	Droppable,
+	type DropResult,
+} from "@hello-pangea/dnd";
 import {
 	ArrowDownAZ,
 	ArrowDownUp,
@@ -229,9 +235,10 @@ export default function Board({ projectId }: { projectId: number }) {
 	// Dragging only makes sense with every card shown in its manual order.
 	const reorderLocked = filterCount > 0 || !!query.trim() || sort !== "manual";
 
-	const onDragEnd = async ({ draggableId, source, destination }: DropResult) => {
+	const onDragEnd = async ({ draggableId, source, destination, type }: DropResult) => {
 		if (!board || !destination) return;
 		if (source.droppableId === destination.droppableId && source.index === destination.index) return;
+		if (type === "COLUMN") return moveColumn(Number(draggableId.replace("column-", "")), destination.index);
 		const id = Number(draggableId);
 		const columnId = Number(destination.droppableId);
 		// Reorder right away; if the backend rejects it, reload.
@@ -253,6 +260,25 @@ export default function Board({ projectId }: { projectId: number }) {
 			);
 		} catch (e) {
 			toast.error(errorMessage(e, "No se pudo mover la tarea"));
+			load();
+		}
+	};
+
+	/** Drops a section at `index` (shown right away; reloads if the backend rejects it). */
+	const moveColumn = async (id: number, index: number) => {
+		if (!board) return;
+		const moved = board.columns.find((c) => c.id === id);
+		if (!moved) return;
+		const others = board.columns.filter((c) => c.id !== id);
+		const position = positionAt(
+			others.map((c) => c.position),
+			index,
+		);
+		setBoard({ ...board, columns: [...others.slice(0, index), { ...moved, position }, ...others.slice(index)] });
+		try {
+			await workspaceFetch(`/columns/${id}/move`, token, { method: "POST", json: { index } });
+		} catch (e) {
+			toast.error(errorMessage(e, "No se pudo mover la sección"));
 			load();
 		}
 	};
@@ -387,6 +413,279 @@ export default function Board({ projectId }: { projectId: number }) {
 	const sortLabel = SORT_OPTIONS.find((s) => s.key === sort)?.label;
 	const headerButton = "size-7 text-muted-foreground hover:text-foreground";
 
+	/** One board section; `handle` makes its header the drag handle. */
+	const renderColumn = (column: WorkColumn, handle: DraggableProvidedDragHandleProps | null | undefined) => {
+		const tasks = columnTasks(column);
+
+		if (collapsed.includes(column.id)) {
+			return (
+				<button
+					{...handle}
+					type="button"
+					onClick={() => toggleCollapsed(column.id)}
+					aria-label={`Expandir la sección ${column.name}`}
+					title="Expandir la sección"
+					className="flex w-12 shrink-0 flex-col items-center gap-3 rounded-xl bg-board-column py-3 text-muted-foreground hover:text-foreground"
+				>
+					<ArrowRightToLine className="size-4" />
+					<span className="text-sm font-semibold text-foreground [writing-mode:vertical-rl]">
+						{column.name}
+					</span>
+					<span className="text-xs tabular-nums">{tasks.length}</span>
+				</button>
+			);
+		}
+
+		return (
+			<section aria-label={column.name} className="flex w-75 shrink-0 flex-col gap-2">
+				<div
+					{...handle}
+					className={cn("flex min-h-12 items-center gap-1.5 rounded-xl bg-board-column py-2 pr-2 pl-3", handle && "cursor-grab")}
+				>
+					{renaming?.id === column.id ? (
+						<Input
+							autoFocus
+							onFocus={(e) => e.currentTarget.select()}
+							value={renaming.name}
+							aria-label="Nombre de la sección"
+							onChange={(e) => setRenaming({ id: column.id, name: e.target.value })}
+							onBlur={() => saveColumnName(column.id, renaming.name)}
+							onKeyDown={(e) => {
+								if (e.key === "Enter") saveColumnName(column.id, renaming.name);
+								if (e.key === "Escape") setRenaming(null);
+							}}
+							maxLength={80}
+							className="h-8 min-w-0 flex-1 border-foreground/40 bg-board-card text-[15px] font-semibold"
+						/>
+					) : permissions.manage ? (
+						<button
+							type="button"
+							onClick={() => setRenaming({ id: column.id, name: column.name })}
+							title="Renombrar la sección"
+							className="min-w-0 truncate rounded-md px-1 py-0.5 text-left text-[15px] font-semibold hover:bg-board-card"
+						>
+							{column.name}
+						</button>
+					) : (
+						<h2 className="min-w-0 truncate px-1 text-[15px] font-semibold">{column.name}</h2>
+					)}
+					{column.isDone && (
+						<CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Completa las tareas" />
+					)}
+					<span className="text-sm text-muted-foreground tabular-nums">{tasks.length}</span>
+					<span className="ml-auto flex shrink-0 items-center">
+						<Button
+							variant="ghost"
+							size="icon"
+							className={headerButton}
+							aria-label={`Contraer la sección ${column.name}`}
+							title="Contraer la sección"
+							onClick={() => toggleCollapsed(column.id)}
+						>
+							<ArrowLeftToLine className="size-4" />
+						</Button>
+						{permissions.edit && (
+							<Button
+								variant="ghost"
+								size="icon"
+								className={headerButton}
+								aria-label={`Agregar tarea arriba de ${column.name}`}
+								title="Agregar tarea"
+								onClick={() => startAddingAtTop(column.id)}
+							>
+								<Plus className="size-4" />
+							</Button>
+						)}
+						<DropdownMenu>
+							<DropdownMenuTrigger asChild>
+								<Button
+									variant="ghost"
+									size="icon"
+									className={headerButton}
+									aria-label={`Más opciones de ${column.name}`}
+									title="Más opciones"
+								>
+									<MoreHorizontal className="size-4" />
+								</Button>
+							</DropdownMenuTrigger>
+							<DropdownMenuContent
+								align="end"
+								className="w-72"
+								// Do not return focus to "⋯": it would close the rename input that the menu opens.
+								onCloseAutoFocus={(e) => e.preventDefault()}
+							>
+								{permissions.manage && (
+									<>
+										<DropdownMenuItem onSelect={() => setRenaming({ id: column.id, name: column.name })}>
+											<Pencil className="size-4" />
+											Renombrar la sección
+										</DropdownMenuItem>
+										<DropdownMenuSub>
+											<DropdownMenuSubTrigger className="gap-2">
+												<Columns3 className="size-4 text-muted-foreground" />
+												Agregar sección
+											</DropdownMenuSubTrigger>
+											<DropdownMenuSubContent>
+												<DropdownMenuItem onSelect={() => addSectionBeside(column.id, "left")}>
+													<ArrowLeft className="size-4" />
+													Agregar sección a la izquierda
+												</DropdownMenuItem>
+												<DropdownMenuItem onSelect={() => addSectionBeside(column.id, "right")}>
+													<ArrowRight className="size-4" />
+													Agregar sección a la derecha
+												</DropdownMenuItem>
+											</DropdownMenuSubContent>
+										</DropdownMenuSub>
+										<DropdownMenuSeparator />
+									</>
+								)}
+								<DropdownMenuSub>
+									<DropdownMenuSubTrigger className="gap-2">
+										<ListTree className="size-4 text-muted-foreground" />
+										Expandir o contraer las subtareas
+									</DropdownMenuSubTrigger>
+									<DropdownMenuSubContent>
+										<DropdownMenuItem onSelect={() => setSubtasksExpanded(column, true)}>
+											Expandir todo
+										</DropdownMenuItem>
+										<DropdownMenuItem onSelect={() => setSubtasksExpanded(column, false)}>
+											Contraer todo
+										</DropdownMenuItem>
+									</DropdownMenuSubContent>
+								</DropdownMenuSub>
+								<DropdownMenuSub>
+									<DropdownMenuSubTrigger className="gap-2">
+										<Columns3 className="size-4 text-muted-foreground" />
+										Expandir o contraer las columnas
+									</DropdownMenuSubTrigger>
+									<DropdownMenuSubContent>
+										<DropdownMenuItem onSelect={() => saveCollapsed([])}>Expandir todo</DropdownMenuItem>
+										<DropdownMenuItem onSelect={() => saveCollapsed(columns.map((c) => c.id))}>
+											Contraer todo
+										</DropdownMenuItem>
+									</DropdownMenuSubContent>
+								</DropdownMenuSub>
+								<DropdownMenuItem
+									onSelect={() =>
+										saveCollapsed([
+											...new Set([
+												...collapsed,
+												...columns.filter((c) => columnTasks(c).length === 0).map((c) => c.id),
+											]),
+										])
+									}
+								>
+									<EyeOff className="size-4" />
+									Ocultar todas las columnas vacías
+								</DropdownMenuItem>
+								{permissions.manage && (
+									<>
+										<DropdownMenuCheckboxItem
+											checked={column.isDone}
+											onCheckedChange={(v) =>
+												run(() =>
+													workspaceFetch(`/columns/${column.id}`, token, {
+														method: "PATCH",
+														json: { isDone: !!v },
+													}),
+												)
+											}
+										>
+											Las tareas que entran se completan
+										</DropdownMenuCheckboxItem>
+										<DropdownMenuSeparator />
+										<DropdownMenuItem
+											variant="destructive"
+											onSelect={() =>
+												deleteSection(
+													column,
+													board.tasks.filter((t) => t.columnId === column.id).length,
+												)
+											}
+										>
+											<Trash2 className="size-4" />
+											Eliminar sección
+										</DropdownMenuItem>
+									</>
+								)}
+							</DropdownMenuContent>
+						</DropdownMenu>
+					</span>
+				</div>
+				<Droppable droppableId={String(column.id)} isDropDisabled={!permissions.edit || reorderLocked}>
+					{(provided, snapshot) => (
+						<div
+							ref={provided.innerRef}
+							{...provided.droppableProps}
+							className={cn(
+								"min-h-24 flex-1 space-y-2 overflow-y-auto rounded-xl bg-board-column p-2 [scrollbar-width:thin]",
+								snapshot.isDraggingOver && "ring-2 ring-primary/40 ring-inset",
+							)}
+						>
+							{adding?.columnId === column.id && adding.atStart && (
+								<TaskComposer
+									people={people}
+									onCreate={(input) => addTask(column.id, input, true)}
+									onClose={() => setAdding(null)}
+								/>
+							)}
+							{tasks.map((task, index) => (
+								<Draggable
+									key={task.id}
+									draggableId={String(task.id)}
+									index={index}
+									isDragDisabled={!permissions.edit || reorderLocked}
+								>
+									{(drag) => (
+										<div ref={drag.innerRef} {...drag.draggableProps} {...drag.dragHandleProps}>
+											<TaskCard
+												task={task}
+												people={people}
+												myId={myId}
+												onOpen={openTask}
+												actions={permissions.edit ? cardActions : undefined}
+												onLike={permissions.comment ? likeTask : undefined}
+												expanded={expanded.includes(task.id)}
+												onToggleExpand={() =>
+													setExpanded((prev) =>
+														prev.includes(task.id) ? prev.filter((x) => x !== task.id) : [...prev, task.id],
+													)
+												}
+											/>
+										</div>
+									)}
+								</Draggable>
+							))}
+							{provided.placeholder}
+							{tasks.length === 0 && !snapshot.isDraggingOver && (filterCount > 0 || query.trim()) && (
+								<p className="px-2 py-6 text-center text-xs text-muted-foreground">Nada con ese filtro</p>
+							)}
+							{/* Right below the last card, like Trello or Asana. */}
+							{permissions.edit &&
+								(adding?.columnId === column.id && !adding.atStart ? (
+									<TaskComposer
+										people={people}
+										onCreate={(input) => addTask(column.id, input, false)}
+										onClose={() => setAdding(null)}
+									/>
+								) : (
+									<Button
+										variant="ghost"
+										size="sm"
+										onClick={() => setAdding({ columnId: column.id, atStart: false })}
+										className="w-full justify-start text-muted-foreground"
+									>
+										<Plus className="size-4" />
+										Agregar tarea
+									</Button>
+								))}
+						</div>
+					)}
+				</Droppable>
+			</section>
+		);
+	};
+
 	return (
 		<div className="flex h-[calc(100vh-7rem)] flex-col">
 			<header className="flex flex-wrap items-center gap-x-3 gap-y-2 pb-3">
@@ -509,274 +808,33 @@ export default function Board({ projectId }: { projectId: number }) {
 
 			<DragDropContext onDragEnd={onDragEnd}>
 				<div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pt-3 pb-2 [scrollbar-width:thin]">
-					{columns.map((column) => {
-						const tasks = columnTasks(column);
-
-						if (collapsed.includes(column.id)) {
-							return (
-								<button
-									key={column.id}
-									type="button"
-									onClick={() => toggleCollapsed(column.id)}
-									aria-label={`Expandir la sección ${column.name}`}
-									title="Expandir la sección"
-									className="flex w-12 shrink-0 flex-col items-center gap-3 rounded-xl bg-board-column py-3 text-muted-foreground hover:text-foreground"
-								>
-									<ArrowRightToLine className="size-4" />
-									<span className="text-sm font-semibold text-foreground [writing-mode:vertical-rl]">
-										{column.name}
-									</span>
-									<span className="text-xs tabular-nums">{tasks.length}</span>
-								</button>
-							);
-						}
-
-						return (
-							<section key={column.id} aria-label={column.name} className="flex w-75 shrink-0 flex-col gap-2">
-								<div className="flex min-h-12 items-center gap-1.5 rounded-xl bg-board-column py-2 pr-2 pl-3">
-									{renaming?.id === column.id ? (
-										<Input
-											autoFocus
-											onFocus={(e) => e.currentTarget.select()}
-											value={renaming.name}
-											aria-label="Nombre de la sección"
-											onChange={(e) => setRenaming({ id: column.id, name: e.target.value })}
-											onBlur={() => saveColumnName(column.id, renaming.name)}
-											onKeyDown={(e) => {
-												if (e.key === "Enter") saveColumnName(column.id, renaming.name);
-												if (e.key === "Escape") setRenaming(null);
-											}}
-											maxLength={80}
-											className="h-8 min-w-0 flex-1 border-foreground/40 bg-board-card text-[15px] font-semibold"
-										/>
-									) : permissions.manage ? (
-										<button
-											type="button"
-											onClick={() => setRenaming({ id: column.id, name: column.name })}
-											title="Renombrar la sección"
-											className="min-w-0 truncate rounded-md px-1 py-0.5 text-left text-[15px] font-semibold hover:bg-board-card"
-										>
-											{column.name}
-										</button>
-									) : (
-										<h2 className="min-w-0 truncate px-1 text-[15px] font-semibold">{column.name}</h2>
-									)}
-									{column.isDone && (
-										<CheckCircle2 className="size-4 shrink-0 text-emerald-600" aria-label="Completa las tareas" />
-									)}
-									<span className="text-sm text-muted-foreground tabular-nums">{tasks.length}</span>
-									<span className="ml-auto flex shrink-0 items-center">
-										<Button
-											variant="ghost"
-											size="icon"
-											className={headerButton}
-											aria-label={`Contraer la sección ${column.name}`}
-											title="Contraer la sección"
-											onClick={() => toggleCollapsed(column.id)}
-										>
-											<ArrowLeftToLine className="size-4" />
-										</Button>
-										{permissions.edit && (
-											<Button
-												variant="ghost"
-												size="icon"
-												className={headerButton}
-												aria-label={`Agregar tarea arriba de ${column.name}`}
-												title="Agregar tarea"
-												onClick={() => startAddingAtTop(column.id)}
+					<Droppable droppableId="sections" type="COLUMN" direction="horizontal">
+						{(sections) => (
+							<div ref={sections.innerRef} {...sections.droppableProps} className="flex gap-3">
+								{columns.map((column, index) => (
+									<Draggable
+										key={column.id}
+										draggableId={`column-${column.id}`}
+										index={index}
+										isDragDisabled={!permissions.manage || renaming?.id === column.id}
+										// The header holds buttons (rename, menu): dragging from them must work too.
+										disableInteractiveElementBlocking
+									>
+										{(drag, dragState) => (
+											<div
+												ref={drag.innerRef}
+												{...drag.draggableProps}
+												className={cn("flex rounded-xl", dragState.isDragging && "shadow-2xl ring-1 ring-border")}
 											>
-												<Plus className="size-4" />
-											</Button>
+												{renderColumn(column, permissions.manage ? drag.dragHandleProps : null)}
+											</div>
 										)}
-										<DropdownMenu>
-											<DropdownMenuTrigger asChild>
-												<Button
-													variant="ghost"
-													size="icon"
-													className={headerButton}
-													aria-label={`Más opciones de ${column.name}`}
-													title="Más opciones"
-												>
-													<MoreHorizontal className="size-4" />
-												</Button>
-											</DropdownMenuTrigger>
-											<DropdownMenuContent
-												align="end"
-												className="w-72"
-												// Do not return focus to "⋯": it would close the rename input that the menu opens.
-												onCloseAutoFocus={(e) => e.preventDefault()}
-											>
-												{permissions.manage && (
-													<>
-														<DropdownMenuItem onSelect={() => setRenaming({ id: column.id, name: column.name })}>
-															<Pencil className="size-4" />
-															Renombrar la sección
-														</DropdownMenuItem>
-														<DropdownMenuSub>
-															<DropdownMenuSubTrigger className="gap-2">
-																<Columns3 className="size-4 text-muted-foreground" />
-																Agregar sección
-															</DropdownMenuSubTrigger>
-															<DropdownMenuSubContent>
-																<DropdownMenuItem onSelect={() => addSectionBeside(column.id, "left")}>
-																	<ArrowLeft className="size-4" />
-																	Agregar sección a la izquierda
-																</DropdownMenuItem>
-																<DropdownMenuItem onSelect={() => addSectionBeside(column.id, "right")}>
-																	<ArrowRight className="size-4" />
-																	Agregar sección a la derecha
-																</DropdownMenuItem>
-															</DropdownMenuSubContent>
-														</DropdownMenuSub>
-														<DropdownMenuSeparator />
-													</>
-												)}
-												<DropdownMenuSub>
-													<DropdownMenuSubTrigger className="gap-2">
-														<ListTree className="size-4 text-muted-foreground" />
-														Expandir o contraer las subtareas
-													</DropdownMenuSubTrigger>
-													<DropdownMenuSubContent>
-														<DropdownMenuItem onSelect={() => setSubtasksExpanded(column, true)}>
-															Expandir todo
-														</DropdownMenuItem>
-														<DropdownMenuItem onSelect={() => setSubtasksExpanded(column, false)}>
-															Contraer todo
-														</DropdownMenuItem>
-													</DropdownMenuSubContent>
-												</DropdownMenuSub>
-												<DropdownMenuSub>
-													<DropdownMenuSubTrigger className="gap-2">
-														<Columns3 className="size-4 text-muted-foreground" />
-														Expandir o contraer las columnas
-													</DropdownMenuSubTrigger>
-													<DropdownMenuSubContent>
-														<DropdownMenuItem onSelect={() => saveCollapsed([])}>Expandir todo</DropdownMenuItem>
-														<DropdownMenuItem onSelect={() => saveCollapsed(columns.map((c) => c.id))}>
-															Contraer todo
-														</DropdownMenuItem>
-													</DropdownMenuSubContent>
-												</DropdownMenuSub>
-												<DropdownMenuItem
-													onSelect={() =>
-														saveCollapsed([
-															...new Set([
-																...collapsed,
-																...columns.filter((c) => columnTasks(c).length === 0).map((c) => c.id),
-															]),
-														])
-													}
-												>
-													<EyeOff className="size-4" />
-													Ocultar todas las columnas vacías
-												</DropdownMenuItem>
-												{permissions.manage && (
-													<>
-														<DropdownMenuCheckboxItem
-															checked={column.isDone}
-															onCheckedChange={(v) =>
-																run(() =>
-																	workspaceFetch(`/columns/${column.id}`, token, {
-																		method: "PATCH",
-																		json: { isDone: !!v },
-																	}),
-																)
-															}
-														>
-															Las tareas que entran se completan
-														</DropdownMenuCheckboxItem>
-														<DropdownMenuSeparator />
-														<DropdownMenuItem
-															variant="destructive"
-															onSelect={() =>
-																deleteSection(
-																	column,
-																	board.tasks.filter((t) => t.columnId === column.id).length,
-																)
-															}
-														>
-															<Trash2 className="size-4" />
-															Eliminar sección
-														</DropdownMenuItem>
-													</>
-												)}
-											</DropdownMenuContent>
-										</DropdownMenu>
-									</span>
-								</div>
-								<Droppable droppableId={String(column.id)} isDropDisabled={!permissions.edit || reorderLocked}>
-									{(provided, snapshot) => (
-										<div
-											ref={provided.innerRef}
-											{...provided.droppableProps}
-											className={cn(
-												"min-h-24 flex-1 space-y-2 overflow-y-auto rounded-xl bg-board-column p-2 [scrollbar-width:thin]",
-												snapshot.isDraggingOver && "ring-2 ring-primary/40 ring-inset",
-											)}
-										>
-											{adding?.columnId === column.id && adding.atStart && (
-												<TaskComposer
-													people={people}
-													onCreate={(input) => addTask(column.id, input, true)}
-													onClose={() => setAdding(null)}
-												/>
-											)}
-											{tasks.map((task, index) => (
-												<Draggable
-													key={task.id}
-													draggableId={String(task.id)}
-													index={index}
-													isDragDisabled={!permissions.edit || reorderLocked}
-												>
-													{(drag) => (
-														<div ref={drag.innerRef} {...drag.draggableProps} {...drag.dragHandleProps}>
-															<TaskCard
-																task={task}
-																people={people}
-																myId={myId}
-																onOpen={openTask}
-																actions={permissions.edit ? cardActions : undefined}
-																onLike={permissions.comment ? likeTask : undefined}
-																expanded={expanded.includes(task.id)}
-																onToggleExpand={() =>
-																	setExpanded((prev) =>
-																		prev.includes(task.id) ? prev.filter((x) => x !== task.id) : [...prev, task.id],
-																	)
-																}
-															/>
-														</div>
-													)}
-												</Draggable>
-											))}
-											{provided.placeholder}
-											{tasks.length === 0 && !snapshot.isDraggingOver && (filterCount > 0 || query.trim()) && (
-												<p className="px-2 py-6 text-center text-xs text-muted-foreground">Nada con ese filtro</p>
-											)}
-											{/* Right below the last card, like Trello or Asana. */}
-											{permissions.edit &&
-												(adding?.columnId === column.id && !adding.atStart ? (
-													<TaskComposer
-														people={people}
-														onCreate={(input) => addTask(column.id, input, false)}
-														onClose={() => setAdding(null)}
-													/>
-												) : (
-													<Button
-														variant="ghost"
-														size="sm"
-														onClick={() => setAdding({ columnId: column.id, atStart: false })}
-														className="w-full justify-start text-muted-foreground"
-													>
-														<Plus className="size-4" />
-														Agregar tarea
-													</Button>
-												))}
-										</div>
-									)}
-								</Droppable>
-							</section>
-						);
-					})}
+									</Draggable>
+								))}
+								{sections.placeholder}
+							</div>
+						)}
+					</Droppable>
 
 					{permissions.manage && (
 						<div className="w-75 shrink-0">

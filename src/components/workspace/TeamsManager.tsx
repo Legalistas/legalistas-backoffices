@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, ChevronDown, Lock, Plus, UserPlus, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, Lock, Pencil, Plus, UserPlus, X } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
@@ -116,8 +116,8 @@ export default function TeamsManager() {
 	const [orgId, setOrgId] = useState<number | null>(null);
 	const [data, setData] = useState<WorkStructure | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [newTeamOpen, setNewTeamOpen] = useState(false);
-	const [newTeamName, setNewTeamName] = useState("");
+	/** The new-team dialog, also used to rename one (`id` set). */
+	const [teamForm, setTeamForm] = useState<{ id: number | null; name: string } | null>(null);
 	const [newProjectTeam, setNewProjectTeam] = useState<WorkStructureTeam | null>(null);
 	const { confirm, ConfirmationDialog } = useConfirm();
 
@@ -173,15 +173,18 @@ export default function TeamsManager() {
 		}
 	};
 
-	const createTeam = async (e: React.FormEvent) => {
+	const saveTeam = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (!orgId || !newTeamName.trim()) return;
+		const name = teamForm?.name.trim();
+		if (!orgId || !teamForm || !name) return;
 		await act(
-			() => workspaceFetch(`/orgs/${orgId}/teams`, token, { method: "POST", json: { name: newTeamName.trim() } }),
-			"Equipo creado",
+			() =>
+				teamForm.id
+					? workspaceFetch(`/teams/${teamForm.id}`, token, { method: "PATCH", json: { name } })
+					: workspaceFetch(`/orgs/${orgId}/teams`, token, { method: "POST", json: { name } }),
+			teamForm.id ? "Equipo renombrado" : "Equipo creado",
 		);
-		setNewTeamOpen(false);
-		setNewTeamName("");
+		setTeamForm(null);
 	};
 
 	if (error) return <p className="py-16 text-center text-sm text-muted-foreground">{error}</p>;
@@ -202,7 +205,7 @@ export default function TeamsManager() {
 					</p>
 				</div>
 				{data?.permissions.createTeam && (
-					<Button onClick={() => setNewTeamOpen(true)}>
+					<Button onClick={() => setTeamForm({ id: null, name: "" })}>
 						<Plus className="size-4" />
 						Nuevo equipo
 					</Button>
@@ -265,6 +268,18 @@ export default function TeamsManager() {
 										}))}
 									/>
 								</CollapsibleTrigger>
+								{team.permissions.manageMembers && (
+									<Button
+										variant="ghost"
+										size="icon"
+										className="size-8 text-muted-foreground"
+										aria-label={`Renombrar el equipo ${team.name}`}
+										title="Renombrar el equipo"
+										onClick={() => setTeamForm({ id: team.id, name: team.name })}
+									>
+										<Pencil className="size-4" />
+									</Button>
+								)}
 								{team.permissions.manageMembers && orgId && (
 									<AddPerson
 										orgId={orgId}
@@ -358,27 +373,31 @@ export default function TeamsManager() {
 				</div>
 			)}
 
-			<Dialog open={newTeamOpen} onOpenChange={setNewTeamOpen}>
+			<Dialog open={!!teamForm} onOpenChange={(open) => !open && setTeamForm(null)}>
 				<DialogContent className="sm:max-w-md">
-					<form onSubmit={createTeam} className="space-y-5">
+					<form onSubmit={saveTeam} className="space-y-5">
 						<DialogHeader>
-							<DialogTitle>Nuevo equipo</DialogTitle>
-							<DialogDescription>Quedás como administrador; después sumás a las personas.</DialogDescription>
+							<DialogTitle>{teamForm?.id ? "Renombrar equipo" : "Nuevo equipo"}</DialogTitle>
+							<DialogDescription>
+								{teamForm?.id
+									? "El nombre cambia para todos; los tableros y las personas quedan igual."
+									: "Quedás como administrador; después sumás a las personas."}
+							</DialogDescription>
 						</DialogHeader>
 						<div className="space-y-1.5">
 							<Label htmlFor="team-name">Nombre</Label>
 							<Input
 								id="team-name"
 								autoFocus
-								value={newTeamName}
-								onChange={(e) => setNewTeamName(e.target.value)}
+								value={teamForm?.name ?? ""}
+								onChange={(e) => setTeamForm((f) => (f ? { ...f, name: e.target.value } : f))}
 								placeholder="Ej.: Dirección"
 								maxLength={120}
 							/>
 						</div>
 						<DialogFooter>
-							<Button type="submit" disabled={!newTeamName.trim()}>
-								Crear equipo
+							<Button type="submit" disabled={!teamForm?.name.trim()}>
+								{teamForm?.id ? "Guardar" : "Crear equipo"}
 							</Button>
 						</DialogFooter>
 					</form>
