@@ -1,7 +1,7 @@
-import TaskComponents from "@/components/tasks/TaskComponents";
+import { redirect } from "next/navigation";
 
-const TasksPage = () => {
-	return <TaskComponents />;
-};
-
-export default TasksPage;
+// The workspace replaced this screen (19/10/2026); its tasks were copied there.
+// The old component (components/tasks) stays in the code, unlinked.
+export default function TasksPage() {
+	redirect("/admin/workspace");
+}

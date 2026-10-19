@@ -148,12 +148,13 @@ interface LegalDashboardData {
 			location?: string;
 			case: { id: number; title: string };
 		}[];
+		/** Workspace tasks assigned to the user and due today. */
 		tasks: {
 			id: number;
 			title: string;
-			status: string;
 			priority: string;
 			dueDate: string;
+			project: { id: number; name: string } | null;
 		}[];
 		calendarEvents: {
 			id: number;
@@ -572,8 +573,18 @@ function LegalDashboard() {
 											icon={ListChecks}
 											tono="bg-primary/10 text-primary"
 											titulo={t.title}
-											detalle={[t.priority, t.status]}
-										/>
+											detalle={[t.project?.name, `Prioridad ${t.priority?.toLowerCase()}`]}
+										>
+											{t.project && (
+												<Link
+													href={`/admin/workspace/projects/${t.project.id}?task=${t.id}`}
+													aria-label={`Abrir la tarea ${t.title}`}
+													className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+												>
+													<ArrowRight className="size-4" />
+												</Link>
+											)}
+										</FilaDelDia>
 									))}
 									{myDay.calendarEvents.map((ce) => (
 										<FilaDelDia
