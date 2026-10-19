@@ -23,7 +23,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { CAJA_ADMIN_ROLES } from "@/constant/caja";
-import { RRHH_REPORTE_ROLES } from "@/constant/rrhh";
+import { RRHH_REPORTE_ROLES, TEAM_ACCESS_ROLES } from "@/constant/rrhh";
 import { Role } from "@/constant/user";
 import type { MenuSection, NavItem } from "@/types/navigation";
 
@@ -252,7 +252,7 @@ export const MENU_SECTIONS: MenuSection[] = [
         icon: User,
         name: "Equipo",
         path: "/admin/teams",
-        roles: RRHH_REPORTS_ACCESS,
+        roles: TEAM_ACCESS_ROLES,
       },
       {
         icon: PieChart,

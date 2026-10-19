@@ -32,6 +32,9 @@ export const RRHH_REPORTE_ROLES: string[] = [
 	Role.DIRECTORA_AREA_CONTABLE,
 ];
 
+/** The Equipo screen (see and create members): management plus the legal director (Jona, 19/10/2026). */
+export const TEAM_ACCESS_ROLES: string[] = [...RRHH_REPORTE_ROLES, Role.DIRECTORA_AREA_LEGAL];
+
 export type Segmento = "INTERNO" | "REPRESENTANTE";
 
 export const SEGMENTO_LABEL: Record<Segmento, string> = {
