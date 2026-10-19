@@ -9,12 +9,17 @@ import {
 	CalendarDays,
 	Check,
 	ChevronDown,
+	Contact,
+	FileText,
+	ImageIcon,
+	ImageOff,
 	Link2,
 	Loader2,
 	Maximize2,
 	Minimize2,
 	MoreHorizontal,
 	PanelRightClose,
+	Paperclip,
 	Plus,
 	Scale,
 	ThumbsUp,
@@ -53,20 +58,26 @@ import {
 	caseMentionLabel,
 	dayOf,
 	errorMessage,
+	fileSize,
 	formatDay,
 	isOverdue,
+	leadMentionLabel,
+	leadSubtitle,
 	PRIORITY_LABEL,
 	projectColor,
 	workspaceFetch,
+	workspaceUpload,
 } from "@/lib/workspace-api";
 import { cn } from "@/lib/utils";
 import type {
 	WorkActivity,
+	WorkAttachment,
 	WorkBoard,
 	WorkCard,
 	WorkCaseRef,
 	WorkColumn,
 	WorkComment,
+	WorkLeadRef,
 	WorkPerson,
 	WorkTaskDetail,
 } from "@/types/workspace";
@@ -116,6 +127,12 @@ function describeActivity(a: WorkActivity, people: Map<number, string>) {
 			return "archivó un comentario";
 		case "task.cases":
 			return "cambió las causas vinculadas";
+		case "task.leads":
+			return "cambió los leads vinculados";
+		case "attachment.added":
+			return typeof d.fileName === "string" ? `adjuntó ${d.fileName}` : "adjuntó un archivo";
+		case "attachment.archived":
+			return "quitó un adjunto";
 		case "task.assigned": {
 			const parts = [];
 			if (Array.isArray(d.added) && d.added.length) parts.push(`asignó a ${names(d.added, people)}`);
@@ -128,6 +145,8 @@ function describeActivity(a: WorkActivity, people: Map<number, string>) {
 }
 
 const caseSubtitle = (c: WorkCaseRef) => `Caso ${c.number ?? c.id} · ${resumenExpedientes(c.files)}`;
+/** Images the browser can show (they can also be the card cover). */
+const isImage = (f: WorkAttachment) => /^image\/(jpeg|png|webp|gif)$/.test(f.mimeType ?? "");
 /** "Hace 22 días". */
 const ago = (iso: string) => {
 	const s = formatDistanceToNow(new Date(iso), { addSuffix: true, locale: es });
@@ -139,7 +158,8 @@ const dashedIcon =
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
 		<div className="grid min-h-9 grid-cols-[8.5rem_1fr] items-center gap-3">
-			<span className="text-sm text-muted-foreground">{label}</span>
+			{/* Lines up with the first line when the value wraps (several cases or leads). */}
+			<span className="self-start text-sm leading-9 text-muted-foreground">{label}</span>
 			<div className="flex min-w-0 flex-wrap items-center gap-1.5">{children}</div>
 		</div>
 	);
@@ -176,6 +196,11 @@ export function TaskDetailSheet({
 	const [composerKey, setComposerKey] = useState(0);
 	const [caseQuery, setCaseQuery] = useState("");
 	const [caseResults, setCaseResults] = useState<WorkCaseRef[]>([]);
+	const [leadQuery, setLeadQuery] = useState("");
+	const [leadResults, setLeadResults] = useState<WorkLeadRef[]>([]);
+	const [uploading, setUploading] = useState(0);
+	const [dropping, setDropping] = useState(false);
+	const fileInput = useRef<HTMLInputElement>(null);
 	const [feedTab, setFeedTab] = useState<"comments" | "all">("comments");
 	const [newestFirst, setNewestFirst] = useState(false);
 	const [wide, setWide] = useState(false);
@@ -244,6 +269,33 @@ export function TaskDetailSheet({
 			alive = false;
 		};
 	}, [caseQuery, canEdit, searchCases]);
+
+	/** CRM leads this person can link or mention with $. */
+	const searchLeads = useCallback(
+		(q: string) => workspaceFetch<WorkLeadRef[]>(`/projects/${projectId}/leads?q=${encodeURIComponent(q)}`, token),
+		[projectId, token],
+	);
+	const searchLeadMentions = useCallback(
+		async (q: string) =>
+			(await searchLeads(q)).map((l) => ({
+				id: l.id,
+				label: leadMentionLabel(l),
+				title: l.name.toUpperCase(),
+				subtitle: leadSubtitle(l),
+			})),
+		[searchLeads],
+	);
+
+	useEffect(() => {
+		if (!canEdit) return;
+		let alive = true;
+		searchLeads(leadQuery)
+			.then((r) => alive && setLeadResults(r))
+			.catch(() => alive && setLeadResults([]));
+		return () => {
+			alive = false;
+		};
+	}, [leadQuery, canEdit, searchLeads]);
 
 	/** Saves and refreshes: the board card and the detail (with its history). */
 	const run = async (fn: () => Promise<WorkCard | null>, okMessage?: string) => {
@@ -323,6 +375,41 @@ export function TaskDetailSheet({
 
 	const setCases = (caseIds: number[]) =>
 		run(() => workspaceFetch<WorkCard>(`/tasks/${taskId}/cases`, token, { method: "PUT", json: { caseIds } }));
+
+	const setLeads = (leadIds: number[]) =>
+		run(() => workspaceFetch<WorkCard>(`/tasks/${taskId}/leads`, token, { method: "PUT", json: { leadIds } }));
+
+	/** One request per file; the first image becomes the cover (the backend decides). */
+	const uploadFiles = async (files: FileList | File[]) => {
+		const list = [...files];
+		if (!list.length || !taskId) return;
+		setUploading((n) => n + list.length);
+		for (const file of list) {
+			try {
+				onCardChange(await workspaceUpload<WorkCard>(`/tasks/${taskId}/attachments`, token, file));
+			} catch (e) {
+				toast.error(`${file.name}: ${errorMessage(e, "no se pudo adjuntar")}`);
+			} finally {
+				setUploading((n) => n - 1);
+			}
+		}
+		await load();
+	};
+
+	const setCover = (f: WorkAttachment, cover: boolean) =>
+		run(() =>
+			workspaceFetch<WorkCard>(`/attachments/${f.id}/cover`, token, { method: "POST", json: { cover } }),
+		);
+
+	const archiveAttachment = async (f: WorkAttachment) => {
+		const ok = await confirm({
+			title: "Quitar adjunto",
+			description: `"${f.fileName}" deja de verse en la tarea.`,
+			confirmLabel: "Quitar",
+			variant: "destructive",
+		});
+		if (ok) run(() => workspaceFetch<WorkCard>(`/attachments/${f.id}/archive`, token, { method: "POST" }));
+	};
 
 	const toggleLike = () => run(() => workspaceFetch<WorkCard>(`/tasks/${taskId}/like`, token, { method: "POST" }));
 
@@ -718,6 +805,82 @@ export function TaskDetailSheet({
 											task.cases.length === 0 && <span className="text-sm text-muted-foreground">Ninguna</span>
 										)}
 									</Row>
+
+									<Row label="Leads">
+										{task.leads.map((l) => (
+											<span
+												key={l.id}
+												className="inline-flex max-w-full items-start gap-1.5 rounded-md bg-muted px-2 py-1.5 text-xs"
+											>
+												<Contact className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+												<Link
+													href={`/admin/crm/leads/${l.id}`}
+													className="min-w-0 hover:underline"
+													title={`${l.name} — ${leadSubtitle(l)}`}
+												>
+													<span className="block truncate font-medium">{l.name.toUpperCase()}</span>
+													<span className="block truncate text-[11px] text-muted-foreground">{leadSubtitle(l)}</span>
+												</Link>
+												{canEdit && (
+													<button
+														type="button"
+														aria-label={`Desvincular ${l.name}`}
+														onClick={() => setLeads(task.leads.filter((x) => x.id !== l.id).map((x) => x.id))}
+														className="rounded text-muted-foreground hover:text-foreground"
+													>
+														<X className="size-3.5" />
+													</button>
+												)}
+											</span>
+										))}
+										{canEdit ? (
+											<Popover>
+												<PopoverTrigger asChild>
+													<button
+														type="button"
+														className="inline-flex items-center gap-2 rounded-md px-1 py-0.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+													>
+														<span className={dashedIcon}>
+															<Plus className="size-3.5" />
+														</span>
+														{task.leads.length === 0 && "Vincular lead"}
+													</button>
+												</PopoverTrigger>
+												<PopoverContent className="w-96 p-0" align="start">
+													<Command shouldFilter={false}>
+														<CommandInput
+															placeholder="Nombre, teléfono o número de lead..."
+															value={leadQuery}
+															onValueChange={setLeadQuery}
+														/>
+														<CommandList>
+															<CommandEmpty>No hay leads con eso.</CommandEmpty>
+															<CommandGroup>
+																{leadResults
+																	.filter((l) => !task.leads.some((x) => x.id === l.id))
+																	.map((l) => (
+																		<CommandItem
+																			key={l.id}
+																			value={String(l.id)}
+																			onSelect={() => setLeads([...task.leads.map((x) => x.id), l.id])}
+																		>
+																			<span className="min-w-0">
+																				<span className="block truncate text-sm">{l.name.toUpperCase()}</span>
+																				<span className="block truncate text-xs text-muted-foreground">
+																					{leadSubtitle(l)}
+																				</span>
+																			</span>
+																		</CommandItem>
+																	))}
+															</CommandGroup>
+														</CommandList>
+													</Command>
+												</PopoverContent>
+											</Popover>
+										) : (
+											task.leads.length === 0 && <span className="text-sm text-muted-foreground">Ninguno</span>
+										)}
+									</Row>
 								</div>
 
 								{!task.parentTaskId && (
@@ -772,12 +935,155 @@ export function TaskDetailSheet({
 											}}
 											mentionUsers={people.map((p) => ({ id: p.id, name: p.name ?? "Sin nombre", image: p.image }))}
 											mentionCases={searchCaseMentions}
-											placeholder="¿De qué se trata esta tarea? @ para mencionar a alguien, # para una causa"
+											mentionLeads={searchLeadMentions}
+											placeholder="¿De qué se trata esta tarea? @ para mencionar a alguien, # para una causa, $ para un lead"
 										/>
 									) : task.description ? (
 										<RichTextView html={task.description} />
 									) : (
 										<p className="text-sm text-muted-foreground">Sin descripción.</p>
+									)}
+								</section>
+
+								<section
+									aria-label="Adjuntos"
+									className={cn("space-y-2 rounded-lg", dropping && "ring-2 ring-primary/50 ring-offset-4 ring-offset-background")}
+									onDragOver={(e) => {
+										if (!canEdit || !e.dataTransfer.types.includes("Files")) return;
+										e.preventDefault();
+										setDropping(true);
+									}}
+									onDragLeave={() => setDropping(false)}
+									onDrop={(e) => {
+										if (!canEdit) return;
+										e.preventDefault();
+										setDropping(false);
+										uploadFiles(e.dataTransfer.files);
+									}}
+								>
+									<div className="flex items-center gap-2">
+										<h3 className="text-sm font-semibold">
+											Adjuntos
+											{task.attachments.length > 0 && (
+												<span className="ml-1.5 font-normal text-muted-foreground tabular-nums">
+													{task.attachments.length}
+												</span>
+											)}
+										</h3>
+										{uploading > 0 && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
+										{canEdit && (
+											<>
+												<Button
+													variant="ghost"
+													size="sm"
+													className="ml-auto h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+													onClick={() => fileInput.current?.click()}
+												>
+													<Paperclip className="size-3.5" />
+													Adjuntar
+												</Button>
+												<input
+													ref={fileInput}
+													type="file"
+													multiple
+													hidden
+													accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.heic,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt"
+													onChange={(e) => {
+														if (e.target.files) uploadFiles(e.target.files);
+														e.target.value = "";
+													}}
+												/>
+											</>
+										)}
+									</div>
+									{task.attachments.length === 0 ? (
+										canEdit && (
+											<button
+												type="button"
+												onClick={() => fileInput.current?.click()}
+												className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+											>
+												<Paperclip className="size-4" />
+												Arrastrá archivos acá o hacé clic para adjuntar (hasta 25 MB)
+											</button>
+										)
+									) : (
+										<ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+											{task.attachments.map((f) => (
+												<li
+													key={f.id}
+													className="group flex items-center gap-3 rounded-lg border border-border bg-background p-2"
+												>
+													<a
+														href={f.url ?? undefined}
+														target="_blank"
+														rel="noreferrer"
+														className="relative grid size-12 shrink-0 place-items-center overflow-hidden rounded-md bg-muted text-muted-foreground"
+														aria-label={`Abrir ${f.fileName}`}
+													>
+														{isImage(f) && f.url ? (
+															// biome-ignore lint/performance/noImgElement: signed MinIO URL.
+															<img src={f.url} alt="" loading="lazy" className="size-full object-cover" />
+														) : (
+															<FileText className="size-5" />
+														)}
+														{f.isCover && (
+															<span className="absolute inset-x-0 bottom-0 bg-black/60 py-px text-center text-[9px] font-medium text-white">
+																Portada
+															</span>
+														)}
+													</a>
+													<div className="min-w-0 flex-1">
+														<a
+															href={f.url ?? undefined}
+															target="_blank"
+															rel="noreferrer"
+															className="block truncate text-sm font-medium hover:underline"
+															title={f.fileName}
+														>
+															{f.fileName}
+														</a>
+														<p className="truncate text-xs text-muted-foreground">
+															{fileSize(f.size)} · {ago(f.createdAt)}
+														</p>
+													</div>
+													{canEdit && (
+														<DropdownMenu>
+															<DropdownMenuTrigger asChild>
+																<Button
+																	variant="ghost"
+																	size="icon"
+																	className="size-7 shrink-0 text-muted-foreground"
+																	aria-label={`Opciones de ${f.fileName}`}
+																>
+																	<MoreHorizontal className="size-4" />
+																</Button>
+															</DropdownMenuTrigger>
+															<DropdownMenuContent align="end" className="w-52">
+																{isImage(f) &&
+																	(f.isCover ? (
+																		<DropdownMenuItem onSelect={() => setCover(f, false)}>
+																			<ImageOff className="size-4" />
+																			Quitar de la portada
+																		</DropdownMenuItem>
+																	) : (
+																		<DropdownMenuItem onSelect={() => setCover(f, true)}>
+																			<ImageIcon className="size-4" />
+																			Usar como portada
+																		</DropdownMenuItem>
+																	))}
+																{(f.uploadedBy?.id === myId || task.permissions.manage) && (
+																	<DropdownMenuItem variant="destructive" onSelect={() => archiveAttachment(f)}>
+																		<Trash2 className="size-4" />
+																		Quitar adjunto
+																	</DropdownMenuItem>
+																)}
+															</DropdownMenuContent>
+														</DropdownMenu>
+													)}
+												</li>
+											))}
+										</ul>
 									)}
 								</section>
 
@@ -937,7 +1243,8 @@ export function TaskDetailSheet({
 										onChange={setComment}
 										mentionUsers={people.map((p) => ({ id: p.id, name: p.name ?? "Sin nombre", image: p.image }))}
 										mentionCases={searchCaseMentions}
-										placeholder="Escribí un comentario... @ para mencionar, # para una causa"
+										mentionLeads={searchLeadMentions}
+										placeholder="Escribí un comentario... @ para mencionar, # causa, $ lead"
 									/>
 									<Button
 										size="icon"

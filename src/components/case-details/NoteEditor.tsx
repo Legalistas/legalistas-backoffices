@@ -39,10 +39,14 @@ interface NoteEditorProps {
 	mentionUsers: MentionUser[];
 	placeholder?: string;
 	/** When present, `#` searches cases (used by the workspace; case notes do not pass it). */
-	mentionCases?: (
-		query: string,
-	) => Promise<{ id: number; label: string; title?: string; subtitle?: string }[]>;
+	mentionCases?: MentionSearch;
+	/** When present, `$` searches CRM leads (workspace). */
+	mentionLeads?: MentionSearch;
 }
+
+type MentionSearch = (
+	query: string,
+) => Promise<{ id: number; label: string; title?: string; subtitle?: string }[]>;
 
 // ── Mention suggestion list component ──
 interface MentionListProps {
@@ -183,11 +187,14 @@ export const NoteEditor = ({
 	mentionUsers,
 	placeholder = "Escribe tu comentario... Usa @ para mencionar",
 	mentionCases,
+	mentionLeads,
 }: NoteEditorProps) => {
 	const mentionUsersRef = useRef(mentionUsers);
 	mentionUsersRef.current = mentionUsers;
 	const mentionCasesRef = useRef(mentionCases);
 	mentionCasesRef.current = mentionCases;
+	const mentionLeadsRef = useRef(mentionLeads);
+	mentionLeadsRef.current = mentionLeads;
 
 	const peopleSuggestion = {
 		char: "@",
@@ -211,6 +218,22 @@ export const NoteEditor = ({
 			})),
 		render: mentionRender("No hay causas con ese nombre"),
 	};
+	const leadSuggestion = {
+		char: "$",
+		items: async ({ query }: { query: string }) =>
+			((await mentionLeadsRef.current?.(query).catch(() => [])) ?? []).map((l) => ({
+				id: l.id,
+				name: l.title ?? l.label,
+				subtitle: l.subtitle,
+				label: l.label,
+			})),
+		render: mentionRender("No hay leads con ese nombre"),
+	};
+	// `#` and `$` only where the caller searches cases or leads.
+	const extraSuggestions = [
+		...(mentionCasesRef.current ? [caseSuggestion] : []),
+		...(mentionLeadsRef.current ? [leadSuggestion] : []),
+	];
 
 	const editor = useEditor({
 		immediatelyRender: false,
@@ -224,8 +247,8 @@ export const NoteEditor = ({
 					class:
 						"mention bg-primary/5 dark:bg-primary/80/20 text-primary dark:text-primary rounded px-1 py-0.5 font-medium text-sm",
 				},
-				...(mentionCasesRef.current
-					? { suggestions: [peopleSuggestion, caseSuggestion] }
+				...(extraSuggestions.length
+					? { suggestions: [peopleSuggestion, ...extraSuggestions] }
 					: { suggestion: peopleSuggestion }),
 			}),
 		],

@@ -24,6 +24,9 @@ const card = (over: Partial<WorkCard>): WorkCard => ({
 	subtasks: 0,
 	comments: 0,
 	cases: 0,
+	leads: 0,
+	attachments: 0,
+	cover: null,
 	...over,
 });
 

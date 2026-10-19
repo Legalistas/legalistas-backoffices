@@ -22,6 +22,22 @@ export async function workspaceFetch<T>(
 		headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
 		body: init.json !== undefined ? JSON.stringify(init.json) : undefined,
 	});
+	return parse<T>(res);
+}
+
+/** Uploads one file (multipart "file") with the session token. */
+export async function workspaceUpload<T>(path: string, token: string | undefined, file: File): Promise<T> {
+	const form = new FormData();
+	form.append("file", file);
+	const res = await fetch(`${WORKSPACE_ENDPOINT}${path}`, {
+		method: "POST",
+		headers: { Authorization: `Bearer ${token}` },
+		body: form,
+	});
+	return parse<T>(res);
+}
+
+async function parse<T>(res: Response): Promise<T> {
 	const body = await res.json().catch(() => ({}));
 	if (!res.ok) {
 		throw new WorkspaceApiError(body.error || body.message || `Error ${res.status}`, res.status);
@@ -93,6 +109,19 @@ export const caseHeadline = (c: {
 	customer?: { id: number; name: string | null } | null;
 }) =>
 	`#${c.customer?.id ?? c.customerId ?? c.id} | ${(c.customer?.name ?? c.title ?? "Sin nombre").toUpperCase()}`;
+
+/** A lead's second line: "Lead #1520 · Reunión Coordinada · Scotta Sofía". */
+export const leadSubtitle = (l: { id: number; stage: string; seller: string | null }) =>
+	[`Lead #${l.id}`, l.stage, l.seller].filter(Boolean).join(" · ");
+
+/** Text left in the editor by a $ mention: "GÓMEZ JUAN · Lead 1520". */
+export const leadMentionLabel = (l: { id: number; name: string }) => `${l.name.toUpperCase()} · Lead ${l.id}`;
+
+/** "2,4 MB", "830 KB". */
+export const fileSize = (bytes: number) =>
+	bytes >= 1024 * 1024
+		? `${(bytes / 1024 / 1024).toLocaleString("es-AR", { maximumFractionDigits: 1 })} MB`
+		: `${Math.max(1, Math.round(bytes / 1024))} KB`;
 
 /** Text left in the editor by a # mention: "GONZALES FRANCISCO · 2265". */
 export const caseMentionLabel = (c: {

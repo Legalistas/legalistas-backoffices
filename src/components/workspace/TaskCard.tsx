@@ -3,9 +3,11 @@
 import {
 	CalendarDays,
 	ChevronRight,
+	Contact,
 	Flag,
 	ListTree,
 	MessageSquare,
+	Paperclip,
 	Pencil,
 	Plus,
 	Scale,
@@ -74,6 +76,8 @@ export function TaskCard({ task, people, myId, onOpen, actions, onLike, expanded
 	const counters = [
 		{ n: task.comments, icon: MessageSquare, label: "Comentarios" },
 		{ n: task.cases, icon: Scale, label: "Causas vinculadas" },
+		{ n: task.leads ?? 0, icon: Contact, label: "Leads vinculados" },
+		{ n: task.attachments ?? 0, icon: Paperclip, label: "Adjuntos" },
 	].filter((c) => c.n > 0);
 
 	useEffect(() => {
@@ -134,6 +138,17 @@ export function TaskCard({ task, people, myId, onOpen, actions, onLike, expanded
 				>
 					<Pencil className="size-4" />
 				</button>
+			)}
+
+			{task.cover && (
+				// Signed MinIO URL (private bucket): next/image would need the host configured.
+				// biome-ignore lint/performance/noImgElement: see above.
+				<img
+					src={task.cover}
+					alt=""
+					loading="lazy"
+					className="-mx-4 -mt-4 mb-3 block h-36 w-[calc(100%+2rem)] max-w-none rounded-t-xl object-cover"
+				/>
 			)}
 
 			<div className="flex items-start gap-2.5">

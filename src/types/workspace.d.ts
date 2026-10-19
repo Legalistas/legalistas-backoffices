@@ -87,6 +87,10 @@ export interface WorkCard {
 	subtasks: number;
 	comments: number;
 	cases: number;
+	leads: number;
+	attachments: number;
+	/** Signed URL of the cover image (valid for some hours), or null. */
+	cover: string | null;
 }
 
 export interface WorkBoard {
@@ -166,6 +170,28 @@ export interface WorkCaseRef {
 	files: { cuij: string | null }[];
 }
 
+/** A CRM lead linked to a task (or mentioned with $). */
+export interface WorkLeadRef {
+	id: number;
+	name: string;
+	phone: string | null;
+	/** Funnel column, e.g. "Reunión Coordinada". */
+	stage: string;
+	seller: string | null;
+}
+
+export interface WorkAttachment {
+	id: number;
+	fileName: string;
+	mimeType: string | null;
+	size: number;
+	isCover: boolean;
+	createdAt: string;
+	uploadedBy: WorkPerson | null;
+	/** Signed URL to open it (valid for an hour). */
+	url: string | null;
+}
+
 export interface WorkComment {
 	id: number;
 	/** Editor HTML, with mentions. */
@@ -175,7 +201,8 @@ export interface WorkComment {
 	author: WorkPerson;
 }
 
-export interface WorkTaskDetail extends Omit<WorkCard, "subtasks" | "comments" | "cases"> {
+export interface WorkTaskDetail
+	extends Omit<WorkCard, "subtasks" | "comments" | "cases" | "leads" | "attachments" | "cover"> {
 	description: string | null;
 	startDate: string | null;
 	parentTaskId: number | null;
@@ -188,8 +215,10 @@ export interface WorkTaskDetail extends Omit<WorkCard, "subtasks" | "comments" |
 	subtasks: WorkSubtask[];
 	activity: WorkActivity[];
 	cases: WorkCaseRef[];
+	leads: WorkLeadRef[];
+	attachments: WorkAttachment[];
 	comments: WorkComment[];
-	counts: { subtasks: number; comments: number; cases: number };
+	counts: { subtasks: number; comments: number; cases: number; leads: number; attachments: number };
 	permissions: WorkPermissions;
 }
 
