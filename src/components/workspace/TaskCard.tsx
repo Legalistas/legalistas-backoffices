@@ -12,6 +12,7 @@ import {
 	Plus,
 	Scale,
 	ThumbsUp,
+	Trash2,
 	UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -35,6 +36,8 @@ export interface CardActions {
 	setAssignees: (id: number, userIds: number[]) => void;
 	setDue: (id: number, day: string | null) => void;
 	setPriority: (id: number, priority: WorkPriority) => void;
+	/** Asks and hides the task (deletedAt; it stays in the history). */
+	remove: (id: number, title: string) => void;
 }
 
 interface Props {
@@ -126,18 +129,32 @@ export function TaskCard({ task, people, myId, onOpen, actions, onLike, expanded
 			)}
 		>
 			{actions && !editing && (
-				<button
-					type="button"
-					onClick={stop(() => setEditing(true))}
-					aria-label={`Editar "${task.title}"`}
-					title="Editar la tarjeta"
-					className={cn(
-						"absolute top-2.5 right-2.5 grid size-8 place-items-center rounded-lg border border-board-card-border bg-board-card text-muted-foreground hover:text-foreground",
-						onHover,
-					)}
-				>
-					<Pencil className="size-4" />
-				</button>
+				<span className="absolute top-2.5 right-2.5 z-10 flex gap-1">
+					<button
+						type="button"
+						onClick={stop(() => actions.remove(task.id, task.title))}
+						aria-label={`Eliminar "${task.title}"`}
+						title="Eliminar la tarjeta"
+						className={cn(
+							"grid size-8 place-items-center rounded-lg border border-board-card-border bg-board-card text-muted-foreground hover:text-destructive",
+							onHover,
+						)}
+					>
+						<Trash2 className="size-4" />
+					</button>
+					<button
+						type="button"
+						onClick={stop(() => setEditing(true))}
+						aria-label={`Editar "${task.title}"`}
+						title="Editar la tarjeta"
+						className={cn(
+							"grid size-8 place-items-center rounded-lg border border-board-card-border bg-board-card text-muted-foreground hover:text-foreground",
+							onHover,
+						)}
+					>
+						<Pencil className="size-4" />
+					</button>
+				</span>
 			)}
 
 			{task.cover && (
@@ -182,7 +199,14 @@ export function TaskCard({ task, people, myId, onOpen, actions, onLike, expanded
 						className="min-w-0 flex-1 resize-none bg-transparent text-sm leading-snug outline-none"
 					/>
 				) : (
-					<p className={cn("pr-8 text-sm leading-snug text-foreground wrap-anywhere", done && "text-muted-foreground")}>
+					<p
+						className={cn(
+							"text-sm leading-snug text-foreground wrap-anywhere",
+							// Room for the hover buttons (delete, edit) when there is no cover above.
+							actions && !task.cover ? "pr-16" : "pr-2",
+							done && "text-muted-foreground",
+						)}
+					>
 						{task.title}
 					</p>
 				)}

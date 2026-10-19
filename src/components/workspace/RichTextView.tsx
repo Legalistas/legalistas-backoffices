@@ -19,8 +19,8 @@ export function RichTextView({ html }: { html: string }) {
 			}),
 			Mention.configure({
 				HTMLAttributes: { class: "mention rounded bg-primary/5 px-1 py-0.5 font-medium text-primary" },
-				// So each mention shows its own @, # or $.
-				suggestions: [{ char: "@" }, { char: "#" }, { char: "$" }],
+				// So each mention shows its own @, #, $, % or -.
+				suggestions: [{ char: "@" }, { char: "#" }, { char: "$" }, { char: "%" }, { char: "-" }],
 			}),
 		],
 		content: html,

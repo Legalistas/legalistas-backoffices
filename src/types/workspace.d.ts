@@ -17,6 +17,8 @@ export interface WorkHomeProject {
 	id: number;
 	name: string;
 	color: string | null;
+	/** Key of PROJECT_ICONS (components/workspace/ProjectLook); null = board. */
+	icon: string | null;
 	privacy: "TEAM" | "PRIVATE";
 	organizationId: number;
 	team: { id: number; name: string; color: string | null } | null;
@@ -99,6 +101,7 @@ export interface WorkBoard {
 		name: string;
 		description: string | null;
 		color: string | null;
+		icon: string | null;
 		privacy: "TEAM" | "PRIVATE";
 		organizationId: number;
 		team: { id: number; name: string } | null;
@@ -117,7 +120,7 @@ export interface WorkStructureTeam {
 	description: string | null;
 	color: string | null;
 	members: { role: WorkTeamRole; user: WorkPerson }[];
-	projects: { id: number; name: string; privacy: "TEAM" | "PRIVATE"; color: string | null }[];
+	projects: { id: number; name: string; privacy: "TEAM" | "PRIVATE"; color: string | null; icon: string | null }[];
 	permissions: { manageMembers: boolean; createProject: boolean };
 }
 
@@ -180,6 +183,13 @@ export interface WorkLeadRef {
 	seller: string | null;
 }
 
+/** A negotiation (%) or closing (-) to mention: the client and "Negociación #12 · En curso". */
+export interface WorkMentionRef {
+	id: number;
+	name: string;
+	subtitle: string;
+}
+
 export interface WorkAttachment {
 	id: number;
 	fileName: string;
@@ -231,6 +241,7 @@ export interface WorkProjectAccess {
 		name: string;
 		description: string | null;
 		color: string | null;
+		icon: string | null;
 		privacy: "TEAM" | "PRIVATE";
 		archivedAt: string | null;
 		team: { id: number; name: string } | null;

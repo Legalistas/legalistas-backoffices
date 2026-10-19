@@ -38,21 +38,25 @@ interface NoteEditorProps {
 	onMentionsChange?: (userIds: number[]) => void;
 	mentionUsers: MentionUser[];
 	placeholder?: string;
-	/** When present, `#` searches cases (used by the workspace; case notes do not pass it). */
-	mentionCases?: MentionSearch;
-	/** When present, `$` searches CRM leads (workspace). */
-	mentionLeads?: MentionSearch;
+	/** Triggers besides @ (the workspace: # cases, $ leads, % negotiations, - closings). */
+	mentionSources?: MentionSource[];
 }
 
-type MentionSearch = (
-	query: string,
-) => Promise<{ id: number; label: string; title?: string; subtitle?: string }[]>;
+export interface MentionSource {
+	char: string;
+	search: (query: string) => Promise<{ id: number; label: string; title?: string; subtitle?: string }[]>;
+	emptyText: string;
+	/** Letters to type before searching: for symbols common in text, like % or -. */
+	minQuery?: number;
+}
 
 // ── Mention suggestion list component ──
 interface MentionListProps {
 	items: MentionUser[];
 	command: (item: { id: string; label: string }) => void;
 	emptyText?: string;
+	query?: string;
+	minQuery?: number;
 }
 
 interface MentionListRef {
@@ -60,7 +64,7 @@ interface MentionListRef {
 }
 
 const MentionList = forwardRef<MentionListRef, MentionListProps>(
-	({ items, command, emptyText = "No se encontraron usuarios" }, ref) => {
+	({ items, command, emptyText = "No se encontraron usuarios", query = "", minQuery = 0 }, ref) => {
 		const [selectedIndex, setSelectedIndex] = useState(0);
 
 		const selectItem = useCallback(
@@ -79,6 +83,8 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
 
 		useImperativeHandle(ref, () => ({
 			onKeyDown: ({ event }: { event: KeyboardEvent }) => {
+				// Nothing to pick: keys go to the editor (Enter makes a new line).
+				if (items.length === 0) return false;
 				if (event.key === "ArrowUp") {
 					setSelectedIndex((prev) => (prev + items.length - 1) % items.length);
 					return true;
@@ -96,6 +102,8 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
 		}));
 
 		if (items.length === 0) {
+			// Not searched yet (e.g. a lone "%" or "-" in the text): show nothing.
+			if (query.length < minQuery) return null;
 			return (
 				<div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg p-3">
 					<p className="text-xs text-gray-400">{emptyText}</p>
@@ -134,14 +142,14 @@ const MentionList = forwardRef<MentionListRef, MentionListProps>(
 MentionList.displayName = "MentionList";
 
 // Suggestion popup (tippy + MentionList), shared by people and cases.
-const mentionRender = (emptyText: string) => () => {
+const mentionRender = (emptyText: string, minQuery = 0) => () => {
 	let component: ReactRenderer<MentionListRef> | null = null;
 	let popup: TippyInstance[] | null = null;
 
 	return {
 		onStart: (props: any) => {
 			component = new ReactRenderer(MentionList, {
-				props: { ...props, emptyText },
+				props: { ...props, emptyText, minQuery },
 				editor: props.editor,
 			});
 
@@ -158,7 +166,7 @@ const mentionRender = (emptyText: string) => () => {
 			});
 		},
 		onUpdate: (props: any) => {
-			component?.updateProps({ ...props, emptyText });
+			component?.updateProps({ ...props, emptyText, minQuery });
 			if (popup && props.clientRect) {
 				popup[0]?.setProps({
 					getReferenceClientRect: props.clientRect,
@@ -186,15 +194,12 @@ export const NoteEditor = ({
 	onMentionsChange,
 	mentionUsers,
 	placeholder = "Escribe tu comentario... Usa @ para mencionar",
-	mentionCases,
-	mentionLeads,
+	mentionSources,
 }: NoteEditorProps) => {
 	const mentionUsersRef = useRef(mentionUsers);
 	mentionUsersRef.current = mentionUsers;
-	const mentionCasesRef = useRef(mentionCases);
-	mentionCasesRef.current = mentionCases;
-	const mentionLeadsRef = useRef(mentionLeads);
-	mentionLeadsRef.current = mentionLeads;
+	const mentionSourcesRef = useRef(mentionSources);
+	mentionSourcesRef.current = mentionSources;
 
 	const peopleSuggestion = {
 		char: "@",
@@ -207,33 +212,21 @@ export const NoteEditor = ({
 		},
 		render: mentionRender("No se encontraron usuarios"),
 	};
-	const caseSuggestion = {
-		char: "#",
-		items: async ({ query }: { query: string }) =>
-			((await mentionCasesRef.current?.(query).catch(() => [])) ?? []).map((c) => ({
-				id: c.id,
-				name: c.title ?? c.label,
-				subtitle: c.subtitle,
-				label: c.label,
-			})),
-		render: mentionRender("No hay causas con ese nombre"),
-	};
-	const leadSuggestion = {
-		char: "$",
-		items: async ({ query }: { query: string }) =>
-			((await mentionLeadsRef.current?.(query).catch(() => [])) ?? []).map((l) => ({
-				id: l.id,
-				name: l.title ?? l.label,
-				subtitle: l.subtitle,
-				label: l.label,
-			})),
-		render: mentionRender("No hay leads con ese nombre"),
-	};
-	// `#` and `$` only where the caller searches cases or leads.
-	const extraSuggestions = [
-		...(mentionCasesRef.current ? [caseSuggestion] : []),
-		...(mentionLeadsRef.current ? [leadSuggestion] : []),
-	];
+	// The triggers are fixed when the editor is created; the ref keeps each search up to date.
+	const extraSuggestions = (mentionSourcesRef.current ?? []).map((source, i) => ({
+		char: source.char,
+		items: async ({ query }: { query: string }) => {
+			const current = mentionSourcesRef.current?.[i];
+			if (!current || query.length < (current.minQuery ?? 0)) return [];
+			return ((await current.search(query).catch(() => [])) ?? []).map((r) => ({
+				id: r.id,
+				name: r.title ?? r.label,
+				subtitle: r.subtitle,
+				label: r.label,
+			}));
+		},
+		render: mentionRender(source.emptyText, source.minQuery),
+	}));
 
 	const editor = useEditor({
 		immediatelyRender: false,

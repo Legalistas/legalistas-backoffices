@@ -72,6 +72,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { WorkBoard, WorkCard, WorkColumn, WorkPriority } from "@/types/workspace";
 import { BoardFilterPanel } from "./BoardFilterPanel";
+import { ProjectIcon } from "./ProjectLook";
 import { ProjectSettingsDialog } from "./ProjectSettingsDialog";
 import { ShareDialog } from "./ShareDialog";
 import { type CardActions, TaskCard } from "./TaskCard";
@@ -334,6 +335,22 @@ export default function Board({ projectId }: { projectId: number }) {
 			saveCard(id, () =>
 				workspaceFetch<WorkCard>(`/tasks/${id}/assignees`, token, { method: "PUT", json: { userIds } }),
 			),
+		remove: async (id, title) => {
+			const ok = await confirm({
+				title: "Eliminar tarea",
+				description: `"${title}" deja de verse en el tablero. Queda guardada en el historial por si hay que recuperarla.`,
+				confirmLabel: "Eliminar",
+				variant: "destructive",
+			});
+			if (!ok) return;
+			try {
+				await workspaceFetch(`/tasks/${id}/archive`, token, { method: "POST" });
+				setBoard((b) => (b ? { ...b, tasks: b.tasks.filter((t) => t.id !== id) } : b));
+				toast.success("Tarea eliminada");
+			} catch (e) {
+				toast.error(errorMessage(e, "No se pudo eliminar"));
+			}
+		},
 	};
 	const likeTask = (id: number) =>
 		saveCard(id, () => workspaceFetch<WorkCard>(`/tasks/${id}/like`, token, { method: "POST" }));
@@ -695,10 +712,12 @@ export default function Board({ projectId }: { projectId: number }) {
 					</Link>
 				</Button>
 				<span
-					className="size-7 shrink-0 rounded-lg"
+					className="grid size-8 shrink-0 place-items-center rounded-lg text-white"
 					style={{ backgroundColor: projectColor(project) }}
 					aria-hidden
-				/>
+				>
+					<ProjectIcon icon={project.icon} className="size-4.5" />
+				</span>
 				<div className="min-w-0">
 					<h1 className="flex items-center gap-2 text-xl font-semibold text-balance">
 						{project.name}

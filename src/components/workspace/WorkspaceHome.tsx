@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarDays, Check, KanbanSquare, Lock, Plus, Users } from "lucide-react";
+import { CalendarDays, Check, Lock, Plus, Users } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -25,6 +25,7 @@ import type { WorkHome, WorkHomeProject, WorkMyTask } from "@/types/workspace";
 import { CompleteToggle } from "./CompleteToggle";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { NewTaskDialog } from "./NewTaskDialog";
+import { ProjectIcon } from "./ProjectLook";
 
 type Tab = "upcoming" | "late" | "done";
 
@@ -100,7 +101,7 @@ function ProjectTile({ project }: { project: WorkHomeProject }) {
 				style={{ backgroundColor: projectColor(project) }}
 				aria-hidden
 			>
-				<KanbanSquare className="size-6" />
+				<ProjectIcon icon={project.icon} className="size-6" />
 			</span>
 			<span className="min-w-0">
 				<span className="flex items-center gap-1.5">

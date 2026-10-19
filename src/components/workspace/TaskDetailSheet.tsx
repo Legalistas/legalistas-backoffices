@@ -30,7 +30,7 @@ import {
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { NoteEditor } from "@/components/case-details/NoteEditor";
+import { type MentionSource, NoteEditor } from "@/components/case-details/NoteEditor";
 import { GroupAvatar } from "@/components/shared/GroupAvatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -78,6 +78,7 @@ import type {
 	WorkColumn,
 	WorkComment,
 	WorkLeadRef,
+	WorkMentionRef,
 	WorkPerson,
 	WorkTaskDetail,
 } from "@/types/workspace";
@@ -286,6 +287,35 @@ export function TaskDetailSheet({
 		[searchLeads],
 	);
 
+	/** Negotiations (%) and closings (-): only mentioned in the text, not linked. */
+	const searchRefs = useCallback(
+		(kind: "negotiations" | "closings", word: string) => async (q: string) =>
+			(
+				await workspaceFetch<WorkMentionRef[]>(`/projects/${projectId}/${kind}?q=${encodeURIComponent(q)}`, token)
+			).map((r) => ({
+				id: r.id,
+				label: `${r.name.toUpperCase()} · ${word} ${r.id}`,
+				title: r.name.toUpperCase(),
+				subtitle: r.subtitle,
+			})),
+		[projectId, token],
+	);
+
+	const mentionSources = useMemo<MentionSource[]>(
+		() => [
+			{ char: "#", search: searchCaseMentions, emptyText: "No hay causas con ese nombre" },
+			{ char: "$", search: searchLeadMentions, emptyText: "No hay leads con ese nombre" },
+			{
+				char: "%",
+				search: searchRefs("negotiations", "Negociación"),
+				emptyText: "No hay negociaciones con eso",
+				minQuery: 1,
+			},
+			{ char: "-", search: searchRefs("closings", "Cierre"), emptyText: "No hay cierres con eso", minQuery: 1 },
+		],
+		[searchCaseMentions, searchLeadMentions, searchRefs],
+	);
+
 	useEffect(() => {
 		if (!canEdit) return;
 		let alive = true;
@@ -451,19 +481,19 @@ export function TaskDetailSheet({
 	const archive = async () => {
 		if (!task) return;
 		const ok = await confirm({
-			title: "Archivar tarea",
-			description: `"${task.title}" deja de verse en el tablero. No se borra: queda en el historial.`,
-			confirmLabel: "Archivar",
+			title: "Eliminar tarea",
+			description: `"${task.title}" deja de verse en el tablero. Queda guardada en el historial por si hay que recuperarla.`,
+			confirmLabel: "Eliminar",
 			variant: "destructive",
 		});
 		if (!ok) return;
 		try {
 			await workspaceFetch(`/tasks/${task.id}/archive`, token, { method: "POST" });
 			onArchived(task.id);
-			toast.success("Tarea archivada");
+			toast.success("Tarea eliminada");
 			onClose();
 		} catch (e) {
-			toast.error(errorMessage(e, "No se pudo archivar"));
+			toast.error(errorMessage(e, "No se pudo eliminar"));
 		}
 	};
 
@@ -577,7 +607,7 @@ export function TaskDetailSheet({
 												<DropdownMenuSeparator />
 												<DropdownMenuItem variant="destructive" onSelect={archive}>
 													<Trash2 className="size-4" />
-													Archivar tarea
+													Eliminar tarea
 												</DropdownMenuItem>
 											</>
 										)}
@@ -934,9 +964,8 @@ export function TaskDetailSheet({
 												setDescriptionDirty(true);
 											}}
 											mentionUsers={people.map((p) => ({ id: p.id, name: p.name ?? "Sin nombre", image: p.image }))}
-											mentionCases={searchCaseMentions}
-											mentionLeads={searchLeadMentions}
-											placeholder="¿De qué se trata esta tarea? @ para mencionar a alguien, # para una causa, $ para un lead"
+											mentionSources={mentionSources}
+											placeholder="¿De qué se trata esta tarea? @ persona, # causa, $ lead, % negociación, - cierre"
 										/>
 									) : task.description ? (
 										<RichTextView html={task.description} />
@@ -1242,9 +1271,8 @@ export function TaskDetailSheet({
 										content=""
 										onChange={setComment}
 										mentionUsers={people.map((p) => ({ id: p.id, name: p.name ?? "Sin nombre", image: p.image }))}
-										mentionCases={searchCaseMentions}
-										mentionLeads={searchLeadMentions}
-										placeholder="Escribí un comentario... @ para mencionar, # causa, $ lead"
+										mentionSources={mentionSources}
+										placeholder="Escribí un comentario... @ persona, # causa, $ lead, % negociación, - cierre"
 									/>
 									<Button
 										size="icon"

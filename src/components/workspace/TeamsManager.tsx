@@ -30,7 +30,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useConfirm } from "@/hooks/useConfirm";
-import { errorMessage, workspaceFetch } from "@/lib/workspace-api";
+import { errorMessage, projectColor, workspaceFetch } from "@/lib/workspace-api";
 import type {
 	WorkCandidate,
 	WorkHome,
@@ -39,6 +39,7 @@ import type {
 	WorkTeamRole,
 } from "@/types/workspace";
 import { NewProjectDialog } from "./NewProjectDialog";
+import { ProjectIcon } from "./ProjectLook";
 
 const ROLE_LABEL: Record<WorkTeamRole, string> = { ADMIN: "Administra", MEMBER: "Miembro" };
 
@@ -356,6 +357,13 @@ export default function TeamsManager() {
 															href={`/admin/workspace/projects/${p.id}`}
 															className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60"
 														>
+															<span
+																className="grid size-6 shrink-0 place-items-center rounded-md text-white"
+																style={{ backgroundColor: projectColor(p) }}
+																aria-hidden
+															>
+																<ProjectIcon icon={p.icon} className="size-3.5" />
+															</span>
 															<span className="min-w-0 flex-1 truncate">{p.name}</span>
 															{p.privacy === "PRIVATE" && (
 																<Lock className="size-3.5 text-muted-foreground" aria-label="Privado" />

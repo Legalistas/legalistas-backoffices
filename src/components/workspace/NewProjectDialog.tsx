@@ -15,7 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { errorMessage, workspaceFetch } from "@/lib/workspace-api";
+import { errorMessage, PROJECT_COLORS, workspaceFetch } from "@/lib/workspace-api";
+import { ProjectLookPicker } from "./ProjectLook";
 
 interface Props {
 	/** Teams where the project can go; null = closed. With more than one, the user picks. */
@@ -30,6 +31,8 @@ export function NewProjectDialog({ teams, token, onOpenChange }: Props) {
 	const [teamId, setTeamId] = useState<number | null>(null);
 	const [name, setName] = useState("");
 	const [privacy, setPrivacy] = useState<"TEAM" | "PRIVATE">("TEAM");
+	const [color, setColor] = useState(PROJECT_COLORS[0]);
+	const [icon, setIcon] = useState<string | null>(null);
 	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
@@ -45,7 +48,7 @@ export function NewProjectDialog({ teams, token, onOpenChange }: Props) {
 		try {
 			const project = await workspaceFetch<{ id: number }>(`/teams/${team.id}/projects`, token, {
 				method: "POST",
-				json: { name: name.trim(), privacy },
+				json: { name: name.trim(), privacy, color, icon },
 			});
 			toast.success("Proyecto creado");
 			router.push(`/admin/workspace/projects/${project.id}`);
@@ -62,6 +65,8 @@ export function NewProjectDialog({ teams, token, onOpenChange }: Props) {
 				if (!open) {
 					setName("");
 					setPrivacy("TEAM");
+					setColor(PROJECT_COLORS[0]);
+					setIcon(null);
 				}
 				onOpenChange(open);
 			}}
@@ -114,6 +119,7 @@ export function NewProjectDialog({ teams, token, onOpenChange }: Props) {
 							</SelectContent>
 						</Select>
 					</div>
+					<ProjectLookPicker color={color} icon={icon} onColor={setColor} onIcon={setIcon} />
 					<DialogFooter>
 						<Button type="submit" disabled={busy || !name.trim() || !team}>
 							Crear proyecto
