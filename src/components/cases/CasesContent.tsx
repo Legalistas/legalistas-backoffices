@@ -68,6 +68,11 @@ export default function CasesContent() {
 	const [dateFrom, setDateFrom] = useState<string>("");
 	const [dateTo, setDateTo] = useState<string>("");
 	const [noEvents, setNoEvents] = useState(false);
+	/** Case-file type (1 administrative, 2 judicial): finds the case whatever its stage. */
+	const [selectedFileType, setSelectedFileType] = useState<number | undefined>(undefined);
+	// Read by fetchCases without adding a parameter to each of its calls.
+	const fileTypeRef = useRef(selectedFileType);
+	fileTypeRef.current = selectedFileType;
 	const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
 
 	const [responsibleLawyerTypes, setResponsibleLawyerTypes] = useState<
@@ -354,6 +359,10 @@ export default function CasesContent() {
 					url.searchParams.append("noEvents", "true");
 				}
 
+				if (fileTypeRef.current) {
+					url.searchParams.append("fileType", String(fileTypeRef.current));
+				}
+
 				const response = await fetch(url.toString(), {
 					method: "GET",
 					headers: {
@@ -434,6 +443,7 @@ export default function CasesContent() {
 			if (fromDateApi) url.searchParams.append("fromDate", fromDateApi);
 			if (toDateApi) url.searchParams.append("toDate", toDateApi);
 			if (noEvents) url.searchParams.append("noEvents", "true");
+			if (selectedFileType) url.searchParams.append("fileType", String(selectedFileType));
 
 			const response = await fetch(url.toString(), {
 				headers: {
@@ -645,6 +655,7 @@ export default function CasesContent() {
 		dateFrom,
 		dateTo,
 		noEvents,
+		selectedFileType,
 		formatDateForApi,
 	]);
 
@@ -895,6 +906,7 @@ export default function CasesContent() {
 		dateFrom,
 		dateTo,
 		noEvents,
+		selectedFileType,
 		updateURL,
 		fetchCases,
 		formatDateForApi,
@@ -911,6 +923,7 @@ export default function CasesContent() {
 		setDateFrom("");
 		setDateTo("");
 		setNoEvents(false);
+		setSelectedFileType(undefined);
 		setCurrentPage(1);
 
 		try {
@@ -1322,7 +1335,8 @@ export default function CasesContent() {
 			(selectedInternalLawyer && selectedInternalLawyer.length > 0) ||
 			dateFrom ||
 			dateTo ||
-			noEvents,
+			noEvents ||
+			selectedFileType !== undefined,
 	);
 
 	if (isLoading && cases.length === 0 && !hasSearched) {
@@ -1424,6 +1438,8 @@ export default function CasesContent() {
 					setDateTo={setDateTo}
 					noEvents={noEvents}
 					setNoEvents={setNoEvents}
+					selectedFileType={selectedFileType}
+					setSelectedFileType={setSelectedFileType}
 					hasActiveFilters={hasActiveFilters}
 					handleClearSearch={handleClearSearch}
 					viewMode={viewMode}

@@ -56,6 +56,9 @@ interface CasesFiltersProps {
 	setDateTo: (date: string) => void;
 	noEvents: boolean;
 	setNoEvents: (value: boolean) => void;
+	/** Case-file type: 1 administrative, 2 judicial; undefined = all. */
+	selectedFileType: number | undefined;
+	setSelectedFileType: (value: number | undefined) => void;
 	hasActiveFilters: boolean;
 	handleClearSearch: () => void;
 	viewMode: "list" | "kanban";
@@ -82,6 +85,8 @@ export const CasesFilters = ({
 	setDateTo,
 	noEvents,
 	setNoEvents,
+	selectedFileType,
+	setSelectedFileType,
 	hasActiveFilters,
 	handleClearSearch,
 	viewMode,
@@ -587,6 +592,38 @@ export const CasesFilters = ({
 									)}
 								</div>
 
+								{/* 4b. Tipo de expediente: finds the case whatever its stage */}
+								<div>
+									<span className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+										Tipo de expediente
+									</span>
+									<div
+										role="group"
+										aria-label="Tipo de expediente"
+										className="flex h-10 w-full overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 text-sm"
+									>
+										{[
+											{ value: undefined, label: "Todos" },
+											{ value: 1, label: "Administrativo" },
+											{ value: 2, label: "Judicial" },
+										].map((option) => (
+											<button
+												key={option.label}
+												type="button"
+												aria-pressed={selectedFileType === option.value}
+												onClick={() => setSelectedFileType(option.value)}
+												className={`flex-1 px-2 transition-colors ${
+													selectedFileType === option.value
+														? "bg-primary/10 font-medium text-primary"
+														: "bg-white text-gray-700 hover:bg-gray-100 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
+												}`}
+											>
+												{option.label}
+											</button>
+										))}
+									</div>
+								</div>
+
 								{/* 5. Fecha de creación */}
 								<div className="md:col-span-2">
 									<label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -800,6 +837,19 @@ export const CasesFilters = ({
 							<button
 								onClick={() => setNoEvents(false)}
 								className="text-red-600 hover:text-red-800"
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</span>
+					)}
+					{selectedFileType !== undefined && (
+						<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
+							Expediente {selectedFileType === 2 ? "judicial" : "administrativo"}
+							<button
+								type="button"
+								onClick={() => setSelectedFileType(undefined)}
+								aria-label="Quitar el filtro de tipo de expediente"
+								className="hover:opacity-70"
 							>
 								<X className="h-3 w-3" />
 							</button>
