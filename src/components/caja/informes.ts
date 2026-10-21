@@ -19,12 +19,28 @@ import {
 	cajaFetch,
 	esCambio,
 	esCompraDeDolares,
+	finDeMes,
 	formatARS,
 	formatFecha,
 	formatUSD,
 	nombrePeriodo,
 	traerTodosLosMovimientos,
 } from "./api";
+
+/**
+ * Range of the Caja General summary ("Resultado por mes" and "Por rubro"): the
+ * 6 months ending in `periodo` (YYYY-MM) or the whole year (YYYY). The panel
+ * and the full export use the same one.
+ */
+export const summaryWindow = (periodo: string) => {
+	if (periodo.length === 4) return { desde: `${periodo}-01-01`, hasta: `${periodo}-12-31` };
+	const [y, m] = periodo.split("-").map(Number);
+	const first = new Date(y, m - 6, 1);
+	return {
+		desde: `${first.getFullYear()}-${String(first.getMonth() + 1).padStart(2, "0")}-01`,
+		hasta: finDeMes(periodo),
+	};
+};
 
 // Tablas de los informes de la Caja Contable (Excel y PDF). Las usan los
 // paneles (cada uno exporta lo suyo) y el informe general del período.
@@ -169,7 +185,8 @@ export const tablaPorRubro = (resumen: CajaResumen): TablaInforme => ({
 
 /**
  * Informe general de la Caja para el período elegido: totales, saldo de cada
- * caja, resultado por rubro (y por mes si es un año) y todos los movimientos.
+ * caja, resultado por mes y por rubro (el mismo rango que muestra la Caja
+ * General: 6 meses o el año) y todos los movimientos del período.
  * Quien no administra la Caja recibe el de sus cajas, sin el desglose por
  * rubro (el resumen general es de administradores).
  */
@@ -190,10 +207,14 @@ export async function exportarInformeCaja(
 ): Promise<void> {
 	const { esAdmin, cajas, general, cotizacion } = datos;
 	const filtros = new URLSearchParams(rango);
+	const summaryRange = summaryWindow(periodo);
+	const windowLabel = `${formatFecha(summaryRange.desde)} al ${formatFecha(summaryRange.hasta)}`;
 	const [movimientos, resumen] = await Promise.all([
 		traerTodosLosMovimientos(token, filtros),
 		esAdmin
-			? cajaFetch<{ data: CajaResumen }>(`/resumen?${filtros}`, token).then((r) => r.data)
+			? cajaFetch<{ data: CajaResumen }>(`/resumen?${new URLSearchParams(summaryRange)}`, token).then(
+					(r) => r.data,
+				)
 			: null,
 	]);
 
@@ -207,7 +228,6 @@ export async function exportarInformeCaja(
 	};
 	const diferencia = totales.ingresosMes - totales.egresosMes;
 	const etiquetaSaldo = general ? "Caja General" : "Saldo";
-	const anual = periodo.length === 4;
 	const nombre = nombrePeriodo(periodo);
 	// Los dólares, aparte; en pesos solo como referencia, al MEP del día.
 	const hayDolares = !!totales.saldoUsd;
@@ -215,8 +235,7 @@ export async function exportarInformeCaja(
 
 	const tablas: TablaInforme[] = [
 		tablaSaldos(cajas, general),
-		...(resumen && anual ? [tablaPorMes(resumen)] : []),
-		...(resumen ? [tablaPorRubro(resumen)] : []),
+		...(resumen ? [tablaPorMes(resumen), tablaPorRubro(resumen)] : []),
 		tablaMovimientos(movimientos.data, movimientos.totales, true),
 	];
 	const archivo = `Informe de Caja ${nombre}`;
@@ -246,6 +265,7 @@ export async function exportarInformeCaja(
 					["Diferencia del período", diferencia],
 					// Como texto: la columna tiene formato de pesos.
 					["Cantidad de movimientos", String(movimientos.data.length)],
+					...(resumen ? [["Resultado por mes y por rubro", windowLabel] as Celda[]] : []),
 				],
 				montos: [1],
 			},
@@ -275,7 +295,7 @@ export async function exportarInformeCaja(
 	];
 	await exportarPdf(archivo, {
 		titulo: "Informe de Caja",
-		subtitulo: `Período: ${nombre}${hayDolares && mep ? ` · Dólar MEP ${formatARS(mep)}` : ""}`,
+		subtitulo: `Período: ${nombre}${resumen ? ` · Por mes y por rubro: ${windowLabel}` : ""}${hayDolares && mep ? ` · Dólar MEP ${formatARS(mep)}` : ""}`,
 		horizontal: true,
 		resumen: resumenPdf,
 		tablas,

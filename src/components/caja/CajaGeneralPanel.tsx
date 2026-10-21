@@ -19,8 +19,8 @@ import { CAJA_GRUPO_LABEL } from "@/constant/caja";
 import { exportarExcel, exportarPdf } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaGrupo, CajaResumen, CajaTotales } from "@/types/caja";
-import { cajaFetch, finDeMes, formatARS, formatUSD } from "./api";
-import { tablaPorMes, tablaPorRubro, tablaSaldos } from "./informes";
+import { cajaFetch, formatARS, formatUSD } from "./api";
+import { summaryWindow, tablaPorMes, tablaPorRubro, tablaSaldos } from "./informes";
 
 const Monto = ({ valor, className }: { valor: number; className?: string }) => (
 	<span className={cn("tabular-nums", valor < 0 && "text-red-600", className)}>
@@ -37,14 +37,6 @@ const MontoUsd = ({ valor, className }: { valor: number; className?: string }) =
 const nombreMes = (mes: string) => {
 	const [y, m] = mes.split("-").map(Number);
 	return new Date(y, m - 1, 1).toLocaleDateString("es-AR", { month: "long", year: "numeric" });
-};
-
-/** Primer día de los 6 meses que terminan en `mes` (YYYY-MM); en un año, el 1/1. */
-const inicioPeriodo = (mes: string) => {
-	if (mes.length === 4) return `${mes}-01-01`;
-	const [y, m] = mes.split("-").map(Number);
-	const d = new Date(y, m - 6, 1);
-	return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
 };
 
 /** Caja General: saldo de cada caja por grupo, resultado por mes y por rubro. */
@@ -66,10 +58,7 @@ export default function CajaGeneralPanel({
 
 	useEffect(() => {
 		if (!token) return;
-		const params = new URLSearchParams({
-			desde: inicioPeriodo(mes),
-			hasta: mes.length === 4 ? `${mes}-12-31` : finDeMes(mes),
-		});
+		const params = new URLSearchParams(summaryWindow(mes));
 		cajaFetch<{ data: CajaResumen }>(`/resumen?${params}`, token)
 			.then((r) => setResumen(r.data))
 			.catch((e) => console.error("[Caja] Error cargando resumen:", e));

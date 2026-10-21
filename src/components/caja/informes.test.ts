@@ -5,7 +5,7 @@ import { CAJA_GRUPO_LABEL } from "@/constant/caja";
 import { armarPdf } from "@/lib/exportar";
 import type { Caja, CajaMovimiento, CajaResumen } from "@/types/caja";
 import { esCambio, esCompraDeDolares, formatMonto, formatUSD } from "./api";
-import { tablaMovimientos, tablaPorMes, tablaPorRubro, tablaSaldos } from "./informes";
+import { summaryWindow, tablaMovimientos, tablaPorMes, tablaPorRubro, tablaSaldos } from "./informes";
 
 const caja = (id: number, nombre: string, extra: Partial<Caja> = {}): Caja => ({
 	id,
@@ -183,6 +183,14 @@ describe("tablaMovimientos", () => {
 		expect(formatUSD(275)).toBe("US$ 275,00");
 		expect(formatUSD(-1234.5)).toBe("-US$ 1.234,50");
 		expect(formatMonto(275, "USD")).toBe("US$ 275,00");
+	});
+});
+
+describe("summaryWindow", () => {
+	test("a month: the 6 months ending in it (crosses the year); a year: the whole year", () => {
+		expect(summaryWindow("2026-10")).toEqual({ desde: "2026-05-01", hasta: "2026-10-31" });
+		expect(summaryWindow("2026-02")).toEqual({ desde: "2025-09-01", hasta: "2026-02-28" });
+		expect(summaryWindow("2026")).toEqual({ desde: "2026-01-01", hasta: "2026-12-31" });
 	});
 });
 

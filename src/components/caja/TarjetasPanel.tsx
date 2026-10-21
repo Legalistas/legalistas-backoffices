@@ -154,6 +154,10 @@ export default function TarjetasPanel({
 	const [anulando, setAnulando] = useState<TarjetaCompra | null>(null);
 	const [exportando, setExportando] = useState<"xlsx" | "pdf" | null>(null);
 	const [interno, setInterno] = useState(0);
+	// Voided purchases are hidden (not deleted: they stay in the history).
+	const [showVoided, setShowVoided] = useState(false);
+	const voidedCount = detalle?.compras.filter((c) => c.anulada).length ?? 0;
+	const visiblePurchases = (detalle?.compras ?? []).filter((c) => showVoided || !c.anulada);
 
 	const cargar = useCallback(async () => {
 		if (!token) return;
@@ -228,7 +232,7 @@ export default function TarjetasPanel({
 						"1er resumen",
 						"Estado",
 					],
-					filas: detalle.compras.map((c) => [
+					filas: visiblePurchases.map((c) => [
 						formatFecha(c.fecha),
 						c.descripcion,
 						[c.rubro?.nombre, c.subRubro?.nombre].filter(Boolean).join(" › "),
@@ -396,7 +400,9 @@ export default function TarjetasPanel({
 							<Tabs defaultValue="resumenes">
 								<TabsList>
 									<TabsTrigger value="resumenes">Resúmenes</TabsTrigger>
-									<TabsTrigger value="compras">Compras ({detalle.compras.length})</TabsTrigger>
+									<TabsTrigger value="compras">
+										Compras ({detalle.compras.length - voidedCount})
+									</TabsTrigger>
 								</TabsList>
 
 								<TabsContent value="resumenes" className="mt-4">
@@ -512,6 +518,18 @@ export default function TarjetasPanel({
 								</TabsContent>
 
 								<TabsContent value="compras" className="mt-4">
+									{voidedCount > 0 && (
+										<div className="mb-2 flex justify-end">
+											<Button
+												variant="ghost"
+												size="sm"
+												className="text-muted-foreground"
+												onClick={() => setShowVoided((v) => !v)}
+											>
+												{showVoided ? "Ocultar anuladas" : `Ver anuladas (${voidedCount})`}
+											</Button>
+										</div>
+									)}
 									<Table>
 										<TableHeader className="bg-muted/50">
 											<TableRow>
@@ -526,14 +544,16 @@ export default function TarjetasPanel({
 											</TableRow>
 										</TableHeader>
 										<TableBody>
-											{detalle.compras.length === 0 ? (
+											{visiblePurchases.length === 0 ? (
 												<TableRow>
 													<TableCell colSpan={8} className="py-8 text-center text-muted-foreground">
-														Todavía no hay compras en esta tarjeta.
+														{voidedCount > 0
+															? "Solo hay compras anuladas."
+															: "Todavía no hay compras en esta tarjeta."}
 													</TableCell>
 												</TableRow>
 											) : (
-												detalle.compras.map((c) => (
+												visiblePurchases.map((c) => (
 													<TableRow key={c.id} className={cn(c.anulada && "opacity-50")}>
 														<TableCell className="tabular-nums">{formatFecha(c.fecha)}</TableCell>
 														<TableCell className="max-w-64">
