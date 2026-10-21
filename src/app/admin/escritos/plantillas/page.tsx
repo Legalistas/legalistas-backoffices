@@ -3,6 +3,7 @@
 import {
 	AlertCircle,
 	ArrowLeft,
+	Download,
 	FilePlus2,
 	FileText,
 	Loader2,
@@ -11,6 +12,7 @@ import {
 	Search,
 	Trash2,
 } from "lucide-react";
+import { saveAs } from "file-saver";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -127,6 +129,7 @@ export default function PlantillasEscritosPage() {
 	const [busqueda, setBusqueda] = useState("");
 	const [editando, setEditando] = useState<Borrador | null>(null);
 	const [guardando, setGuardando] = useState(false);
+	const [descargando, setDescargando] = useState(false);
 
 	const cargar = useCallback(async () => {
 		if (!token) return;
@@ -215,6 +218,44 @@ export default function PlantillasEscritosPage() {
 		}
 	};
 
+	/** PDF of what is on screen, saved or not; variables come out as [CARATULA]. */
+	const descargar = async () => {
+		if (!token || !editando) return;
+		setDescargando(true);
+		try {
+			const { nombre, tipo, contenidoHtml, membrete, fuente, tamanoFuente, interlineado, numerarPaginas } =
+				editando;
+			const { margenSuperior, margenInferior, margenIzquierdo, margenDerecho } = editando;
+			const res = await fetch(`${ESCRITOS_PLANTILLAS_ENDPOINT}/pdf`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+				body: JSON.stringify({
+					nombre,
+					tipo,
+					contenidoHtml,
+					membrete,
+					fuente,
+					tamanoFuente,
+					interlineado,
+					numerarPaginas,
+					margenSuperior,
+					margenInferior,
+					margenIzquierdo,
+					margenDerecho,
+				}),
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.error || body.message || "No se pudo generar el PDF");
+			}
+			saveAs(await res.blob(), `${nombre.trim() || "Plantilla"}.pdf`);
+		} catch (e) {
+			toast.error((e as Error).message);
+		} finally {
+			setDescargando(false);
+		}
+	};
+
 	const eliminar = async (p: PlantillaListItem) => {
 		if (!token) return;
 		const ok = await confirm({
@@ -262,14 +303,29 @@ export default function PlantillasEscritosPage() {
 							{editando.nombre || (editando.id ? "Plantilla" : "Nueva plantilla")}
 						</h1>
 					</div>
-					<Button onClick={guardar} disabled={guardando}>
-						{guardando ? (
-							<Loader2 className="mr-1 h-4 w-4 animate-spin" />
-						) : (
-							<Save className="mr-1 h-4 w-4" />
-						)}
-						Guardar plantilla
-					</Button>
+					<div className="flex flex-wrap items-center gap-2">
+						<Button
+							variant="outline"
+							onClick={descargar}
+							disabled={descargando}
+							title="Descarga lo que se ve en pantalla, aunque no esté guardado"
+						>
+							{descargando ? (
+								<Loader2 className="mr-1 h-4 w-4 animate-spin" />
+							) : (
+								<Download className="mr-1 h-4 w-4" />
+							)}
+							Descargar PDF
+						</Button>
+						<Button onClick={guardar} disabled={guardando}>
+							{guardando ? (
+								<Loader2 className="mr-1 h-4 w-4 animate-spin" />
+							) : (
+								<Save className="mr-1 h-4 w-4" />
+							)}
+							Guardar plantilla
+						</Button>
+					</div>
 				</div>
 
 				<div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
