@@ -22,6 +22,7 @@ import {
 import { apiErrorMessage } from "@/lib/api-error";
 import Adjuntos from "@/components/rrhh/Adjuntos";
 import { useDocumentos, useEsRrhhAdmin } from "@/components/rrhh/api";
+import { CONTRATO_TIPO_LABEL } from "@/constant/rrhh";
 
 type ContractType = "FIXED_TERM" | "INDEFINITE" | "INTERNSHIP" | "FREELANCE";
 type ContractStatus = "ACTIVE" | "EXPIRED" | "TERMINATED" | "DRAFT";
@@ -63,12 +64,7 @@ const EMPTY_FORM: FormState = {
 	parentId: "",
 };
 
-const typeLabel: Record<ContractType, string> = {
-	FIXED_TERM: "Plazo fijo",
-	INDEFINITE: "Tiempo indeterminado",
-	INTERNSHIP: "Pasantía",
-	FREELANCE: "Monotributista",
-};
+const typeLabel: Record<ContractType, string> = CONTRATO_TIPO_LABEL;
 
 const statusLabel: Record<ContractStatus, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
 	ACTIVE: { label: "Activo", variant: "default" },

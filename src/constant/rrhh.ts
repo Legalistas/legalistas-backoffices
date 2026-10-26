@@ -89,6 +89,20 @@ export const CONCEPTO_LABEL: Record<ConceptoTipo, string> = {
 	OTRO: "Otro",
 };
 
+export const CONTRATO_TIPO_LABEL: Record<string, string> = {
+	FIXED_TERM: "Plazo fijo",
+	INDEFINITE: "Tiempo indeterminado",
+	INTERNSHIP: "Pasantía",
+	FREELANCE: "Monotributista",
+};
+
+export const CONTRATO_ESTADO_LABEL: Record<string, string> = {
+	ACTIVE: "Activo",
+	EXPIRED: "Vencido",
+	TERMINATED: "Rescindido",
+	DRAFT: "Borrador",
+};
+
 export const LICENCIA_LABEL: Record<string, string> = {
 	VACATION: "Vacaciones",
 	SICK: "Enfermedad",

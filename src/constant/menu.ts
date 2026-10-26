@@ -20,6 +20,7 @@ import {
   User,
   Users2,
   Vault,
+  Wallet,
   Wrench,
 } from "lucide-react";
 import { CAJA_ADMIN_ROLES } from "@/constant/caja";
@@ -253,6 +254,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Equipo",
         path: "/admin/teams",
         roles: TEAM_ACCESS_ROLES,
+      },
+      {
+        icon: Wallet,
+        name: "Panel RR.HH.",
+        path: "/admin/rrhh/panel",
+        roles: RRHH_REPORTS_ACCESS,
       },
       {
         icon: PieChart,
