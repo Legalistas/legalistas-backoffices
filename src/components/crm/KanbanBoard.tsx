@@ -20,6 +20,7 @@ import {
 	Mail,
 	MessageSquare,
 	Plus,
+	Send,
 	SquareKanban,
 	Trophy,
 	XCircle,
@@ -62,6 +63,7 @@ const columnConfig: Record<string, { bg: string; color: string; borderColor: str
 	"4": { bg: "bg-blue-50", color: "text-blue-700", borderColor: "border-blue-200", icon: Briefcase },
 	"12": { bg: "bg-rose-50", color: "text-rose-700", borderColor: "border-rose-200", icon: Mail },
 	"5": { bg: "bg-purple-50", color: "text-purple-700", borderColor: "border-purple-200", icon: Clock },
+	"13": { bg: "bg-teal-50", color: "text-teal-700", borderColor: "border-teal-200", icon: Send },
 	"6": { bg: "bg-indigo-50", color: "text-indigo-700", borderColor: "border-indigo-200", icon: Handshake },
 	"8": { bg: "bg-cyan-50", color: "text-cyan-700", borderColor: "border-cyan-200", icon: FileText },
 	"9": { bg: "bg-green-50", color: "text-green-700", borderColor: "border-green-200", icon: Trophy },
@@ -546,7 +548,7 @@ export default function KanbanBoard() {
 		if (destination.droppableId === "9") {
 			newStatus = "WON";
 		} else if (
-			["1", "2", "3", "4", "5", "6", "8", "12"].includes(destination.droppableId)
+			["1", "2", "3", "4", "5", "6", "8", "12", "13"].includes(destination.droppableId)
 		) {
 			newStatus = "IN_PROGRESS";
 		}
@@ -872,7 +874,7 @@ export default function KanbanBoard() {
 										(columnIdNum === 9 || columnIdNum === 10 || columnIdNum === 11)
 									) return false;
 
-									if ((columnIdNum >= 1 && columnIdNum <= 8) || columnIdNum === 12) {
+									if ((columnIdNum >= 1 && columnIdNum <= 8) || columnIdNum === 12 || columnIdNum === 13) {
 										return lead.status === "IN_PROGRESS" && lead.columnId === columnIdNum;
 									} else if (columnIdNum === 9) {
 										return lead.status === "WON";

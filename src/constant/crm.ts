@@ -26,6 +26,7 @@ export const CRM_COLUMNS: CRMColumn[] = [
   { id: "4", title: "En Tratamiento" },
   { id: "12", title: "Telegramas" },
   { id: "5", title: "Pendiente De Confirmación" },
+  { id: "13", title: "Derivado a Partner" },
   { id: "6", title: "Coordinar Reunión Poder" },
   { id: "8", title: "Pendiente Poder" },
   { id: "9", title: "Ganado - Trajo Poder" },
