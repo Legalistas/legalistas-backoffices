@@ -12,6 +12,7 @@ import LayoutSidebar from "@/components/layout/Sidebar";
 import { NotificationProvider } from "@/components/notification-provider";
 import { SidebarInset, SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { useSessionTracker } from "@/hooks/useSessionTracker";
+import { useSignOutOnRevokedSession } from "@/hooks/useSignOutOnRevokedSession";
 import { cn } from "@/lib/utils";
 
 // Necesita estar dentro de <SidebarProvider> para leer el estado — por eso
@@ -42,6 +43,7 @@ export default function AdminLayout({
 	const router = useRouter();
 
 	useSessionTracker();
+	useSignOutOnRevokedSession();
 
 	useEffect(() => {
 		if (status === "unauthenticated") {

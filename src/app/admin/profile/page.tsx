@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import ProfileContent from "@/components/profile/ProfileContent";
 
 export const metadata: Metadata = {
-	title: "Perfil | Legalistas Admin",
-	description: "Administra y gestiona todos los casos legales de tus clientes",
+	title: "Configuración | Legalistas Admin",
+	description: "Seguridad de tu cuenta y cuentas vinculadas",
 };
 
 export default function ProfilePage() {
-	return <ProfileContent />;
+	// ProfileContent reads ?tab= with useSearchParams, which needs a Suspense boundary.
+	return (
+		<Suspense>
+			<ProfileContent />
+		</Suspense>
+	);
 }

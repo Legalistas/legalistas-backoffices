@@ -220,8 +220,7 @@ export default function LegalSection() {
 			</div>
 
 			<p className="text-xs text-muted-foreground">
-				El domicilio legal sale de la dirección por defecto de tu usuario, en
-				Información general.
+				El domicilio legal es el que cargás en Mis datos.
 			</p>
 		</div>
 	);

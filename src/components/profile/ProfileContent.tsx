@@ -1,13 +1,10 @@
 "use client";
 import {
 	Bell,
-	Camera,
 	ChevronRight,
-	Chrome,
 	Clock,
 	Eye,
 	EyeOff,
-	Globe,
 	KeyRound,
 	Laptop,
 	Link2,
@@ -15,87 +12,128 @@ import {
 	Lock,
 	LogOut,
 	Mail,
-	MessageSquare,
-	Monitor,
-	Scale,
 	Shield,
 	Smartphone,
 	Tablet,
-	User,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { signOut, useSession } from "next-auth/react";
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { apiErrorMessage } from "@/lib/api-error";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import {
 	ACTIVITY_LOGS_BY_USER_ENDPOINT,
 	API_BASE_URL,
-	UPLOAD_ENDPOINT,
+	CLOSE_OTHER_SESSIONS_ENDPOINT,
+	MY_NOTIFICATION_PREFS_ENDPOINT,
 	USER_PROFILE_ENDPOINT,
 } from "@/constant/api-endpoints";
-import LegalSection from "@/components/profile/LegalSection";
-import { docsType, genderType } from "@/lib/constant";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useConfirm } from "@/hooks/useConfirm";
+import { apiErrorMessage } from "@/lib/api-error";
 
-type TabId =
-	| "general"
-	| "legal"
-	| "security"
-	| "notifications"
-	| "connections";
+// Configuración = how you use the system. Personal and professional data
+// live in Mi perfil (MyProfilePage).
+type TabId = "security" | "notifications" | "connections";
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
-	{ id: "general", label: "Información general", icon: User },
-	{ id: "legal", label: "Legal", icon: Scale },
 	{ id: "security", label: "Seguridad", icon: Lock },
 	{ id: "notifications", label: "Notificaciones", icon: Bell },
 	{ id: "connections", label: "Conexiones", icon: Link2 },
 ];
 
+// Same switches as the mobile app (user_profiles.notificationsEmail / Push).
+const NOTIFICATION_CHANNELS = [
+	{
+		key: "email",
+		icon: Mail,
+		label: "Mails",
+		desc: "Avisos por correo, por ejemplo de audiencias nuevas",
+	},
+	{
+		key: "push",
+		icon: Smartphone,
+		label: "Notificaciones push",
+		desc: "Avisos en el celular, en la app de Legalistas",
+	},
+] as const;
+
 export default function ProfileContent() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
-	const [activeTab, setActiveTab] = useState<TabId>("general");
+	const pathname = usePathname();
+	const searchParams = useSearchParams();
+	// The tab lives in the URL (?tab=connections) so it can be linked directly.
+	const tabParam = searchParams.get("tab");
+	const activeTab: TabId = TABS.some((t) => t.id === tabParam) ? (tabParam as TabId) : "security";
+	const setActiveTab = (id: TabId) => router.replace(`${pathname}?tab=${id}`, { scroll: false });
 	const [isLoading, setIsLoading] = useState(false);
-	const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-	const fileInputRef = useRef<HTMLInputElement>(null);
-	const [imageError, setImageError] = useState(false);
-
-	// User data
-	const [userData, setUserData] = useState({ name: "", email: "", image: null as string | null });
-	const [profileData, setProfileData] = useState({ docType: "", docNumber: "", gender: "", birthDate: "", phone: "" });
 
 	// Password
 	const [passwordData, setPasswordData] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
 	const [showPasswords, setShowPasswords] = useState({ current: false, new: false, confirm: false });
 
-	// Notifications
-	const [notifications, setNotifications] = useState({
-		emailNotifications: true,
-		pushNotifications: true,
-		meetingReminders: true,
-		leadUpdates: true,
-		systemUpdates: false,
-	});
-
 	// Connections
 	const [googleLinked, setGoogleLinked] = useState(false);
-	const [emailVerified, setEmailVerified] = useState<string | null>(null);
+
+	// Notifications: saved on each switch, there is no "Guardar" button.
+	const [notifPrefs, setNotifPrefs] = useState<{ email: boolean; push: boolean } | null>(null);
+	const [savingPref, setSavingPref] = useState(false);
+	const [closingSessions, setClosingSessions] = useState(false);
+	const [sessionsReload, setSessionsReload] = useState(0);
+	const { confirm, ConfirmationDialog } = useConfirm();
+
+	const togglePref = async (key: "email" | "push", value: boolean) => {
+		if (!notifPrefs) return;
+		const previous = notifPrefs;
+		setNotifPrefs({ ...notifPrefs, [key]: value });
+		setSavingPref(true);
+		try {
+			const res = await fetch(MY_NOTIFICATION_PREFS_ENDPOINT, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.user?.accessToken}` },
+				body: JSON.stringify({ [key]: value }),
+			});
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo guardar"));
+			setNotifPrefs(await res.json());
+		} catch (err) {
+			setNotifPrefs(previous);
+			toast.error(err instanceof Error ? err.message : "No se pudo guardar");
+		} finally {
+			setSavingPref(false);
+		}
+	};
+
+	const handleCloseOtherSessions = async () => {
+		const ok = await confirm({
+			title: "Cerrar las otras sesiones",
+			description:
+				"Se cierra tu sesión en todos los otros navegadores y en la app del celular. Esta queda abierta. Puede tardar hasta un minuto en aplicarse.",
+			confirmLabel: "Cerrar las otras",
+			variant: "destructive",
+		});
+		if (!ok) return;
+		setClosingSessions(true);
+		try {
+			const res = await fetch(CLOSE_OTHER_SESSIONS_ENDPOINT, {
+				method: "POST",
+				headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.user?.accessToken}` },
+				body: JSON.stringify({ activityLogId: session?.user?.activityLogId ?? undefined }),
+			});
+			if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudieron cerrar las sesiones"));
+			toast.success("Listo: quedó abierta solo esta sesión");
+			setSessionsReload((n) => n + 1);
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : "No se pudieron cerrar las sesiones");
+		} finally {
+			setClosingSessions(false);
+		}
+	};
 
 	// Active sessions
 	interface SessionLog {
@@ -177,32 +215,24 @@ export default function ProfileContent() {
 		return groups.slice(0, 7);
 	}, [activeSessions]);
 
-	// Fetch profile
+	// Google link status + session history
 	useEffect(() => {
 		if (!session?.user?.id || status !== "authenticated") return;
 		const fetchProfile = async () => {
-			setIsLoadingProfile(true);
 			try {
 				const res = await fetch(`${USER_PROFILE_ENDPOINT}/${session.user.id}`, {
 					headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.user.accessToken}` },
 				});
 				if (!res.ok) throw new Error("Error al cargar perfil");
 				const data = await res.json();
-				console.log("Profile data:", data);
-				setUserData({ name: session.user.name || "", email: session.user.email || "", image: session.user.image || null });
-				if (data.profile) {
-					setProfileData({
-						docType: data.profile.docType?.toString() || "",
-						docNumber: data.profile.docNumber || "",
-						gender: data.profile.gender?.toString() || "",
-						birthDate: data.profile.birthDate || "",
-						phone: data.profile.phone || "",
-					});
-				}
 				if (data.googleLinked !== undefined) {
 					setGoogleLinked(data.googleLinked);
 				}
-				setEmailVerified(data.emailVerified || null);
+
+				const prefsRes = await fetch(MY_NOTIFICATION_PREFS_ENDPOINT, {
+					headers: { Authorization: `Bearer ${session.user.accessToken}` },
+				});
+				if (prefsRes.ok) setNotifPrefs(await prefsRes.json());
 
 				// Fetch historial de sesiones (se agrupa por día en el render)
 				const sessionsRes = await fetch(ACTIVITY_LOGS_BY_USER_ENDPOINT(Number(session.user.id)), {
@@ -213,39 +243,12 @@ export default function ProfileContent() {
 					const all = sessionsData.data || sessionsData || [];
 					setActiveSessions(all);
 				}
-			} catch (err) {
-				toast.error("Error al cargar el perfil");
-			} finally {
-				setIsLoadingProfile(false);
+			} catch {
+				toast.error("Error al cargar la configuración");
 			}
 		};
 		fetchProfile();
-	}, [session?.user?.id, status]);
-
-	// Save profile
-	const handleSaveProfile = async () => {
-		setIsLoading(true);
-		try {
-			const res = await fetch(`${USER_PROFILE_ENDPOINT}/${session?.user?.id}`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.user?.accessToken}` },
-				body: JSON.stringify({
-					name: userData.name, email: userData.email, image: userData.image,
-					docType: profileData.docType ? parseInt(profileData.docType) : null,
-					docNumber: profileData.docNumber,
-					gender: profileData.gender ? parseInt(profileData.gender) : null,
-					birthDate: profileData.birthDate, phone: profileData.phone,
-				}),
-			});
-			if (!res.ok)
-				throw new Error(await apiErrorMessage(res, "Error al actualizar el perfil"));
-			toast.success("Perfil actualizado correctamente");
-		} catch (err) {
-			toast.error(err instanceof Error ? err.message : "Error al actualizar el perfil");
-		} finally {
-			setIsLoading(false);
-		}
-	};
+	}, [session?.user?.id, status, sessionsReload]);
 
 	// Change password
 	const handleChangePassword = async () => {
@@ -277,94 +280,40 @@ export default function ProfileContent() {
 		}
 	};
 
-	// Upload image
-	const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-		const file = e.target.files?.[0];
-		if (!file) return;
-		setIsLoading(true);
-		try {
-			const formData = new FormData();
-			formData.append("image", file);
-			const res = await fetch(`${UPLOAD_ENDPOINT}/profile_pic`, {
-				method: "POST",
-				headers: { Authorization: `Bearer ${session?.user?.accessToken}` },
-				body: formData,
-			});
-			if (!res.ok) throw new Error("Error al subir imagen");
-			const data = await res.json();
-			setUserData((prev) => ({ ...prev, image: data.imageUrl || data.url || data.path || "" }));
-			setImageError(false);
-			toast.success("Imagen actualizada");
-		} catch {
-			toast.error("Error al subir la imagen");
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	if (status === "loading") {
+	if (status === "loading" && !session) {
 		return (
 			<div className="space-y-6">
 				<Skeleton className="h-8 w-52" />
 				<div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
 					<div className="bg-card border border-border rounded-xl p-3 space-y-2">
-						{Array.from({ length: 4 }).map((_, i) => (
+						{Array.from({ length: 2 }).map((_, i) => (
 							<Skeleton key={i} className="h-10 w-full rounded-lg" />
 						))}
 					</div>
-					<div className="bg-card border border-border rounded-xl p-6 space-y-6">
+					<div className="bg-card border border-border rounded-xl p-6 space-y-4">
 						<Skeleton className="h-6 w-40" />
-						<div className="flex items-center gap-5">
-							<Skeleton className="h-20 w-20 rounded-full" />
-							<div className="space-y-2">
-								<Skeleton className="h-4 w-32" />
-								<Skeleton className="h-3 w-48" />
-							</div>
-						</div>
-						<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-							{Array.from({ length: 6 }).map((_, i) => (
-								<div key={i} className="space-y-2">
-									<Skeleton className="h-4 w-28" />
-									<Skeleton className="h-10 w-full rounded-lg" />
-								</div>
-							))}
-						</div>
+						{Array.from({ length: 3 }).map((_, i) => (
+							<Skeleton key={i} className="h-10 w-full max-w-md rounded-lg" />
+						))}
 					</div>
 				</div>
 			</div>
 		);
 	}
 
-	const imageUrl = userData.image
-		? userData.image.startsWith("http") ? userData.image : `${process.env.NEXT_PUBLIC_BACKEND_URL}${userData.image}`
-		: null;
-
 	return (
 		<div className="space-y-6">
-			<h1 className="text-2xl font-bold text-foreground">Configuración de perfil</h1>
-
-			{!isLoadingProfile && !emailVerified && (
-				<div className="flex items-center justify-between p-4 rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20">
-					<div className="flex items-center gap-3">
-						<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/40">
-							<Mail className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-						</div>
-						<div>
-							<p className="text-sm font-medium text-amber-800 dark:text-amber-300">Tu cuenta no está verificada</p>
-							<p className="text-xs text-amber-600 dark:text-amber-400">Verificá tu correo electrónico para acceder a todas las funcionalidades</p>
-						</div>
-					</div>
-					<Button
-						variant="outline"
-						size="sm"
-						className="border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 shrink-0"
-						onClick={() => toast.success("Email de verificación enviado a " + userData.email)}
-					>
-						<Mail className="h-3.5 w-3.5 mr-1.5" />
-						Enviar verificación
-					</Button>
-				</div>
-			)}
+			{ConfirmationDialog}
+			<div>
+				<h1 className="text-2xl font-bold text-foreground">Configuración</h1>
+				<p className="text-sm text-muted-foreground mt-1">
+					Tus datos personales y profesionales están en{" "}
+					<Link href="/admin/perfil" className="text-primary hover:underline">
+						Mi perfil
+					</Link>
+					.
+				</p>
+			</div>
 
 			<div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-6">
 				{/* Sidebar */}
@@ -372,6 +321,7 @@ export default function ProfileContent() {
 					<div className="space-y-1">
 						{TABS.map((tab) => (
 							<button
+								type="button"
 								key={tab.id}
 								onClick={() => setActiveTab(tab.id)}
 								className={`w-full flex items-center justify-between p-2.5 rounded-lg text-sm transition-colors ${
@@ -390,7 +340,7 @@ export default function ProfileContent() {
 					</div>
 					<div className="pt-3 mt-auto border-t border-border">
 						<button
-							onClick={() => router.push("/api/auth/signout")}
+							onClick={() => signOut({ callbackUrl: "/signin" })}
 							className="w-full flex items-center gap-2.5 p-2.5 rounded-lg text-sm text-red-500 hover:bg-red-500/10 transition-colors"
 						>
 							<LogOut className="h-4 w-4" />
@@ -401,133 +351,6 @@ export default function ProfileContent() {
 
 				{/* Content */}
 				<div className="bg-card border border-border rounded-xl p-6">
-					{/* ═══ GENERAL ═══ */}
-					{activeTab === "general" && (
-						<div className="space-y-6">
-							<h2 className="text-lg font-semibold text-foreground">Información general</h2>
-
-							{/* Avatar */}
-							<div className="flex items-center gap-5">
-								<div className="relative">
-									<div
-										className="h-20 w-20 rounded-full bg-muted flex items-center justify-center overflow-hidden cursor-pointer ring-2 ring-border"
-										onClick={() => fileInputRef.current?.click()}
-									>
-										{imageUrl && !imageError ? (
-											<Image src={imageUrl} alt="Avatar" width={80} height={80} className="h-full w-full object-cover" onError={() => setImageError(true)} />
-										) : (
-											<User className="h-8 w-8 text-muted-foreground" />
-										)}
-									</div>
-									<button
-										onClick={() => fileInputRef.current?.click()}
-										className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1.5 text-white hover:bg-primary/90 transition-colors"
-									>
-										<Camera className="h-3.5 w-3.5" />
-									</button>
-									<input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
-								</div>
-								<div>
-									<div className="flex items-center gap-2">
-										<p className="text-sm font-medium text-foreground">{userData.name || "Sin nombre"}</p>
-										{emailVerified ? (
-											<span className="flex items-center gap-1 text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-1.5 py-0.5 rounded-full">
-												<Shield className="h-2.5 w-2.5" />
-												Verificada
-											</span>
-										) : (
-											<span className="flex items-center gap-1 text-[10px] font-medium text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-full">
-												<Shield className="h-2.5 w-2.5" />
-												No verificada
-											</span>
-										)}
-									</div>
-									<p className="text-xs text-muted-foreground">{userData.email}</p>
-									<button onClick={() => fileInputRef.current?.click()} className="text-xs text-primary hover:underline mt-1">
-										Cambiar foto
-									</button>
-								</div>
-							</div>
-
-							{/* Form */}
-							{isLoadingProfile ? (
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									{Array.from({ length: 6 }).map((_, i) => (
-										<div key={i} className="space-y-2">
-											<Skeleton className="h-4 w-24" />
-											<Skeleton className="h-10 w-full rounded-lg" />
-										</div>
-									))}
-								</div>
-							) : (
-								<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-									<div className="space-y-2">
-										<Label>Nombre completo</Label>
-										<Input value={userData.name} onChange={(e) => setUserData((p) => ({ ...p, name: e.target.value }))} />
-									</div>
-									<div className="space-y-2">
-										<Label>Correo electrónico</Label>
-										<Input value={userData.email} disabled className="opacity-60" />
-										<p className="text-[11px] text-muted-foreground">No se puede modificar. <Link href="/admin/ticket" className="text-primary hover:underline">Contactar soporte</Link></p>
-									</div>
-									<div className="space-y-2">
-										<Label>Tipo de documento</Label>
-										<Select value={profileData.docType} onValueChange={(v) => setProfileData((p) => ({ ...p, docType: v }))}>
-											<SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-											<SelectContent>
-												{docsType.map((d) => <SelectItem key={d.value} value={d.value.toString()}>{d.label}</SelectItem>)}
-											</SelectContent>
-										</Select>
-									</div>
-									<div className="space-y-2">
-										<Label>Número de documento</Label>
-										<Input value={profileData.docNumber} onChange={(e) => setProfileData((p) => ({ ...p, docNumber: e.target.value }))} />
-									</div>
-									<div className="space-y-2">
-										<Label>Teléfono</Label>
-										<Input type="tel" value={profileData.phone} onChange={(e) => setProfileData((p) => ({ ...p, phone: e.target.value }))} />
-									</div>
-									<div className="space-y-2">
-										<Label>Fecha de nacimiento</Label>
-										<Input type="date" value={profileData.birthDate?.split("T")[0] || ""} onChange={(e) => setProfileData((p) => ({ ...p, birthDate: e.target.value }))} />
-									</div>
-									<div className="space-y-2">
-										<Label>Sexo</Label>
-										<Select value={profileData.gender} onValueChange={(v) => setProfileData((p) => ({ ...p, gender: v }))}>
-											<SelectTrigger className="w-full"><SelectValue placeholder="Seleccionar" /></SelectTrigger>
-											<SelectContent>
-												{genderType.map((g) => <SelectItem key={g.value} value={g.value.toString()}>{g.label}</SelectItem>)}
-											</SelectContent>
-										</Select>
-									</div>
-								</div>
-							)}
-
-							<div className="flex justify-end pt-4 border-t border-border">
-								<Button onClick={handleSaveProfile} disabled={isLoading}>
-									{isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-									Guardar cambios
-								</Button>
-							</div>
-						</div>
-					)}
-
-					{/* ═══ LEGAL ═══ */}
-					{activeTab === "legal" && (
-						<div className="space-y-6">
-							<div>
-								<h2 className="text-lg font-semibold text-foreground">
-									Datos profesionales
-								</h2>
-								<p className="text-sm text-muted-foreground mt-1">
-									Matrícula y datos de contacto que se usan en los formularios
-									SRT
-								</p>
-							</div>
-							<LegalSection />
-						</div>
-					)}
-
 					{/* ═══ SECURITY ═══ */}
 					{activeTab === "security" && (
 						<div className="space-y-6">
@@ -599,9 +422,15 @@ export default function ProfileContent() {
 
 							{/* Active Sessions */}
 							<div className="pt-6 border-t border-border space-y-4">
-								<div>
-									<h3 className="text-sm font-semibold text-foreground">Historial de sesiones</h3>
-									<p className="text-xs text-muted-foreground mt-0.5">Accesos agrupados por día · primera entrada destacada</p>
+								<div className="flex flex-wrap items-start justify-between gap-3">
+									<div>
+										<h3 className="text-sm font-semibold text-foreground">Historial de sesiones</h3>
+										<p className="text-xs text-muted-foreground mt-0.5">Accesos agrupados por día · primera entrada destacada</p>
+									</div>
+									<Button variant="outline" size="sm" onClick={handleCloseOtherSessions} disabled={closingSessions}>
+										{closingSessions ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <LogOut className="mr-2 h-3.5 w-3.5" />}
+										Cerrar las otras sesiones
+									</Button>
 								</div>
 
 								{groupedSessions.length > 0 ? (
@@ -694,39 +523,49 @@ export default function ProfileContent() {
 						<div className="space-y-6">
 							<div>
 								<h2 className="text-lg font-semibold text-foreground">Notificaciones</h2>
-								<p className="text-sm text-muted-foreground mt-1">Configurá qué notificaciones querés recibir</p>
+								<p className="text-sm text-muted-foreground mt-1">
+									Elegí por dónde te llegan los avisos. La campanita del sistema queda siempre.
+								</p>
 							</div>
 
-							<div className="space-y-1">
-								{[
-									{ key: "emailNotifications" as const, icon: Mail, label: "Notificaciones por email", desc: "Recibir actualizaciones y alertas por correo electrónico" },
-									{ key: "pushNotifications" as const, icon: Smartphone, label: "Notificaciones push", desc: "Recibir notificaciones en tiempo real en el navegador" },
-									{ key: "meetingReminders" as const, icon: Bell, label: "Recordatorios de reuniones", desc: "Avisos antes de reuniones y eventos programados" },
-									{ key: "leadUpdates" as const, icon: MessageSquare, label: "Actualizaciones de leads", desc: "Novedades sobre cambios en leads y oportunidades" },
-									{ key: "systemUpdates" as const, icon: Monitor, label: "Actualizaciones del sistema", desc: "Información sobre mantenimiento y nuevas funcionalidades" },
-								].map((item) => (
-									<div key={item.key} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
-										<div className="flex items-center gap-3">
-											<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
-												<item.icon className="h-4 w-4 text-muted-foreground" />
+							{notifPrefs ? (
+								<div className="space-y-1">
+									{NOTIFICATION_CHANNELS.map((item) => (
+										<label
+											key={item.key}
+											htmlFor={`notif-${item.key}`}
+											className="flex items-center justify-between gap-4 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+										>
+											<div className="flex items-center gap-3">
+												<div className="flex h-9 w-9 items-center justify-center rounded-lg bg-muted">
+													<item.icon className="h-4 w-4 text-muted-foreground" />
+												</div>
+												<div>
+													<p className="text-sm font-medium text-foreground">{item.label}</p>
+													<p className="text-xs text-muted-foreground">{item.desc}</p>
+												</div>
 											</div>
-											<div>
-												<p className="text-sm font-medium text-foreground">{item.label}</p>
-												<p className="text-xs text-muted-foreground">{item.desc}</p>
-											</div>
-										</div>
-										<Switch
-											checked={notifications[item.key]}
-											onCheckedChange={(checked) => setNotifications((p) => ({ ...p, [item.key]: checked }))}
-										/>
-									</div>
-								))}
-							</div>
+											<Switch
+												id={`notif-${item.key}`}
+												checked={notifPrefs[item.key]}
+												disabled={savingPref}
+												onCheckedChange={(checked) => togglePref(item.key, checked)}
+											/>
+										</label>
+									))}
+								</div>
+							) : (
+								<div className="space-y-2">
+									<Skeleton className="h-14 w-full rounded-lg" />
+									<Skeleton className="h-14 w-full rounded-lg" />
+								</div>
+							)}
 
-							<div className="flex justify-end pt-4 border-t border-border">
-								<Button onClick={() => toast.success("Preferencias guardadas")} disabled={isLoading}>
-									Guardar preferencias
-								</Button>
+							<div className="bg-muted/50 rounded-lg p-4">
+								<p className="text-xs text-muted-foreground">
+									Los avisos de plazos procesales te llegan siempre, aunque apagues los mails o los push.
+									Se guarda al instante y es lo mismo que configurás en la app del celular.
+								</p>
 							</div>
 						</div>
 					)}
@@ -770,7 +609,7 @@ export default function ProfileContent() {
 											variant="outline"
 											size="sm"
 											onClick={() => {
-												window.location.href = "/api/auth/signin?callbackUrl=/admin/profile";
+												window.location.href = `/api/auth/signin?callbackUrl=${encodeURIComponent("/admin/profile?tab=connections")}`;
 											}}
 											className="gap-1.5"
 										>
@@ -778,25 +617,6 @@ export default function ProfileContent() {
 											Vincular
 										</Button>
 									)}
-								</div>
-
-								{/* Microsoft - placeholder */}
-								<div className="flex items-center justify-between p-4 rounded-xl border border-border opacity-50">
-									<div className="flex items-center gap-3">
-										<div className="flex h-10 w-10 items-center justify-center rounded-lg bg-muted">
-											<svg width="20" height="20" viewBox="0 0 21 21" fill="none">
-												<rect x="1" y="1" width="9" height="9" fill="#F25022" />
-												<rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
-												<rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
-												<rect x="11" y="11" width="9" height="9" fill="#FFB900" />
-											</svg>
-										</div>
-										<div>
-											<p className="text-sm font-medium text-foreground">Microsoft</p>
-											<p className="text-xs text-muted-foreground">Próximamente</p>
-										</div>
-									</div>
-									<span className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full">Pronto</span>
 								</div>
 							</div>
 

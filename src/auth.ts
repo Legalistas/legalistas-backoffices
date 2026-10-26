@@ -108,11 +108,23 @@ export const authOptions: NextAuthOptions = {
 			token,
 			user,
 			account,
+			trigger,
+			session,
 		}: {
 			token: any;
 			user: any;
 			account: any;
+			trigger?: string;
+			session?: any;
 		}) {
+			// The profile page calls update() after saving: only the name and the
+			// photo shown in the menu can change this way.
+			if (trigger === "update" && session) {
+				if (typeof session.name === "string") token.name = session.name;
+				if ("image" in session) token.image = session.image || null;
+				return token;
+			}
+
 			// Login por Google
 			if (account?.provider === "google") {
 				const res = await fetch(`${GOOGLE_LOGIN_ENDPOINT}`, {

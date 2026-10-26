@@ -11,6 +11,7 @@ export const LOGOUT_ENDPOINT = `${API_BASE_URL}/auth/logout`;
 export const FORGOT_PASSWORD_ENDPOINT = `${API_BASE_URL}/auth/forgot-password`;
 export const SESSION_PAUSE_ENDPOINT = `${API_BASE_URL}/auth/session-pause`;
 export const SESSION_END_ENDPOINT = `${API_BASE_URL}/auth/session-end`;
+export const CLOSE_OTHER_SESSIONS_ENDPOINT = `${API_BASE_URL}/auth/sessions/close-others`;
 
 // Mailer Endpoints (envío de email con templates — vive en el backend,
 // antes era /api/notifications/email propio del frontend con SMTP directo)
@@ -344,6 +345,7 @@ export const LAWYERS_ENDPOINT = `${API_BASE_URL}/users/lawyers`;
 export const SELLERS_ENDPOINT = `${API_BASE_URL}/users/sellers`;
 
 export const USER_PROFILE_ENDPOINT = `${API_BASE_URL}/users/profile`;
+export const MY_NOTIFICATION_PREFS_ENDPOINT = `${API_BASE_URL}/users/me/notification-preferences`;
 export const USER_NOTIFICATIONS_MARK_ALL_READ_ENDPOINT = (userId: number) =>
 	`${API_BASE_URL}/users/${userId}/notifications/read`;
 
