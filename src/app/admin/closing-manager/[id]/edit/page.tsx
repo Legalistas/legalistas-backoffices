@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useEffect, useMemo, useState } from "react";
 import AportesCards from "@/components/closing-manager/AportesCards";
+import ClosingInvoices from "@/components/closing-manager/ClosingInvoices";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -594,6 +595,13 @@ export default function EditClosingPage() {
 						</div>
 					)}
 
+					<ClosingInvoices
+						caseId={closing.caseId}
+						subpath="0_DOCUMENTOS/FACTURAS_HONORARIOS/"
+						title="Facturas de honorarios"
+						canUpload={feeStatus === "EARRINGS"}
+					/>
+
 					{/* Distribución con representante */}
 					<div className="flex items-center justify-between rounded-xl border border-border px-5 py-3.5">
 						<div>
@@ -935,6 +943,13 @@ export default function EditClosingPage() {
 							</div>
 						</div>
 					)}
+
+					<ClosingInvoices
+						caseId={closing.caseId}
+						subpath="0_DOCUMENTOS/FACTURAS_PCL/"
+						title="Facturas de PCL"
+						canUpload={pclStatus === "CHARGED"}
+					/>
 
 					{/* Detalle */}
 					<div className="space-y-1.5">
