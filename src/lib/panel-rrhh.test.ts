@@ -3,6 +3,7 @@ import {
 	borradorRecibo,
 	type EmpleadoPanel,
 	errorBorrador,
+	moverPeriodo,
 	type ReciboPanel,
 	reciboBase,
 	resumenPago,
@@ -74,6 +75,15 @@ describe("reciboBase", () => {
 	});
 	test("none", () => {
 		expect(reciboBase([])).toBeNull();
+	});
+});
+
+describe("moverPeriodo", () => {
+	test("next month across the year", () => {
+		expect(moverPeriodo("2026-12", 1)).toBe("2027-01");
+	});
+	test("previous month across the year", () => {
+		expect(moverPeriodo("2026-01", -1)).toBe("2025-12");
 	});
 });
 

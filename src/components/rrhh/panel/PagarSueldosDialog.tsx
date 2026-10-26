@@ -7,6 +7,9 @@ import { toast } from "sonner";
 import { CajaApiError, cajaFetch, cajasOperables, formatARS, hoyISO } from "@/components/caja/api";
 import { formatPeriodo } from "@/components/rrhh/api";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { SCHEDULED_TX_MARK_PAID_ENDPOINT } from "@/constant/api-endpoints";
+import { apiErrorMessage } from "@/lib/api-error";
 import {
 	Dialog,
 	DialogContent,
@@ -45,6 +48,7 @@ export default function PagarSueldosDialog({
 	const [fecha, setFecha] = useState(hoyISO());
 	const [error, setError] = useState<string | null>(null);
 	const [pagando, setPagando] = useState(false);
+	const [porFuera, setPorFuera] = useState(false);
 	const [fallidos, setFallidos] = useState<Record<number, string>>({});
 	// Rows already paid in this dialog: a retry after a failure skips them.
 	const [hechas, setHechas] = useState<Set<number>>(new Set());
@@ -55,6 +59,7 @@ export default function PagarSueldosDialog({
 		setError(null);
 		setFallidos({});
 		setHechas(new Set());
+		setPorFuera(false);
 		setFecha(hoyISO());
 		cajaFetch<{ data: CajasResponse }>("/cajas", token)
 			.then((r) => setCajas(r.data))
@@ -73,8 +78,18 @@ export default function PagarSueldosDialog({
 	const total = (filas ?? []).reduce((acc, f) => acc + falta(f.pago), 0);
 	const cerrar = () => (huboPagos ? onDone() : onClose());
 
+	// Already paid some other way: only mark the rows as paid, no cash box moves.
+	const marcarPagado = async (id: number) => {
+		const res = await fetch(SCHEDULED_TX_MARK_PAID_ENDPOINT(id), {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+			body: "{}",
+		});
+		if (!res.ok) throw new Error(await apiErrorMessage(res, "No se pudo marcar como pagado"));
+	};
+
 	const pagar = async () => {
-		if (!filas || !cajaId) return;
+		if (!filas || (!porFuera && !cajaId)) return;
 		setPagando(true);
 		const errores: Record<number, string> = {};
 		const pagadas = new Set(hechas);
@@ -84,10 +99,12 @@ export default function PagarSueldosDialog({
 			if (!resto.length) continue;
 			for (const p of resto) {
 				try {
-					await cajaFetch(`/programados/${p.id}/pagar`, token, {
-						method: "POST",
-						json: { cajaId: Number(cajaId), fecha },
-					});
+					if (porFuera) await marcarPagado(p.id);
+					else
+						await cajaFetch(`/programados/${p.id}/pagar`, token, {
+							method: "POST",
+							json: { cajaId: Number(cajaId), fecha },
+						});
 					pagadas.add(p.id);
 				} catch (err) {
 					// One failed row (for example, not enough balance) stops that person only.
@@ -113,7 +130,9 @@ export default function PagarSueldosDialog({
 				<DialogHeader>
 					<DialogTitle>Pagar sueldos de {formatPeriodo(periodo)}</DialogTitle>
 					<DialogDescription>
-						Se registran como egresos de la caja elegida y quedan pagados en Gastos e Ingresos.
+						{porFuera
+							? "Solo quedan como pagados en Gastos e Ingresos: no se mueve ninguna caja."
+							: "Se registran como egresos de la caja elegida y quedan pagados en Gastos e Ingresos."}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -141,7 +160,22 @@ export default function PagarSueldosDialog({
 							</li>
 						</ul>
 
-						<div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+						<label htmlFor="pago-por-fuera" className="flex items-start gap-2 text-sm">
+							<Checkbox
+								id="pago-por-fuera"
+								checked={porFuera}
+								onCheckedChange={(v) => setPorFuera(v === true)}
+								className="mt-0.5"
+							/>
+							<span>
+								Ya se pagó por fuera
+								<span className="block text-xs text-muted-foreground">
+									Por ejemplo, si ya se descontó de una caja con otro movimiento. Solo se marca como pagado.
+								</span>
+							</span>
+						</label>
+
+						<div className={`grid grid-cols-1 gap-3 sm:grid-cols-2 ${porFuera ? "hidden" : ""}`}>
 							<div className="space-y-1">
 								<Label>Caja</Label>
 								<Select value={cajaId} onValueChange={setCajaId} disabled={!cajas}>
@@ -169,9 +203,12 @@ export default function PagarSueldosDialog({
 					<Button variant="outline" onClick={cerrar} disabled={pagando}>
 						{huboPagos ? "Cerrar" : "Cancelar"}
 					</Button>
-					<Button onClick={pagar} disabled={pagando || !cajaId || !fecha || !!error || total <= 0}>
+					<Button
+						onClick={pagar}
+						disabled={pagando || (!porFuera && (!cajaId || !fecha || !!error)) || total <= 0}
+					>
 						{pagando && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-						Pagar {formatARS(total)}
+						{porFuera ? `Marcar ${formatARS(total)} como pagado` : `Pagar ${formatARS(total)}`}
 					</Button>
 				</DialogFooter>
 			</DialogContent>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Eye, FilePlus2, Wallet } from "lucide-react";
+import { ChevronLeft, ChevronRight, Eye, FilePlus2, Wallet } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { type EmpleadoPanel, type ResumenPago, resumenPago } from "@/lib/panel-rrhh";
+import { type EmpleadoPanel, moverPeriodo, type ResumenPago, resumenPago } from "@/lib/panel-rrhh";
 import GenerarRecibosDialog from "./GenerarRecibosDialog";
 import PagarSueldosDialog from "./PagarSueldosDialog";
 import { panelFetch, periodoActual } from "./shared";
@@ -101,13 +101,31 @@ export default function SueldosTab() {
 						<Label htmlFor="panel-periodo" className="text-xs text-muted-foreground">
 							Mes
 						</Label>
-						<Input
-							id="panel-periodo"
-							type="month"
-							value={periodo}
-							onChange={(e) => e.target.value && setPeriodo(e.target.value)}
-							className="w-44"
-						/>
+						<div className="flex items-center gap-1">
+							<Button
+								variant="outline"
+								size="icon"
+								aria-label="Mes anterior"
+								onClick={() => setPeriodo((p) => moverPeriodo(p, -1))}
+							>
+								<ChevronLeft className="h-4 w-4" />
+							</Button>
+							<Input
+								id="panel-periodo"
+								type="month"
+								value={periodo}
+								onChange={(e) => e.target.value && setPeriodo(e.target.value)}
+								className="w-44"
+							/>
+							<Button
+								variant="outline"
+								size="icon"
+								aria-label="Mes siguiente"
+								onClick={() => setPeriodo((p) => moverPeriodo(p, 1))}
+							>
+								<ChevronRight className="h-4 w-4" />
+							</Button>
+						</div>
 					</div>
 					<label htmlFor="panel-representantes" className="flex h-10 items-center gap-2 text-sm text-muted-foreground">
 						<Switch
@@ -136,6 +154,16 @@ export default function SueldosTab() {
 				<Total titulo="Falta pagar" valor={formatARS(totales.falta)} tono="text-amber-700 dark:text-amber-400" />
 				<Total titulo="Sin recibo" valor={`${totales.sinRecibo} ${totales.sinRecibo === 1 ? "persona" : "personas"}`} />
 			</div>
+
+			{empleados !== null && totales.pagado > 0 && totales.falta === 0 && (
+				<div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-900/40 dark:bg-green-900/10 dark:text-green-300">
+					<span>{formatPeriodo(periodo)} está pagado.</span>
+					<Button size="sm" variant="outline" onClick={() => setPeriodo((p) => moverPeriodo(p, 1))}>
+						Ver {formatPeriodo(moverPeriodo(periodo, 1)).toLowerCase()}
+						<ChevronRight className="ml-1 h-4 w-4" />
+					</Button>
+				</div>
+			)}
 
 			<p className="text-xs text-muted-foreground">
 				Marcá a quienes no tienen recibo para generarlos (se copian del mes anterior y los revisás antes de

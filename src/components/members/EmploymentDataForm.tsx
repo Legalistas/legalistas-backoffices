@@ -33,7 +33,6 @@ interface EmploymentData {
 	collectiveAgreement: string;
 	healthInsurance: string;
 	artProvider: string;
-	baseSalary: string;
 	status: EmploymentStatus;
 	/** "" = se deduce del rol (abogado_representante → Representantes). */
 	segmento: "" | Segmento;
@@ -52,7 +51,6 @@ const EMPTY: EmploymentData = {
 	collectiveAgreement: "",
 	healthInsurance: "",
 	artProvider: "",
-	baseSalary: "",
 	status: "ACTIVE",
 	segmento: "",
 	jefeId: "",
@@ -181,7 +179,6 @@ export default function EmploymentDataForm({
 						collectiveAgreement: emp.collectiveAgreement || "",
 						healthInsurance: emp.healthInsurance || "",
 						artProvider: emp.artProvider || "",
-						baseSalary: emp.baseSalary?.toString() || "",
 						status: (emp.status as EmploymentStatus) || "ACTIVE",
 						segmento: emp.segmento === "INTERNO" || emp.segmento === "REPRESENTANTE" ? emp.segmento : "",
 						jefeId: emp.jefeId ? String(emp.jefeId) : "",
@@ -217,7 +214,6 @@ export default function EmploymentDataForm({
 					...data,
 					hireDate: data.hireDate || null,
 					terminationDate: data.terminationDate || null,
-					baseSalary: data.baseSalary || null,
 					segmento: data.segmento || null,
 					jefeId: data.jefeId ? Number(data.jefeId) : null,
 				}),
@@ -418,17 +414,9 @@ export default function EmploymentDataForm({
 					/>
 				</div>
 
-				<div className="space-y-2 md:col-span-2">
-					<Label>Sueldo básico (ARS)</Label>
-					<Input
-						type="number"
-						step="0.01"
-						min="0"
-						value={data.baseSalary}
-						onChange={(e) => set("baseSalary", e.target.value)}
-						placeholder="0.00"
-					/>
-				</div>
+				<p className="text-xs text-muted-foreground md:col-span-2">
+					El sueldo básico se carga en el contrato (pestaña Contratos).
+				</p>
 			</div>
 
 			<div className="flex items-center justify-between pt-4 border-t border-border">

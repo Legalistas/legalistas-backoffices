@@ -90,6 +90,13 @@ export function sumarMes(fecha: string): string {
 	return out.toISOString().slice(0, 10);
 }
 
+/** "2026-12" moved +1 → "2027-01". */
+export function moverPeriodo(periodo: string, meses: number): string {
+	const [y, m] = periodo.split("-").map(Number);
+	const d = new Date(Date.UTC(y, m - 1 + meses, 1));
+	return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
 /** "2026-11" → "octubre de 2026" (the month the drafts are copied from). */
 export function periodoAnteriorLabel(periodo: string): string {
 	const [y, m] = periodo.split("-").map(Number);
