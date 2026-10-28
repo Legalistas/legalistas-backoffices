@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { WHATSAPP_ENDPOINT } from "@/constant/api-endpoints";
 import { cn } from "@/lib/utils";
+import PlantillaForm from "./PlantillaForm";
 
 // WhatsApp inbox: conversation list and thread (stage 2) and free-text replies
 // inside the 24 h window (stage 3). New messages come in by polling.
@@ -374,10 +375,14 @@ export default function WhatsappInbox() {
 									</Button>
 								</form>
 							) : (
-								<p className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
-									Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp solo deja escribirle con una
-									plantilla aprobada (llega en la etapa 5).
-								</p>
+								<PlantillaForm<Mensaje>
+									key={hilo.contact.id}
+									contactId={hilo.contact.id}
+									onEnviado={(m) => {
+										setHilo((h) => (h ? { ...h, messages: [...h.messages, m] } : h));
+										cargarLista();
+									}}
+								/>
 							)}
 						</>
 					)}
