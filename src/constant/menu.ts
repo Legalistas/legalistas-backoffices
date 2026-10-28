@@ -131,6 +131,14 @@ export const MENU_SECTIONS: MenuSection[] = [
         roles: [...LEGAL, ...VENTAS, ...MARKETING],
       },
       {
+        // Twilio inbox: management only until stage 6 adds the agents
+        // (WHATSAPP_ROLES in backend modules/whatsapp/inbox.routes.ts).
+        icon: MessageCircle,
+        name: "WhatsApp",
+        path: "/admin/whatsapp",
+        roles: SUPERADMIN,
+      },
+      {
         icon: Users2,
         name: "Clientes",
         path: "/admin/customers",
