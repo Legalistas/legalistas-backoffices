@@ -1,17 +1,18 @@
 "use client";
 
-import { ArrowLeft, Loader2, MessageCircle, Paperclip, Search } from "lucide-react";
+import { ArrowLeft, Loader2, MessageCircle, Paperclip, Search, Send } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { WHATSAPP_ENDPOINT } from "@/constant/api-endpoints";
 import { cn } from "@/lib/utils";
 
-// WhatsApp inbox, stage 2 (reading): conversation list and thread.
-// New messages come in by polling; replying is stage 3.
+// WhatsApp inbox: conversation list and thread (stage 2) and free-text replies
+// inside the 24 h window (stage 3). New messages come in by polling.
 
 interface Conversacion {
 	id: number;
@@ -29,15 +30,27 @@ interface Mensaje {
 	media: { contentType: string; objectKey: string | null }[] | null;
 	status: string | null;
 	createdAt: string;
+	sentBy: { name: string } | null;
 }
 
 interface Hilo {
-	contact: { id: number; waId: string; profileName: string | null };
+	contact: { id: number; waId: string; profileName: string | null; lastInboundAt: string | null };
 	messages: Mensaje[];
 }
 
 const LISTA_MS = 15_000;
 const HILO_MS = 10_000;
+const VENTANA_MS = 24 * 60 * 60 * 1000;
+
+/** End of the 24 h free-text window, or null if it is closed. */
+const finVentana = (lastInboundAt: string | null) => {
+	if (!lastInboundAt) return null;
+	const fin = new Date(new Date(lastInboundAt).getTime() + VENTANA_MS);
+	return fin.getTime() > Date.now() ? fin : null;
+};
+
+const fechaHora = (d: string | Date) =>
+	new Date(d).toLocaleString("es-AR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 
 const nombre = (c: { profileName: string | null; waId: string }) => c.profileName || `+${c.waId}`;
 
@@ -57,13 +70,18 @@ export default function WhatsappInbox() {
 	const [busqueda, setBusqueda] = useState("");
 	const [abierta, setAbierta] = useState<number | null>(null);
 	const [hilo, setHilo] = useState<Hilo | null>(null);
+	const [respuesta, setRespuesta] = useState("");
+	const [enviando, setEnviando] = useState(false);
 	const finRef = useRef<HTMLDivElement>(null);
 
 	const api = useCallback(
 		async <T,>(path: string, init?: RequestInit): Promise<T> => {
 			const res = await fetch(`${WHATSAPP_ENDPOINT}${path}`, {
 				...init,
-				headers: { Authorization: `Bearer ${token}` },
+				headers: {
+					Authorization: `Bearer ${token}`,
+					...(init?.body ? { "Content-Type": "application/json" } : {}),
+				},
 			});
 			const body = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(body.error || body.message || `Error ${res.status}`);
@@ -126,6 +144,25 @@ export default function WhatsappInbox() {
 		if (cantidad) finRef.current?.scrollIntoView({ block: "end" });
 	}, [cantidad]);
 
+	const enviar = async () => {
+		const texto = respuesta.trim();
+		if (!texto || abierta === null || enviando) return;
+		setEnviando(true);
+		try {
+			const r = await api<{ data: Mensaje }>(`/conversations/${abierta}/messages`, {
+				method: "POST",
+				body: JSON.stringify({ body: texto }),
+			});
+			setHilo((h) => (h ? { ...h, messages: [...h.messages, r.data] } : h));
+			setRespuesta("");
+			cargarLista();
+		} catch (err) {
+			toast.error((err as Error).message);
+		} finally {
+			setEnviando(false);
+		}
+	};
+
 	const abrirAdjunto = async (messageId: number, index: number) => {
 		try {
 			const r = await api<{ url: string }>(`/messages/${messageId}/media/${index}`);
@@ -140,11 +177,11 @@ export default function WhatsappInbox() {
 			<div>
 				<h1 className="text-2xl font-bold tracking-tight text-foreground">WhatsApp</h1>
 				<p className="mt-0.5 text-sm text-muted-foreground">
-					Mensajes de clientes al +54 9 11 2676-2939. Por ahora solo lectura: responder llega en la próxima etapa.
+					Mensajes de clientes al +54 9 11 2676-2939. Se responde dentro de las 24 horas del último mensaje del cliente.
 				</p>
 			</div>
 
-			<div className="grid h-[calc(100vh-220px)] min-h-[480px] grid-cols-1 overflow-hidden rounded-xl border border-border bg-card md:grid-cols-[320px_1fr]">
+			<div className="grid h-[calc(100vh-220px)] min-h-120 grid-cols-1 overflow-hidden rounded-xl border border-border bg-card md:grid-cols-[320px_1fr]">
 				{/* Conversation list */}
 				<div className={cn("flex min-h-0 flex-col border-border md:border-r", abierta !== null && "hidden md:flex")}>
 					<div className="border-b border-border p-3">
@@ -229,10 +266,25 @@ export default function WhatsappInbox() {
 								>
 									<ArrowLeft className="h-4 w-4" />
 								</Button>
-								<div className="min-w-0">
+								<div className="min-w-0 flex-1">
 									<p className="truncate text-sm font-semibold text-foreground">{nombre(hilo.contact)}</p>
 									<p className="text-xs text-muted-foreground">+{hilo.contact.waId}</p>
 								</div>
+								{(() => {
+									const fin = finVentana(hilo.contact.lastInboundAt);
+									return (
+										<span
+											className={cn(
+												"shrink-0 rounded-full px-2.5 py-1 text-xs font-medium",
+												fin
+													? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
+													: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
+											)}
+										>
+											{fin ? `Se puede responder hasta ${fechaHora(fin)}` : "Ventana de 24 h cerrada"}
+										</span>
+									);
+								})()}
 							</div>
 							<div className="min-h-0 flex-1 space-y-2 overflow-y-auto bg-muted/30 px-4 py-4">
 								{hilo.messages.map((m) => (
@@ -245,7 +297,7 @@ export default function WhatsappInbox() {
 													: "bg-card text-foreground",
 											)}
 										>
-											{m.body && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
+											{m.body && <p className="whitespace-pre-wrap wrap-break-word">{m.body}</p>}
 											{m.media?.map((a, i) => (
 												<button
 													key={i}
@@ -259,18 +311,49 @@ export default function WhatsappInbox() {
 												</button>
 											))}
 											<p className="mt-1 text-right text-[11px] text-muted-foreground">
-												{new Date(m.createdAt).toLocaleString("es-AR", {
-													day: "2-digit",
-													month: "2-digit",
-													hour: "2-digit",
-													minute: "2-digit",
-												})}
+												{m.direction === "OUTBOUND" && m.sentBy && `${m.sentBy.name} · `}
+												{fechaHora(m.createdAt)}
 											</p>
 										</div>
 									</div>
 								))}
 								<div ref={finRef} />
 							</div>
+							{finVentana(hilo.contact.lastInboundAt) ? (
+								<form
+									className="flex items-end gap-2 border-t border-border p-3"
+									onSubmit={(e) => {
+										e.preventDefault();
+										enviar();
+									}}
+								>
+									<Textarea
+										value={respuesta}
+										onChange={(e) => setRespuesta(e.target.value)}
+										onKeyDown={(e) => {
+											// Enter sends, Shift+Enter adds a line.
+											if (e.key === "Enter" && !e.shiftKey) {
+												e.preventDefault();
+												enviar();
+											}
+										}}
+										placeholder="Escribí una respuesta"
+										aria-label="Respuesta"
+										rows={2}
+										maxLength={1600}
+										className="min-h-0 resize-none"
+									/>
+									<Button type="submit" disabled={enviando || !respuesta.trim()} className="gap-1.5">
+										{enviando ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+										Enviar
+									</Button>
+								</form>
+							) : (
+								<p className="border-t border-border px-4 py-3 text-sm text-muted-foreground">
+									Pasaron más de 24 horas desde el último mensaje del cliente. WhatsApp solo deja escribirle con una
+									plantilla aprobada (llega en la etapa 5).
+								</p>
+							)}
 						</>
 					)}
 				</div>
