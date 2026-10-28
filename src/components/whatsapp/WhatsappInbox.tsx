@@ -29,9 +29,22 @@ interface Mensaje {
 	body: string | null;
 	media: { contentType: string; objectKey: string | null }[] | null;
 	status: string | null;
+	errorCode: string | null;
 	createdAt: string;
 	sentBy: { name: string } | null;
 }
+
+/** Delivery status of a reply, WhatsApp style (Twilio status callbacks, stage 4). */
+const ESTADO: Record<string, { texto: string; clase: string }> = {
+	accepted: { texto: "Enviando…", clase: "text-muted-foreground" },
+	queued: { texto: "Enviando…", clase: "text-muted-foreground" },
+	sending: { texto: "Enviando…", clase: "text-muted-foreground" },
+	sent: { texto: "✓ Enviado", clase: "text-muted-foreground" },
+	delivered: { texto: "✓✓ Entregado", clase: "text-muted-foreground" },
+	read: { texto: "✓✓ Leído", clase: "text-sky-600 dark:text-sky-400" },
+	failed: { texto: "⚠ No se entregó", clase: "text-destructive" },
+	undelivered: { texto: "⚠ No se entregó", clase: "text-destructive" },
+};
 
 interface Hilo {
 	contact: { id: number; waId: string; profileName: string | null; lastInboundAt: string | null };
@@ -313,6 +326,15 @@ export default function WhatsappInbox() {
 											<p className="mt-1 text-right text-[11px] text-muted-foreground">
 												{m.direction === "OUTBOUND" && m.sentBy && `${m.sentBy.name} · `}
 												{fechaHora(m.createdAt)}
+												{m.direction === "OUTBOUND" && m.status && ESTADO[m.status] && (
+													<span
+														className={cn("ml-1.5 font-medium", ESTADO[m.status].clase)}
+														title={m.errorCode ? `Código de error de Twilio: ${m.errorCode}` : undefined}
+													>
+														{ESTADO[m.status].texto}
+														{m.errorCode && ` (${m.errorCode})`}
+													</span>
+												)}
 											</p>
 										</div>
 									</div>
