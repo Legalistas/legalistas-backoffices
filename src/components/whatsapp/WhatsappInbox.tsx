@@ -32,6 +32,8 @@ interface Mensaje {
 	errorCode: string | null;
 	createdAt: string;
 	sentBy: { name: string } | null;
+	/** Set on the automatic replies (out of hours, greeting). */
+	autoReply: string | null;
 }
 
 /** Delivery status of a reply, WhatsApp style (Twilio status callbacks, stage 4). */
@@ -324,7 +326,8 @@ export default function WhatsappInbox() {
 												</button>
 											))}
 											<p className="mt-1 text-right text-[11px] text-muted-foreground">
-												{m.direction === "OUTBOUND" && m.sentBy && `${m.sentBy.name} · `}
+												{m.direction === "OUTBOUND" &&
+													(m.autoReply ? "Respuesta automática · " : m.sentBy ? `${m.sentBy.name} · ` : "")}
 												{fechaHora(m.createdAt)}
 												{m.direction === "OUTBOUND" && m.status && ESTADO[m.status] && (
 													<span
