@@ -9,6 +9,11 @@
 // cambiar el otro. El que vale al guardar es el del backend.
 
 export const PORCENTAJE_CAPITAL = 13;
+// The capital card defaults to 13 % but each closing can set its own (Jona, 29/10/2026).
+export const porcentajeCapital = (d: AportesDetalle) => {
+	const p = Number(d.capital.porcentaje);
+	return p > 0 && p <= 100 ? p : PORCENTAJE_CAPITAL;
+};
 export const PORCENTAJE_CAJA = 7;
 /** Los que acepta el backend. */
 export const PORCENTAJES_OTRO: readonly number[] = [5.4, 9, 9.3];
@@ -25,13 +30,14 @@ export interface AportesDetalle {
 	 * solo baja el HP de Legalistas. Los cierres anteriores no traen la marca y
 	 * siguen con la regla con la que se guardaron. Al guardar manda el servidor.
 	 */
-	capital: { activa: boolean; representante: number; aseguradora?: boolean };
+	/** `porcentaje`: missing in closings saved before 29/10/2026, which means 13. */
+	capital: { activa: boolean; representante: number; aseguradora?: boolean; porcentaje?: number };
 	caja: { activa: boolean; base: number; representante: number };
 	otro: { activa: boolean; porcentaje: number; base: number; representante: number };
 }
 
 export const APORTES_VACIOS: AportesDetalle = {
-	capital: { activa: false, representante: 0, aseguradora: true },
+	capital: { activa: false, representante: 0, aseguradora: true, porcentaje: PORCENTAJE_CAPITAL },
 	caja: { activa: false, base: 0, representante: 0 },
 	otro: { activa: false, porcentaje: 5.4, base: 0, representante: 0 },
 };
@@ -68,7 +74,7 @@ export function calcularAportes(d: AportesDetalle, capital: number, conRepresent
 		// Si lo paga la aseguradora, el representante no aporta nada ahí.
 		capital: tarjeta(
 			d.capital.activa,
-			PORCENTAJE_CAPITAL,
+			porcentajeCapital(d),
 			capital,
 			d.capital.aseguradora === true ? 0 : d.capital.representante,
 		),
@@ -119,7 +125,7 @@ export const textoPagoAporte = (p: AportePago) =>
 /** Nombre corto de cada tarjeta ("13 % capital", "7 % Caja", "9 %"). */
 export const nombreTarjeta = (tarjeta: string | null, detalle?: AportesDetalle | null) =>
 	tarjeta === "capital"
-		? `${PORCENTAJE_CAPITAL} % capital`
+		? `${String(detalle ? porcentajeCapital(detalle) : PORCENTAJE_CAPITAL).replace(".", ",")} % capital`
 		: tarjeta === "caja"
 			? `${PORCENTAJE_CAJA} % Caja`
 			: `${String(detalle?.otro.porcentaje ?? "5,4 / 9").replace(".", ",")} %`;

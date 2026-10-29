@@ -54,6 +54,16 @@ describe("calcularAportes", () => {
 		expect(APORTES_VACIOS.capital.aseguradora).toBe(true);
 	});
 
+	test("capital card with a custom percentage; missing means 13", () => {
+		const con = (porcentaje?: number) =>
+			calcularAportes(
+				{ ...APORTES_VACIOS, capital: { activa: true, representante: 0, porcentaje } },
+				1_000_000,
+				true,
+			).tarjetas.capital.aporte;
+		expect([con(10.5), con(), con(0)]).toEqual([105_000, 130_000, 130_000]);
+	});
+
 	test("5,4 % en la tercera", () => {
 		const c = calcularAportes(
 			{ ...APORTES_VACIOS, otro: { activa: true, porcentaje: 5.4, base: 1_000_000, representante: 0 } },

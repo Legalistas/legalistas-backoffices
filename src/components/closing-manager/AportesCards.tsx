@@ -1,7 +1,7 @@
 "use client";
 
 import { CheckSquare, Square } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Switch } from "@/components/ui/switch";
 import {
 	type AportePago,
@@ -11,6 +11,7 @@ import {
 	PORCENTAJE_CAJA,
 	PORCENTAJE_CAPITAL,
 	PORCENTAJES_OTRO,
+	porcentajeCapital,
 	porcentajesOtro,
 	type TarjetaAporte,
 	textoPagoAporte,
@@ -211,6 +212,12 @@ export default function AportesCards({
 	pagos?: AportePago[];
 }) {
 	const calc = calcularAportes(value, capital, conRepresentante);
+	// Custom stays open while typing, even if the value is momentarily 13 or empty.
+	const [capitalAMano, setCapitalAMano] = useState(false);
+	const capitalPersonalizado = capitalAMano || porcentajeCapital(value) !== PORCENTAJE_CAPITAL;
+	const porcentajeCapitalCargado = Number(value.capital.porcentaje);
+	const setPorcentajeCapital = (porcentaje: number) =>
+		onChange({ ...value, capital: { ...value.capital, porcentaje } });
 	// Las que tocan según de dónde sale el cierre. Si el cierre ya tenía guardada
 	// otra válida (un 9 % en uno de negociación), se sigue mostrando.
 	const baseOtro = porcentajesOtro(desdeNegociacion);
@@ -249,8 +256,8 @@ export default function AportesCards({
 			<div className="grid gap-4 lg:grid-cols-3">
 				<Tarjeta
 					id="aporte-capital"
-					titulo={`${pct(PORCENTAJE_CAPITAL)} sobre el capital`}
-					detalle="Fijo, sobre el capital cerrado."
+					titulo={`${pct(porcentajeCapital(value))} sobre el capital`}
+					detalle={`${pct(PORCENTAJE_CAPITAL)} o el que cargues, sobre el capital cerrado.`}
 					activa={value.capital.activa}
 					onActiva={(activa) => onChange({ ...value, capital: { ...value.capital, activa } })}
 					calculo={calc.tarjetas.capital}
@@ -262,6 +269,51 @@ export default function AportesCards({
 					pagos={pagos.filter((p) => p.tarjeta === "capital")}
 					sinPago={value.capital.aseguradora === true}
 				>
+					<div className="space-y-1">
+						<span className="text-xs text-muted-foreground">Porcentaje</span>
+						<div className="grid grid-cols-2 gap-2">
+							{[false, true].map((personalizado) => (
+								<button
+									key={String(personalizado)}
+									type="button"
+									aria-pressed={capitalPersonalizado === personalizado}
+									onClick={() => {
+										setCapitalAMano(personalizado);
+										if (!personalizado) setPorcentajeCapital(PORCENTAJE_CAPITAL);
+									}}
+									className={cn(
+										"h-10 rounded-lg border text-sm transition-colors",
+										capitalPersonalizado === personalizado
+											? "border-primary bg-primary/10 font-medium text-primary"
+											: "border-border bg-background text-muted-foreground hover:bg-muted",
+									)}
+								>
+									{personalizado ? "Personalizado" : pct(PORCENTAJE_CAPITAL)}
+								</button>
+							))}
+						</div>
+						{capitalPersonalizado && (
+							<div className="space-y-1 pt-1">
+								<label htmlFor="aporte-capital-porcentaje" className="text-xs text-muted-foreground">
+									Porcentaje sobre el capital (%)
+								</label>
+								<input
+									id="aporte-capital-porcentaje"
+									type="number"
+									step="0.01"
+									min="0"
+									max="100"
+									value={porcentajeCapitalCargado || ""}
+									onChange={(e) => setPorcentajeCapital(Number(e.target.value) || 0)}
+									placeholder={String(PORCENTAJE_CAPITAL)}
+									className={inputClass.replace("pl-7", "pl-3")}
+								/>
+								{!(porcentajeCapitalCargado > 0 && porcentajeCapitalCargado <= 100) && (
+									<p className="text-xs text-amber-600">Cargá un porcentaje mayor a 0 y hasta 100.</p>
+								)}
+							</div>
+						)}
+					</div>
 					<Lectura label="Capital cerrado" valor={ars(capital)} />
 				</Tarjeta>
 
