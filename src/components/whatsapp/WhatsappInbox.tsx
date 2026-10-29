@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Loader2, MessageCircle, Paperclip, Search, Send } from "lucide-react";
+import { ArrowLeft, Loader2, MessageCircle, Paperclip, Plus, Search, Send } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -50,7 +50,14 @@ const ESTADO: Record<string, { texto: string; clase: string }> = {
 };
 
 interface Hilo {
-	contact: { id: number; waId: string; profileName: string | null; lastInboundAt: string | null };
+	contact: {
+		id: number;
+		waId: string;
+		profileName: string | null;
+		lastInboundAt: string | null;
+		/** The client wrote BAJA: no more automatic CRM templates. */
+		optOutAt: string | null;
+	};
 	messages: Mensaje[];
 }
 
@@ -85,6 +92,9 @@ export default function WhatsappInbox() {
 	const [conversaciones, setConversaciones] = useState<Conversacion[] | null>(null);
 	const [busqueda, setBusqueda] = useState("");
 	const [abierta, setAbierta] = useState<number | null>(null);
+	// "Nuevo mensaje": first template to a number that never wrote.
+	const [nuevo, setNuevo] = useState(false);
+	const [telefono, setTelefono] = useState("");
 	const [hilo, setHilo] = useState<Hilo | null>(null);
 	const [respuesta, setRespuesta] = useState("");
 	const [enviando, setEnviando] = useState(false);
@@ -199,17 +209,31 @@ export default function WhatsappInbox() {
 
 			<div className="grid h-[calc(100vh-220px)] min-h-120 grid-cols-1 overflow-hidden rounded-xl border border-border bg-card md:grid-cols-[320px_1fr]">
 				{/* Conversation list */}
-				<div className={cn("flex min-h-0 flex-col border-border md:border-r", abierta !== null && "hidden md:flex")}>
+				<div className={cn("flex min-h-0 flex-col border-border md:border-r", (abierta !== null || nuevo) && "hidden md:flex")}>
 					<div className="border-b border-border p-3">
-						<div className="relative">
-							<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-							<Input
-								value={busqueda}
-								onChange={(e) => setBusqueda(e.target.value)}
-								placeholder="Buscar por nombre, número o palabra"
-								className="pl-9"
-								aria-label="Buscar conversaciones"
-							/>
+						<div className="flex gap-2">
+							<div className="relative flex-1">
+								<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+								<Input
+									value={busqueda}
+									onChange={(e) => setBusqueda(e.target.value)}
+									placeholder="Buscar por nombre, número o palabra"
+									className="pl-9"
+									aria-label="Buscar conversaciones"
+								/>
+							</div>
+							<Button
+								variant="outline"
+								size="icon"
+								aria-label="Nuevo mensaje"
+								title="Nuevo mensaje"
+								onClick={() => {
+									setNuevo(true);
+									setAbierta(null);
+								}}
+							>
+								<Plus className="h-4 w-4" />
+							</Button>
 						</div>
 					</div>
 					<div className="min-h-0 flex-1 overflow-y-auto">
@@ -229,7 +253,10 @@ export default function WhatsappInbox() {
 								<button
 									key={c.id}
 									type="button"
-									onClick={() => setAbierta(c.id)}
+									onClick={() => {
+										setNuevo(false);
+										setAbierta(c.id);
+									}}
 									className={cn(
 										"flex w-full items-start gap-3 border-b border-border px-4 py-3 text-left transition-colors hover:bg-muted/50",
 										abierta === c.id && "bg-muted",
@@ -261,8 +288,45 @@ export default function WhatsappInbox() {
 				</div>
 
 				{/* Thread */}
-				<div className={cn("flex min-h-0 flex-col", abierta === null && "hidden md:flex")}>
-					{abierta === null ? (
+				<div className={cn("flex min-h-0 flex-col", abierta === null && !nuevo && "hidden md:flex")}>
+					{nuevo ? (
+						<>
+							<div className="flex items-center gap-2 border-b border-border px-4 py-3">
+								<Button
+									variant="ghost"
+									size="icon"
+									className="md:hidden"
+									aria-label="Volver a la lista"
+									onClick={() => setNuevo(false)}
+								>
+									<ArrowLeft className="h-4 w-4" />
+								</Button>
+								<p className="text-sm font-semibold text-foreground">Nuevo mensaje</p>
+							</div>
+							<div className="flex-1" />
+							<div className="space-y-1 px-3 pt-3">
+								<label htmlFor="wa-nuevo-telefono" className="text-xs text-muted-foreground">
+									Celular, con código de área (por ejemplo 342 526-6717)
+								</label>
+								<Input
+									id="wa-nuevo-telefono"
+									value={telefono}
+									onChange={(e) => setTelefono(e.target.value)}
+									inputMode="tel"
+									maxLength={40}
+								/>
+							</div>
+							<PlantillaForm<{ contactId: number }>
+								telefono={telefono}
+								onEnviado={({ contactId }) => {
+									setNuevo(false);
+									setTelefono("");
+									setAbierta(contactId);
+									cargarLista();
+								}}
+							/>
+						</>
+					) : abierta === null ? (
 						<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
 							Elegí una conversación.
 						</div>
@@ -284,7 +348,10 @@ export default function WhatsappInbox() {
 								</Button>
 								<div className="min-w-0 flex-1">
 									<p className="truncate text-sm font-semibold text-foreground">{nombre(hilo.contact)}</p>
-									<p className="text-xs text-muted-foreground">+{hilo.contact.waId}</p>
+									<p className="text-xs text-muted-foreground">
+										+{hilo.contact.waId}
+										{hilo.contact.optOutAt ? ` · Pidió la baja de mensajes automáticos el ${fechaHora(hilo.contact.optOutAt)}` : ""}
+									</p>
 								</div>
 								{(() => {
 									const fin = finVentana(hilo.contact.lastInboundAt);
@@ -328,7 +395,10 @@ export default function WhatsappInbox() {
 											))}
 											<p className="mt-1 text-right text-[11px] text-muted-foreground">
 												{m.direction === "OUTBOUND" &&
-													(m.autoReply ? "Respuesta automática · " : m.sentBy ? `${m.sentBy.name} · ` : "")}
+													(m.autoReply === "CRM"
+														? "Envío automático del CRM · "
+														: m.autoReply
+															? "Respuesta automática · " : m.sentBy ? `${m.sentBy.name} · ` : "")}
 												{fechaHora(m.createdAt)}
 												{m.direction === "OUTBOUND" && m.status && ESTADO[m.status] && (
 													<span

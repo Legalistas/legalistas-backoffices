@@ -26,11 +26,14 @@ const PLACEHOLDER = /\{\{\s*(\d+)\s*\}\}/g;
 
 export default function PlantillaForm<T>({
 	contactId,
+	telefono,
 	onEnviado,
 }: {
-	contactId: number;
-	/** The saved outbound message, to append it to the thread. */
-	onEnviado: (mensaje: T) => void;
+	/** Existing conversation; without it, the first message to `telefono`. */
+	contactId?: number;
+	telefono?: string;
+	/** The saved outbound message (or, for a new number, { contactId, message }). */
+	onEnviado: (resultado: T) => void;
 }) {
 	const { data: session } = useSession();
 	const token = session?.user?.accessToken;
@@ -59,17 +62,21 @@ export default function PlantillaForm<T>({
 		() => elegida?.texto.replace(PLACEHOLDER, (todo, key: string) => valores[key]?.trim() || todo) ?? "",
 		[elegida, valores],
 	);
-	const completa = !!elegida && elegida.variables.every((v) => valores[v.key]?.trim());
+	const completa =
+		!!elegida && elegida.variables.every((v) => valores[v.key]?.trim()) && (!!contactId || !!telefono?.trim());
 
 	const enviar = async () => {
 		if (!elegida || !completa || enviando) return;
 		setEnviando(true);
 		try {
-			const res = await fetch(`${WHATSAPP_ENDPOINT}/conversations/${contactId}/template`, {
-				method: "POST",
-				headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-				body: JSON.stringify({ contentSid: elegida.sid, variables: valores }),
-			});
+			const res = await fetch(
+				contactId ? `${WHATSAPP_ENDPOINT}/conversations/${contactId}/template` : `${WHATSAPP_ENDPOINT}/conversations`,
+				{
+					method: "POST",
+					headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+					body: JSON.stringify({ contentSid: elegida.sid, variables: valores, ...(contactId ? {} : { phone: telefono }) }),
+				},
+			);
 			const body = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(body.error || body.message || `Error ${res.status}`);
 			onEnviado(body.data as T);
@@ -86,8 +93,9 @@ export default function PlantillaForm<T>({
 	return (
 		<div className="space-y-3 border-t border-border p-3">
 			<p className="text-xs text-muted-foreground">
-				Pasaron más de 24 horas desde el último mensaje del cliente: WhatsApp solo deja escribirle con una plantilla
-				aprobada por Meta.
+				{contactId
+					? "Pasaron más de 24 horas desde el último mensaje del cliente: WhatsApp solo deja escribirle con una plantilla aprobada por Meta."
+					: "Para escribirle primero a un número, WhatsApp solo deja usar una plantilla aprobada por Meta."}
 			</p>
 
 			{plantillas === null ? (
