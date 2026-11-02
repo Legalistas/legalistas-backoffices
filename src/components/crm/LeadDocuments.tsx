@@ -28,6 +28,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import AddDocumentButton from "./AddDocumentButton";
+import GenerarDocumentoSrt, { ANULADO } from "./GenerarDocumentoSrt";
 
 interface LeadDocumentsProps {
 	lead: Lead;
@@ -166,7 +167,10 @@ export default function LeadDocuments({
 					<FileText className="h-5 w-5 text-primary" />
 					Documentos
 				</h3>
-				<AddDocumentButton lead={lead} onLeadUpdate={onLeadUpdate} />
+				<div className="flex flex-wrap items-center justify-end gap-2">
+					<GenerarDocumentoSrt lead={lead} onLeadUpdate={onLeadUpdate} />
+					<AddDocumentButton lead={lead} onLeadUpdate={onLeadUpdate} />
+				</div>
 			</div>
 			{(lead.crmDocument?.length ?? 0) > 0 ? (
 					<div className="overflow-x-auto">
@@ -200,7 +204,23 @@ export default function LeadDocuments({
 											{getFileIcon(document.extension || "")}
 										</TableCell>
 										<TableCell className="px-4 py-3 text-sm">
-											{document.fileName || document.description}
+											<span
+												className={
+													document.description?.startsWith(ANULADO)
+														? "text-muted-foreground line-through"
+														: undefined
+												}
+											>
+												{document.fileName || document.description}
+											</span>
+											{document.description?.startsWith(ANULADO) && (
+												<Badge
+													variant="outline"
+													className="ml-2 border-red-300 text-red-600"
+												>
+													Anulado
+												</Badge>
+											)}
 										</TableCell>
 										<TableCell className="px-4 py-3 text-sm">
 											{formatFileSize(document.fileSize || 0)}

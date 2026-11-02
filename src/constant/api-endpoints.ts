@@ -373,6 +373,11 @@ export const LEADS_DOCUMENTS_DELETE_ENDPOINT = (
 	leadId: number,
 	documentId: number,
 ) => `${API_BASE_URL}/crm/leads/${leadId}/documents/${documentId}`;
+// Carta Poder SRT / Acepta Patrocinio generated from the lead.
+export const LEADS_SRT_DOCUMENT_ENDPOINT = (
+	leadId: number,
+	tipo: "carta-poder" | "patrocinio",
+) => `${API_BASE_URL}/crm/leads/${leadId}/srt-documents/${tipo}`;
 
 export const STATISTICS_CRM_ALL_ENDPOINT = `${API_BASE_URL}/statistics/crm-all`;
 export const STATISTICS_CRM_DASHBOARD_ENDPOINT = `${API_BASE_URL}/statistics/crm-overview`;
