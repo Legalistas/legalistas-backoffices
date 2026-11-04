@@ -73,6 +73,8 @@ const MARKETING = [
   GESTOR_CONTENIDOS,
   DISENADOR_GRAFICO,
 ];
+/** WhatsApp inbox: Sales, in-house Legal and Marketing. Mirror of WHATSAPP_ROLES in the backend. */
+export const WHATSAPP = [...VENTAS, ...LEGAL_INTERNO, ...MARKETING];
 
 // Equipo y Reporte RR.HH.: solo dirección (admin, CEO, Sistemas y director
 // contable). Espejo de RRHH_REPORTE_ROLES del backend.
@@ -131,12 +133,10 @@ export const MENU_SECTIONS: MenuSection[] = [
         roles: [...LEGAL, ...VENTAS, ...MARKETING],
       },
       {
-        // Twilio inbox: management only until stage 6 adds the agents
-        // (WHATSAPP_ROLES in backend modules/whatsapp/inbox.routes.ts).
         icon: MessageCircle,
         name: "WhatsApp",
         path: "/admin/whatsapp",
-        roles: SUPERADMIN,
+        roles: WHATSAPP,
       },
       {
         icon: Users2,
