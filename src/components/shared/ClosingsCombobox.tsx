@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 export interface ClosingOption {
 	id: number;
-	number?: number | null;
+	number?: number | string | null;
 	title?: string | null;
 	date: string;
 	hpTotal?: number;

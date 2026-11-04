@@ -21,7 +21,9 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
+import { type ClosingOption, ClosingsCombobox } from "@/components/shared/ClosingsCombobox";
 import { Textarea } from "@/components/ui/textarea";
+import { CLOSINGS_ENDPOINT } from "@/constant/api-endpoints";
 import { cn } from "@/lib/utils";
 import type {
 	Caja,
@@ -29,6 +31,7 @@ import type {
 	CajaMovimiento,
 	CajaMovimientoTipo,
 	CajaRubro,
+	ConceptoCobro,
 } from "@/types/caja";
 import {
 	cajaFetch,
@@ -44,6 +47,25 @@ import { useCotizaciones, useRubros } from "./useCajas";
 
 const SIN_SUBRUBRO = "none";
 const CASA_INICIAL = "bolsa"; // MEP
+
+// Income rubros that can collect a case's closing; same names as the backend's CONCEPTO_RUBRO.
+const CONCEPTO_DEL_RUBRO: Record<string, ConceptoCobro> = { honorarios: "fee", pcl: "pcl" };
+
+/** A row of GET /closings, only what the case picker uses. */
+interface CierreApi {
+	id: number;
+	date: string;
+	feeStatus: string;
+	pclStatus: string | null;
+	hpRemaining: number;
+	pclRemaining: number;
+	hpFalta: number;
+	pclFalta: number;
+	case: { number: string | null; title: string | null } | null;
+}
+
+/** `falta`: missing from Legalistas' share; `queda`: missing from the total (the max). */
+type CierreOpcion = ClosingOption & { falta: number; queda: number };
 
 interface MovimientoDialogProps {
 	open: boolean;
@@ -84,6 +106,10 @@ export default function MovimientoDialog({
 	const [rubroId, setRubroId] = useState("");
 	const [subRubroId, setSubRubroId] = useState(SIN_SUBRUBRO);
 	const [descripcion, setDescripcion] = useState("");
+	// Case (closing) a Honorarios/PCL income collects; "" = none.
+	const [closingId, setClosingId] = useState("");
+	const [cierres, setCierres] = useState<CierreOpcion[] | null>(null);
+	const [cierresError, setCierresError] = useState<string | null>(null);
 	const [saving, setSaving] = useState(false);
 
 	useEffect(() => {
@@ -179,6 +205,56 @@ export default function MovimientoDialog({
 	const rubro = rubrosDelTipo.find((r) => String(r.id) === rubroId);
 	const cajaSel = opcionesCaja.find((c) => String(c.id) === cajaId);
 
+	// New Honorarios or PCL income: it can be the cobro of a case's closing, as
+	// in the old cash box. Editing keeps the movement as it is.
+	const concepto =
+		!editando && tipo === "INGRESO" && rubro
+			? CONCEPTO_DEL_RUBRO[rubro.nombre.trim().toLowerCase()]
+			: undefined;
+	useEffect(() => {
+		setClosingId("");
+		if (!open || !concepto || !token) return;
+		setCierres(null);
+		setCierresError(null);
+		const controller = new AbortController();
+		fetch(`${CLOSINGS_ENDPOINT}?allYears=true&paymentPending=true&limit=1000`, {
+			headers: { Authorization: `Bearer ${token}` },
+			signal: controller.signal,
+		})
+			.then(async (res) => {
+				if (!res.ok) {
+					throw new Error(
+						res.status === 403
+							? "Tu usuario no tiene acceso a los cierres."
+							: "No se pudieron cargar las causas.",
+					);
+				}
+				const { data } = (await res.json()) as { data: CierreApi[] };
+				const fee = concepto === "fee";
+				setCierres(
+					data
+						.filter((c) =>
+							fee
+								? c.feeStatus !== "CHARGED" && c.hpRemaining > 0
+								: c.pclStatus != null && c.pclStatus !== "CHARGED" && c.pclRemaining > 0,
+						)
+						.map((c) => ({
+							id: c.id,
+							number: c.case?.number,
+							title: c.case?.title,
+							date: c.date,
+							falta: fee ? c.hpFalta : c.pclFalta,
+							queda: fee ? c.hpRemaining : c.pclRemaining,
+						})),
+				);
+			})
+			.catch((e: Error) => {
+				if (e.name !== "AbortError") setCierresError(e.message);
+			});
+		return () => controller.abort();
+	}, [open, concepto, token]);
+	const cierreSel = cierres?.find((c) => String(c.id) === closingId);
+
 	const cambiarTipo = (t: CajaMovimientoTipo) => {
 		setTipo(t);
 		setRubroId("");
@@ -189,6 +265,11 @@ export default function MovimientoDialog({
 		const montoNum = leerNumero(monto);
 		if (esTransferencia ? !fecha || !(montoNum > 0) : !cajaId || !rubroId || !fecha || !(montoNum > 0)) {
 			toast.error(esTransferencia ? "Completá monto y fecha" : "Completá caja, monto, fecha y rubro");
+			return;
+		}
+		const cobro = !!closingId && !!concepto;
+		if (cobro && moneda === "USD") {
+			toast.error("El cobro de una causa se carga en pesos");
 			return;
 		}
 		const cotizacionNum = leerNumero(cotizacion);
@@ -214,7 +295,20 @@ export default function MovimientoDialog({
 					};
 		setSaving(true);
 		try {
-			if (editando) {
+			if (cobro) {
+				// Same cobro as the Gestor de Cierres: the closing is marked Parcial/Cobrado.
+				const res = await cajaFetch<{ message: string }>(`/cierres/${closingId}/cobros`, token, {
+					method: "POST",
+					json: {
+						concepto,
+						cajaId: Number(cajaId),
+						monto: montoNum,
+						fecha,
+						descripcion: descripcion.trim() || undefined,
+					},
+				});
+				toast.success(res.message);
+			} else if (editando) {
 				await cajaFetch(`/movimientos/${editando.id}`, token, { method: "PUT", json: datos });
 				toast.success(
 					cambioDeMoneda
@@ -419,7 +513,29 @@ export default function MovimientoDialog({
 						</div>
 					)}
 
-					{!esTransferencia && rubro?.subRubros && rubro.subRubros.length > 0 && (
+					{concepto && (
+						<div className="space-y-2">
+							<Label htmlFor="caja-causa">Causa (opcional)</Label>
+							{cierresError ? (
+								<p className="text-sm text-muted-foreground">{cierresError}</p>
+							) : (
+								<ClosingsCombobox
+									id="caja-causa"
+									value={closingId}
+									onChange={setClosingId}
+									options={cierres ?? []}
+									placeholder={cierres ? "Buscar por número o carátula…" : "Cargando causas…"}
+								/>
+							)}
+							<p className="text-xs text-muted-foreground">
+								{cierreSel
+									? `Falta cobrar de la parte de Legalistas: ${formatARS(cierreSel.falta)} (del total: ${formatARS(cierreSel.queda)}). El cobro queda registrado en el cierre de la causa.`
+									: `Causas con ${concepto === "fee" ? "honorarios" : "PCL"} sin cobrar. Si elegís una, el cobro queda registrado en su cierre.`}
+							</p>
+						</div>
+					)}
+
+					{!esTransferencia && !closingId && rubro?.subRubros && rubro.subRubros.length > 0 && (
 						<div className="space-y-2">
 							<Label>Sub-rubro</Label>
 							<Select value={subRubroId} onValueChange={setSubRubroId}>
