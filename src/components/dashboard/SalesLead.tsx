@@ -58,7 +58,9 @@ export function SalesLead() {
 					throw new Error(`Error: ${response.status} ${response.statusText}`);
 				}
 
-				const data = await response.json();
+				const json = await response.json();
+				// The API answers { data, meta }; older versions sent the bare array.
+				const data: any[] = Array.isArray(json) ? json : (json?.data ?? []);
 
 				const userId = Number(session?.user?.id);
 
