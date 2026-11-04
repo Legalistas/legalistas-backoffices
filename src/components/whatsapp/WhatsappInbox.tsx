@@ -6,9 +6,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
-import { WHATSAPP_ENDPOINT } from "@/constant/api-endpoints";
+import { SELLERS_ENDPOINT, WHATSAPP_ENDPOINT } from "@/constant/api-endpoints";
 import { cn } from "@/lib/utils";
 import PlantillaForm from "./PlantillaForm";
 
@@ -62,6 +63,8 @@ interface Hilo {
 }
 
 const LISTA_MS = 15_000;
+/** Seller filter value for every conversation. */
+const TODAS = "todas";
 const HILO_MS = 10_000;
 const VENTANA_MS = 24 * 60 * 60 * 1000;
 
@@ -91,6 +94,10 @@ export default function WhatsappInbox() {
 	const token = session?.user?.accessToken;
 	const [conversaciones, setConversaciones] = useState<Conversacion[] | null>(null);
 	const [busqueda, setBusqueda] = useState("");
+	// Seller filter: conversations of her CRM leads. null until the sellers load.
+	const [vendedoras, setVendedoras] = useState<{ id: number; name: string }[]>([]);
+	const [vendedora, setVendedora] = useState<string | null>(null);
+	const miId = String(session?.user?.id ?? "");
 	const [abierta, setAbierta] = useState<number | null>(null);
 	// "Nuevo mensaje": first template to a number that never wrote.
 	const [nuevo, setNuevo] = useState(false);
@@ -116,17 +123,35 @@ export default function WhatsappInbox() {
 		[token],
 	);
 
-	const cargarLista = useCallback(async () => {
+	// A seller starts on her own leads, with the option to see all (Jona, 04/11/2026).
+	useEffect(() => {
 		if (!token) return;
+		fetch(`${SELLERS_ENDPOINT}?limit=1000`, { headers: { Authorization: `Bearer ${token}` } })
+			.then((r) => (r.ok ? r.json() : { data: [] }))
+			.then(({ data }: { data?: { id: number; name: string; isBlocked?: boolean }[] }) => {
+				const lista = (data ?? [])
+					.filter((u) => !u.isBlocked)
+					.sort((a, b) => a.name.localeCompare(b.name, "es"));
+				setVendedoras(lista);
+				setVendedora((v) => v ?? (lista.some((u) => String(u.id) === miId) ? miId : TODAS));
+			})
+			.catch(() => setVendedora((v) => v ?? TODAS));
+	}, [token, miId]);
+
+	const cargarLista = useCallback(async () => {
+		if (!token || vendedora === null) return;
 		try {
-			const q = busqueda.trim() ? `?q=${encodeURIComponent(busqueda.trim())}` : "";
-			const r = await api<{ data: Conversacion[] }>(`/conversations${q}`);
+			const params = new URLSearchParams();
+			if (busqueda.trim()) params.set("q", busqueda.trim());
+			if (vendedora !== TODAS) params.set("sellerId", vendedora);
+			const qs = params.toString();
+			const r = await api<{ data: Conversacion[] }>(`/conversations${qs ? `?${qs}` : ""}`);
 			setConversaciones(r.data);
 		} catch (err) {
 			setConversaciones((prev) => prev ?? []);
 			toast.error((err as Error).message);
 		}
-	}, [api, token, busqueda]);
+	}, [api, token, busqueda, vendedora]);
 
 	const cargarHilo = useCallback(
 		async (id: number) => {
@@ -235,6 +260,40 @@ export default function WhatsappInbox() {
 								<Plus className="h-4 w-4" />
 							</Button>
 						</div>
+						{vendedoras.length > 0 && (
+							<div className="mt-2 flex gap-2">
+								<Select
+									value={vendedora ?? TODAS}
+									onValueChange={(v) => {
+										setVendedora(v);
+										setConversaciones(null);
+									}}
+								>
+									<SelectTrigger className="min-w-0 flex-1" aria-label="Filtrar por vendedora">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value={TODAS}>Todas las conversaciones</SelectItem>
+										{vendedoras.map((v) => (
+											<SelectItem key={v.id} value={String(v.id)}>
+												{String(v.id) === miId ? `Mis leads (${v.name})` : `Leads de ${v.name}`}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+								{vendedora !== null && vendedora !== TODAS && (
+									<Button
+										variant="outline"
+										onClick={() => {
+											setVendedora(TODAS);
+											setConversaciones(null);
+										}}
+									>
+										Ver todas
+									</Button>
+								)}
+							</div>
+						)}
 					</div>
 					<div className="min-h-0 flex-1 overflow-y-auto">
 						{conversaciones === null ? (
@@ -246,7 +305,11 @@ export default function WhatsappInbox() {
 						) : conversaciones.length === 0 ? (
 							<div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
 								<MessageCircle className="h-8 w-8 opacity-40" />
-								{busqueda.trim() ? "No hay conversaciones con esa búsqueda." : "Todavía no llegó ningún mensaje."}
+								{busqueda.trim()
+									? "No hay conversaciones con esa búsqueda."
+									: vendedora !== null && vendedora !== TODAS
+										? "Ninguna lead de esta vendedora tiene conversación todavía."
+										: "Todavía no llegó ningún mensaje."}
 							</div>
 						) : (
 							conversaciones.map((c) => (
