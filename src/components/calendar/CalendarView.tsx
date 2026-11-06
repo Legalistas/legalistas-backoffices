@@ -7,9 +7,28 @@ import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import { CalendarDays, Scale, Users, Video } from "lucide-react";
+import { CalendarDays, ChevronDown, FilterX, Scale, UserRound, Users, Video } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+	DropdownMenu,
+	DropdownMenuCheckboxItem,
+	DropdownMenuContent,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+	type CalendarFilters,
+	type EventOwner,
+	eventOwner,
+	hasFilters,
+	loadFilters,
+	matchesFilters,
+	NO_FILTERS,
+	roleLabel,
+	saveFilters,
+} from "./calendarFilters";
 import {
 	CALENDAR_EVENT_BY_ID_ENDPOINT,
 	CALENDAR_UNIFIED_ENDPOINT,
@@ -136,8 +155,18 @@ const CalendarView = ({
 		crm: true,
 	});
 
+	// Role / person / "Mis tareas" filters, remembered per user in this browser.
+	const myId = Number(session?.user?.id) || null;
+	const [filters, setFilters] = useState<CalendarFilters>(NO_FILTERS);
+	useEffect(() => {
+		if (myId) setFilters(loadFilters(myId));
+	}, [myId]);
+	const updateFilters = (next: CalendarFilters) => {
+		setFilters(next);
+		if (myId) saveFilters(myId, next);
+	};
+
 	const calendarRef = useRef<any>(null);
-	const [eventsProcessed, setEventsProcessed] = useState(false);
 
 	const authHeaders = useCallback(
 		() => ({
@@ -273,20 +302,16 @@ const CalendarView = ({
 							description: ev.description ?? null,
 							responsibleId: ev.responsibleId ?? null,
 							responsiblePerson: ev.responsiblePerson ?? null,
+							owner: eventOwner(ev),
 							isHoliday: false,
 							meta: ev.meta ?? {},
 						},
 					};
 				});
 
+				// FullCalendar renders the `events` prop; adding them by hand too
+				// kept filtered-out events on screen.
 				setEvents(formatted);
-				setEventsProcessed(true);
-
-				if (calendarRef.current) {
-					const api = calendarRef.current.getApi();
-					api.removeAllEvents();
-					formatted.forEach((ev) => api.addEvent(ev));
-				}
 			} else {
 				setEventsError("Formato de respuesta inesperado");
 			}
@@ -488,6 +513,8 @@ const CalendarView = ({
 
 		try {
 			let savedId = selectedEvent?.id;
+			// The saved event as the API returns it: brings its owner and roles.
+			let saved: any = null;
 
 			if (isNewEvent) {
 				const res = await fetch(CALENDARS_EVENTS_ENDPOINT, {
@@ -498,6 +525,7 @@ const CalendarView = ({
 				if (!res.ok)
 					throw new Error(await apiErrorMessage(res, "Error al crear evento"));
 				const json = await res.json();
+				saved = json.data;
 				savedId = String(json.data.id);
 			} else if (selectedEvent?.id) {
 				const rawId = selectedEvent.id.replace(/^cal-/, "");
@@ -510,6 +538,7 @@ const CalendarView = ({
 					throw new Error(
 						await apiErrorMessage(res, "Error al actualizar evento"),
 					);
+				saved = (await res.json().catch(() => null))?.data ?? null;
 			}
 
 			// Actualizar estado local
@@ -533,6 +562,7 @@ const CalendarView = ({
 					responsiblePerson: updatedEvent.responsibleId
 						? lawyers.find((l) => l.id === updatedEvent.responsibleId) || null
 						: null,
+					owner: saved ? eventOwner(saved) : null,
 					isHoliday: false,
 					meta: {},
 				},
@@ -574,11 +604,35 @@ const CalendarView = ({
 
 	// ── Filtrar eventos por fuente ──────────────────────────────────────────
 
-	const filteredEvents = events.filter((ev) => {
-		const source =
-			((ev.extendedProps as any)?.source as EventSource) || "calendar";
-		return sourceFilters[source];
-	});
+	const ownerOf = (ev: CalendarEvent) => ((ev.extendedProps as any)?.owner as EventOwner | null) ?? null;
+
+	const filteredEvents = useMemo(
+		() =>
+			events.filter((ev) => {
+				const source = ((ev.extendedProps as any)?.source as EventSource) || "calendar";
+				return sourceFilters[source] && matchesFilters(ownerOf(ev), filters, myId);
+			}),
+		[events, sourceFilters, filters, myId],
+	);
+
+	// Options of the role and person filters: the owners of the loaded events.
+	const { roleOptions, peopleOptions } = useMemo(() => {
+		const roles = new Map<string, string>();
+		const people = new Map<number, string>();
+		for (const ev of events) {
+			const o = ownerOf(ev);
+			if (!o) continue;
+			people.set(o.id, o.name);
+			for (const r of o.roles) roles.set(r.name, roleLabel(r));
+		}
+		const byLabel = (a: [unknown, string], b: [unknown, string]) => a[1].localeCompare(b[1], "es");
+		return {
+			roleOptions: [...roles.entries()].sort(byLabel),
+			peopleOptions: [...people.entries()].sort(byLabel),
+		};
+	}, [events]);
+
+	const ALL_ROLES = "all";
 
 	const toggleSourceFilter = (source: EventSource) => {
 		setSourceFilters((prev) => ({ ...prev, [source]: !prev[source] }));
@@ -597,7 +651,10 @@ const CalendarView = ({
 
 	// ── Render ──────────────────────────────────────────────────────────────
 
-	const calendarEvents: EventSourceInput = [...filteredEvents, ...holidays];
+	const calendarEvents: EventSourceInput = useMemo(
+		() => [...filteredEvents, ...holidays],
+		[filteredEvents, holidays],
+	);
 
 	const SourceIcon = ({ source }: { source: EventSource }) => {
 		const iconClass = "h-3 w-3";
@@ -653,6 +710,75 @@ const CalendarView = ({
 						</button>
 					);
 				})}
+			</div>
+
+			{/* Role / person / own filters (all combine). */}
+			<div className="mb-4 flex flex-wrap items-center gap-2">
+				<Button
+					size="sm"
+					variant={filters.mine ? "default" : "outline"}
+					aria-pressed={filters.mine}
+					onClick={() => updateFilters({ ...filters, mine: !filters.mine })}
+				>
+					<UserRound className="mr-1.5 h-3.5 w-3.5" />
+					Mis tareas
+				</Button>
+				<Select
+					value={filters.role ?? ALL_ROLES}
+					onValueChange={(v) => updateFilters({ ...filters, role: v === ALL_ROLES ? null : v })}
+				>
+					<SelectTrigger size="sm" className="w-56" aria-label="Filtrar por rol">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value={ALL_ROLES}>Todos los roles</SelectItem>
+						{roleOptions.map(([name, label]) => (
+							<SelectItem key={name} value={name}>
+								{label}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
+				<DropdownMenu>
+					<DropdownMenuTrigger asChild>
+						<Button size="sm" variant="outline" aria-label="Filtrar por persona">
+							{filters.people.length === 0
+								? "Todas las personas"
+								: filters.people.length === 1
+									? (peopleOptions.find(([id]) => id === filters.people[0])?.[1] ?? "1 persona")
+									: `${filters.people.length} personas`}
+							<ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
+						</Button>
+					</DropdownMenuTrigger>
+					<DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
+						{peopleOptions.map(([id, name]) => (
+							<DropdownMenuCheckboxItem
+								key={id}
+								checked={filters.people.includes(id)}
+								onSelect={(e) => e.preventDefault()}
+								onCheckedChange={(on) =>
+									updateFilters({
+										...filters,
+										people: on ? [...filters.people, id] : filters.people.filter((p) => p !== id),
+									})
+								}
+							>
+								{name}
+								{id === myId && <span className="ml-1 text-muted-foreground">(vos)</span>}
+							</DropdownMenuCheckboxItem>
+						))}
+					</DropdownMenuContent>
+				</DropdownMenu>
+				{hasFilters(filters) && (
+					<Button size="sm" variant="ghost" onClick={() => updateFilters(NO_FILTERS)}>
+						<FilterX className="mr-1.5 h-3.5 w-3.5" />
+						Limpiar filtros
+					</Button>
+				)}
+				<span className="ml-auto flex items-center gap-1.5 text-xs text-muted-foreground">
+					<UserRound className="h-3.5 w-3.5 text-primary" />
+					Tus tareas tienen este ícono
+				</span>
 			</div>
 
 			{/* Cargando */}
@@ -720,9 +846,10 @@ const CalendarView = ({
 				eventClassNames={(arg) => {
 					if (isHolidayEvent(arg.event)) return ["holiday-event"];
 					const source = arg.event.extendedProps?.source as EventSource;
-					if (source === "cases") return ["fc-custom-event", "fc-source-cases"];
-					if (source === "crm") return ["fc-custom-event", "fc-source-crm"];
-					return ["fc-custom-event", "fc-source-calendar"];
+					const mine = myId !== null && arg.event.extendedProps?.owner?.id === myId ? ["fc-mine"] : [];
+					if (source === "cases") return ["fc-custom-event", "fc-source-cases", ...mine];
+					if (source === "crm") return ["fc-custom-event", "fc-source-crm", ...mine];
+					return ["fc-custom-event", "fc-source-calendar", ...mine];
 				}}
 				dayCellClassNames={(arg) => {
 					const d = arg.date.toISOString().split("T")[0];
@@ -749,6 +876,12 @@ const CalendarView = ({
 						eventInfo.event.extendedProps?.color ||
 						SOURCE_COLORS[source].primary;
 					const hasMeet = !!eventInfo.event.extendedProps?.meetLink;
+					// Assigned to the logged-in user: marked in every view.
+					const mine = myId !== null && eventInfo.event.extendedProps?.owner?.id === myId;
+					const ownerName = (eventInfo.event.extendedProps?.owner as EventOwner | null)?.name;
+					const mineIcon = mine && (
+						<UserRound className="h-3 w-3 shrink-0 text-primary" aria-label="Asignada a vos" />
+					);
 
 					// Vista Agenda
 					if (eventInfo.view.type === "listWeek") {
@@ -763,9 +896,13 @@ const CalendarView = ({
 										} as React.CSSProperties
 									}
 								/>
+								{mineIcon}
 								<span className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate flex-1">
 									{title}
 								</span>
+								{ownerName && (
+									<span className="text-xs text-muted-foreground truncate">{ownerName}</span>
+								)}
 								{source !== "calendar" && (
 									<span
 										className={`fc-source-badge fc-source-badge--${source}`}
@@ -795,13 +932,17 @@ const CalendarView = ({
 
 					return (
 						<div
-							className="fc-event-row flex items-center gap-1 w-full px-1.5 py-0.5 rounded"
-							title={timeStr ? `${timeStr} — ${title}` : title}
+							className={`fc-event-row flex items-center gap-1 w-full px-1.5 py-0.5 rounded ${
+								mine ? "ring-1 ring-primary/60" : ""
+							}`}
+							title={[timeStr, title, ownerName && `(${ownerName})`].filter(Boolean).join(" — ")}
 						>
-							<span
-								className="h-2 w-2 rounded-full shrink-0"
-								style={{ backgroundColor: color }}
-							/>
+							{mineIcon || (
+								<span
+									className="h-2 w-2 rounded-full shrink-0"
+									style={{ backgroundColor: color }}
+								/>
+							)}
 							<span className="text-xs font-medium truncate flex-1 text-gray-700 dark:text-gray-200">
 								{timeStr && (
 									<span className="text-gray-400 dark:text-gray-500 mr-1">{timeStr}</span>
@@ -841,14 +982,6 @@ const CalendarView = ({
 					if (isHolidayDate(info.event.startStr)) {
 						info.revert();
 						showError("No se pueden mover eventos a días festivos");
-					}
-				}}
-				datesSet={() => {
-					if (eventsProcessed && calendarRef.current) {
-						const api = calendarRef.current.getApi();
-						api.removeAllEvents();
-						filteredEvents.forEach((ev) => api.addEvent(ev));
-						holidays.forEach((h) => api.addEvent(h));
 					}
 				}}
 			/>

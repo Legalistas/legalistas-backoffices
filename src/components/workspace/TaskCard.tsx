@@ -71,6 +71,8 @@ export function TaskCard({ task, people, myId, onOpen, actions, onLike, expanded
 	const flag = task.priority === "HIGH" || task.priority === "URGENT" ? task.priority : null;
 	const likes = task.likes ?? [];
 	const liked = myId !== null && likes.includes(myId);
+	const pendingSubtasks = (task.subtaskItems ?? []).filter((s) => !s.completedAt);
+	const doneSubtasks = (task.subtaskItems?.length ?? 0) - pendingSubtasks.length;
 	const [editing, setEditing] = useState(false);
 	const [title, setTitle] = useState(task.title);
 	const [picker, setPicker] = useState<Picker>(null);
@@ -374,10 +376,11 @@ export function TaskCard({ task, people, myId, onOpen, actions, onLike, expanded
 							type="button"
 							onClick={stop(onToggleExpand)}
 							aria-expanded={!!expanded}
-							aria-label={`${expanded ? "Contraer" : "Expandir"} las ${task.subtasks} subtareas`}
+							aria-label={`${expanded ? "Contraer" : "Expandir"} las subtareas: ${doneSubtasks} de ${task.subtasks} hechas`}
+							title={`${doneSubtasks} de ${task.subtasks} subtareas hechas`}
 							className="inline-flex items-center gap-1 rounded-md px-1 py-0.5 tabular-nums hover:bg-muted hover:text-foreground"
 						>
-							{task.subtasks}
+							{doneSubtasks}/{task.subtasks}
 							<ListTree className="size-3.5" />
 							<ChevronRight className={cn("size-3.5 transition-transform", expanded && "rotate-90")} />
 						</button>
@@ -405,7 +408,11 @@ export function TaskCard({ task, people, myId, onOpen, actions, onLike, expanded
 
 			{expanded && (task.subtaskItems?.length ?? 0) > 0 && (
 				<ul className="mt-3 space-y-1 border-t border-board-card-border pt-2.5 pl-6.5">
-					{task.subtaskItems?.map((s) => (
+					{pendingSubtasks.length === 0 && (
+						<li className="text-xs text-muted-foreground">Todas las subtareas están hechas.</li>
+					)}
+					{/* Done subtasks leave this list; the task panel keeps them under "Hechas". */}
+					{pendingSubtasks.map((s) => (
 						<li key={s.id} className="flex items-center gap-2">
 							<CompleteToggle
 								done={!!s.completedAt}

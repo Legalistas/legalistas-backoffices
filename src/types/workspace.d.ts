@@ -158,6 +158,7 @@ export interface WorkSubtask {
 	id: number;
 	title: string;
 	completedAt: string | null;
+	completedBy?: WorkPerson | null;
 	dueDate: string | null;
 	assignees: WorkPerson[];
 }

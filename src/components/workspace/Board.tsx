@@ -319,15 +319,23 @@ export default function Board({ projectId }: { projectId: number }) {
 			const card = await request();
 			if (board?.tasks.some((t) => t.id === id)) replaceCard(card);
 			else load(); // A subtask: its parent card shows it.
+			return true;
 		} catch (e) {
 			toast.error(errorMessage(e, "No se pudo actualizar la tarea"));
+			return false;
 		}
 	};
 	const patchCard = (id: number, json: Record<string, unknown>) =>
 		saveCard(id, () => workspaceFetch<WorkCard>(`/tasks/${id}`, token, { method: "PATCH", json }));
 
 	const cardActions: CardActions = {
-		toggle: (id, completed) => patchCard(id, { completed }),
+		toggle: async (id, completed) => {
+			if ((await patchCard(id, { completed })) && completed) {
+				toast.success("Marcada como hecha", {
+					action: { label: "Deshacer", onClick: () => patchCard(id, { completed: false }) },
+				});
+			}
+		},
 		rename: (id, title) => patchCard(id, { title }),
 		setDue: (id, dueDate) => patchCard(id, { dueDate }),
 		setPriority: (id, priority: WorkPriority) => patchCard(id, { priority }),

@@ -80,6 +80,7 @@ import type {
 	WorkLeadRef,
 	WorkMentionRef,
 	WorkPerson,
+	WorkSubtask,
 	WorkTaskDetail,
 } from "@/types/workspace";
 import { CompleteToggle } from "./CompleteToggle";
@@ -166,6 +167,63 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 	);
 }
 
+const finishedAt = (iso: string) =>
+	new Date(iso).toLocaleString("es-AR", {
+		day: "2-digit",
+		month: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+
+/** A subtask line; a done one also says when and who finished it. */
+function SubtaskRow({
+	s,
+	canEdit,
+	onToggle,
+	onOpen,
+}: {
+	s: WorkSubtask;
+	canEdit: boolean;
+	onToggle: (id: number, completed: boolean) => void;
+	onOpen: (id: number) => void;
+}) {
+	return (
+		<li className="flex items-center gap-2.5 py-2">
+			<CompleteToggle
+				done={!!s.completedAt}
+				label={s.completedAt ? `Reabrir "${s.title}"` : `Completar "${s.title}"`}
+				onClick={() => canEdit && onToggle(s.id, !s.completedAt)}
+			/>
+			<div className="min-w-0 flex-1">
+				<button
+					type="button"
+					onClick={() => onOpen(s.id)}
+					className={cn(
+						"block w-full truncate text-left text-sm hover:underline",
+						s.completedAt && "text-muted-foreground line-through",
+					)}
+				>
+					{s.title}
+				</button>
+				{s.completedAt && (
+					<p className="text-xs text-muted-foreground">
+						Hecha el {finishedAt(s.completedAt)}
+						{s.completedBy?.name && ` por ${s.completedBy.name}`}
+					</p>
+				)}
+			</div>
+			{!s.completedAt && s.dueDate && (
+				<span className="text-xs tabular-nums text-muted-foreground">{formatDay(s.dueDate)}</span>
+			)}
+			{s.assignees.length > 0 && (
+				<GroupAvatar
+					users={s.assignees.map((p) => ({ name: p.name ?? undefined, image: p.image ?? undefined }))}
+				/>
+			)}
+		</li>
+	);
+}
+
 type FeedItem =
 	| { kind: "comment"; at: string; comment: WorkComment }
 	| { kind: "activity"; at: string; activity: WorkActivity };
@@ -192,6 +250,7 @@ export function TaskDetailSheet({
 	const [descriptionDirty, setDescriptionDirty] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [newSubtask, setNewSubtask] = useState("");
+	const [showDoneSubtasks, setShowDoneSubtasks] = useState(false);
 	const [comment, setComment] = useState("");
 	// Bumped to clear the editor after commenting (it is uncontrolled).
 	const [composerKey, setComposerKey] = useState(0);
@@ -210,6 +269,15 @@ export function TaskDetailSheet({
 	// While the title is being typed, a live reload does not overwrite it.
 	const editingTitle = useRef(false);
 	const subtaskInput = useRef<HTMLInputElement>(null);
+	// Pending first; done ones apart, latest finished on top.
+	const subtasksPending = useMemo(() => task?.subtasks.filter((s) => !s.completedAt) ?? [], [task]);
+	const subtasksDone = useMemo(
+		() =>
+			(task?.subtasks.filter((s) => s.completedAt) ?? []).sort((a, b) =>
+				(b.completedAt ?? "").localeCompare(a.completedAt ?? ""),
+			),
+		[task],
+	);
 
 	const peopleById = useMemo(() => new Map(people.map((p) => [p.id, p.name ?? "Sin nombre"])), [people]);
 
@@ -396,10 +464,16 @@ export function TaskDetailSheet({
 		subtaskInput.current?.focus();
 	};
 
-	const toggleSubtask = (id: number, completed: boolean) =>
+	// Done subtasks go to "Hechas" below; a few seconds to undo it (Legales, 05/11/2026).
+	const toggleSubtask = (id: number, completed: boolean): Promise<void> =>
 		run(async () => {
 			await workspaceFetch(`/tasks/${id}`, token, { method: "PATCH", json: { completed } });
 			onBoardStale();
+			if (completed) {
+				toast.success("Subtarea hecha", {
+					action: { label: "Deshacer", onClick: () => toggleSubtask(id, false) },
+				});
+			}
 			return null;
 		});
 
@@ -1123,7 +1197,7 @@ export function TaskDetailSheet({
 												Subtareas
 												{task.subtasks.length > 0 && (
 													<span className="ml-1.5 font-normal text-muted-foreground tabular-nums">
-														{task.subtasks.filter((s) => s.completedAt).length}/{task.subtasks.length}
+														{subtasksDone.length} de {task.subtasks.length} hechas
 													</span>
 												)}
 											</h3>
@@ -1139,35 +1213,60 @@ export function TaskDetailSheet({
 												</Button>
 											)}
 										</div>
+										{task.subtasks.length > 0 && (
+											<div
+												className="h-1.5 overflow-hidden rounded-full bg-muted"
+												role="progressbar"
+												aria-label="Avance de las subtareas"
+												aria-valuemin={0}
+												aria-valuemax={task.subtasks.length}
+												aria-valuenow={subtasksDone.length}
+											>
+												<div
+													className="h-full rounded-full bg-primary transition-[width]"
+													style={{ width: `${(subtasksDone.length / task.subtasks.length) * 100}%` }}
+												/>
+											</div>
+										)}
 										<ul className="divide-y divide-border">
-											{task.subtasks.map((s) => (
-												<li key={s.id} className="flex items-center gap-2.5 py-2">
-													<CompleteToggle
-														done={!!s.completedAt}
-														label={s.completedAt ? `Reabrir "${s.title}"` : `Completar "${s.title}"`}
-														onClick={() => canEdit && toggleSubtask(s.id, !s.completedAt)}
-													/>
-													<button
-														type="button"
-														onClick={() => onOpenTask(s.id)}
-														className={cn(
-															"min-w-0 flex-1 truncate text-left text-sm hover:underline",
-															s.completedAt && "text-muted-foreground",
-														)}
-													>
-														{s.title}
-													</button>
-													{s.dueDate && (
-														<span className="text-xs tabular-nums text-muted-foreground">{formatDay(s.dueDate)}</span>
-													)}
-													{s.assignees.length > 0 && (
-														<GroupAvatar
-															users={s.assignees.map((p) => ({ name: p.name ?? undefined, image: p.image ?? undefined }))}
-														/>
-													)}
-												</li>
+											{subtasksPending.map((s) => (
+												<SubtaskRow
+													key={s.id}
+													s={s}
+													canEdit={canEdit}
+													onToggle={toggleSubtask}
+													onOpen={onOpenTask}
+												/>
 											))}
 										</ul>
+										{subtasksDone.length > 0 && (
+											<div>
+												<button
+													type="button"
+													onClick={() => setShowDoneSubtasks((v) => !v)}
+													aria-expanded={showDoneSubtasks}
+													className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+												>
+													<ChevronDown
+														className={cn("size-3.5 transition-transform", !showDoneSubtasks && "-rotate-90")}
+													/>
+													Hechas ({subtasksDone.length})
+												</button>
+												{showDoneSubtasks && (
+													<ul className="mt-1 divide-y divide-border">
+														{subtasksDone.map((s) => (
+															<SubtaskRow
+																key={s.id}
+																s={s}
+																canEdit={canEdit}
+																onToggle={toggleSubtask}
+																onOpen={onOpenTask}
+															/>
+														))}
+													</ul>
+												)}
+											</div>
+										)}
 										{canEdit && (
 											<form onSubmit={addSubtask}>
 												<input
