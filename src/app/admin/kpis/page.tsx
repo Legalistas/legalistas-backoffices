@@ -17,6 +17,7 @@ import {
 } from "@/components/kpis/exportKpiMatrix";
 import ActiveOpportunitiesPanel from "@/components/kpis/ActiveOpportunitiesPanel";
 import CityBreakdownTable from "@/components/kpis/CityBreakdownTable";
+import AccountingKpiGuide from "@/components/kpis/AccountingKpiGuide";
 import KpiMatrix from "@/components/kpis/KpiMatrix";
 import KpiSummary from "@/components/kpis/KpiSummary";
 import ManualKpiPanel from "@/components/kpis/ManualKpiPanel";
@@ -464,11 +465,14 @@ export default function KpisPage() {
 						departmentLabel={departmentLabel}
 						onValueChanged={active.refresh}
 						periodLabels={active.periodLabels}
-						readOnly={matrixReadOnly}
+						// Accounting is monthly only: its matrix stays monthly and editable in the weekly view.
+						readOnly={matrixReadOnly && department !== "accounting"}
 						accumulatedLabel={
-							matrixGranularity === "week" ? "TOTAL MES" : undefined
+							matrixGranularity === "week" && department !== "accounting" ? "TOTAL MES" : undefined
 						}
 					/>
+
+					{department === "accounting" && <AccountingKpiGuide />}
 
 					{/* Detalle por ciudad (punto 7.3 del doc): fuera de la planilla
 					    principal, buscable. Solo aplica a Ventas. */}

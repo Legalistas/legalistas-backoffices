@@ -58,11 +58,12 @@ const METRIC_LABELS: Record<string, { label: string; format: "number" | "currenc
 	totalVentasMarketing: { label: "Total ventas marketing", format: "number" },
 	conversionGlobal: { label: "Conversión global", format: "percent" },
 	// Accounting
-	ingresosOperativos: { label: "Ingresos operativos", format: "currency" },
-	totalGastos: { label: "Total gastos", format: "currency" },
+	// The figures Contable loads each month (KPIs DTO. CONTABLE 2026).
+	ingresosOperativos: { label: "Ingresos del mes (cobrado)", format: "currency" },
+	totalGastos: { label: "Egresos operativos", format: "currency" },
 	resultadoEjercicio: { label: "Resultado del ejercicio", format: "currency" },
-	saldoCaja: { label: "Saldo caja actual", format: "currency" },
-	cobrosTotal: { label: "Cobros del período", format: "currency" },
+	saldoCaja: { label: "Caja disponible al cierre", format: "currency" },
+	cobrosTotal: { label: "Monto cobrado (HP + CL)", format: "currency" },
 };
 
 const AREA_LABELS: Record<string, string> = {

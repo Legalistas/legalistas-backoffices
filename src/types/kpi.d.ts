@@ -61,6 +61,8 @@ export interface KpiMatrixRow {
 	 * de null. Requerido cuando `editable` + el sourceKey es perUser.
 	 */
 	sourceUserId?: number;
+	/** The editable cell takes values below zero (balances). */
+	allowNegative?: boolean;
 }
 
 export interface KpiMatrixSubSection {

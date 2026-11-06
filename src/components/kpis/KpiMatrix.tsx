@@ -132,6 +132,7 @@ function EditableCell({
 	year,
 	monthIdx,
 	sourceUserId,
+	allowNegative = false,
 	onSaved,
 }: {
 	value: number | null;
@@ -141,6 +142,7 @@ function EditableCell({
 	monthIdx: number;
 	/** userId cuando la fila representa a un vendedor/abogado (perUser). */
 	sourceUserId?: number;
+	allowNegative?: boolean;
 	onSaved: () => void;
 }) {
 	const { data: session } = useSession();
@@ -171,7 +173,7 @@ function EditableCell({
 
 	const save = async () => {
 		const numValue = Number(draft);
-		if (Number.isNaN(numValue) || numValue < 0) {
+		if (Number.isNaN(numValue) || (numValue < 0 && !allowNegative)) {
 			toast.error("Valor inválido");
 			cancel();
 			return;
@@ -340,6 +342,7 @@ function DataRow({
 						year={year}
 						monthIdx={i}
 						sourceUserId={row.sourceUserId}
+						allowNegative={row.allowNegative}
 						onSaved={() => onValueChanged?.()}
 					/>
 				) : (
