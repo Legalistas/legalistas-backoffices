@@ -5,6 +5,7 @@ import {
 	Calendar,
 	CheckCheck,
 	CheckCircle,
+	ExternalLink,
 	FileText,
 	Info,
 	Scale,
@@ -12,6 +13,7 @@ import {
 	SquareKanban,
 	Wallet,
 } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Notification } from "@/components/notification-provider";
 import { useNotifications } from "@/components/notification-provider";
@@ -100,6 +102,15 @@ export default function NotificationCard({
 				return "Normal";
 			case "info":
 				return "Info";
+			// Espacio de trabajo (backend modules/workspace → notify).
+			case "workspace_mencion":
+				return "Te mencionaron";
+			case "workspace_asignacion":
+				return "Tarea asignada";
+			case "workspace_comentario":
+				return "Comentario";
+			case "workspace_equipo":
+				return "Espacio de trabajo";
 			default:
 				return notification.type;
 		}
@@ -160,21 +171,41 @@ export default function NotificationCard({
 								{relativeDate}
 							</span>
 						</div>
-						<p
-							className={`text-sm whitespace-pre-wrap wrap-break-word ${notification.read ? "" : "font-medium"}`}
-						>
-							{notification.message}
-						</p>
-						{!notification.read && (
-							<div className="flex justify-end mt-3">
-								<Button
-									variant="outline"
-									size="sm"
-									onClick={handleMarkAsRead}
-								>
-									<CheckCheck className="h-4 w-4 mr-1.5" />
-									Marcar como leída
-								</Button>
+						{/* Like the bell dropdown: a notification with a link (a mention, a task…) opens it. */}
+						{notification.link ? (
+							<Link
+								href={notification.link}
+								onClick={() => !notification.read && handleMarkAsRead()}
+								className={`block text-sm whitespace-pre-wrap wrap-break-word hover:underline ${notification.read ? "" : "font-medium"}`}
+							>
+								{notification.message}
+							</Link>
+						) : (
+							<p
+								className={`text-sm whitespace-pre-wrap wrap-break-word ${notification.read ? "" : "font-medium"}`}
+							>
+								{notification.message}
+							</p>
+						)}
+						{(notification.link || !notification.read) && (
+							<div className="flex justify-end gap-2 mt-3">
+								{notification.link && (
+									<Button asChild variant="outline" size="sm">
+										<Link
+											href={notification.link}
+											onClick={() => !notification.read && handleMarkAsRead()}
+										>
+											<ExternalLink className="h-4 w-4 mr-1.5" />
+											Abrir
+										</Link>
+									</Button>
+								)}
+								{!notification.read && (
+									<Button variant="outline" size="sm" onClick={handleMarkAsRead}>
+										<CheckCheck className="h-4 w-4 mr-1.5" />
+										Marcar como leída
+									</Button>
+								)}
 							</div>
 						)}
 					</div>
