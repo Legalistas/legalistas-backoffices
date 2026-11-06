@@ -12,13 +12,70 @@ import type { User } from "@/types/users";
 // (Datos laborales). Quien no tiene jefe y tiene gente a cargo es una raíz;
 // el resto del equipo sin ubicar se lista abajo para completarlo.
 
-interface Nodo {
+export interface Nodo {
 	id: number;
 	nombre: string;
 	puesto: string;
 	image: string | null;
 	representante: boolean;
 	hijos: Nodo[];
+}
+
+/**
+ * A node's people: the team side by side, and the representatives (with no one
+ * under them) stacked in one column so a boss with many of them stays narrow
+ * (Jona, 06/11/2026). Shared by the screen and the PDF.
+ */
+export function separarHijos(n: Nodo): { equipo: Nodo[]; representantes: Nodo[] } {
+	const esRep = (h: Nodo) => h.representante && h.hijos.length === 0;
+	return { equipo: n.hijos.filter((h) => !esRep(h)), representantes: n.hijos.filter(esRep) };
+}
+
+/** The tree by "Reporta a" plus whoever is left out; shared by the screen and the PDF. */
+export function armarOrganigrama(users: User[]): { raices: Nodo[]; sinUbicar: User[] } {
+	// Con ficha laboral entra siempre (aunque su rol no sea de los del equipo).
+	const equipo = users.filter(
+		(u) =>
+			(u.employment || isInternalTeamMember(u)) &&
+			!u.isBlocked &&
+			u.employment?.status !== "TERMINATED",
+	);
+	const conFicha = equipo.filter((u) => u.employment);
+	const ids = new Set(conFicha.map((u) => u.id));
+	const hijosDe = new Map<number, User[]>();
+	for (const u of conFicha) {
+		const jefe = u.employment?.jefeId;
+		if (jefe && ids.has(jefe) && jefe !== u.id) {
+			hijosDe.set(jefe, [...(hijosDe.get(jefe) ?? []), u]);
+		}
+	}
+	const armar = (u: User, visitados: Set<number>): Nodo => {
+		visitados.add(u.id);
+		const role = u.roleUser?.[0]?.role;
+		return {
+			id: u.id,
+			nombre: u.name,
+			puesto: u.employment?.position || role?.displayName || role?.name || "",
+			image: u.image ?? null,
+			representante: segmentoDe(u.employment?.segmento, getRoleIdentifier(u)) === "REPRESENTANTE",
+			hijos: (hijosDe.get(u.id) ?? [])
+				.filter((h) => !visitados.has(h.id))
+				.sort((a, b) => a.name.localeCompare(b.name))
+				.map((h) => armar(h, visitados)),
+		};
+	};
+	const visitados = new Set<number>();
+	const raices = conFicha
+		.filter((u) => {
+			const jefe = u.employment?.jefeId;
+			return (!jefe || !ids.has(jefe)) && hijosDe.has(u.id);
+		})
+		.sort((a, b) => a.name.localeCompare(b.name))
+		.map((u) => armar(u, visitados));
+	const sinUbicar = equipo
+		.filter((u) => !visitados.has(u.id))
+		.sort((a, b) => a.name.localeCompare(b.name));
+	return { raices, sinUbicar };
 }
 
 const iniciales = (nombre: string) => {
@@ -58,6 +115,7 @@ function Tarjeta({ n, onOpen }: { n: Nodo; onOpen: (id: number) => void }) {
 
 function Rama({ n, nivel, onOpen }: { n: Nodo; nivel: number; onOpen: (id: number) => void }) {
 	const [abierta, setAbierta] = useState(nivel < 2 || n.hijos.length <= 4);
+	const { equipo, representantes } = separarHijos(n);
 	return (
 		<li className="organigrama-rama">
 			<div className="flex flex-col items-center">
@@ -75,9 +133,23 @@ function Rama({ n, nivel, onOpen }: { n: Nodo; nivel: number; onOpen: (id: numbe
 			</div>
 			{abierta && n.hijos.length > 0 && (
 				<ul>
-					{n.hijos.map((h) => (
+					{equipo.map((h) => (
 						<Rama key={h.id} n={h} nivel={nivel + 1} onOpen={onOpen} />
 					))}
+					{representantes.length > 0 && (
+						<li className="organigrama-rama">
+							<div className="flex flex-col items-center">
+								<p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+									Representantes ({representantes.length})
+								</p>
+								<div className="flex flex-col gap-1.5 border-l-2 border-border pl-2">
+									{representantes.map((r) => (
+										<Tarjeta key={r.id} n={r} onOpen={onOpen} />
+									))}
+								</div>
+							</div>
+						</li>
+					)}
 				</ul>
 			)}
 		</li>
@@ -91,51 +163,7 @@ export default function OrganigramaPorJefe({
 	users: User[];
 	onOpen: (id: number) => void;
 }) {
-	const { raices, sinUbicar } = useMemo(() => {
-		// Con ficha laboral entra siempre (aunque su rol no sea de los del equipo).
-		const equipo = users.filter(
-			(u) =>
-				(u.employment || isInternalTeamMember(u)) &&
-				!u.isBlocked &&
-				u.employment?.status !== "TERMINATED",
-		);
-		const conFicha = equipo.filter((u) => u.employment);
-		const ids = new Set(conFicha.map((u) => u.id));
-		const hijosDe = new Map<number, User[]>();
-		for (const u of conFicha) {
-			const jefe = u.employment?.jefeId;
-			if (jefe && ids.has(jefe) && jefe !== u.id) {
-				hijosDe.set(jefe, [...(hijosDe.get(jefe) ?? []), u]);
-			}
-		}
-		const armar = (u: User, visitados: Set<number>): Nodo => {
-			visitados.add(u.id);
-			const role = u.roleUser?.[0]?.role;
-			return {
-				id: u.id,
-				nombre: u.name,
-				puesto: u.employment?.position || role?.displayName || role?.name || "",
-				image: u.image ?? null,
-				representante: segmentoDe(u.employment?.segmento, getRoleIdentifier(u)) === "REPRESENTANTE",
-				hijos: (hijosDe.get(u.id) ?? [])
-					.filter((h) => !visitados.has(h.id))
-					.sort((a, b) => a.name.localeCompare(b.name))
-					.map((h) => armar(h, visitados)),
-			};
-		};
-		const visitados = new Set<number>();
-		const raices = conFicha
-			.filter((u) => {
-				const jefe = u.employment?.jefeId;
-				return (!jefe || !ids.has(jefe)) && hijosDe.has(u.id);
-			})
-			.sort((a, b) => a.name.localeCompare(b.name))
-			.map((u) => armar(u, visitados));
-		const sinUbicar = equipo
-			.filter((u) => !visitados.has(u.id))
-			.sort((a, b) => a.name.localeCompare(b.name));
-		return { raices, sinUbicar };
-	}, [users]);
+	const { raices, sinUbicar } = useMemo(() => armarOrganigrama(users), [users]);
 
 	return (
 		<div className="space-y-6">

@@ -6,6 +6,7 @@ import {
 	ChevronDown,
 	ChevronRight,
 	Crown,
+	Download,
 	Landmark,
 	Loader2,
 	Megaphone,
@@ -26,7 +27,9 @@ import { Role } from "@/constant/user";
 import { SUPERADMIN } from "@/constant/menu";
 import { USERS_ENDPOINT } from "@/constant/api-endpoints";
 import type { User } from "@/types/users";
-import OrganigramaPorJefe from "@/components/rrhh/OrganigramaPorJefe";
+import OrganigramaPorJefe, { armarOrganigrama } from "@/components/rrhh/OrganigramaPorJefe";
+import { exportarOrganigramaPdf } from "@/components/rrhh/organigramaPdf";
+import { exportarPdf } from "@/lib/exportar";
 
 const EMPLOYMENT_ALLOWED_ROLES = [
 	...SUPERADMIN,
@@ -276,6 +279,37 @@ export default function OrganigramaContent() {
 
 	const openUser = (id: number) => router.push(`/admin/rrhh/${id}`);
 
+	// Downloads the view on screen: the tree (Por jefe) or one table per area.
+	const [descargando, setDescargando] = useState(false);
+	const descargarPdf = async () => {
+		setDescargando(true);
+		try {
+			if (vista === "jefe") {
+				const { raices, sinUbicar } = armarOrganigrama(users);
+				await exportarOrganigramaPdf(raices, sinUbicar);
+			} else {
+				await exportarPdf("Organigrama por área", {
+					titulo: "Organigrama por área",
+					subtitulo: `${totalEmployees} miembros · agrupados por área y nivel jerárquico`,
+					tablas: AREAS.flatMap((area) => {
+						const filas = Array.from(grouped.get(area.key)?.entries() ?? [])
+							.sort((a, b) => a[0] - b[0])
+							.flatMap(([level, bucket]) =>
+								bucket.map((p) => [p.name, p.roleDisplayName, levelLabel(level)]),
+							);
+						return filas.length
+							? [{ titulo: area.label, columnas: ["Nombre", "Puesto", "Nivel"], filas }]
+							: [];
+					}),
+				});
+			}
+		} catch {
+			toast.error("No se pudo generar el PDF");
+		} finally {
+			setDescargando(false);
+		}
+	};
+
 	return (
 		<Can
 			role={EMPLOYMENT_ALLOWED_ROLES}
@@ -334,6 +368,20 @@ export default function OrganigramaContent() {
 							Por área
 						</Button>
 					</div>
+					<Button
+						size="sm"
+						variant="outline"
+						className="h-8 text-xs"
+						onClick={descargarPdf}
+						disabled={isLoading || descargando}
+					>
+						{descargando ? (
+							<Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+						) : (
+							<Download className="mr-1.5 h-3.5 w-3.5" />
+						)}
+						Descargar PDF
+					</Button>
 				</div>
 			</div>
 

@@ -99,27 +99,27 @@ export async function exportarExcel(archivo: string, tablas: TablaInforme[]): Pr
 // Encabezado turquesa con el logo en blanco, totales en tarjetas, tablas con
 // los colores de la marca y pie con el número de página en cada hoja.
 
-type Rgb = [number, number, number];
-const MARCA: Rgb = [9, 164, 181];
-const MARCA_OSCURA: Rgb = [6, 124, 137];
-const TINTA: Rgb = [18, 49, 58];
-const SUAVE: Rgb = [94, 123, 131];
-const LINEA: Rgb = [211, 235, 238];
-const FONDO: Rgb = [238, 248, 250];
+export type Rgb = [number, number, number];
+export const MARCA: Rgb = [9, 164, 181];
+export const MARCA_OSCURA: Rgb = [6, 124, 137];
+export const TINTA: Rgb = [18, 49, 58];
+export const SUAVE: Rgb = [94, 123, 131];
+export const LINEA: Rgb = [211, 235, 238];
+export const FONDO: Rgb = [238, 248, 250];
 const ROJO: Rgb = [200, 38, 38];
 
 const MARGEN = 14;
 const ALTO_BANDA = 27;
-const ALTO_LOGO = 10;
+export const ALTO_LOGO = 10;
 /** El PNG del logo mide 908 × 205. */
-const ANCHO_LOGO = (ALTO_LOGO * 908) / 205;
+export const ANCHO_LOGO = (ALTO_LOGO * 908) / 205;
 
 const LOGO_BLANCO = "/images/logo/logo-print-blanco.png";
 
 let logoEnCache: Promise<string | null> | null = null;
 
 /** El logo como data URL (jsPDF no lee rutas). Sin red, el PDF sale con el nombre en texto. */
-const cargarLogo = () => {
+export const cargarLogo = () => {
 	logoEnCache ??= fetch(LOGO_BLANCO)
 		.then((res) => (res.ok ? res.blob() : Promise.reject(new Error("sin logo"))))
 		.then(
