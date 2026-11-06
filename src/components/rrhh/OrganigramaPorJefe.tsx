@@ -78,7 +78,7 @@ export function armarOrganigrama(users: User[]): { raices: Nodo[]; sinUbicar: Us
 	return { raices, sinUbicar };
 }
 
-const iniciales = (nombre: string) => {
+export const iniciales = (nombre: string) => {
 	const partes = nombre.trim().split(/\s+/).filter(Boolean);
 	if (partes.length === 0) return "?";
 	if (partes.length === 1) return partes[0][0]?.toUpperCase() ?? "?";

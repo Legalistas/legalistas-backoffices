@@ -15,10 +15,12 @@ import {
 	SUAVE,
 	TINTA,
 } from "@/lib/exportar";
-import { type Nodo, separarHijos } from "./OrganigramaPorJefe";
+import { iniciales, type Nodo, separarHijos } from "./OrganigramaPorJefe";
 
 // Sizes in mm.
-const CARD_W = 52;
+const CARD_W = 58;
+/** Round photo on the card. */
+const PHOTO = 10;
 const CARD_H = 15;
 const GAP_X = 5;
 const GAP_Y = 12;
@@ -135,10 +137,56 @@ const fit = (doc: jsPDF, text: string, max: number) => {
 	return `${t.trimEnd()}…`;
 };
 
+const PHOTO_PX = 128;
+
+/**
+ * One photo as a round PNG data URL. It goes through Next's image optimizer
+ * (same origin, the avatar hosts are in next.config) so the canvas can be read;
+ * a photo that does not load is skipped and the card shows the initials.
+ */
+async function cargarFoto(url: string): Promise<string | null> {
+	try {
+		const img = new Image();
+		img.src = `/_next/image?url=${encodeURIComponent(url)}&w=${PHOTO_PX}&q=75`;
+		await img.decode();
+		const canvas = document.createElement("canvas");
+		canvas.width = canvas.height = PHOTO_PX;
+		const ctx = canvas.getContext("2d");
+		if (!ctx) return null;
+		ctx.beginPath();
+		ctx.arc(PHOTO_PX / 2, PHOTO_PX / 2, PHOTO_PX / 2, 0, Math.PI * 2);
+		ctx.clip();
+		// Like object-fit: cover.
+		const side = Math.min(img.naturalWidth, img.naturalHeight);
+		ctx.drawImage(
+			img,
+			(img.naturalWidth - side) / 2,
+			(img.naturalHeight - side) / 2,
+			side,
+			side,
+			0,
+			0,
+			PHOTO_PX,
+			PHOTO_PX,
+		);
+		return canvas.toDataURL("image/png");
+	} catch {
+		return null;
+	}
+}
+
+const allNodes = (raices: Nodo[]): Nodo[] => raices.flatMap((n) => [n, ...allNodes(n.hijos)]);
+
 export async function exportarOrganigramaPdf(raices: Nodo[], sinUbicar: { name: string }[]) {
-	const [{ default: JsPdf }, logo] = await Promise.all([import("jspdf"), cargarLogo()]);
+	const urls = [...new Set(allNodes(raices).flatMap((n) => (n.image ? [n.image] : [])))];
+	const [{ default: JsPdf }, logo, fotos] = await Promise.all([
+		import("jspdf"),
+		cargarLogo(),
+		Promise.all(urls.map(async (u) => [u, await cargarFoto(u)] as const)),
+	]);
 	const today = new Date();
-	armarOrganigramaPdf(JsPdf, raices, sinUbicar, logo, today).save(
+	const porUrl = new Map(fotos.flatMap(([u, f]) => (f ? [[u, f] as const] : [])));
+	armarOrganigramaPdf(JsPdf, raices, sinUbicar, logo, today, porUrl).save(
 		`Organigrama_${today.toLocaleDateString("es-AR").replaceAll("/", "-")}.pdf`,
 	);
 }
@@ -150,6 +198,8 @@ export function armarOrganigramaPdf(
 	sinUbicar: { name: string }[],
 	logo: string | null,
 	fecha: Date,
+	/** Photo URL → round PNG data URL; people without one get their initials. */
+	fotos: Map<string, string> = new Map(),
 ): jsPDF {
 	const tree = layoutOrganigrama(raices);
 	const sinUbicarText = sinUbicar.map((u) => u.name).join("  ·  ");
@@ -206,18 +256,36 @@ export function armarOrganigramaPdf(
 		doc.setFillColor(...MARCA);
 		doc.rect(bx, by + 1.5, 1.2, CARD_H - 3, "F");
 
+		// Photo (or initials) on the left, the text beside it.
+		const px = bx + 3.5;
+		const py = by + (CARD_H - PHOTO) / 2;
+		const foto = n.image ? fotos.get(n.image) : undefined;
+		if (foto) {
+			doc.addImage(foto, "PNG", px, py, PHOTO, PHOTO);
+		} else {
+			doc.setFillColor(...FONDO);
+			doc.setDrawColor(...LINEA);
+			doc.circle(px + PHOTO / 2, py + PHOTO / 2, PHOTO / 2, "FD");
+			doc.setTextColor(...MARCA_OSCURA);
+			doc.setFont("helvetica", "bold");
+			doc.setFontSize(7);
+			doc.text(iniciales(n.nombre), px + PHOTO / 2, py + PHOTO / 2 + 1.2, { align: "center" });
+		}
+		const tx = px + PHOTO + 2.5;
+		const textMax = bx + CARD_W - 2 - tx;
+
 		doc.setTextColor(...TINTA);
 		doc.setFont("helvetica", "bold");
 		doc.setFontSize(7.5);
-		doc.text(fit(doc, n.nombre, CARD_W - 6), bx + 3.5, by + 5.5);
+		doc.text(fit(doc, n.nombre, textMax), tx, by + 5.5);
 		doc.setFont("helvetica", "normal");
 		doc.setFontSize(6.5);
 		doc.setTextColor(...SUAVE);
-		if (n.puesto) doc.text(fit(doc, n.puesto, CARD_W - 6), bx + 3.5, by + 9.5);
+		if (n.puesto) doc.text(fit(doc, n.puesto, textMax), tx, by + 9.5);
 		if (n.representante) {
 			doc.setTextColor(...MARCA_OSCURA);
 			doc.setFontSize(5.5);
-			doc.text("REPRESENTANTE", bx + 3.5, by + 13);
+			doc.text("REPRESENTANTE", tx, by + 13);
 		}
 	}
 
