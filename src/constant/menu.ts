@@ -73,6 +73,12 @@ const MARKETING = [
   GESTOR_CONTENIDOS,
   DISENADOR_GRAFICO,
 ];
+/**
+ * Representatives' liquidation: each representative sees hers; the legal
+ * director, the CEO and management (incl. accounting) all. Mirror of
+ * ROLES_LIQUIDACION in the backend (closings/acceso.ts).
+ */
+export const LIQUIDACION = [...SUPERADMIN, DIRECTORA_AREA_LEGAL, ABOGADO_REPRESENTANTE];
 /** WhatsApp inbox: Sales, in-house Legal and Marketing. Mirror of WHATSAPP_ROLES in the backend. */
 export const WHATSAPP = [...VENTAS, ...LEGAL_INTERNO, ...MARKETING];
 
@@ -220,6 +226,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Gestor de Cierres",
         path: "/admin/closing-manager",
         roles: LEGAL,
+      },
+      {
+        icon: Receipt,
+        name: "Liquidación representantes",
+        path: "/admin/closing-manager/liquidaciones",
+        roles: LIQUIDACION,
       },
       {
         icon: MessageCircle,
