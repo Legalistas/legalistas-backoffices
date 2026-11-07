@@ -111,6 +111,16 @@ export default function NotificationCard({
 				return "Comentario";
 			case "workspace_equipo":
 				return "Espacio de trabajo";
+			case "nota":
+				return "Te mencionaron en una nota";
+			case "nota_crm_mencion":
+				return "Te mencionaron en un lead";
+			case "nota_crm":
+				return "Nota en un lead";
+			case "case":
+				return "Casos";
+			case "consulta":
+				return "Consulta";
 			default:
 				return notification.type;
 		}
