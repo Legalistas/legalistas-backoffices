@@ -34,6 +34,12 @@ const fechaHora = (d: string | Date) =>
 		minute: "2-digit",
 	});
 
+/** CRM notes are HTML (rich-text editor): plain text for the preview, keeping the line breaks. */
+const textoDe = (html: string) =>
+	(new DOMParser().parseFromString(html.replace(/<br\s*\/?>|<\/p>/gi, "$&\n"), "text/html").body.textContent ?? "")
+		.replace(/\n{3,}/g, "\n\n")
+		.trim();
+
 /** The next meeting not held yet; otherwise the latest one. */
 function reunionDe(lead: LeadDetalle) {
 	const reuniones = [...(lead.crmMeetings ?? [])].sort((a, b) => +new Date(a.date) - +new Date(b.date));
@@ -151,7 +157,7 @@ export default function LeadPanel({
 								<ul className="space-y-2">
 									{notas.map((n) => (
 										<li key={n.id} className="rounded-lg bg-muted/50 p-2.5 text-sm">
-											<p className="line-clamp-4 whitespace-pre-wrap">{n.note}</p>
+											<p className="line-clamp-4 whitespace-pre-wrap">{textoDe(n.note ?? "")}</p>
 											<p className="mt-1 text-[11px] text-muted-foreground">
 												{n.user?.name} · {fechaHora(n.createdAt)}
 											</p>
