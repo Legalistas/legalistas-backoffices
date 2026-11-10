@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Loader2, MessageCircle, Paperclip, Play, Plus, Search, Send, UserRound } from "lucide-react";
+import { ArrowLeft, Loader2, MessageCircle, Plus, Search, Send, UserRound } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { SELLERS_ENDPOINT, WHATSAPP_ENDPOINT } from "@/constant/api-endpoints";
 import { cn } from "@/lib/utils";
+import Adjunto, { type MediaAdjunto } from "./Adjunto";
 import LeadPanel from "./LeadPanel";
 import PlantillaForm from "./PlantillaForm";
 import { motivoTwilio } from "./twilio-errores";
@@ -33,7 +34,7 @@ interface Mensaje {
 	id: number;
 	direction: "INBOUND" | "OUTBOUND";
 	body: string | null;
-	media: { contentType: string; objectKey: string | null }[] | null;
+	media: MediaAdjunto[] | null;
 	status: string | null;
 	errorCode: string | null;
 	createdAt: string;
@@ -234,18 +235,24 @@ export default function WhatsappInbox() {
 	};
 
 	/** Short-lived link (10 min) to our copy of the attachment. */
-	const urlAdjunto = async (messageId: number, index: number) => {
+	const urlAdjunto = async (messageId: number, index: number, descargar = false) => {
 		try {
-			return (await api<{ url: string }>(`/messages/${messageId}/media/${index}`)).url;
+			return (await api<{ url: string }>(`/messages/${messageId}/media/${index}${descargar ? "?descargar=1" : ""}`)).url;
 		} catch (err) {
 			toast.error((err as Error).message);
 			return null;
 		}
 	};
 
-	const abrirAdjunto = async (messageId: number, index: number) => {
-		const url = await urlAdjunto(messageId, index);
-		if (url) window.open(url, "_blank", "noopener,noreferrer");
+	/** Copies the attachment to the documentation of the lead with this number. */
+	const guardarEnLead = async (messageId: number, index: number) => {
+		try {
+			await api(`/messages/${messageId}/media/${index}/lead`, { method: "POST" });
+			toast.success("Guardado en la documentación del lead");
+			if (abierta) cargarHilo(abierta);
+		} catch (err) {
+			toast.error((err as Error).message);
+		}
 	};
 
 	return (
@@ -472,22 +479,15 @@ export default function WhatsappInbox() {
 											)}
 										>
 											{m.body && <p className="whitespace-pre-wrap wrap-break-word">{m.body}</p>}
-											{m.media?.map((a, i) =>
-												a.objectKey && a.contentType.startsWith("audio/") ? (
-													<AudioAdjunto key={i} cargarUrl={() => urlAdjunto(m.id, i)} />
-												) : (
-												<button
+											{m.media?.map((a, i) => (
+												<Adjunto
 													key={i}
-													type="button"
-													onClick={() => abrirAdjunto(m.id, i)}
-													disabled={!a.objectKey}
-													className="mt-1 flex items-center gap-1.5 text-xs text-primary underline-offset-2 hover:underline disabled:text-muted-foreground disabled:no-underline"
-												>
-													<Paperclip className="h-3.5 w-3.5" />
-													{a.objectKey ? `Ver adjunto (${a.contentType})` : "Guardando adjunto…"}
-												</button>
-												),
-											)}
+													media={a}
+													cargarUrl={(descargar) => urlAdjunto(m.id, i, descargar)}
+													esLead={!!leadAbierto}
+													onGuardarEnLead={() => guardarEnLead(m.id, i)}
+												/>
+											))}
 											<p className="mt-1 text-right text-[11px] text-muted-foreground">
 												{m.direction === "OUTBOUND" &&
 													(m.autoReply === "CRM"
@@ -562,39 +562,3 @@ export default function WhatsappInbox() {
 	);
 }
 
-/** A voice note or audio from the client: asks for its link when played (it lasts 10 min). */
-function AudioAdjunto({ cargarUrl }: { cargarUrl: () => Promise<string | null> }) {
-	const [url, setUrl] = useState<string | null>(null);
-	const [cargando, setCargando] = useState(false);
-
-	if (url)
-		return (
-			// biome-ignore lint/a11y/useMediaCaption: client voice notes have no captions.
-			<audio
-				controls
-				autoPlay
-				src={url}
-				aria-label="Audio del mensaje"
-				className="mt-1 h-10 w-72 max-w-full"
-				onError={() => {
-					setUrl(null);
-					toast.error("No se pudo reproducir el audio. Probá de nuevo.");
-				}}
-			/>
-		);
-	return (
-		<button
-			type="button"
-			disabled={cargando}
-			onClick={async () => {
-				setCargando(true);
-				setUrl(await cargarUrl());
-				setCargando(false);
-			}}
-			className="mt-1 flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-primary hover:bg-muted disabled:opacity-60"
-		>
-			{cargando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
-			Escuchar audio
-		</button>
-	);
-}
