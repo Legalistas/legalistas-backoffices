@@ -60,6 +60,7 @@ interface Totales {
 interface Representante {
 	id: number;
 	name: string;
+	provincia: string | null;
 	casos: Caso[];
 	totales: Totales;
 }
@@ -142,7 +143,9 @@ export default function LiquidacionRepresentantes() {
 	}, [cargar]);
 
 	const q = search.trim().toLowerCase();
-	const representantes = (data?.representantes ?? []).filter((r) => !q || r.name.toLowerCase().includes(q));
+	const representantes = (data?.representantes ?? []).filter(
+		(r) => !q || `${r.name} ${r.provincia ?? ""}`.toLowerCase().includes(q),
+	);
 	const totales = data?.totales;
 
 	const tablas = (): TablaInforme[] =>
@@ -240,8 +243,8 @@ export default function LiquidacionRepresentantes() {
 						<input
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Buscar representante..."
-							aria-label="Buscar representante"
+							placeholder="Buscar representante o provincia..."
+							aria-label="Buscar representante o provincia"
 							className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
 						/>
 					</div>
@@ -307,6 +310,7 @@ export default function LiquidacionRepresentantes() {
 							<thead>
 								<tr className="border-b border-border text-xs text-muted-foreground">
 									<th className={cn(th, "text-left")}>Representante</th>
+									<th className={cn(th, "text-left")}>Provincia</th>
 									<th className={cn(th, "text-right")}>Casos</th>
 									<th className={cn(th, "text-right")}>Facturado</th>
 									<th className={cn(th, "text-right")}>Ingresos</th>
@@ -341,6 +345,7 @@ export default function LiquidacionRepresentantes() {
 														{r.name}
 													</button>
 												</td>
+												<td className="px-3 py-3 text-muted-foreground">{r.provincia ?? "–"}</td>
 												<td className={montoCls}>{r.totales.casos}</td>
 												<td className={montoCls}>{formatARS(r.totales.facturado)}</td>
 												<td className={montoCls}>{formatARS(r.totales.ingresos)}</td>
@@ -352,7 +357,7 @@ export default function LiquidacionRepresentantes() {
 											</tr>
 											{open && (
 												<tr className="border-b border-border/60">
-													<td colSpan={7} className="bg-muted/20 p-3">
+													<td colSpan={8} className="bg-muted/20 p-3">
 														<DetalleCasos casos={r.casos} totales={r.totales} />
 													</td>
 												</tr>
