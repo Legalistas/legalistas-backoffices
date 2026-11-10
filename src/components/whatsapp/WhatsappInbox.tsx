@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, Loader2, MessageCircle, Paperclip, Play, Plus, Search, Send } from "lucide-react";
+import { ArrowLeft, Loader2, MessageCircle, Paperclip, Play, Plus, Search, Send, UserRound } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { SELLERS_ENDPOINT, WHATSAPP_ENDPOINT } from "@/constant/api-endpoints";
 import { cn } from "@/lib/utils";
+import LeadPanel from "./LeadPanel";
 import PlantillaForm from "./PlantillaForm";
 import { motivoTwilio } from "./twilio-errores";
 
@@ -23,6 +24,8 @@ interface Conversacion {
 	profileName: string | null;
 	lastMessageAt: string | null;
 	unreadCount: number;
+	/** The CRM lead with this number, if any. */
+	leadId: number | null;
 	lastMessage: { body: string | null; direction: "INBOUND" | "OUTBOUND"; hasMedia: boolean } | null;
 }
 
@@ -104,6 +107,8 @@ export default function WhatsappInbox() {
 	const [nuevo, setNuevo] = useState(false);
 	const [telefono, setTelefono] = useState("");
 	const [hilo, setHilo] = useState<Hilo | null>(null);
+	const [verLead, setVerLead] = useState(false);
+	const leadAbierto = conversaciones?.find((c) => c.id === abierta)?.leadId ?? null;
 	const [respuesta, setRespuesta] = useState("");
 	const respuestaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -334,6 +339,11 @@ export default function WhatsappInbox() {
 										<div className="flex items-baseline justify-between gap-2">
 											<span className={cn("truncate text-sm", c.unreadCount ? "font-semibold" : "font-medium")}>
 												{nombre(c)}
+												{c.leadId && (
+													<span className="ml-1.5 rounded bg-sky-100 px-1.5 py-px align-middle text-[10px] font-semibold text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">
+														Lead
+													</span>
+												)}
 											</span>
 											<span className="shrink-0 text-xs text-muted-foreground">{cuando(c.lastMessageAt)}</span>
 										</div>
@@ -415,7 +425,20 @@ export default function WhatsappInbox() {
 									<ArrowLeft className="h-4 w-4" />
 								</Button>
 								<div className="min-w-0 flex-1">
-									<p className="truncate text-sm font-semibold text-foreground">{nombre(hilo.contact)}</p>
+									<div className="flex min-w-0 items-center gap-2">
+										<p className="truncate text-sm font-semibold text-foreground">{nombre(hilo.contact)}</p>
+										{leadAbierto && (
+											<Button
+												size="sm"
+												variant="outline"
+												className="h-6 shrink-0 gap-1 border-sky-200 px-2 text-xs text-sky-700 hover:bg-sky-50 dark:border-sky-800 dark:text-sky-300"
+												onClick={() => setVerLead(true)}
+											>
+												<UserRound className="h-3.5 w-3.5" />
+												Ver lead
+											</Button>
+										)}
+									</div>
 									<p className="text-xs text-muted-foreground">
 										+{hilo.contact.waId}
 										{hilo.contact.optOutAt ? ` · Pidió la baja de mensajes automáticos el ${fechaHora(hilo.contact.optOutAt)}` : ""}
@@ -534,6 +557,7 @@ export default function WhatsappInbox() {
 					)}
 				</div>
 			</div>
+			<LeadPanel leadId={leadAbierto} open={verLead && !!leadAbierto} onOpenChange={setVerLead} />
 		</div>
 	);
 }
