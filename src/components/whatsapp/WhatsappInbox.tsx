@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowLeft, Loader2, MessageCircle, Paperclip, Plus, Search, Send } from "lucide-react";
+import { ArrowLeft, Loader2, MessageCircle, Paperclip, Play, Plus, Search, Send } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { EmojiPicker } from "@/components/common/EmojiPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -104,6 +105,20 @@ export default function WhatsappInbox() {
 	const [telefono, setTelefono] = useState("");
 	const [hilo, setHilo] = useState<Hilo | null>(null);
 	const [respuesta, setRespuesta] = useState("");
+	const respuestaRef = useRef<HTMLTextAreaElement>(null);
+
+	/** Puts the emoji where the cursor was (WhatsApp/Twilio cap: 1600 characters). */
+	const ponerEmoji = (emoji: string) => {
+		const ta = respuestaRef.current;
+		const desde = ta?.selectionStart ?? respuesta.length;
+		const hasta = ta?.selectionEnd ?? desde;
+		if (respuesta.length - (hasta - desde) + emoji.length > 1600) return;
+		setRespuesta(respuesta.slice(0, desde) + emoji + respuesta.slice(hasta));
+		requestAnimationFrame(() => {
+			ta?.focus();
+			ta?.setSelectionRange(desde + emoji.length, desde + emoji.length);
+		});
+	};
 	const [enviando, setEnviando] = useState(false);
 	const finRef = useRef<HTMLDivElement>(null);
 
@@ -213,13 +228,19 @@ export default function WhatsappInbox() {
 		}
 	};
 
-	const abrirAdjunto = async (messageId: number, index: number) => {
+	/** Short-lived link (10 min) to our copy of the attachment. */
+	const urlAdjunto = async (messageId: number, index: number) => {
 		try {
-			const r = await api<{ url: string }>(`/messages/${messageId}/media/${index}`);
-			window.open(r.url, "_blank", "noopener,noreferrer");
+			return (await api<{ url: string }>(`/messages/${messageId}/media/${index}`)).url;
 		} catch (err) {
 			toast.error((err as Error).message);
+			return null;
 		}
+	};
+
+	const abrirAdjunto = async (messageId: number, index: number) => {
+		const url = await urlAdjunto(messageId, index);
+		if (url) window.open(url, "_blank", "noopener,noreferrer");
 	};
 
 	return (
@@ -428,7 +449,10 @@ export default function WhatsappInbox() {
 											)}
 										>
 											{m.body && <p className="whitespace-pre-wrap wrap-break-word">{m.body}</p>}
-											{m.media?.map((a, i) => (
+											{m.media?.map((a, i) =>
+												a.objectKey && a.contentType.startsWith("audio/") ? (
+													<AudioAdjunto key={i} cargarUrl={() => urlAdjunto(m.id, i)} />
+												) : (
 												<button
 													key={i}
 													type="button"
@@ -439,7 +463,8 @@ export default function WhatsappInbox() {
 													<Paperclip className="h-3.5 w-3.5" />
 													{a.objectKey ? `Ver adjunto (${a.contentType})` : "Guardando adjunto…"}
 												</button>
-											))}
+												),
+											)}
 											<p className="mt-1 text-right text-[11px] text-muted-foreground">
 												{m.direction === "OUTBOUND" &&
 													(m.autoReply === "CRM"
@@ -472,7 +497,9 @@ export default function WhatsappInbox() {
 										enviar();
 									}}
 								>
+									<EmojiPicker onPick={ponerEmoji} />
 									<Textarea
+										ref={respuestaRef}
 										value={respuesta}
 										onChange={(e) => setRespuesta(e.target.value)}
 										onKeyDown={(e) => {
@@ -508,5 +535,42 @@ export default function WhatsappInbox() {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+/** A voice note or audio from the client: asks for its link when played (it lasts 10 min). */
+function AudioAdjunto({ cargarUrl }: { cargarUrl: () => Promise<string | null> }) {
+	const [url, setUrl] = useState<string | null>(null);
+	const [cargando, setCargando] = useState(false);
+
+	if (url)
+		return (
+			// biome-ignore lint/a11y/useMediaCaption: client voice notes have no captions.
+			<audio
+				controls
+				autoPlay
+				src={url}
+				aria-label="Audio del mensaje"
+				className="mt-1 h-10 w-72 max-w-full"
+				onError={() => {
+					setUrl(null);
+					toast.error("No se pudo reproducir el audio. Probá de nuevo.");
+				}}
+			/>
+		);
+	return (
+		<button
+			type="button"
+			disabled={cargando}
+			onClick={async () => {
+				setCargando(true);
+				setUrl(await cargarUrl());
+				setCargando(false);
+			}}
+			className="mt-1 flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs font-medium text-primary hover:bg-muted disabled:opacity-60"
+		>
+			{cargando ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+			Escuchar audio
+		</button>
 	);
 }

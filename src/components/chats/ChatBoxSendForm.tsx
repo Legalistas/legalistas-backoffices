@@ -2,19 +2,8 @@
 import { Loader2, Send, Smile } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
+import { EMOJIS } from "@/components/common/EmojiPicker";
 import { useChat } from "@/context/ChatContext";
-
-const EMOJIS = [
-	"😀", "😃", "😄", "😁", "😊", "😍", "🥰", "😘", "🤗", "🤔",
-	"😐", "😑", "😶", "🙄", "😏", "😣", "😥", "😮", "🤐", "😯",
-	"😪", "😫", "🥱", "😴", "😌", "😛", "😜", "😝", "🤤", "😒",
-	"😓", "😔", "😕", "🙃", "🤑", "😲", "☹️", "🙁", "😖", "😞",
-	"😟", "😤", "😢", "😭", "😦", "😧", "😨", "😩", "🤯", "😬",
-	"😰", "😱", "🥵", "🥶", "😳", "🤪", "😵", "🥴", "😷", "🤒",
-	"👍", "👎", "👌", "✌️", "🤞", "🤟", "🤘", "🤙", "👈", "👉",
-	"👆", "👇", "☝️", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "💪",
-	"❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔",
-];
 
 export default function ChatBoxSendForm() {
 	const [message, setMessage] = useState("");
