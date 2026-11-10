@@ -13,3 +13,15 @@ const MOTIVOS: Record<string, string> = {
 
 /** The reason in Spanish; an unknown code is shown as is. */
 export const motivoTwilio = (code: string) => MOTIVOS[code] ?? `Error de Twilio ${code}`;
+
+/** Delivery status of a reply, WhatsApp style (Twilio status callbacks, stage 4). */
+export const ESTADO: Record<string, { texto: string; clase: string }> = {
+	accepted: { texto: "Enviando…", clase: "text-muted-foreground" },
+	queued: { texto: "Enviando…", clase: "text-muted-foreground" },
+	sending: { texto: "Enviando…", clase: "text-muted-foreground" },
+	sent: { texto: "✓ Enviado", clase: "text-muted-foreground" },
+	delivered: { texto: "✓✓ Entregado", clase: "text-muted-foreground" },
+	read: { texto: "✓✓ Leído", clase: "text-sky-600 dark:text-sky-400" },
+	failed: { texto: "⚠ No se entregó", clase: "text-destructive" },
+	undelivered: { texto: "⚠ No se entregó", clase: "text-destructive" },
+};

@@ -17,6 +17,7 @@ import {
   PieChart,
   Receipt,
   Scale,
+  Send,
   SquareKanban,
   User,
   Users2,
@@ -80,6 +81,8 @@ const MARKETING = [
  * ROLES_LIQUIDACION in the backend (closings/acceso.ts).
  */
 export const LIQUIDACION = [...SUPERADMIN, DIRECTORA_AREA_LEGAL, ABOGADO_REPRESENTANTE];
+/** Sistemas only (WhatsApp outbox). Mirror of SALIDA_ROLES in the backend (whatsapp/salida.routes.ts). */
+export const SISTEMAS = [ADMINISTRATOR, DIRECTOR_AREA_IT];
 /** WhatsApp inbox: Sales, in-house Legal and Marketing. Mirror of WHATSAPP_ROLES in the backend. */
 export const WHATSAPP = [...VENTAS, ...LEGAL_INTERNO, ...MARKETING];
 /** WhatsApp agendas and campaigns (mass sending). Mirror of CAMPANAS_ROLES in the backend. */
@@ -307,8 +310,8 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Archivos",
         path: "/admin/file-manager",
         // Cada rol ve su parte del bucket (lo resuelve el backend): abogado
-        // interno todo `representantes/`, cada representante su carpeta.
-        roles: [...SUPERADMIN, ASISTENTE_LEGAL, ABOGADO_REPRESENTANTE],
+        // interno y directora legal todo `representantes/`, cada representante su carpeta.
+        roles: [...SUPERADMIN, ASISTENTE_LEGAL, DIRECTORA_AREA_LEGAL, ABOGADO_REPRESENTANTE],
       },
       {
         // Panel de mantenimiento del árbol de carpetas: health, bootstrap
@@ -318,6 +321,13 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Carpetas MinIO",
         path: "/admin/minio",
         roles: SUPERADMIN,
+      },
+      {
+        // Everything sent through Twilio: stuck or failed messages and resend.
+        icon: Send,
+        name: "Salida WhatsApp",
+        path: "/admin/whatsapp/salida",
+        roles: SISTEMAS,
       },
       {
         icon: Pencil,

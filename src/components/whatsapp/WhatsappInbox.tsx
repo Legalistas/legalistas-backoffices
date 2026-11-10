@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import Adjunto, { type MediaAdjunto } from "./Adjunto";
 import LeadPanel from "./LeadPanel";
 import PlantillaForm from "./PlantillaForm";
-import { motivoTwilio } from "./twilio-errores";
+import { ESTADO, motivoTwilio } from "./twilio-errores";
 
 // WhatsApp inbox: conversation list and thread (stage 2) and free-text replies
 // inside the 24 h window (stage 3). New messages come in by polling.
@@ -42,18 +42,6 @@ interface Mensaje {
 	/** Set on the automatic replies (out of hours, greeting). */
 	autoReply: string | null;
 }
-
-/** Delivery status of a reply, WhatsApp style (Twilio status callbacks, stage 4). */
-const ESTADO: Record<string, { texto: string; clase: string }> = {
-	accepted: { texto: "Enviando…", clase: "text-muted-foreground" },
-	queued: { texto: "Enviando…", clase: "text-muted-foreground" },
-	sending: { texto: "Enviando…", clase: "text-muted-foreground" },
-	sent: { texto: "✓ Enviado", clase: "text-muted-foreground" },
-	delivered: { texto: "✓✓ Entregado", clase: "text-muted-foreground" },
-	read: { texto: "✓✓ Leído", clase: "text-sky-600 dark:text-sky-400" },
-	failed: { texto: "⚠ No se entregó", clase: "text-destructive" },
-	undelivered: { texto: "⚠ No se entregó", clase: "text-destructive" },
-};
 
 interface Hilo {
 	contact: {
