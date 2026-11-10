@@ -124,6 +124,12 @@ export default function CampanasPanel({
 						{detalle.createdBy.name} · {fecha(detalle.createdAt)}
 					</p>
 					<Cifras r={detalle.resumen} />
+					{detalle.agendaNoEnviados && (
+						<p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+							Los que no la recibieron quedaron en la agenda "{detalle.agendaNoEnviados.nombre}", para
+							corregirlos y volver a enviarles.
+						</p>
+					)}
 				</div>
 				<div className="overflow-x-auto rounded-xl border border-border">
 					<Table>

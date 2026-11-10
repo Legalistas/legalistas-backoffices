@@ -9,11 +9,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { LawyerSelectDropdown } from "@/components/cases/LawyerSelectDropdown";
 import { StageSelectDropdown } from "@/components/cases/StageSelectDropdown";
-import {
-	type AdministrativeSubstage,
-	aplicaSubetapa,
-	SubstageSelect,
-} from "@/components/cases/SubstageSelect";
+import { SubstageSelect, subetapaDe } from "@/components/cases/SubstageSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -130,9 +126,10 @@ export const CaseDetails = ({
 		}
 	};
 
-	// El backend mueve la carpeta del caso a 2_ADMINISTRATIVO/{subetapa}/.
-	const handleSubstageChange = async (substage: AdministrativeSubstage) => {
-		if (substage === (caseData.administrativeSubstage ?? "INICIADO")) return;
+	// Documentación o Administrativo; la de Administrativo además mueve la carpeta en MinIO.
+	const subetapa = subetapaDe(Number(caseData.stageId), Number(caseData.servicesId));
+	const handleSubstageChange = async (substage: string) => {
+		if (!subetapa || substage === (caseData[subetapa.campo] ?? subetapa.inicial)) return;
 		setIsUpdatingStage(true);
 		try {
 			const response = await fetch(`${CASES_ENDPOINT}/${caseData.id}`, {
@@ -141,14 +138,18 @@ export const CaseDetails = ({
 					"Content-Type": "application/json",
 					Authorization: `Bearer ${session?.user?.accessToken}`,
 				},
-				body: JSON.stringify({ administrativeSubstage: substage }),
+				body: JSON.stringify({ [subetapa.campo]: substage }),
 			});
 			if (!response.ok) {
 				throw new Error(
 					await apiErrorMessage(response, "No se pudo actualizar la subetapa."),
 				);
 			}
-			toast.success("Subetapa actualizada: la carpeta del caso se movió");
+			toast.success(
+				subetapa.mueveCarpeta
+					? "Subetapa actualizada: la carpeta del caso se movió"
+					: "Subetapa actualizada",
+			);
 			onCaseUpdated?.();
 		} catch (error) {
 			toast.error(
@@ -486,8 +487,8 @@ export const CaseDetails = ({
 							)}
 						</label>
 
-						{/* Subetapa: solo Administrativo + Accidente de Trabajo. Mueve la carpeta. */}
-						{aplicaSubetapa(Number(caseData.stageId), Number(caseData.servicesId)) && (
+						{/* Subetapa: Documentación, o Administrativo + Accidente de Trabajo. */}
+						{subetapa && (
 							<>
 								<div className="h-5 w-px bg-border" />
 								<div className="flex items-center gap-2">
@@ -495,7 +496,8 @@ export const CaseDetails = ({
 										Subetapa
 									</span>
 									<SubstageSelect
-										value={caseData.administrativeSubstage}
+										subetapa={subetapa}
+										value={caseData[subetapa.campo]}
 										onChange={handleSubstageChange}
 										disabled={isUpdatingStage}
 									/>

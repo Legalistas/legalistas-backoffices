@@ -22,7 +22,7 @@ import { CasesFilters } from "./CasesFilters";
 import { CasesHeader } from "./CasesHeader";
 import { CasesKanbanView } from "./CasesKanbanView";
 import { CasesListView } from "./CasesListView";
-import type { AdministrativeSubstage } from "./SubstageSelect";
+import type { Subetapa } from "./SubstageSelect";
 
 interface LawyerOption {
 	id: string;
@@ -1114,11 +1114,11 @@ export default function CasesContent() {
 		],
 	);
 
-	// Subetapa administrativa desde la tabla. El backend mueve la carpeta del
-	// caso a 2_ADMINISTRATIVO/{subetapa}/.
+	// Subetapa desde la tabla (Documentación o Administrativo). La de
+	// Administrativo además mueve la carpeta del caso en MinIO.
 	const handleSubstageChange = useCallback(
-		async (caseId: number, substage: AdministrativeSubstage) => {
-			const actual = cases.find((c) => c.id === caseId)?.administrativeSubstage ?? "INICIADO";
+		async (caseId: number, subetapa: Subetapa, substage: string) => {
+			const actual = cases.find((c) => c.id === caseId)?.[subetapa.campo] ?? subetapa.inicial;
 			if (substage === actual) return;
 			try {
 				const response = await fetch(`${CASES_ENDPOINT}/${caseId}`, {
@@ -1127,7 +1127,7 @@ export default function CasesContent() {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${session?.user?.accessToken}`,
 					},
-					body: JSON.stringify({ administrativeSubstage: substage }),
+					body: JSON.stringify({ [subetapa.campo]: substage }),
 				});
 				if (!response.ok) {
 					throw new Error(
@@ -1136,9 +1136,13 @@ export default function CasesContent() {
 				}
 				// Sin refetch, para no perder la página de la tabla.
 				setCases((prev) =>
-					prev.map((c) => (c.id === caseId ? { ...c, administrativeSubstage: substage } : c)),
+					prev.map((c) => (c.id === caseId ? { ...c, [subetapa.campo]: substage } : c)),
 				);
-				toast.success("Subetapa actualizada: la carpeta del caso se movió");
+				toast.success(
+					subetapa.mueveCarpeta
+						? "Subetapa actualizada: la carpeta del caso se movió"
+						: "Subetapa actualizada",
+				);
 			} catch (error) {
 				toast.error(
 					error instanceof Error ? error.message : "No se pudo actualizar la subetapa.",

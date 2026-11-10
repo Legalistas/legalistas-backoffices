@@ -9,46 +9,66 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
-// Subetapas de la etapa Administrativo (relevamiento v1.1). Solo aplican a
-// Accidente de Trabajo (SRT) y son también las carpetas de MinIO:
-// 2_ADMINISTRATIVO/{1_INICIADO | 2_ESTUDIOS_MEDICOS | 3_RECHAZO | 4_PRONTO_DESPACHO}.
+// Subetapas de los casos (backend: cases-core.service updateCase).
+// - Documentación (todos los servicios): Pendiente / Completada.
+// - Administrativo (solo Accidente de Trabajo, SRT): son también las carpetas
+//   de MinIO 2_ADMINISTRATIVO/{1_INICIADO | … | 5_RECIBOS_SUELDO}.
+export const DOCUMENTATION_SUBSTAGES = [
+	{ value: "PENDIENTE", label: "Pendiente" },
+	{ value: "COMPLETADA", label: "Completada" },
+] as const;
+
 export const ADMINISTRATIVE_SUBSTAGES = [
 	{ value: "INICIADO", label: "1. Iniciado" },
 	{ value: "ESTUDIOS_MEDICOS", label: "2. Estudios médicos" },
 	{ value: "RECHAZO", label: "3. Rechazo" },
 	{ value: "PRONTO_DESPACHO", label: "4. Pronto despacho" },
+	{ value: "RECIBOS_SUELDO", label: "5. Recibos de sueldos" },
 ] as const;
 
-export type AdministrativeSubstage = (typeof ADMINISTRATIVE_SUBSTAGES)[number]["value"];
+export interface Subetapa {
+	/** Campo del caso que la guarda. */
+	campo: "documentationSubstage" | "administrativeSubstage";
+	opciones: readonly { value: string; label: string }[];
+	/** Lo que vale mientras no se eligió ninguna (el backend la arranca ahí). */
+	inicial: string;
+	/** Cambiarla mueve la carpeta del caso en MinIO. */
+	mueveCarpeta: boolean;
+}
 
 // Servicios que van por la ART (backend: constants/services.ts).
 const SERVICIOS_ART = [1, 9, 10];
+const ETAPA_DOCUMENTACION = 1;
 const ETAPA_ADMINISTRATIVO = 2;
 
-export const aplicaSubetapa = (stageId?: number | null, servicesId?: number | null) =>
-	stageId === ETAPA_ADMINISTRATIVO && SERVICIOS_ART.includes(servicesId ?? -1);
+/** La subetapa que tiene el caso en su etapa actual, o null si esa etapa no tiene. */
+export function subetapaDe(stageId?: number | null, servicesId?: number | null): Subetapa | null {
+	if (stageId === ETAPA_DOCUMENTACION) {
+		return { campo: "documentationSubstage", opciones: DOCUMENTATION_SUBSTAGES, inicial: "PENDIENTE", mueveCarpeta: false };
+	}
+	if (stageId === ETAPA_ADMINISTRATIVO && SERVICIOS_ART.includes(servicesId ?? -1)) {
+		return { campo: "administrativeSubstage", opciones: ADMINISTRATIVE_SUBSTAGES, inicial: "INICIADO", mueveCarpeta: true };
+	}
+	return null;
+}
 
 interface SubstageSelectProps {
+	subetapa: Subetapa;
 	value: string | null | undefined;
-	onChange: (value: AdministrativeSubstage) => void;
+	onChange: (value: string) => void;
 	disabled?: boolean;
 	/** Para achicarlo (p. ej. en la tabla de casos). */
 	className?: string;
 }
 
-export function SubstageSelect({ value, onChange, disabled, className }: SubstageSelectProps) {
+export function SubstageSelect({ subetapa, value, onChange, disabled, className }: SubstageSelectProps) {
 	return (
-		<Select
-			// Sin subetapa cargada, el caso está (y su carpeta) en "Iniciado".
-			value={value ?? "INICIADO"}
-			onValueChange={(v) => onChange(v as AdministrativeSubstage)}
-			disabled={disabled}
-		>
-			<SelectTrigger className={cn("h-8 w-[190px] text-xs", className)}>
+		<Select value={value ?? subetapa.inicial} onValueChange={onChange} disabled={disabled}>
+			<SelectTrigger className={cn("h-8 w-[190px] text-xs", className)} aria-label="Subetapa">
 				<SelectValue />
 			</SelectTrigger>
 			<SelectContent>
-				{ADMINISTRATIVE_SUBSTAGES.map((s) => (
+				{subetapa.opciones.map((s) => (
 					<SelectItem key={s.value} value={s.value} className="text-xs">
 						{s.label}
 					</SelectItem>

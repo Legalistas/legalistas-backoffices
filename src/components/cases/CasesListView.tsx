@@ -19,7 +19,28 @@ import {
 import { getServiceName } from "@/lib/functions";
 import type { Cases } from "@/types/cases";
 import { StageSelectDropdown } from "./StageSelectDropdown";
-import { type AdministrativeSubstage, aplicaSubetapa, SubstageSelect } from "./SubstageSelect";
+import { type Subetapa, SubstageSelect, subetapaDe } from "./SubstageSelect";
+
+/** Subetapa del caso en su etapa actual (Documentación o Administrativo), si tiene. */
+function SubetapaCaso({
+	caso,
+	onSubstageChange,
+}: {
+	caso: Cases;
+	onSubstageChange: (caseId: number, subetapa: Subetapa, value: string) => void;
+}) {
+	const subetapa = subetapaDe(Number(caso.stageId), Number(caso.servicesId));
+	if (!subetapa) return null;
+	return (
+		<SubstageSelect
+			subetapa={subetapa}
+			value={caso[subetapa.campo]}
+			onChange={(value) => onSubstageChange(caso.id, subetapa, value)}
+			// Mismo alto que el selector de etapa (el trigger fija h-9).
+			className="w-37.5 rounded-lg px-2.5 text-[11px] data-[size=default]:h-7.5"
+		/>
+	);
+}
 
 interface CasesListViewProps {
 	cases: Cases[];
@@ -27,7 +48,7 @@ interface CasesListViewProps {
 	handleClearSearch: () => void;
 	handleDelete: (id: number) => void;
 	onStageChange: (caseId: number, newStageId: number) => void;
-	onSubstageChange: (caseId: number, substage: AdministrativeSubstage) => void;
+	onSubstageChange: (caseId: number, subetapa: Subetapa, value: string) => void;
 	onResultChange: (caseId: number, newResult: string) => void;
 	onNoteCreate: (caseId: number, note: string) => void | Promise<void>;
 	isArchivedView?: boolean;
@@ -205,7 +226,7 @@ export const CasesListView = ({
 											{getServiceName(Number(caso.servicesId))}
 										</Badge>
 									</TableCell>
-									{/* Etapa (+ subetapa si es Administrativo) */}
+									{/* Etapa (+ subetapa en Documentación y Administrativo) */}
 									<TableCell className="px-3 py-2">
 										<div className="flex items-center gap-1.5">
 											<StageSelectDropdown
@@ -214,14 +235,7 @@ export const CasesListView = ({
 													onStageChange(caso.id, newStageId)
 												}
 											/>
-											{aplicaSubetapa(Number(caso.stageId), Number(caso.servicesId)) && (
-												<SubstageSelect
-													value={caso.administrativeSubstage}
-													onChange={(substage) => onSubstageChange(caso.id, substage)}
-													// Mismo alto que el selector de etapa (el trigger fija h-9).
-													className="w-37.5 rounded-lg px-2.5 text-[11px] data-[size=default]:h-7.5"
-												/>
-											)}
+											<SubetapaCaso caso={caso} onSubstageChange={onSubstageChange} />
 										</div>
 									</TableCell>
 									{/* Nota + fecha de la nota */}

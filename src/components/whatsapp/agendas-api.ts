@@ -44,6 +44,8 @@ export interface Campana {
 	createdAt: string;
 	enviadaAt: string | null;
 	agenda: { id: number; nombre: string } | null;
+	/** "No enviados · <campaña>": created when someone did not get it. */
+	agendaNoEnviados: { id: number; nombre: string } | null;
 	createdBy: { name: string };
 	resumen: Resumen;
 }

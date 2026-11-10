@@ -230,6 +230,8 @@ export interface Cases {
 	stageId?: number;
 	// Subetapa administrativa (solo Administrativo + Accidente de Trabajo).
 	administrativeSubstage?: string | null;
+	// Subetapa de Documentación: PENDIENTE | COMPLETADA.
+	documentationSubstage?: string | null;
 	status?: string;
 	statusDate?: Date;
 	isActive?: boolean;
