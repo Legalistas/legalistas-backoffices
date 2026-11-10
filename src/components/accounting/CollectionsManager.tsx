@@ -962,7 +962,7 @@ const TONES = {
 	amber: "text-amber-600 bg-amber-50 dark:bg-amber-900/20",
 } as const;
 
-function KpiCard({
+export function KpiCard({
 	label,
 	amount,
 	hint,

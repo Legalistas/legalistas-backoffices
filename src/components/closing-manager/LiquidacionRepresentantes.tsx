@@ -1,34 +1,37 @@
 "use client";
 
-import { FileSpreadsheet, FileText, Loader2 } from "lucide-react";
-import { useSession } from "next-auth/react";
-import { useCallback, useEffect, useState } from "react";
-import { toast } from "sonner";
-import { formatARS, formatFecha } from "@/components/caja/api";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-	Table,
-	TableBody,
-	TableCell,
-	TableFooter,
-	TableHead,
-	TableHeader,
-	TableRow,
-} from "@/components/ui/table";
+	CalendarClock,
+	ChevronDown,
+	ChevronRight,
+	FileDown,
+	FileSpreadsheet,
+	HandCoins,
+	Loader2,
+	Receipt,
+	Search,
+	Sigma,
+	Wallet,
+} from "lucide-react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
+import { Fragment, useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
+import { KpiCard } from "@/components/accounting/CollectionsManager";
+import { formatARS, formatFecha } from "@/components/caja/api";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CLOSINGS_ENDPOINT } from "@/constant/api-endpoints";
 import { type Celda, exportarExcel, exportarPdf, type TablaInforme } from "@/lib/exportar";
+import { cn } from "@/lib/utils";
 
-// Representatives' liquidation (Jona, 06/11/2026): the "LIQUIDACION
-// REPRESENTANTES 2026" workbook, built by the backend from the Gestor de
-// Cierres (modules/closings/liquidacion.ts has the column rules).
+// Representatives' liquidation, laid out like the Gestor de Gastos e Ingresos:
+// one row per representative that opens her cases. The backend builds it from
+// the Gestor de Cierres (modules/closings/liquidacion.ts has the column rules)
+// and sends the overall totals (the cards) only to management.
 
-interface Fila {
+interface Caso {
 	closingId: number;
-	concepto: "HP" | "CL";
 	fecha: string;
 	causa: string;
 	tipo: string;
@@ -37,10 +40,12 @@ interface Fila {
 	ingresos: number;
 	aportes: { demandada: number; abogado: number; legalistas: number; subtotal: number };
 	total: number;
-	aCobrar: number;
+	pendiente: number;
+	estado: "COBRADO" | "PENDIENTE";
 }
 
 interface Totales {
+	casos: number;
 	capital: number;
 	facturado: number;
 	ingresos: number;
@@ -49,387 +54,387 @@ interface Totales {
 	legalistas: number;
 	aportes: number;
 	total: number;
-	aCobrar: number;
+	pendiente: number;
+}
+
+interface Representante {
+	id: number;
+	name: string;
+	casos: Caso[];
+	totales: Totales;
 }
 
 interface Respuesta {
 	year: number;
-	representantes: { id: number; name: string; dueno: boolean }[];
-	representante: { id: number; name: string; dueno: boolean } | null;
-	liquidacion: {
-		cobradas: Fila[];
-		pendientes: Fila[];
-		totales: { cobradas: Totales; pendientes: Totales; general: Totales };
-		resumen: { mes: number; facturado: number; ingresos: number; causas: number; ticketPromedio: number; total: number }[];
-		semestres: { ticketPromedio: number; mayorTicket: number }[];
-	} | null;
+	representantes: Representante[];
+	totales: Totales | null;
 }
-
-const MESES = [
-	"Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-	"Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre",
-];
 
 const COLUMNAS = [
 	"Fecha", "Causa", "Tipo", "Capital", "Facturado", "Ingresos",
-	"Ap. demandada", "Ap. abogado/a", "Ap. Legalistas", "Subtotal aportes", "Total", "A cobrar",
+	"Ap. demandada", "Ap. abogado/a", "Ap. Legalistas", "Subtotal aportes", "Total", "Estado",
 ];
-/** Columns with amounts in COLUMNAS (Excel/PDF format). */
-const MONTOS = [3, 4, 5, 6, 7, 8, 9, 10, 11];
+/** Columns with amounts in COLUMNAS. */
+const MONTOS = [3, 4, 5, 6, 7, 8, 9, 10];
 
-const valoresFila = (f: Fila): Celda[] => [
-	formatFecha(f.fecha),
-	`${f.causa} · ${f.concepto}`,
-	f.tipo,
-	f.capital,
-	f.facturado,
-	f.ingresos,
-	f.aportes.demandada,
-	f.aportes.abogado,
-	f.aportes.legalistas,
-	f.aportes.subtotal,
-	f.total,
-	f.aCobrar,
+const valoresCaso = (c: Caso): Celda[] => [
+	formatFecha(c.fecha),
+	c.causa,
+	c.tipo,
+	c.capital,
+	c.facturado,
+	c.ingresos,
+	c.aportes.demandada,
+	c.aportes.abogado,
+	c.aportes.legalistas,
+	c.aportes.subtotal,
+	c.total,
+	c.estado,
 ];
 const valoresTotales = (t: Totales): Celda[] => [
 	"Subtotales", "", "", t.capital, t.facturado, t.ingresos,
-	t.demandada, t.abogado, t.legalistas, t.aportes, t.total, t.aCobrar,
+	t.demandada, t.abogado, t.legalistas, t.aportes, t.total, "",
 ];
 
-function TablaFilas({ titulo, filas, totales }: { titulo: string; filas: Fila[]; totales: Totales }) {
-	return (
-		<Card>
-			<CardHeader className="pb-2">
-				<CardTitle className="text-base">
-					{titulo} <span className="font-normal text-muted-foreground">({filas.length})</span>
-				</CardTitle>
-			</CardHeader>
-			<CardContent className="overflow-x-auto">
-				{filas.length === 0 ? (
-					<p className="py-4 text-sm text-muted-foreground">Sin filas en este año.</p>
-				) : (
-					<Table>
-						<TableHeader>
-							<TableRow>
-								{COLUMNAS.map((c, i) => (
-									<TableHead key={c} className={i >= 3 ? "text-right" : undefined}>
-										{c}
-									</TableHead>
-								))}
-							</TableRow>
-						</TableHeader>
-						<TableBody>
-							{filas.map((f) => (
-								<TableRow key={`${f.closingId}-${f.concepto}`}>
-									<TableCell className="tabular-nums">{formatFecha(f.fecha)}</TableCell>
-									<TableCell className="max-w-64">
-										<span className="truncate">{f.causa}</span>{" "}
-										<Badge variant="outline" className="ml-1 text-[10px]">
-											{f.concepto}
-										</Badge>
-									</TableCell>
-									<TableCell>{f.tipo}</TableCell>
-									{valoresFila(f)
-										.slice(3)
-										.map((v, i) => (
-											<TableCell key={COLUMNAS[i + 3]} className="text-right tabular-nums">
-												{formatARS(Number(v))}
-											</TableCell>
-										))}
-								</TableRow>
-							))}
-						</TableBody>
-						<TableFooter>
-							<TableRow>
-								<TableCell colSpan={3} className="font-semibold">
-									Subtotales
-								</TableCell>
-								{valoresTotales(totales)
-									.slice(3)
-									.map((v, i) => (
-										<TableCell key={COLUMNAS[i + 3]} className="text-right font-semibold tabular-nums">
-											{formatARS(Number(v))}
-										</TableCell>
-									))}
-							</TableRow>
-						</TableFooter>
-					</Table>
-				)}
-			</CardContent>
-		</Card>
-	);
-}
+const ESTADO_STYLE: Record<Caso["estado"], string> = {
+	COBRADO: "bg-green-50 text-green-700 ring-green-200",
+	PENDIENTE: "bg-amber-50 text-amber-700 ring-amber-200",
+};
+
+const th = "px-3 py-3 font-medium";
+const montoCls = "whitespace-nowrap px-3 py-2 text-right tabular-nums";
 
 export default function LiquidacionRepresentantes() {
 	const { data: session } = useSession();
 	const token = session?.user?.accessToken;
-	const miId = Number(session?.user?.id) || null;
 	const anioActual = new Date().getFullYear();
 	const [year, setYear] = useState(anioActual);
-	const [lawyerId, setLawyerId] = useState<number | null>(null);
 	const [data, setData] = useState<Respuesta | null>(null);
 	const [cargando, setCargando] = useState(true);
 	const [error, setError] = useState<string | null>(null);
-	const [exportando, setExportando] = useState(false);
+	const [abierto, setAbierto] = useState<number | null>(null);
+	const [search, setSearch] = useState("");
+	const [exportando, setExportando] = useState<"excel" | "pdf" | null>(null);
 
 	const cargar = useCallback(async () => {
 		if (!token) return;
 		setCargando(true);
 		setError(null);
 		try {
-			const qs = new URLSearchParams({ year: String(year) });
-			if (lawyerId) qs.set("lawyerId", String(lawyerId));
-			const res = await fetch(`${CLOSINGS_ENDPOINT}/liquidacion-representantes?${qs}`, {
+			const res = await fetch(`${CLOSINGS_ENDPOINT}/liquidacion-representantes?year=${year}`, {
 				headers: { Authorization: `Bearer ${token}` },
 			});
 			const body = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(body.error || `Error ${res.status}`);
 			const r = body as Respuesta;
-			// Nobody chosen yet: oneself if one is a representative, else the first one.
-			if (!r.representante && r.representantes.length) {
-				setLawyerId(r.representantes.find((x) => x.id === miId)?.id ?? r.representantes[0].id);
-				return;
-			}
 			setData(r);
+			// A representative sees only herself: open her cases straight away.
+			setAbierto(r.representantes.length === 1 ? r.representantes[0].id : null);
 		} catch (e) {
 			setError((e as Error).message);
 		} finally {
 			setCargando(false);
 		}
-	}, [token, year, lawyerId, miId]);
+	}, [token, year]);
 
 	useEffect(() => {
 		cargar();
 	}, [cargar]);
 
-	const liq = data?.liquidacion;
-	const nombre = data?.representante?.name ?? "";
+	const q = search.trim().toLowerCase();
+	const representantes = (data?.representantes ?? []).filter((r) => !q || r.name.toLowerCase().includes(q));
+	const totales = data?.totales;
 
 	const tablas = (): TablaInforme[] =>
-		liq
-			? [
-					{
-						titulo: "Cobradas",
-						columnas: COLUMNAS,
-						filas: liq.cobradas.map(valoresFila),
-						totales: valoresTotales(liq.totales.cobradas),
-						montos: MONTOS,
-					},
-					{
-						titulo: "Pendientes de cobro",
-						columnas: COLUMNAS,
-						filas: liq.pendientes.map(valoresFila),
-						totales: valoresTotales(liq.totales.pendientes),
-						montos: MONTOS,
-					},
-					{
-						titulo: "Resumen anual",
-						columnas: ["Mes", "Facturado", "Ingresos", "N° causas", "Ticket promedio", "Total"],
-						filas: liq.resumen.map((m) => [
-							MESES[m.mes - 1],
-							m.facturado,
-							m.ingresos,
-							m.causas,
-							m.ticketPromedio,
-							m.total,
-						]),
-						totales: [
-							"Subtotales",
-							liq.totales.general.facturado,
-							liq.totales.general.ingresos,
-							liq.resumen.reduce((s, m) => s + m.causas, 0),
-							"",
-							liq.totales.general.total,
-						],
-						montos: [1, 2, 4, 5],
-					},
-				]
-			: [];
+		representantes.map((r) => ({
+			titulo: r.name,
+			columnas: COLUMNAS,
+			filas: r.casos.map(valoresCaso),
+			totales: valoresTotales(r.totales),
+			montos: MONTOS,
+		}));
 
 	const exportar = async (formato: "excel" | "pdf") => {
-		setExportando(true);
+		setExportando(formato);
 		try {
-			const archivo = `Liquidacion ${nombre} ${year}`;
+			const archivo = `Liquidacion representantes ${year}`;
 			if (formato === "excel") await exportarExcel(archivo, tablas());
 			else
 				await exportarPdf(archivo, {
-					titulo: `Liquidación · ${nombre}`,
+					titulo: "Liquidación de representantes",
 					subtitulo: `Año ${year} · desde el Gestor de Cierres`,
 					tablas: tablas(),
 					horizontal: true,
-					resumen: liq
+					resumen: totales
 						? [
-								{ etiqueta: "Facturado", valor: formatARS(liq.totales.general.facturado) },
-								{ etiqueta: "Ingresos", valor: formatARS(liq.totales.general.ingresos) },
-								{ etiqueta: "Total", valor: formatARS(liq.totales.general.total) },
-								{ etiqueta: "A cobrar", valor: formatARS(liq.totales.general.aCobrar) },
+								{ etiqueta: "Facturado", valor: formatARS(totales.facturado) },
+								{ etiqueta: "Ingresos", valor: formatARS(totales.ingresos) },
+								{ etiqueta: "Pendiente de cobro", valor: formatARS(totales.pendiente) },
+								{ etiqueta: "Aportes + Ingresos", valor: formatARS(totales.total) },
 							]
 						: [],
 				});
 		} catch {
 			toast.error("No se pudo exportar");
 		} finally {
-			setExportando(false);
+			setExportando(null);
 		}
 	};
 
 	return (
-		<div className="space-y-6">
-			<div className="flex flex-wrap items-end justify-between gap-3">
+		<div className="space-y-5">
+			{/* ── Encabezado ─────────────────────────────────────────────── */}
+			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h1 className="text-2xl font-bold tracking-tight text-foreground">Liquidación de representantes</h1>
+					<h1 className="text-2xl font-semibold text-foreground">Liquidación de representantes</h1>
 					<p className="text-sm text-muted-foreground">
-						Sale sola del Gestor de Cierres: honorarios (HP) y cuota litis (CL) de cada causa, cobrados y
-						pendientes.
+						Sale del Gestor de Cierres: un caso por fila, con sus honorarios y cuota litis
 					</p>
 				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					{(data?.representantes.length ?? 0) > 1 && (
-						<Select value={lawyerId ? String(lawyerId) : undefined} onValueChange={(v) => setLawyerId(Number(v))}>
-							<SelectTrigger className="w-64" aria-label="Representante">
-								<SelectValue placeholder="Elegí un representante" />
-							</SelectTrigger>
-							<SelectContent>
-								{data?.representantes.map((r) => (
-									<SelectItem key={r.id} value={String(r.id)}>
-										{r.name}
-									</SelectItem>
-								))}
-							</SelectContent>
-						</Select>
-					)}
-					<Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
-						<SelectTrigger className="w-28" aria-label="Año">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{[anioActual, anioActual - 1, anioActual - 2].map((y) => (
-								<SelectItem key={y} value={String(y)}>
-									{y}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
-					<Button variant="outline" size="sm" disabled={!liq || exportando} onClick={() => exportar("excel")}>
-						<FileSpreadsheet className="mr-1.5 h-4 w-4" />
+				<div className="flex items-center gap-2">
+					<Button
+						variant="outline"
+						onClick={() => exportar("excel")}
+						disabled={!!exportando || representantes.length === 0}
+					>
+						{exportando === "excel" ? (
+							<Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+						) : (
+							<FileSpreadsheet className="mr-1.5 h-4 w-4" />
+						)}
 						Excel
 					</Button>
-					<Button variant="outline" size="sm" disabled={!liq || exportando} onClick={() => exportar("pdf")}>
-						{exportando ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />}
+					<Button
+						variant="outline"
+						onClick={() => exportar("pdf")}
+						disabled={!!exportando || representantes.length === 0}
+					>
+						{exportando === "pdf" ? (
+							<Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+						) : (
+							<FileDown className="mr-1.5 h-4 w-4" />
+						)}
 						PDF
 					</Button>
 				</div>
 			</div>
 
-			{error ? (
-				<p className="rounded-md bg-muted p-4 text-sm">{error}</p>
-			) : cargando || !liq ? (
-				data && !data.representantes.length ? (
-					<p className="rounded-md bg-muted p-4 text-sm">Todavía no hay cierres con un representante.</p>
-				) : (
-					<div className="space-y-3">
-						<Skeleton className="h-24 w-full" />
-						<Skeleton className="h-64 w-full" />
-					</div>
-				)
-			) : (
-				<>
-					<div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-						{[
-							{ label: "Facturado", value: liq.totales.general.facturado },
-							{ label: "Ingresos", value: liq.totales.general.ingresos },
-							{ label: "Total", value: liq.totales.general.total, hint: "Ingresos + aportes, como el Excel" },
-							{ label: "A cobrar", value: liq.totales.general.aCobrar, hint: "Ingresos − aportes del abogado/a" },
-						].map((c) => (
-							<Card key={c.label}>
-								<CardContent className="p-4">
-									<p className="text-xs text-muted-foreground">{c.label}</p>
-									<p className="text-xl font-semibold tabular-nums">{formatARS(c.value)}</p>
-									{c.hint && <p className="mt-0.5 text-[11px] text-muted-foreground">{c.hint}</p>}
-								</CardContent>
-							</Card>
+			{/* ── Filtros ────────────────────────────────────────────────── */}
+			<div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-3">
+				<Select value={String(year)} onValueChange={(v) => setYear(Number(v))}>
+					<SelectTrigger className="h-10 w-40" aria-label="Año">
+						<CalendarClock className="mr-2 h-4 w-4 text-muted-foreground" />
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						{[anioActual, anioActual - 1, anioActual - 2].map((y) => (
+							<SelectItem key={y} value={String(y)}>
+								Año {y}
+							</SelectItem>
 						))}
+					</SelectContent>
+				</Select>
+				{(data?.representantes.length ?? 0) > 1 && (
+					<div className="relative min-w-64 flex-1">
+						<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+						<input
+							value={search}
+							onChange={(e) => setSearch(e.target.value)}
+							placeholder="Buscar representante..."
+							aria-label="Buscar representante"
+							className="h-10 w-full rounded-lg border border-input bg-background pl-9 pr-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+						/>
 					</div>
+				)}
+			</div>
 
-					{data?.representante?.dueno && (
-						<p className="text-xs text-muted-foreground">
-							Como dueño, los Ingresos son el HP y la cuota litis completos.
-						</p>
-					)}
-
-					<TablaFilas titulo="Cobradas" filas={liq.cobradas} totales={liq.totales.cobradas} />
-					<TablaFilas titulo="Pendientes de cobro" filas={liq.pendientes} totales={liq.totales.pendientes} />
-
-					<div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
-						<Card>
-							<CardHeader className="pb-2">
-								<CardTitle className="text-base">Resumen anual</CardTitle>
-							</CardHeader>
-							<CardContent className="overflow-x-auto">
-								<Table>
-									<TableHeader>
-										<TableRow>
-											<TableHead>Mes</TableHead>
-											<TableHead className="text-right">Facturado</TableHead>
-											<TableHead className="text-right">Ingresos</TableHead>
-											<TableHead className="text-right">N° causas</TableHead>
-											<TableHead className="text-right">Ticket promedio</TableHead>
-											<TableHead className="text-right">Total</TableHead>
-										</TableRow>
-									</TableHeader>
-									<TableBody>
-										{liq.resumen.map((m) => (
-											<TableRow key={m.mes} className={m.causas === 0 ? "text-muted-foreground" : undefined}>
-												<TableCell>{MESES[m.mes - 1]}</TableCell>
-												<TableCell className="text-right tabular-nums">{formatARS(m.facturado)}</TableCell>
-												<TableCell className="text-right tabular-nums">{formatARS(m.ingresos)}</TableCell>
-												<TableCell className="text-right tabular-nums">{m.causas}</TableCell>
-												<TableCell className="text-right tabular-nums">{formatARS(m.ticketPromedio)}</TableCell>
-												<TableCell className="text-right tabular-nums">{formatARS(m.total)}</TableCell>
-											</TableRow>
-										))}
-									</TableBody>
-									<TableFooter>
-										<TableRow>
-											<TableCell className="font-semibold">Subtotales</TableCell>
-											<TableCell className="text-right font-semibold tabular-nums">
-												{formatARS(liq.totales.general.facturado)}
-											</TableCell>
-											<TableCell className="text-right font-semibold tabular-nums">
-												{formatARS(liq.totales.general.ingresos)}
-											</TableCell>
-											<TableCell className="text-right font-semibold tabular-nums">
-												{liq.resumen.reduce((s, m) => s + m.causas, 0)}
-											</TableCell>
-											<TableCell />
-											<TableCell className="text-right font-semibold tabular-nums">
-												{formatARS(liq.totales.general.total)}
-											</TableCell>
-										</TableRow>
-									</TableFooter>
-								</Table>
-							</CardContent>
-						</Card>
-						<div className="space-y-3">
-							{liq.semestres.map((s, i) => (
-								<Card key={i === 0 ? "1" : "2"}>
-									<CardContent className="space-y-1 p-4 text-sm">
-										<p className="font-semibold">{i === 0 ? "1er semestre" : "2do semestre"}</p>
-										<p className="flex justify-between gap-2">
-											<span className="text-muted-foreground">Ticket promedio semestral</span>
-											<span className="tabular-nums">{formatARS(s.ticketPromedio)}</span>
-										</p>
-										<p className="flex justify-between gap-2">
-											<span className="text-muted-foreground">Mayor ticket promedio</span>
-											<span className="tabular-nums">{formatARS(s.mayorTicket)}</span>
-										</p>
-									</CardContent>
-								</Card>
-							))}
-						</div>
-					</div>
-				</>
+			{/* ── Tarjetas (solo dirección: el backend no las manda al representante) ── */}
+			{totales && (
+				<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+					<KpiCard
+						label="Facturado representantes"
+						amount={totales.facturado}
+						hint={`${totales.casos} casos`}
+						tone="teal"
+						icon={<Receipt className="h-5 w-5" />}
+					/>
+					<KpiCard
+						label="Ingresos representantes"
+						amount={totales.ingresos}
+						hint="HP + cuota litis"
+						tone="emerald"
+						icon={<Wallet className="h-5 w-5" />}
+					/>
+					<KpiCard
+						label="Aportes Legalistas + representantes"
+						amount={totales.legalistas + totales.abogado}
+						hint={`Legalistas ${formatARS(totales.legalistas)} · Repr. ${formatARS(totales.abogado)}`}
+						tone="teal"
+						icon={<HandCoins className="h-5 w-5" />}
+					/>
+					<KpiCard
+						label="Pendiente de cobro"
+						amount={totales.pendiente}
+						hint="Ingresos sin cobrar"
+						tone="amber"
+						icon={<CalendarClock className="h-5 w-5" />}
+					/>
+					<KpiCard
+						label="Aportes + Ingresos"
+						amount={totales.total}
+						hint="Total de la liquidación"
+						tone="emerald"
+						icon={<Sigma className="h-5 w-5" />}
+					/>
+				</div>
 			)}
+
+			{/* ── Representantes → casos ─────────────────────────────────── */}
+			<div className="rounded-xl border border-border bg-card">
+				{error ? (
+					<p className="py-16 text-center text-sm text-muted-foreground">{error}</p>
+				) : cargando ? (
+					<div className="flex justify-center py-16">
+						<Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+					</div>
+				) : representantes.length === 0 ? (
+					<p className="py-16 text-center text-sm text-muted-foreground">
+						No hay casos de representantes en {year}.
+					</p>
+				) : (
+					<div className="overflow-x-auto">
+						<table className="w-full text-sm">
+							<thead>
+								<tr className="border-b border-border text-xs text-muted-foreground">
+									<th className={cn(th, "text-left")}>Representante</th>
+									<th className={cn(th, "text-right")}>Casos</th>
+									<th className={cn(th, "text-right")}>Facturado</th>
+									<th className={cn(th, "text-right")}>Ingresos</th>
+									<th className={cn(th, "text-right")}>Aportes</th>
+									<th className={cn(th, "text-right")}>Total</th>
+									<th className={cn(th, "text-right")}>Pendiente</th>
+								</tr>
+							</thead>
+							<tbody>
+								{representantes.map((r) => {
+									const open = abierto === r.id;
+									return (
+										<Fragment key={r.id}>
+											<tr
+												className={cn(
+													"cursor-pointer border-b border-border/60 hover:bg-muted/40",
+													open && "bg-muted/40",
+												)}
+												onClick={() => setAbierto(open ? null : r.id)}
+											>
+												<td className="px-3 py-3 font-medium text-foreground">
+													<button
+														type="button"
+														aria-expanded={open}
+														className="inline-flex items-center gap-1.5 text-left"
+													>
+														{open ? (
+															<ChevronDown className="h-4 w-4 text-muted-foreground" />
+														) : (
+															<ChevronRight className="h-4 w-4 text-muted-foreground" />
+														)}
+														{r.name}
+													</button>
+												</td>
+												<td className={montoCls}>{r.totales.casos}</td>
+												<td className={montoCls}>{formatARS(r.totales.facturado)}</td>
+												<td className={montoCls}>{formatARS(r.totales.ingresos)}</td>
+												<td className={montoCls}>{formatARS(r.totales.aportes)}</td>
+												<td className={cn(montoCls, "font-medium")}>{formatARS(r.totales.total)}</td>
+												<td className={cn(montoCls, r.totales.pendiente > 0 && "text-amber-700")}>
+													{r.totales.pendiente ? formatARS(r.totales.pendiente) : "–"}
+												</td>
+											</tr>
+											{open && (
+												<tr className="border-b border-border/60">
+													<td colSpan={7} className="bg-muted/20 p-3">
+														<DetalleCasos casos={r.casos} totales={r.totales} />
+													</td>
+												</tr>
+											)}
+										</Fragment>
+									);
+								})}
+							</tbody>
+						</table>
+					</div>
+				)}
+			</div>
+		</div>
+	);
+}
+
+function DetalleCasos({ casos, totales }: { casos: Caso[]; totales: Totales }) {
+	return (
+		<div className="overflow-x-auto rounded-lg border border-border bg-card">
+			<table className="w-full text-xs">
+				<thead>
+					<tr className="border-b border-border text-muted-foreground">
+						{COLUMNAS.map((c, i) => (
+							<th
+								key={c}
+								className={cn("px-3 py-2 font-medium", MONTOS.includes(i) ? "text-right" : "text-left")}
+							>
+								{c}
+							</th>
+						))}
+					</tr>
+				</thead>
+				<tbody>
+					{casos.map((c) => (
+						<tr key={c.closingId} className="border-b border-border/60 last:border-0 hover:bg-muted/40">
+							<td className="whitespace-nowrap px-3 py-2 tabular-nums">{formatFecha(c.fecha)}</td>
+							<td className="max-w-64 px-3 py-2">
+								<Link
+									href={`/admin/closing-manager?openId=${c.closingId}`}
+									className="font-medium text-foreground hover:text-primary hover:underline"
+									title="Ver el cierre"
+								>
+									{c.causa}
+								</Link>
+							</td>
+							<td className="px-3 py-2">{c.tipo}</td>
+							{valoresCaso(c)
+								.slice(3, 11)
+								.map((v, i) => (
+									<td key={COLUMNAS[i + 3]} className={montoCls}>
+										{formatARS(Number(v))}
+									</td>
+								))}
+							<td className="px-3 py-2">
+								<span
+									className={cn(
+										"rounded-md px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset",
+										ESTADO_STYLE[c.estado],
+									)}
+								>
+									{c.estado === "COBRADO" ? "Cobrado" : "Pendiente"}
+								</span>
+							</td>
+						</tr>
+					))}
+				</tbody>
+				<tfoot>
+					<tr className="border-t border-border font-semibold">
+						<td colSpan={3} className="px-3 py-2">
+							Subtotales
+						</td>
+						{valoresTotales(totales)
+							.slice(3, 11)
+							.map((v, i) => (
+								<td key={COLUMNAS[i + 3]} className={montoCls}>
+									{formatARS(Number(v))}
+								</td>
+							))}
+						<td />
+					</tr>
+				</tfoot>
+			</table>
 		</div>
 	);
 }
