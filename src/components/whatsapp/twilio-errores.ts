@@ -7,6 +7,7 @@ const MOTIVOS: Record<string, string> = {
 	"63016": "Pasaron más de 24 h del último mensaje del cliente: solo se le puede escribir con una plantilla",
 	"63018": "WhatsApp frenó los envíos por exceso de mensajes; probá más tarde",
 	"63024": "El número no tiene WhatsApp o no puede recibir mensajes",
+	"63032": "WhatsApp no deja escribirle a este número (Meta lo incluyó en una prueba); no reintentar",
 	"63049": "Meta no lo entregó: limita cuántos mensajes de marketing recibe cada persona",
 };
 
