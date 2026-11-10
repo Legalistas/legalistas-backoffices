@@ -443,6 +443,8 @@ export default function WhatsappInbox() {
 												{m.direction === "OUTBOUND" &&
 													(m.autoReply === "CRM"
 														? "Envío automático del CRM · "
+														: m.autoReply === "CAMPANA"
+															? `Campaña${m.sentBy ? ` de ${m.sentBy.name}` : ""} · `
 														: m.autoReply
 															? "Respuesta automática · " : m.sentBy ? `${m.sentBy.name} · ` : "")}
 												{fechaHora(m.createdAt)}

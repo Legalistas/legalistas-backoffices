@@ -10,6 +10,7 @@ import {
   Handshake,
   LayoutDashboard,
   ListChecks,
+  Megaphone,
   MessageCircle,
   MessageSquare,
   Pencil,
@@ -81,6 +82,8 @@ const MARKETING = [
 export const LIQUIDACION = [...SUPERADMIN, DIRECTORA_AREA_LEGAL, ABOGADO_REPRESENTANTE];
 /** WhatsApp inbox: Sales, in-house Legal and Marketing. Mirror of WHATSAPP_ROLES in the backend. */
 export const WHATSAPP = [...VENTAS, ...LEGAL_INTERNO, ...MARKETING];
+/** WhatsApp agendas and campaigns (mass sending). Mirror of CAMPANAS_ROLES in the backend. */
+export const CAMPANAS = [...SUPERADMIN, DIRECTORA_AREA_VENTAS, DIRECTORA_AREA_MARKETING];
 
 // Equipo y Reporte RR.HH.: solo dirección (admin, CEO, Sistemas y director
 // contable). Espejo de RRHH_REPORTE_ROLES del backend.
@@ -143,6 +146,12 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "WhatsApp",
         path: "/admin/whatsapp",
         roles: WHATSAPP,
+      },
+      {
+        icon: Megaphone,
+        name: "Agendas y campañas",
+        path: "/admin/whatsapp/agendas",
+        roles: CAMPANAS,
       },
       {
         icon: Users2,
