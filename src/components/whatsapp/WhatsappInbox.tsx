@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SELLERS_ENDPOINT, WHATSAPP_ENDPOINT } from "@/constant/api-endpoints";
 import { cn } from "@/lib/utils";
 import PlantillaForm from "./PlantillaForm";
+import { motivoTwilio } from "./twilio-errores";
 
 // WhatsApp inbox: conversation list and thread (stage 2) and free-text replies
 // inside the 24 h window (stage 3). New messages come in by polling.
@@ -451,10 +452,10 @@ export default function WhatsappInbox() {
 												{m.direction === "OUTBOUND" && m.status && ESTADO[m.status] && (
 													<span
 														className={cn("ml-1.5 font-medium", ESTADO[m.status].clase)}
-														title={m.errorCode ? `Código de error de Twilio: ${m.errorCode}` : undefined}
+														title={m.errorCode ? `Código de Twilio ${m.errorCode}` : undefined}
 													>
 														{ESTADO[m.status].texto}
-														{m.errorCode && ` (${m.errorCode})`}
+														{m.errorCode && `: ${motivoTwilio(m.errorCode)}`}
 													</span>
 												)}
 											</p>

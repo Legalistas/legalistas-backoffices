@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { type Campana, type Destinatario, type Resumen, useWhatsappApi } from "./agendas-api";
+import { motivoTwilio } from "./twilio-errores";
 
 // Sent campaigns and, per recipient, whether it went out, arrived and was read
 // (Twilio status callbacks). While one is sending, the screen refreshes itself.
@@ -150,7 +151,7 @@ export default function CampanasPanel({
 										<TableCell className="whitespace-nowrap tabular-nums">+{d.waId}</TableCell>
 										<TableCell className={cn("whitespace-nowrap font-medium", e.clase)}>{e.texto}</TableCell>
 										<TableCell className="text-sm text-muted-foreground">
-											{d.detalle ?? (d.message?.errorCode ? `Código de Twilio ${d.message.errorCode}` : "")}
+											{d.detalle ?? (d.message?.errorCode ? motivoTwilio(d.message.errorCode) : "")}
 										</TableCell>
 									</TableRow>
 								);
