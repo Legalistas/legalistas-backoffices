@@ -632,23 +632,13 @@ export default function CollectionsManager() {
 							<tbody>
 								{pageItems.map((tx) => {
 									const income = tx.type === "income";
-									// Los que vienen de un cierre, de una tarjeta o de una causa se
-									// corrigen en su origen: acá solo se cobran o se pagan.
-									const editable =
-										!tx.closingId &&
-										!tx.creditCardId &&
-										!tx.caseExpense &&
-										!tx.repClosingId &&
-										!tx.aporteClosingId;
 									// Cierre del que sale la fila: un cobro de HP/PCL, la parte del
 									// representante o un aporte.
 									const cierreId = tx.closingId ?? tx.repClosingId ?? tx.aporteClosingId;
+									// El cobro de un cierre y el resumen de una tarjeta se deshacen
+									// desde su circuito (anular el cobro / el pago en la Caja).
 									const puedeVolverAPendiente =
 										tx.status !== "pending" && !tx.closingId && !tx.creditCardId;
-									// Sin ninguna opción (ej. una cuota de tarjeta) no se muestran los
-									// tres puntos: antes abrían un menú vacío.
-									const tieneMenu =
-										!!tx.caseExpense || !!cierreId || editable || puedeVolverAPendiente;
 									return (
 										<tr
 											key={tx.id}
@@ -751,7 +741,6 @@ export default function CollectionsManager() {
 													<span className="text-xs text-muted-foreground">—</span>
 												)}
 
-												{tieneMenu && (
 												<DropdownMenu>
 													<DropdownMenuTrigger asChild>
 														<Button
@@ -784,17 +773,15 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{editable && (
-															<DropdownMenuItem
-																onClick={() => {
-																	setEditing(tx);
-																	setNewType(tx.type);
-																}}
-															>
-																<Pencil className="mr-2 h-4 w-4" />
-																Editar
-															</DropdownMenuItem>
-														)}
+														<DropdownMenuItem
+															onClick={() => {
+																setEditing(tx);
+																setNewType(tx.type);
+															}}
+														>
+															<Pencil className="mr-2 h-4 w-4" />
+															Editar
+														</DropdownMenuItem>
 
 														{puedeVolverAPendiente && (
 															<DropdownMenuItem
@@ -812,7 +799,9 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{tx.status === "pending" && editable && (
+														{/* En la parte del representante y los aportes, cancelar es
+														    "dar de baja": el cierre ya no los vuelve a generar. */}
+														{tx.status === "pending" && (
 															<DropdownMenuItem
 																onClick={() =>
 																	runAction(
@@ -828,57 +817,34 @@ export default function CollectionsManager() {
 															</DropdownMenuItem>
 														)}
 
-														{/* La parte del representante y los aportes de un cierre no se
-														    editan ni se borran (el cierre los volvería a generar): se
-														    dan de baja y quedan cancelados. */}
-														{(tx.repClosingId ?? tx.aporteClosingId) && tx.status === "pending" && (
-															<DropdownMenuItem
-																variant="destructive"
-																onClick={() => {
-																	if (
-																		!window.confirm(
-																			`¿Dar de baja "${tx.concept}"? Deja de figurar como pendiente y el cierre no lo vuelve a generar.`,
-																		)
+														<DropdownMenuItem
+															variant="destructive"
+															onClick={() => {
+																// Lo que sale de un cierre o una tarjeta, borrado, vuelve
+																// a aparecer cuando se recalcula su origen.
+																const aviso =
+																	cierreId || tx.creditCardId
+																		? " Si sale de un cierre o una tarjeta, vuelve a aparecer cuando se edite ese origen."
+																		: "";
+																if (
+																	!window.confirm(
+																		`¿Eliminar "${tx.concept}"? No se puede deshacer.${aviso}`,
 																	)
-																		return;
-																	runAction(
-																		tx.id,
-																		SCHEDULED_TX_CANCEL_ENDPOINT(tx.id),
-																		"PATCH",
-																		"Dado de baja",
-																	);
-																}}
-															>
-																<Trash2 className="mr-2 h-4 w-4" />
-																Dar de baja
-															</DropdownMenuItem>
-														)}
-
-														{editable && (
-															<DropdownMenuItem
-																variant="destructive"
-																onClick={() => {
-																	if (
-																		!window.confirm(
-																			`¿Eliminar "${tx.concept}"? No se puede deshacer.`,
-																		)
-																	)
-																		return;
-																	runAction(
-																		tx.id,
-																		SCHEDULED_TX_BY_ID_ENDPOINT(tx.id),
-																		"DELETE",
-																		"Movimiento eliminado",
-																	);
-																}}
-															>
-																<Trash2 className="mr-2 h-4 w-4" />
-																Eliminar
-															</DropdownMenuItem>
-														)}
+																)
+																	return;
+																runAction(
+																	tx.id,
+																	SCHEDULED_TX_BY_ID_ENDPOINT(tx.id),
+																	"DELETE",
+																	"Movimiento eliminado",
+																);
+															}}
+														>
+															<Trash2 className="mr-2 h-4 w-4" />
+															Eliminar
+														</DropdownMenuItem>
 													</DropdownMenuContent>
 												</DropdownMenu>
-												)}
 											</td>
 										</tr>
 									);

@@ -25,7 +25,7 @@ export const EXPENSE_CATEGORIES = [
  * opciones se cargan en vivo desde /credit-cards (ver NewMovementDialog). */
 export const FIXED_SUBCATEGORIES: Record<string, readonly string[]> = {
 	Servicios: ["Luz", "Agua", "Gas", "Internet", "Otros"],
-	Impuestos: ["Municipalidad", "Api"],
+	Impuestos: ["Municipalidad", "Api", "IIBB"],
 };
 
 export const CREDIT_CARD_CATEGORY = "Créditos / Tarjetas";
