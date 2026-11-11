@@ -46,7 +46,7 @@ import {
 import { cn } from "@/lib/utils";
 import { CASE_EVENTS_TYPE, caseEventSubTypeLabel } from "@/constant/causes";
 
-type EventSource = "calendar" | "cases" | "crm";
+type EventSource = "calendar" | "cases" | "crm" | "tareas";
 
 const EVENT_COLORS = [
 	{ label: "Azul", value: "#3b82f6" },
@@ -66,6 +66,7 @@ const SOURCE_INFO: Record<
 	calendar: { label: "Evento del Calendario", color: "#3b82f6" },
 	cases: { label: "Evento de Causa Legal", color: "#7c3aed" },
 	crm: { label: "Reunión CRM", color: "#0d9488" },
+	tareas: { label: "Tarea del espacio de trabajo", color: "#f59e0b" },
 };
 
 // Tipos y subtipos de evento de causa: catálogo único en constant/causes.ts.

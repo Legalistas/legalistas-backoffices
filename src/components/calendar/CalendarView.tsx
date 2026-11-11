@@ -7,7 +7,8 @@ import interactionPlugin from "@fullcalendar/interaction";
 import listPlugin from "@fullcalendar/list";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import { CalendarDays, ChevronDown, FilterX, Scale, UserRound, Users, Video } from "lucide-react";
+import { CalendarDays, ChevronDown, FilterX, ListChecks, Scale, UserRound, Users, Video } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -42,7 +43,7 @@ import { EventModal } from "./EventModal";
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
-type EventSource = "calendar" | "cases" | "crm";
+type EventSource = "calendar" | "cases" | "crm" | "tareas";
 
 interface HolidayApiData {
 	id: number;
@@ -110,6 +111,8 @@ const SOURCE_COLORS: Record<
 	calendar: { primary: "#3b82f6", label: "Calendario", icon: "calendar" },
 	cases: { primary: "#8b5cf6", label: "Causas", icon: "scale" },
 	crm: { primary: "#0d9488", label: "CRM", icon: "users" },
+	// Workspace tasks with a due date (GET /calendar/unified).
+	tareas: { primary: "#f59e0b", label: "Tareas", icon: "tasks" },
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -131,6 +134,7 @@ const CalendarView = ({
 	triggerNewEvent,
 }: CalendarViewProps) => {
 	const { data: session } = useSession();
+	const router = useRouter();
 	const [events, setEvents] = useState<CalendarEvent[]>([]);
 	const [holidays, setHolidays] = useState<CalendarEvent[]>([]);
 	const [isLoadingHolidays, setIsLoadingHolidays] = useState(true);
@@ -153,6 +157,7 @@ const CalendarView = ({
 		calendar: true,
 		cases: true,
 		crm: true,
+		tareas: true,
 	});
 
 	// Role / person / "Mis tareas" filters, remembered per user in this browser.
@@ -407,6 +412,13 @@ const CalendarView = ({
 		}
 
 		const source: EventSource = info.event.extendedProps?.source || "calendar";
+
+		// A workspace task opens on its board.
+		if (source === "tareas") {
+			const link = info.event.extendedProps?.meta?.link;
+			if (link) router.push(link);
+			return;
+		}
 
 		// Eventos de causas y CRM son solo lectura
 		if (source !== "calendar") {
@@ -663,6 +675,8 @@ const CalendarView = ({
 				return <Scale className={iconClass} />;
 			case "crm":
 				return <Users className={iconClass} />;
+			case "tareas":
+				return <ListChecks className={iconClass} />;
 			default:
 				return <CalendarDays className={iconClass} />;
 		}

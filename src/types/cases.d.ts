@@ -232,6 +232,8 @@ export interface Cases {
 	administrativeSubstage?: string | null;
 	// Subetapa de Documentación: PENDIENTE | COMPLETADA.
 	documentationSubstage?: string | null;
+	// Subetapa de Cierre: EN_CIERRE | CONVENIO.
+	closingSubstage?: string | null;
 	status?: string;
 	statusDate?: Date;
 	isActive?: boolean;

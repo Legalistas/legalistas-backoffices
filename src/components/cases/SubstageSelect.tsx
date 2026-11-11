@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 // - Documentación (todos los servicios): Pendiente / Completada.
 // - Administrativo (solo Accidente de Trabajo, SRT): son también las carpetas
 //   de MinIO 2_ADMINISTRATIVO/{1_INICIADO | … | 5_RECIBOS_SUELDO}.
+// - Cierre (todos los servicios): En cierre / Convenio (5_CIERRE/1_CONVENIO).
 export const DOCUMENTATION_SUBSTAGES = [
 	{ value: "PENDIENTE", label: "Pendiente" },
 	{ value: "COMPLETADA", label: "Completada" },
@@ -26,9 +27,16 @@ export const ADMINISTRATIVE_SUBSTAGES = [
 	{ value: "RECIBOS_SUELDO", label: "5. Recibos de sueldos" },
 ] as const;
 
+// Cierre (todos los servicios): Convenio = el acuerdo ya se presentó en el
+// expediente; mueve la carpeta a 5_CIERRE/1_CONVENIO/.
+export const CLOSING_SUBSTAGES = [
+	{ value: "EN_CIERRE", label: "En cierre" },
+	{ value: "CONVENIO", label: "Convenio" },
+] as const;
+
 export interface Subetapa {
 	/** Campo del caso que la guarda. */
-	campo: "documentationSubstage" | "administrativeSubstage";
+	campo: "documentationSubstage" | "administrativeSubstage" | "closingSubstage";
 	opciones: readonly { value: string; label: string }[];
 	/** Lo que vale mientras no se eligió ninguna (el backend la arranca ahí). */
 	inicial: string;
@@ -40,6 +48,7 @@ export interface Subetapa {
 const SERVICIOS_ART = [1, 9, 10];
 const ETAPA_DOCUMENTACION = 1;
 const ETAPA_ADMINISTRATIVO = 2;
+const ETAPA_CIERRE = 5;
 
 /** La subetapa que tiene el caso en su etapa actual, o null si esa etapa no tiene. */
 export function subetapaDe(stageId?: number | null, servicesId?: number | null): Subetapa | null {
@@ -48,6 +57,9 @@ export function subetapaDe(stageId?: number | null, servicesId?: number | null):
 	}
 	if (stageId === ETAPA_ADMINISTRATIVO && SERVICIOS_ART.includes(servicesId ?? -1)) {
 		return { campo: "administrativeSubstage", opciones: ADMINISTRATIVE_SUBSTAGES, inicial: "INICIADO", mueveCarpeta: true };
+	}
+	if (stageId === ETAPA_CIERRE) {
+		return { campo: "closingSubstage", opciones: CLOSING_SUBSTAGES, inicial: "EN_CIERRE", mueveCarpeta: true };
 	}
 	return null;
 }
