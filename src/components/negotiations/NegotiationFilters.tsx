@@ -51,6 +51,8 @@ interface NegotiationFiltersProps {
 		abogadosContraparte: string[];
 		lesiones: string[];
 	};
+	/** Opens the opposing lawyers editor (rename, deactivate, merge). */
+	onEditarContrapartes?: () => void;
 }
 
 export function NegotiationFilters({
@@ -60,6 +62,7 @@ export function NegotiationFilters({
 	totalResults,
 	filteredResults,
 	uniqueValues,
+	onEditarContrapartes,
 }: NegotiationFiltersProps) {
 	const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
@@ -195,7 +198,18 @@ export function NegotiationFilters({
 					</div>
 
 					<div className="space-y-2">
-						<Label>Abogado Contraparte</Label>
+						<div className="flex items-center justify-between gap-2">
+							<Label>Abogado Contraparte</Label>
+							{onEditarContrapartes && (
+								<button
+									type="button"
+									onClick={onEditarContrapartes}
+									className="text-xs text-primary hover:underline"
+								>
+									Editar listado
+								</button>
+							)}
+						</div>
 						<Select
 							value={filters.abogadoContraparte || "all"}
 							onValueChange={(value) =>

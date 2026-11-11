@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import AbogadosContraparteDialog from "@/components/negotiations/AbogadosContraparteDialog";
 import { ColumnSelector } from "@/components/negotiations/ColumnSelector";
 import type { ColumnConfig } from "@/components/negotiations/ColumnSelector";
 import {
@@ -55,6 +56,8 @@ export default function NegotiationPage() {
 
 	const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
 	const [uniqueValues, setUniqueValues] = useState(EMPTY_UNIQUE_VALUES);
+	const [editandoContrapartes, setEditandoContrapartes] = useState(false);
+	const [tablaKey, setTablaKey] = useState(0);
 	const [results, setResults] = useState({ total: 0, filtered: 0 });
 	// Contadores por estado ya recalculados según los filtros activos (representante,
 	// contraparte, lesión, búsqueda, monto) — alimentan las tarjetas/tabs de arriba.
@@ -372,6 +375,7 @@ export default function NegotiationPage() {
 
 			{/* Filtros globales */}
 			<NegotiationFilters
+				onEditarContrapartes={() => setEditandoContrapartes(true)}
 				filters={filters}
 				onFiltersChange={setFilters}
 				onClearFilters={handleClearFilters}
@@ -410,7 +414,16 @@ export default function NegotiationPage() {
 			</div>
 
 			{/* Table */}
+			<AbogadosContraparteDialog
+				open={editandoContrapartes}
+				onClose={(cambio) => {
+					setEditandoContrapartes(false);
+					// Remounting the table reloads the negotiations with the new names.
+					if (cambio) setTablaKey((k) => k + 1);
+				}}
+			/>
 			<NegotiationsTable
+				key={tablaKey}
 				columnConfig={columnConfig}
 				onColumnChange={handleColumnChange}
 				onDataChange={fetchCounts}

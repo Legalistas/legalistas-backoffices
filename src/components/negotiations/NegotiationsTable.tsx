@@ -52,6 +52,12 @@ import RegistrarRespuestaDialog from "./RegistrarRespuestaDialog";
 import type { FilterState } from "./NegotiationFilters";
 import { NegotiationStatusDropdown } from "./NegotiationStatusDropdown";
 
+/** The opposing lawyer's current name: the copy saved on the negotiation can be old ("Prevención" vs "PREVENCIÓN"). */
+const contraparteDe = (n: {
+	abogadoContraparte?: { nombre: string } | null;
+	contraparteLawyer?: string | null;
+}) => n.abogadoContraparte?.nombre ?? n.contraparteLawyer ?? null;
+
 interface UniqueValues {
 	abogadosRepresentantes: string[];
 	abogadosInternos: string[];
@@ -241,7 +247,7 @@ export function NegotiationsTable({
 					neg.case.title,
 					neg.case.responsibleLawyer?.name,
 					neg.case.internalLawyer?.name,
-					neg.contraparteLawyer,
+					contraparteDe(neg),
 					neg.case.injury,
 				];
 				if (!fields.some((f) => (f || "").toLowerCase().includes(s)))
@@ -259,7 +265,7 @@ export function NegotiationsTable({
 				return false;
 			if (
 				filters.abogadoContraparte &&
-				neg.contraparteLawyer !== filters.abogadoContraparte
+				contraparteDe(neg) !== filters.abogadoContraparte
 			)
 				return false;
 			if (filters.lesion && neg.case.injury !== filters.lesion) return false;
@@ -313,8 +319,8 @@ export function NegotiationsTable({
 						bVal = b.case.internalLawyer?.name;
 						break;
 					case "abogadoContraparte":
-						aVal = a.contraparteLawyer;
-						bVal = b.contraparteLawyer;
+						aVal = contraparteDe(a);
+						bVal = contraparteDe(b);
 						break;
 					case "lesion":
 						aVal = a.case.injury;
@@ -371,7 +377,7 @@ export function NegotiationsTable({
 			] as string[],
 			abogadosContraparte: [
 				...new Set(
-					negotiations.map((n) => n.contraparteLawyer).filter(Boolean),
+					negotiations.map(contraparteDe).filter(Boolean),
 				),
 			] as string[],
 			lesiones: [
@@ -990,7 +996,7 @@ export function NegotiationsTable({
 													: undefined
 											}
 										>
-											{neg.contraparteLawyer || "-"}
+											{contraparteDe(neg) || "-"}
 										</TableCell>
 									)}
 									{isColumnVisible("lesion") && (
@@ -1140,7 +1146,7 @@ export function NegotiationsTable({
 											Abogado Contraparte:
 										</span>{" "}
 										<span className="font-medium">
-											{selectedNegotiation.contraparteLawyer || "-"}
+											{contraparteDe(selectedNegotiation) || "-"}
 										</span>
 										{selectedNegotiation.abogadoContraparte &&
 											(selectedNegotiation.abogadoContraparte.email ||
