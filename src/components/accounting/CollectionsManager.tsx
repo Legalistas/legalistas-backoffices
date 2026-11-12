@@ -49,14 +49,12 @@ import {
 	SCHEDULED_TX_CANCEL_ENDPOINT,
 	SCHEDULED_TX_ENDPOINT,
 	SCHEDULED_TX_MARK_PENDING_ENDPOINT,
-	SCHEDULED_TX_SUMMARY_ENDPOINT,
 } from "@/constant/api-endpoints";
 import { CURRENCY_SYMBOL } from "@/constant/scheduled-categories";
 import { exportarExcel } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import type {
 	ScheduledStatus,
-	ScheduledSummary,
 	ScheduledTransaction,
 	ScheduledType,
 } from "@/types/scheduled-transaction";
@@ -195,7 +193,6 @@ export default function CollectionsManager() {
 	const [dateSort, setDateSort] = useState<"asc" | "desc">("desc");
 
 	const [items, setItems] = useState<ScheduledTransaction[]>([]);
-	const [summary, setSummary] = useState<ScheduledSummary | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [actingId, setActingId] = useState<number | null>(null);
 	const [newType, setNewType] = useState<ScheduledType | null>(null);
@@ -222,20 +219,14 @@ export default function CollectionsManager() {
 			const params = new URLSearchParams({ from: month.from, to: month.to });
 			if (statusFilter !== "all") params.set("status", statusFilter);
 
-			const [listRes, summaryRes] = await Promise.all([
-				fetch(`${SCHEDULED_TX_ENDPOINT}?${params}`, {
-					headers: { Authorization: `Bearer ${token}` },
-				}),
-				fetch(SCHEDULED_TX_SUMMARY_ENDPOINT, {
-					headers: { Authorization: `Bearer ${token}` },
-				}),
-			]);
+			const listRes = await fetch(`${SCHEDULED_TX_ENDPOINT}?${params}`, {
+				headers: { Authorization: `Bearer ${token}` },
+			});
 			if (!listRes.ok) throw new Error("No se pudieron cargar los movimientos");
 
 			const listJson = await listRes.json();
 			setItems((listJson.data ?? []) as ScheduledTransaction[]);
 
-			if (summaryRes.ok) setSummary((await summaryRes.json()).data);
 		} catch (err) {
 			toast.error((err as Error).message);
 		} finally {
@@ -380,9 +371,18 @@ export default function CollectionsManager() {
 		}
 	};
 
-	const porCobrar = summary?.pending.income ?? { count: 0, amount: 0 };
-	const porPagar = summary?.pending.expense ?? { count: 0, amount: 0 };
-	const vencido = summary?.overdueExpense ?? { count: 0, amount: 0 };
+	// Cards: the same filters as the table (period, state, tab, search, only
+	// pending); amounts in pesos like the rows (USD × saved rate).
+	const sumar = (f: (tx: ScheduledTransaction) => boolean) =>
+		filtered
+			.filter(f)
+			.reduce((t, tx) => ({ count: t.count + 1, amount: t.amount + enPesos(tx) }), {
+				count: 0,
+				amount: 0,
+			});
+	const porCobrar = sumar((tx) => tx.type === "income" && tx.status === "pending");
+	const porPagar = sumar((tx) => tx.type === "expense" && tx.status === "pending");
+	const vencido = sumar((tx) => tx.type === "expense" && isOverdue(tx));
 	const balance = porCobrar.amount - porPagar.amount;
 
 	return (
