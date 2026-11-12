@@ -107,7 +107,7 @@ export interface KpiLegalData {
 		activas: number;
 		iniciadas: number;
 		porEstado: Record<
-			"INICIAR" | "CURSO" | "SUSPENSO" | "FINALIZADAS" | "PERDIDAS",
+			"INICIAR" | "JMP" | "CURSO" | "SUSPENSO" | "FINALIZADAS" | "PERDIDAS",
 			number
 		>;
 		tasaExito: number;

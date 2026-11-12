@@ -112,6 +112,7 @@ export function NegotiationFilters({
 						<SelectContent>
 							<SelectItem value="all">Todos los estados</SelectItem>
 							<SelectItem value="INICIAR">Iniciar</SelectItem>
+							<SelectItem value="JMP">JMP</SelectItem>
 							<SelectItem value="CURSO">En Curso</SelectItem>
 							<SelectItem value="SUSPENSO">Suspenso</SelectItem>
 							<SelectItem value="FINALIZADAS">Finalizadas</SelectItem>

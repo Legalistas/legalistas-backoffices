@@ -4,6 +4,7 @@ import {
 	Activity,
 	CheckCircle2,
 	Download,
+	Hourglass,
 	PauseCircle,
 	PlayCircle,
 	Plus,
@@ -47,6 +48,7 @@ export default function NegotiationPage() {
 	);
 	const [counts, setCounts] = useState({
 		iniciar: 0,
+		jmp: 0,
 		curso: 0,
 		suspenso: 0,
 		finalizadas: 0,
@@ -63,6 +65,7 @@ export default function NegotiationPage() {
 	// contraparte, lesión, búsqueda, monto) — alimentan las tarjetas/tabs de arriba.
 	const [filteredCounts, setFilteredCounts] = useState({
 		iniciar: 0,
+		jmp: 0,
 		curso: 0,
 		suspenso: 0,
 		finalizadas: 0,
@@ -171,12 +174,14 @@ export default function NegotiationPage() {
 	const handleStatusCountsChange = useCallback(
 		(next: {
 			iniciar: number;
+			jmp: number;
 			curso: number;
 			suspenso: number;
 			finalizadas: number;
 		}) => {
 			setFilteredCounts((prev) =>
 				prev.iniciar === next.iniciar &&
+				prev.jmp === next.jmp &&
 				prev.curso === next.curso &&
 				prev.suspenso === next.suspenso &&
 				prev.finalizadas === next.finalizadas
@@ -189,14 +194,20 @@ export default function NegotiationPage() {
 
 	// Total global (sin filtros) para el texto del encabezado
 	const totalNegociaciones =
-		counts.iniciar + counts.curso + counts.suspenso + counts.finalizadas + counts.perdidas;
+		counts.iniciar +
+		counts.jmp +
+		counts.curso +
+		counts.suspenso +
+		counts.finalizadas +
+		counts.perdidas;
 
 	const totalActivas =
-		filteredCounts.iniciar + filteredCounts.curso + filteredCounts.suspenso;
+		filteredCounts.iniciar + filteredCounts.jmp + filteredCounts.curso + filteredCounts.suspenso;
 
 	const statusTabs = [
 		{ estado: "", label: "Total activas", value: totalActivas, activeBg: "bg-primary", dotColor: "bg-primary" },
 		{ estado: "INICIAR", label: "Iniciar", value: filteredCounts.iniciar, activeBg: "bg-blue-600", dotColor: "bg-blue-500" },
+		{ estado: "JMP", label: "JMP", value: filteredCounts.jmp, activeBg: "bg-violet-600", dotColor: "bg-violet-500" },
 		{ estado: "CURSO", label: "En curso", value: filteredCounts.curso, activeBg: "bg-emerald-600", dotColor: "bg-emerald-500" },
 		{ estado: "SUSPENSO", label: "Suspenso", value: filteredCounts.suspenso, activeBg: "bg-amber-600", dotColor: "bg-amber-500" },
 		{ estado: "FINALIZADAS", label: "Finalizadas", value: filteredCounts.finalizadas, activeBg: "bg-green-600", dotColor: "bg-green-500" },
@@ -218,6 +229,14 @@ export default function NegotiationPage() {
 			iconBg: "bg-blue-100 dark:bg-blue-900/30",
 			iconColor: "text-blue-600",
 			valueColor: "text-blue-600",
+		},
+		{
+			label: "JMP",
+			value: filteredCounts.jmp,
+			icon: Hourglass,
+			iconBg: "bg-violet-100 dark:bg-violet-900/30",
+			iconColor: "text-violet-600",
+			valueColor: "text-violet-600",
 		},
 		{
 			label: "En curso",
@@ -259,14 +278,14 @@ export default function NegotiationPage() {
 						<Skeleton className="h-9 w-40" />
 					</div>
 				</div>
-				<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-					{Array.from({ length: 5 }).map((_, i) => (
+				<div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+					{Array.from({ length: 6 }).map((_, i) => (
 						<Skeleton key={i} className="h-24 rounded-xl" />
 					))}
 				</div>
 				<Skeleton className="h-24 w-full rounded-lg" />
 				<div className="flex flex-wrap gap-2">
-					{Array.from({ length: 5 }).map((_, i) => (
+					{Array.from({ length: 6 }).map((_, i) => (
 						<Skeleton key={i} className="h-9 w-28 rounded-full" />
 					))}
 				</div>
@@ -350,7 +369,7 @@ export default function NegotiationPage() {
 			</div>
 
 			{/* KPI Cards */}
-			<div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+			<div className="grid grid-cols-2 md:grid-cols-6 gap-4">
 				{statCards.map((card) => (
 					<div
 						key={card.label}

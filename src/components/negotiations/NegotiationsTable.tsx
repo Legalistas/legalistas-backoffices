@@ -78,6 +78,7 @@ const mapOffer = (o: any): Oferta => ({
 
 const STATUS_LABELS: Record<NegotiationStatus, string> = {
 	INICIAR: "Iniciar",
+	JMP: "JMP",
 	CURSO: "En Curso",
 	SUSPENSO: "Suspenso",
 	FINALIZADAS: "Finalizada",
@@ -96,6 +97,7 @@ interface NegotiationsTableProps {
 	onResultsChange?: (totals: { total: number; filtered: number }) => void;
 	onStatusCountsChange?: (counts: {
 		iniciar: number;
+		jmp: number;
 		curso: number;
 		suspenso: number;
 		finalizadas: number;
@@ -402,10 +404,11 @@ export function NegotiationsTable({
 	// lesión, búsqueda, monto), ignorando el propio tab de estado — así las tarjetas de
 	// arriba reflejan el filtro aplicado en vez de quedar fijas al total global.
 	const statusCounts = useMemo(() => {
-		const counts = { iniciar: 0, curso: 0, suspenso: 0, finalizadas: 0 };
+		const counts = { iniciar: 0, jmp: 0, curso: 0, suspenso: 0, finalizadas: 0 };
 		negotiations.forEach((neg) => {
 			if (!matchesSecondaryFilters(neg)) return;
 			if (neg.status === "INICIAR") counts.iniciar++;
+			else if (neg.status === "JMP") counts.jmp++;
 			else if (neg.status === "CURSO") counts.curso++;
 			else if (neg.status === "SUSPENSO") counts.suspenso++;
 			else if (neg.status === "FINALIZADAS") counts.finalizadas++;

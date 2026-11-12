@@ -1,5 +1,6 @@
 export type ViewMode =
 	| "iniciar"
+	| "jmp"
 	| "curso"
 	| "suspenso"
 	| "finalizadas"
@@ -7,6 +8,7 @@ export type ViewMode =
 
 export type NegotiationStatus =
 	| "INICIAR"
+	| "JMP"
 	| "CURSO"
 	| "SUSPENSO"
 	| "FINALIZADAS"

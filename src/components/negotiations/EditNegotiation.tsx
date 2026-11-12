@@ -36,6 +36,7 @@ interface EditNegotiationProps {
 
 const STATUS_OPTIONS: { value: NegotiationStatus; label: string }[] = [
 	{ value: "INICIAR", label: "Iniciar" },
+	{ value: "JMP", label: "JMP" },
 	{ value: "CURSO", label: "En Curso" },
 	{ value: "SUSPENSO", label: "Suspenso" },
 	{ value: "FINALIZADAS", label: "Finalizadas" },

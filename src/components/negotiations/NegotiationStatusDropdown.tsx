@@ -4,6 +4,7 @@ import {
 	Check,
 	CheckCircle2,
 	ChevronDown,
+	Hourglass,
 	PauseCircle,
 	PlayCircle,
 	TrendingUp,
@@ -24,6 +25,7 @@ interface NegotiationStatusDropdownProps {
 
 const STATUS_LABELS: Record<NegotiationStatus, string> = {
 	INICIAR: "Iniciar",
+	JMP: "JMP",
 	CURSO: "En Curso",
 	SUSPENSO: "Suspenso",
 	FINALIZADAS: "Finalizada",
@@ -35,6 +37,7 @@ const STATUS_CONFIG: Record<
 	{ bg: string; color: string; icon: typeof PlayCircle }
 > = {
 	INICIAR: { bg: "#dbeafe", color: "#1d4ed8", icon: PlayCircle },
+	JMP: { bg: "#ede9fe", color: "#6d28d9", icon: Hourglass },
 	CURSO: { bg: "#d1fae5", color: "#047857", icon: TrendingUp },
 	SUSPENSO: { bg: "#fef3c7", color: "#b45309", icon: PauseCircle },
 	FINALIZADAS: { bg: "#dcfce7", color: "#15803d", icon: CheckCircle2 },
@@ -43,7 +46,8 @@ const STATUS_CONFIG: Record<
 
 // Mismas transiciones que valida el backend (negotation.controller.ts)
 const VALID_TRANSITIONS: Record<NegotiationStatus, NegotiationStatus[]> = {
-	INICIAR: ["CURSO", "PERDIDAS"],
+	INICIAR: ["JMP", "CURSO", "PERDIDAS"],
+	JMP: ["CURSO", "PERDIDAS"],
 	CURSO: ["SUSPENSO", "FINALIZADAS", "PERDIDAS"],
 	SUSPENSO: ["CURSO", "PERDIDAS"],
 	FINALIZADAS: [],
