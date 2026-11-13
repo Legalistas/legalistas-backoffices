@@ -31,10 +31,40 @@ export interface AportesDetalle {
 	 * siguen con la regla con la que se guardaron. Al guardar manda el servidor.
 	 */
 	/** `porcentaje`: missing in closings saved before 29/10/2026, which means 13. */
-	capital: { activa: boolean; representante: number; aseguradora?: boolean; porcentaje?: number };
-	caja: { activa: boolean; base: number; representante: number };
-	otro: { activa: boolean; porcentaje: number; base: number; representante: number };
+	capital: {
+		activa: boolean;
+		representante: number;
+		aseguradora?: boolean;
+		porcentaje?: number;
+		destino?: DestinoAporte;
+	};
+	caja: { activa: boolean; base: number; representante: number; destino?: DestinoAporte };
+	otro: {
+		activa: boolean;
+		porcentaje: number;
+		base: number;
+		representante: number;
+		destino?: DestinoAporte;
+	};
 }
+
+/** Where a card's aporte is paid, picked per closing (Jona, 13/11/2026). Mirror of backend utils/closing-aportes.ts. */
+export type DestinoAporte = "FORENSE" | "ABOGADOS";
+
+export const DESTINOS: { value: DestinoAporte; label: string }[] = [
+	{ value: "ABOGADOS", label: "Caja de Abogados" },
+	{ value: "FORENSE", label: "Caja Forense" },
+];
+
+/** Unset: 13 % and 7 % go to the Caja de Abogados, 5,4 / 9 % to the Caja Forense. */
+export const DESTINO_POR_DEFECTO: Record<keyof AportesDetalle, DestinoAporte> = {
+	capital: "ABOGADOS",
+	caja: "ABOGADOS",
+	otro: "FORENSE",
+};
+
+export const destinoAporte = (d: AportesDetalle, tarjeta: keyof AportesDetalle): DestinoAporte =>
+	d[tarjeta]?.destino ?? DESTINO_POR_DEFECTO[tarjeta];
 
 export const APORTES_VACIOS: AportesDetalle = {
 	capital: { activa: false, representante: 0, aseguradora: true, porcentaje: PORCENTAJE_CAPITAL },

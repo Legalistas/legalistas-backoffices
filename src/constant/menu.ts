@@ -8,6 +8,7 @@ import {
   FolderCog,
   HardDrive,
   Handshake,
+  Landmark,
   LayoutDashboard,
   ListChecks,
   Megaphone,
@@ -270,6 +271,13 @@ export const MENU_SECTIONS: MenuSection[] = [
         icon: Vault,
         name: "Caja Contable",
         path: "/admin/caja",
+        roles: CAJA_ADMIN_ROLES,
+      },
+      {
+        // Aportes of Agustín's and Julieta's closings, by Caja Forense / Caja de Abogados.
+        icon: Landmark,
+        name: "Aportes",
+        path: "/admin/aportes",
         roles: CAJA_ADMIN_ROLES,
       },
     ],

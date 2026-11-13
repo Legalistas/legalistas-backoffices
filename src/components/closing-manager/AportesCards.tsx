@@ -8,6 +8,9 @@ import {
 	type AportesDetalle,
 	algunaTarjetaActiva,
 	calcularAportes,
+	DESTINOS,
+	type DestinoAporte,
+	destinoAporte,
 	PORCENTAJE_CAJA,
 	PORCENTAJE_CAPITAL,
 	PORCENTAJES_OTRO,
@@ -97,6 +100,8 @@ function Tarjeta({
 	id,
 	pagos,
 	sinPago = false,
+	destino,
+	onDestino,
 	children,
 }: {
 	titulo: string;
@@ -113,6 +118,9 @@ function Tarjeta({
 	pagos: AportePago[];
 	/** El aporte no lo paga Legalistas: no genera pendiente en Gastos e Ingresos. */
 	sinPago?: boolean;
+	/** Caja Forense or Caja de Abogados (Finanzas → Aportes splits by it). */
+	destino: DestinoAporte;
+	onDestino: (d: DestinoAporte) => void;
 	children: ReactNode;
 }) {
 	return (
@@ -132,6 +140,27 @@ function Tarjeta({
 			{activa && (
 				<>
 					{children}
+					<div className="space-y-1">
+						<span className="text-xs text-muted-foreground">Se paga a</span>
+						<div className="grid grid-cols-2 gap-2">
+							{DESTINOS.map((o) => (
+								<button
+									key={o.value}
+									type="button"
+									aria-pressed={destino === o.value}
+									onClick={() => onDestino(o.value)}
+									className={cn(
+										"h-10 rounded-lg border text-sm transition-colors",
+										destino === o.value
+											? "border-primary bg-primary/10 font-medium text-primary"
+											: "border-border bg-background text-muted-foreground hover:bg-muted",
+									)}
+								>
+									{o.label}
+								</button>
+							))}
+						</div>
+					</div>
 					<Lectura label="Aporte" valor={ars(calculo.aporte)} fuerte />
 					{sinPago ? (
 						<Lectura label="Se descuenta del HP de Legalistas" valor={ars(calculo.legalistas)} />
@@ -268,6 +297,8 @@ export default function AportesCards({
 					conRepresentante={conRepresentante}
 					pagos={pagos.filter((p) => p.tarjeta === "capital")}
 					sinPago={value.capital.aseguradora === true}
+					destino={destinoAporte(value, "capital")}
+					onDestino={(destino) => onChange({ ...value, capital: { ...value.capital, destino } })}
 				>
 					<div className="space-y-1">
 						<span className="text-xs text-muted-foreground">Porcentaje</span>
@@ -330,6 +361,8 @@ export default function AportesCards({
 					}
 					conRepresentante={conRepresentante}
 					pagos={pagos.filter((p) => p.tarjeta === "caja")}
+					destino={destinoAporte(value, "caja")}
+					onDestino={(destino) => onChange({ ...value, caja: { ...value.caja, destino } })}
 				>
 					<Monto
 						id="aporte-caja-base"
@@ -352,6 +385,8 @@ export default function AportesCards({
 					}
 					conRepresentante={conRepresentante}
 					pagos={pagos.filter((p) => p.tarjeta === "otro")}
+					destino={destinoAporte(value, "otro")}
+					onDestino={(destino) => onChange({ ...value, otro: { ...value.otro, destino } })}
 				>
 					<div className="space-y-1">
 						<span className="text-xs text-muted-foreground">Porcentaje</span>
