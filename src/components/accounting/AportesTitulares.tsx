@@ -23,7 +23,8 @@ import { CLOSINGS_ENDPOINT } from "@/constant/api-endpoints";
 import { type Celda, exportarExcel, exportarPdf, type TablaInforme } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 
-// Finanzas → Aportes: the aportes of the closings of Agustín and Julieta, like
+// Finanzas → Aportes: the aportes of the closings of Agustín (responsible) and
+// Julieta (internal lawyer, in other lawyers' cases), like
 // the representatives' liquidation, split by Caja Forense / Caja de Abogados
 // (picked per card in the Gestor de Cierres). Backend: modules/closings/aportes.ts.
 
@@ -42,6 +43,8 @@ interface Caso {
 	closingId: number;
 	fecha: string;
 	causa: string;
+	/** The case's responsible lawyer (a representative, in Julieta's closings). */
+	responsable: string | null;
 	tipo: string;
 	capital: number;
 	tarjetas: Tarjeta[];
@@ -320,7 +323,7 @@ export default function AportesTitulares() {
 											{open && (
 												<tr className="border-b border-border/60">
 													<td colSpan={6} className="bg-muted/20 p-3">
-														<DetalleCasos casos={t.casos} totales={t.totales} />
+														<DetalleCasos casos={t.casos} totales={t.totales} titular={t.name} />
 													</td>
 												</tr>
 											)}
@@ -336,7 +339,7 @@ export default function AportesTitulares() {
 	);
 }
 
-function DetalleCasos({ casos, totales }: { casos: Caso[]; totales: Totales }) {
+function DetalleCasos({ casos, totales, titular }: { casos: Caso[]; totales: Totales; titular: string }) {
 	return (
 		<div className="overflow-x-auto rounded-lg border border-border bg-card">
 			<table className="w-full text-xs">
@@ -363,6 +366,9 @@ function DetalleCasos({ casos, totales }: { casos: Caso[]; totales: Totales }) {
 								>
 									{c.causa}
 								</Link>
+								{c.responsable && c.responsable !== titular && (
+									<span className="block text-[11px] text-muted-foreground">{c.responsable}</span>
+								)}
 							</td>
 							<td className="px-3 py-2">{c.tipo}</td>
 							<td className={montoCls}>{formatARS(c.capital)}</td>
