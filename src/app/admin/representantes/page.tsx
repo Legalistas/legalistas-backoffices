@@ -19,6 +19,7 @@ import type {
 } from "@/types/representatives";
 import RepresentativesFilters from "./components/RepresentativesFilters";
 import RepresentativesGlobalStats from "./components/RepresentativesGlobalStats";
+import { monthOptions } from "@/constant/closing-manager";
 import RankingPodium from "./components/RankingPodium";
 import RepresentativesTable from "./components/RepresentativesTable";
 
@@ -175,7 +176,39 @@ export default function RepresentantesPage() {
 				<h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
 					Ranking individual
 				</h2>
-				<RankingPodium rows={representatives} loading={loading} />
+				<div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/3">
+					<RankingPodium
+						titulo={`Ranking anual ${year}`}
+						loading={loading}
+						items={representatives.map((r) => ({
+							userId: r.userId,
+							fullName: r.fullName,
+							score: r.scoreYear,
+							cierres: r.closingsYear,
+							honorarios: r.feesYear,
+						}))}
+					/>
+					{month !== 0 && (
+						<RankingPodium
+							titulo={`Ranking de ${monthOptions.find((m) => m.value === month)?.label ?? ""} ${year}`}
+							loading={loading}
+							items={[...representatives]
+								.sort((a, b) => (a.rankMonth ?? 0) - (b.rankMonth ?? 0))
+								.map((r) => ({
+									userId: r.userId,
+									fullName: r.fullName,
+									score: r.scoreMonth ?? 0,
+									cierres: r.closingsCount,
+									honorarios: r.feesClosed,
+								}))}
+						/>
+					)}
+					<p className="text-xs text-gray-500 dark:text-gray-400">
+						Puntaje = 50 × (cierres ÷ máximo de cierres) + 50 × (honorarios ÷ máximo de honorarios), contra el mejor
+						del período. Honorarios = HP + PCL. Desempate: más cierres, después más capital. El anual suma todo el año;
+						el mensual, solo el mes elegido.
+					</p>
+				</div>
 				<RepresentativesFilters
 					month={month}
 					year={year}

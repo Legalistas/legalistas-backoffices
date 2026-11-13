@@ -10,10 +10,15 @@ export interface RepresentativeKpi {
 	closingsCount: number;
 	/** HP + PCL of the period's closings. */
 	feesClosed: number;
-	/** Ranking: 50 × closings vs the best + 50 × fees vs the best (0-100). */
-	score: number;
-	/** 1 = first in the ranking. */
-	rank: number;
+	// Rankings: 50 × closings vs the best + 50 × fees vs the best (0-100), 1 = first.
+	/** Annual ranking: the whole selected year. */
+	closingsYear: number;
+	feesYear: number;
+	scoreYear: number;
+	rankYear: number;
+	/** Monthly ranking: the month picked; null on the whole year. */
+	scoreMonth: number | null;
+	rankMonth: number | null;
 	leadsCreated: number;
 	powersSigned: number;
 	conversionRate: number | null;
