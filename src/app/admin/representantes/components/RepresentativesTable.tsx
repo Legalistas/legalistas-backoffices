@@ -103,6 +103,8 @@ export default function RepresentativesTable({
 								<th className="px-3 py-3 text-left font-medium">#</th>
 								<th className="px-3 py-3 text-left font-medium">Representante</th>
 								<th className="px-3 py-3 text-left font-medium">Nivel</th>
+								<th className="px-3 py-3 text-right font-medium">Puntaje</th>
+								<th className="px-3 py-3 text-right font-medium">Honorarios</th>
 								<th className="px-3 py-3 text-right font-medium">Capital cerrado</th>
 								<th className="px-3 py-3 text-right font-medium">Cierres</th>
 								<th className="px-3 py-3 text-right font-medium">Leads</th>
@@ -115,13 +117,13 @@ export default function RepresentativesTable({
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-							{rows.map((row, idx) => (
+							{rows.map((row) => (
 								<tr
 									key={row.userId}
 									className="hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
 								>
 									<td className="px-3 py-3 text-gray-500 dark:text-gray-400 font-medium">
-										{idx + 1}
+										{row.rank}
 									</td>
 									<td className="px-3 py-3">
 										<div className="flex flex-col">
@@ -139,6 +141,12 @@ export default function RepresentativesTable({
 											canEdit={canEditLevel}
 											onChange={(level) => onLevelChange(row.userId, level)}
 										/>
+									</td>
+									<td className="px-3 py-3 text-right font-semibold tabular-nums text-gray-900 dark:text-white">
+										{row.score.toLocaleString("es-AR")}
+									</td>
+									<td className="px-3 py-3 text-right tabular-nums text-gray-700 dark:text-gray-300">
+										{formatARS(row.feesClosed)}
 									</td>
 									<td className="px-3 py-3 text-right font-semibold text-green-600 tabular-nums">
 										{formatARS(row.capitalClosed)}

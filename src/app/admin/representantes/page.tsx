@@ -19,6 +19,7 @@ import type {
 } from "@/types/representatives";
 import RepresentativesFilters from "./components/RepresentativesFilters";
 import RepresentativesGlobalStats from "./components/RepresentativesGlobalStats";
+import RankingPodium from "./components/RankingPodium";
 import RepresentativesTable from "./components/RepresentativesTable";
 
 const LEVEL_EDIT_ROLES: string[] = [
@@ -43,9 +44,9 @@ export default function RepresentantesPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	const canEditLevel = LEVEL_EDIT_ROLES.includes(
-		(session?.user?.role as string) ?? "",
-	);
+	// The level is per month: not editable on the whole year.
+	const canEditLevel =
+		month !== 0 && LEVEL_EDIT_ROLES.includes((session?.user?.role as string) ?? "");
 
 	const fetchKpis = useCallback(async () => {
 		if (!session?.user?.accessToken) return;
@@ -135,19 +136,8 @@ export default function RepresentantesPage() {
 				)
 			: representatives;
 
-		const levelOrder: Record<string, number> = {
-			GOLD: 0,
-			SILVER: 1,
-			BRONZE: 2,
-		};
-		const orderOf = (lvl: RepresentativeLevel | null) =>
-			lvl ? (levelOrder[lvl] ?? 3) : 3;
-
-		return [...base].sort((a, b) => {
-			const diff = orderOf(a.level) - orderOf(b.level);
-			if (diff !== 0) return diff;
-			return b.capitalClosed - a.capitalClosed || b.closingsCount - a.closingsCount;
-		});
+		// The backend already sends them in ranking order (rrhh/ranking.ts).
+		return base;
 	}, [representatives, search]);
 
 	return (
@@ -185,6 +175,7 @@ export default function RepresentantesPage() {
 				<h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
 					Ranking individual
 				</h2>
+				<RankingPodium rows={representatives} loading={loading} />
 				<RepresentativesFilters
 					month={month}
 					year={year}

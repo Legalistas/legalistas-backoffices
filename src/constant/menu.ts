@@ -20,6 +20,7 @@ import {
   Scale,
   Send,
   SquareKanban,
+  Trophy,
   User,
   Users2,
   Vault,
@@ -46,6 +47,8 @@ const {
   DISENADOR_GRAFICO,
   ASISTENTE_LEGAL,
   ABOGADO_REPRESENTANTE,
+  GERENTE_GENERAL_COO,
+  COORDINADOR_LEGAL,
 } = Role;
 
 /** Estos 3 ven TODO el menú. Se inyectan automáticamente en cada grupo. */
@@ -287,8 +290,15 @@ export const MENU_SECTIONS: MenuSection[] = [
     type: "menu",
     items: [
       // Fuera del menú desde el 05/10/2026 (las pantallas siguen, sin
-      // enlace): "Representantes" (/admin/representantes), "Reclutamiento"
-      // (/admin/rrhh/recruitment) y "Abogados SRT" (/admin/lawyers).
+      // enlace): "Reclutamiento" (/admin/rrhh/recruitment) y "Abogados SRT"
+      // (/admin/lawyers). "Representantes" volvió el 13/11/2026 con el ranking de cierres.
+      {
+        icon: Trophy,
+        name: "Representantes",
+        path: "/admin/representantes",
+        // Mirror of REPRESENTANTES_ROLES in the backend (rrhh/access.ts).
+        roles: [...SUPERADMIN, GERENTE_GENERAL_COO, DIRECTORA_AREA_LEGAL, COORDINADOR_LEGAL, ASISTENTE_LEGAL],
+      },
       {
         icon: User,
         name: "Equipo",

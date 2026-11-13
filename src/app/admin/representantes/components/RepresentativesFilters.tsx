@@ -46,7 +46,8 @@ export default function RepresentativesFilters({
 							<SelectValue placeholder="Mes" />
 						</SelectTrigger>
 						<SelectContent>
-							{monthOptions.map((m) => (
+							{/* 0 = the whole year: the annual ranking. */}
+							{[{ value: 0, label: "Año completo" }, ...monthOptions].map((m) => (
 								<SelectItem key={m.value} value={String(m.value)}>
 									{m.label}
 								</SelectItem>
