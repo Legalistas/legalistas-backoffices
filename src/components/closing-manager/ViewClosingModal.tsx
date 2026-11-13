@@ -31,7 +31,7 @@ import {
 	statusColors,
 	statusData,
 } from "@/constant/closing-manager";
-import { nombreTarjeta, textoPagoAporte } from "@/lib/aportes-cierre";
+import { cajaDeTarjeta, nombreTarjeta, textoPagoAporte } from "@/lib/aportes-cierre";
 import { cn } from "@/lib/utils";
 import type { ClosingManagerEntry } from "@/types/closing-manager";
 
@@ -373,7 +373,10 @@ export default function ViewClosingModal({
 										<Square className="mt-px h-3.5 w-3.5 shrink-0" />
 									)}
 									<span>
-										{nombreTarjeta(p.tarjeta, closing.aportesDetalle)}: {textoPagoAporte(p)}
+										{nombreTarjeta(p.tarjeta, closing.aportesDetalle)}
+										{cajaDeTarjeta(p.tarjeta, closing.aportesDetalle) &&
+											` → ${cajaDeTarjeta(p.tarjeta, closing.aportesDetalle)}`}
+										: {textoPagoAporte(p)}
 									</span>
 								</li>
 							))}

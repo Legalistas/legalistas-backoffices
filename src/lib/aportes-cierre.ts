@@ -66,6 +66,12 @@ export const DESTINO_POR_DEFECTO: Record<keyof AportesDetalle, DestinoAporte> = 
 export const destinoAporte = (d: AportesDetalle, tarjeta: keyof AportesDetalle): DestinoAporte =>
 	d[tarjeta]?.destino ?? DESTINO_POR_DEFECTO[tarjeta];
 
+/** "Caja Forense" / "Caja de Abogados" of a card of a closing, or "" when it has no cards. */
+export const cajaDeTarjeta = (tarjeta: string | null, detalle?: AportesDetalle | null) =>
+	detalle && (tarjeta === "capital" || tarjeta === "caja" || tarjeta === "otro")
+		? (DESTINOS.find((x) => x.value === destinoAporte(detalle, tarjeta))?.label ?? "")
+		: "";
+
 export const APORTES_VACIOS: AportesDetalle = {
 	capital: { activa: false, representante: 0, aseguradora: true, porcentaje: PORCENTAJE_CAPITAL },
 	caja: { activa: false, base: 0, representante: 0 },
