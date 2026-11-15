@@ -71,9 +71,15 @@ export const SOURCE_CHANNEL: SourceChannel[] = [
   { id: 10, name: "Otros", active: true },
   // Lead generado por un cliente propio (no plan de referidos ni recomendación externa).
   { id: 15, name: "Cliente", active: true },
+  // "Nuevo accidente" de la app de clientes (16/11/2026).
+  { id: 16, name: "App iOS", active: true },
+  { id: 17, name: "App Android", active: true },
   // Discontinuado (nunca hubo ventas). Solo lectura de históricos.
   { id: 9, name: "Correo Electrónico", active: false },
 ];
+
+/** Canales de la app de clientes: su tarjeta del CRM sale celeste (sprint 5.g). */
+export const CANALES_APP = [16, 17];
 
 // Motivos de pérdida de una oportunidad.
 //

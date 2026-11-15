@@ -17,7 +17,7 @@ import {
 	TableRow,
 } from "@/components/ui/table";
 import { useConfirm } from "@/hooks/useConfirm";
-import { CRM_COLUMNS, SOURCE_CHANNEL } from "@/constant/crm";
+import { CANALES_APP, CRM_COLUMNS, SOURCE_CHANNEL } from "@/constant/crm";
 import type { Lead } from "@/types/crm";
 
 const FINAL_COLUMN_IDS = [9, 10, 11];
@@ -123,7 +123,14 @@ export default function KanbanList({
 							</TableRow>
 						) : (
 							currentLeads.map((lead) => (
-								<TableRow key={lead.id}>
+								<TableRow
+									key={lead.id}
+									className={
+										CANALES_APP.includes(Number(lead.sourceChannelId))
+											? "bg-sky-50 dark:bg-sky-950/40"
+											: undefined
+									}
+								>
 									<TableCell className="font-medium">{lead.id}</TableCell>
 									<TableCell>{lead.user?.name}</TableCell>
 									{/* Provincia/ciudad del lead primero; la dirección del

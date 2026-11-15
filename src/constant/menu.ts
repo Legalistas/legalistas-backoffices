@@ -19,6 +19,7 @@ import {
   Receipt,
   Scale,
   Send,
+  Smartphone,
   SquareKanban,
   Trophy,
   User,
@@ -91,6 +92,16 @@ export const SISTEMAS = [ADMINISTRATOR, DIRECTOR_AREA_IT];
 export const WHATSAPP = [...VENTAS, ...LEGAL_INTERNO, ...MARKETING];
 /** WhatsApp agendas and campaigns (mass sending). Mirror of CAMPANAS_ROLES in the backend. */
 export const CAMPANAS = [...SUPERADMIN, DIRECTORA_AREA_VENTAS, DIRECTORA_AREA_MARKETING];
+
+// Contenido de la app de clientes. Cada sección tiene sus roles en el backend
+// (modules/configuracion): Legales edita Recursos; Legales y Ventas, Urgencias y Preguntas.
+export const CONTENIDO_APP = [
+  ...SUPERADMIN,
+  GERENTE_GENERAL_COO,
+  DIRECTORA_AREA_LEGAL,
+  COORDINADOR_LEGAL,
+  DIRECTORA_AREA_VENTAS,
+];
 
 // Equipo y Reporte RR.HH.: solo dirección (admin, CEO, Sistemas y director
 // contable). Espejo de RRHH_REPORTE_ROLES del backend.
@@ -330,6 +341,13 @@ export const MENU_SECTIONS: MenuSection[] = [
         // Cada rol ve su parte del bucket (lo resuelve el backend): abogado
         // interno y directora legal todo `representantes/`, cada representante su carpeta.
         roles: [...SUPERADMIN, ASISTENTE_LEGAL, DIRECTORA_AREA_LEGAL, ABOGADO_REPRESENTANTE],
+      },
+      {
+        // Recursos, Urgencias y Preguntas frecuentes de la app: se editan acá sin publicar la app.
+        icon: Smartphone,
+        name: "Contenido de la app",
+        path: "/admin/app-contenido",
+        roles: CONTENIDO_APP,
       },
       {
         // Panel de mantenimiento del árbol de carpetas: health, bootstrap

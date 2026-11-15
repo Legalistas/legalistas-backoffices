@@ -9,7 +9,7 @@ import { Dropdown } from "@/components/shared/Dropdown";
 import { DropdownItem } from "@/components/shared/DropdownItem";
 import { GroupAvatar } from "@/components/shared/GroupAvatar";
 import { useConfirm } from "@/hooks/useConfirm";
-import { SOURCE_CHANNEL } from "@/constant/crm";
+import { CANALES_APP, SOURCE_CHANNEL } from "@/constant/crm";
 import { formatDateCustom } from "@/lib/functions";
 import type { Lead } from "@/types/crm";
 
@@ -78,7 +78,13 @@ export default function LeadCard({ lead, onEdit, onDelete }: LeadCardProps) {
 		.map((u) => ({ name: u?.name || "", image: u?.image || "" }));
 
 	return (
-		<div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden transition-colors hover:border-sidebar-primary hover:shadow-md">
+		<div
+			className={`rounded-xl shadow-sm border overflow-hidden transition-colors hover:border-sidebar-primary hover:shadow-md ${
+				CANALES_APP.includes(Number(lead.sourceChannelId))
+					? "bg-sky-100 border-sky-300 dark:bg-sky-950 dark:border-sky-700"
+					: "bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+			}`}
+		>
 			<div className="p-4">
 				{/* Nombre + menú */}
 				<div className="flex items-start justify-between">
