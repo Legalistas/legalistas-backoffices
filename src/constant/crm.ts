@@ -78,8 +78,24 @@ export const SOURCE_CHANNEL: SourceChannel[] = [
   { id: 9, name: "Correo Electrónico", active: false },
 ];
 
-/** Canales de la app de clientes: su tarjeta del CRM sale celeste (sprint 5.g). */
-export const CANALES_APP = [16, 17];
+const CELESTE = {
+  tarjeta: "bg-sky-100 border-sky-300 dark:bg-sky-950 dark:border-sky-700",
+  fila: "bg-sky-50 dark:bg-sky-950/40",
+};
+const VIOLETA = {
+  tarjeta: "bg-violet-100 border-violet-300 dark:bg-violet-950 dark:border-violet-700",
+  fila: "bg-violet-50 dark:bg-violet-950/40",
+};
+
+/**
+ * Color del lead en el CRM según el canal: la app de clientes (16 y 17, sprint
+ * 5.g) en celeste y Pauta (13, anuncios de WhatsApp) en violeta. El resto, blanco.
+ */
+export const COLOR_CANAL: Partial<Record<number, { tarjeta: string; fila: string }>> = {
+  16: CELESTE,
+  17: CELESTE,
+  13: VIOLETA,
+};
 
 // Motivos de pérdida de una oportunidad.
 //
