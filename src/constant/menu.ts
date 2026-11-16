@@ -95,9 +95,21 @@ export const WHATSAPP = [...VENTAS, ...LEGAL_INTERNO, ...MARKETING];
 /** WhatsApp agendas and campaigns (mass sending). Mirror of CAMPANAS_ROLES in the backend. */
 export const CAMPANAS = [...SUPERADMIN, DIRECTORA_AREA_VENTAS, DIRECTORA_AREA_MARKETING];
 
-// Pruebas del bot de WhatsApp (/admin/test/bot): el interruptor lo guarda la
-// configuración "potenciales", que en el backend editan dirección y la directora de Ventas.
-export const PRUEBAS_BOT = [...SUPERADMIN, GERENTE_GENERAL_COO, DIRECTORA_AREA_VENTAS];
+// Pruebas del bot de WhatsApp (/admin/test/bot): todo el equipo menos los
+// abogados representantes (Jona, 16/11/2026), igual que /potenciales/simular en
+// el backend. El interruptor solo lo ven quienes editan la configuración
+// "potenciales" (dirección y la directora de Ventas).
+const ROLES_EXTERNOS: string[] = [
+  Role.CUSTOMER,
+  Role.DEMANDADO,
+  Role.INTERVINIENTE_JUICIO,
+  Role.ABOGADO_CONTRAPARTE,
+  Role.RECONOCIENTE,
+  Role.OFICIADO,
+];
+export const PRUEBAS_BOT = Object.values(Role).filter(
+  (r) => !ROLES_EXTERNOS.includes(r) && r !== ABOGADO_REPRESENTANTE,
+);
 
 // Contenido de la app de clientes. Cada sección tiene sus roles en el backend
 // (modules/configuracion): Legales edita Recursos; Legales y Ventas, Urgencias y Preguntas.

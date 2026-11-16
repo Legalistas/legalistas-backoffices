@@ -12,7 +12,7 @@ export default function PruebasBotPage() {
 			fallback={
 				<div className="flex min-h-[60vh] flex-col items-center justify-center gap-2 text-center">
 					<p className="text-sm font-medium text-foreground">Sin acceso</p>
-					<p className="max-w-md text-xs text-muted-foreground">Las pruebas del bot son para dirección, Sistemas y la directora de Ventas.</p>
+					<p className="max-w-md text-xs text-muted-foreground">Las pruebas del bot son para el equipo del estudio; los abogados representantes no tienen acceso.</p>
 				</div>
 			}
 		>
