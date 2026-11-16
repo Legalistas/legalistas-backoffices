@@ -1,10 +1,12 @@
 import {
   ArrowRightLeft,
   BarChart3,
+  Bot,
   Bell,
   CalendarDays,
   ChartArea,
   FileText,
+  FlaskConical,
   FolderCog,
   HardDrive,
   Handshake,
@@ -72,7 +74,7 @@ const LEGAL = [
   DIRECTORA_AREA_LEGAL,
 ];
 const LEGAL_INTERNO = [...SUPERADMIN, ASISTENTE_LEGAL, DIRECTORA_AREA_LEGAL];
-const VENTAS = [...SUPERADMIN, DIRECTORA_AREA_VENTAS, REPRESENTANTE_VENTAS];
+export const VENTAS = [...SUPERADMIN, DIRECTORA_AREA_VENTAS, REPRESENTANTE_VENTAS];
 const CONTABLE = [...SUPERADMIN, DIRECTORA_AREA_CONTABLE];
 const MARKETING = [
   ...SUPERADMIN,
@@ -92,6 +94,10 @@ export const SISTEMAS = [ADMINISTRATOR, DIRECTOR_AREA_IT];
 export const WHATSAPP = [...VENTAS, ...LEGAL_INTERNO, ...MARKETING];
 /** WhatsApp agendas and campaigns (mass sending). Mirror of CAMPANAS_ROLES in the backend. */
 export const CAMPANAS = [...SUPERADMIN, DIRECTORA_AREA_VENTAS, DIRECTORA_AREA_MARKETING];
+
+// Pruebas del bot de WhatsApp (/admin/test/bot): el interruptor lo guarda la
+// configuración "potenciales", que en el backend editan dirección y la directora de Ventas.
+export const PRUEBAS_BOT = [...SUPERADMIN, GERENTE_GENERAL_COO, DIRECTORA_AREA_VENTAS];
 
 // Contenido de la app de clientes. Cada sección tiene sus roles en el backend
 // (modules/configuracion): Legales edita Recursos; Legales y Ventas, Urgencias y Preguntas.
@@ -170,6 +176,20 @@ export const MENU_SECTIONS: MenuSection[] = [
         name: "Agendas y campañas",
         path: "/admin/whatsapp/agendas",
         roles: CAMPANAS,
+      },
+      {
+        // Consultas nuevas: el bot de WhatsApp y "Nuevo accidente" de la app (sprint 4.3).
+        icon: Bot,
+        name: "Potenciales",
+        path: "/admin/potenciales",
+        roles: VENTAS,
+      },
+      {
+        // Interruptor del bot y chat de prueba (sin WhatsApp ni CRM).
+        icon: FlaskConical,
+        name: "Pruebas del bot",
+        path: "/admin/test/bot",
+        roles: PRUEBAS_BOT,
       },
       {
         icon: Users2,

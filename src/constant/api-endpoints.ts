@@ -65,6 +65,8 @@ export const RRHH_PANEL_ENDPOINT = `${API_BASE_URL}/rrhh/panel`;
 export const WHATSAPP_ENDPOINT = `${API_BASE_URL}/whatsapp`;
 // Contenido editable de la app de clientes: /:clave (GET, PUT) y /archivos (subir un PDF).
 export const CONFIGURACION_ENDPOINT = `${API_BASE_URL}/configuracion`;
+// Bandeja de Potenciales (bot de WhatsApp y "Nuevo accidente" de la app): /, /:id/tomar, /:id/crm.
+export const POTENCIALES_ENDPOINT = `${API_BASE_URL}/potenciales`;
 // El recibo armado por el sistema: HTML para la vista previa y el PDF.
 export const PAYROLL_RECIBO_ENDPOINT = (id: number) =>
 	`${API_BASE_URL}/payrolls/${id}/recibo`;

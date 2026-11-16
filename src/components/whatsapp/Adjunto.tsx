@@ -16,6 +16,8 @@ export interface MediaAdjunto {
 	objectKey: string | null;
 	/** Already copied to the lead's documentation. */
 	crmDocumentId?: number | null;
+	/** Text of a voice note (the Potenciales bot transcribes them). */
+	transcripcion?: string;
 }
 
 type Tipo = "imagen" | "audio" | "pdf" | "office" | "video" | "otro";
@@ -87,7 +89,12 @@ export default function Adjunto({
 			{tipo === "imagen" ? (
 				<Miniatura cargarUrl={cargarUrl} onAbrir={setVista} />
 			) : tipo === "audio" ? (
-				<AudioAdjunto cargarUrl={cargarUrl} />
+				<>
+					<AudioAdjunto cargarUrl={cargarUrl} />
+					{media.transcripcion ? (
+						<p className="max-w-72 text-xs italic text-muted-foreground">“{media.transcripcion}”</p>
+					) : null}
+				</>
 			) : (
 				<button
 					type="button"

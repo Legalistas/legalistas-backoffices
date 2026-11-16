@@ -27,6 +27,8 @@ interface Conversacion {
 	unreadCount: number;
 	/** The CRM lead with this number, if any. */
 	leadId: number | null;
+	/** New consultation of Potenciales (bot): its state. */
+	potencial: string | null;
 	lastMessage: { body: string | null; direction: "INBOUND" | "OUTBOUND"; hasMedia: boolean } | null;
 }
 
@@ -54,6 +56,28 @@ interface Hilo {
 	};
 	messages: Mensaje[];
 }
+
+/**
+ * Inbox tabs (backend inbox.service BANDEJAS). New consultations by where they
+ * came from; the rest by the last thing the client got.
+ */
+const BANDEJAS = [
+	{ valor: "pauta", texto: "Pauta", ayuda: "Consultas nuevas que llegaron por un anuncio (pagas)" },
+	{ valor: "organicas", texto: "Orgánicas", ayuda: "Consultas nuevas sin anuncio" },
+	{ valor: "contactos", texto: "Contactos", ayuda: "Clientes, leads y números que ya estaban en la base" },
+	{ valor: "automatizaciones", texto: "Automatizaciones", ayuda: "Lo último que recibieron fue un envío automático del CRM" },
+	{ valor: "campanas", texto: "Campañas y agendas", ayuda: "Lo último que recibieron fue una campaña" },
+] as const;
+type Bandeja = (typeof BANDEJAS)[number]["valor"];
+
+/** Badge of a Potenciales consultation (FACTIBLE already shows "Lead"). */
+const POTENCIAL: Record<string, string> = {
+	BOT: "Bot",
+	DUDOSA: "Potencial: dudosa",
+	TOMADA: "Potencial: tomada",
+	NO_FACTIBLE: "Potencial: no factible",
+	FUERA_DE_ALCANCE: "Potencial: fuera de alcance",
+};
 
 const LISTA_MS = 15_000;
 const HILO_MS = 10_000;
@@ -90,7 +114,10 @@ export default function WhatsappInbox() {
 	const miId = String(session?.user?.id ?? "");
 	const [soyVendedora, setSoyVendedora] = useState<boolean | null>(null);
 	const [soloMias, setSoloMias] = useState(true);
-	const filtrarMias = !!soyVendedora && soloMias;
+	const [bandeja, setBandeja] = useState<Bandeja>("contactos");
+	// Pauta y Orgánicas son consultas nuevas: todavía no son leads de nadie.
+	const consultasNuevas = bandeja === "pauta" || bandeja === "organicas";
+	const filtrarMias = !!soyVendedora && soloMias && !consultasNuevas;
 	const [abierta, setAbierta] = useState<number | null>(null);
 	// "Nuevo mensaje": first template to a number that never wrote.
 	const [nuevo, setNuevo] = useState(false);
@@ -115,6 +142,18 @@ export default function WhatsappInbox() {
 	};
 	const [enviando, setEnviando] = useState(false);
 	const finRef = useRef<HTMLDivElement>(null);
+
+	// /admin/whatsapp?contacto=ID&bandeja=pauta (link "Conversación" de Potenciales) abre esa conversación.
+	useEffect(() => {
+		const url = new URLSearchParams(window.location.search);
+		const id = Number(url.get("contacto"));
+		const desde = BANDEJAS.find((b) => b.valor === url.get("bandeja"));
+		if (desde) setBandeja(desde.valor);
+		if (id > 0) {
+			setAbierta(id);
+			setSoloMias(false);
+		}
+	}, []);
 
 	const api = useCallback(
 		async <T,>(path: string, init?: RequestInit): Promise<T> => {
@@ -149,17 +188,16 @@ export default function WhatsappInbox() {
 	const cargarLista = useCallback(async () => {
 		if (!token || soyVendedora === null) return;
 		try {
-			const params = new URLSearchParams();
+			const params = new URLSearchParams({ bandeja });
 			if (busqueda.trim()) params.set("q", busqueda.trim());
 			if (filtrarMias) params.set("sellerId", miId);
-			const qs = params.toString();
-			const r = await api<{ data: Conversacion[] }>(`/conversations${qs ? `?${qs}` : ""}`);
+			const r = await api<{ data: Conversacion[] }>(`/conversations?${params}`);
 			setConversaciones(r.data);
 		} catch (err) {
 			setConversaciones((prev) => prev ?? []);
 			toast.error((err as Error).message);
 		}
-	}, [api, token, busqueda, soyVendedora, filtrarMias, miId]);
+	}, [api, token, busqueda, soyVendedora, filtrarMias, miId, bandeja]);
 
 	const cargarHilo = useCallback(
 		async (id: number) => {
@@ -252,7 +290,28 @@ export default function WhatsappInbox() {
 				</p>
 			</div>
 
-			<div className="grid h-[calc(100vh-220px)] min-h-120 grid-cols-1 overflow-hidden rounded-xl border border-border bg-card md:grid-cols-[320px_1fr]">
+			{/* Bandejas separadas (sprint 4.a): no se mezclan. */}
+			<div role="tablist" aria-label="Bandejas de WhatsApp" className="flex flex-wrap gap-2">
+				{BANDEJAS.map((b) => (
+					<Button
+						key={b.valor}
+						role="tab"
+						aria-selected={bandeja === b.valor}
+						size="sm"
+						variant={bandeja === b.valor ? "default" : "outline"}
+						title={b.ayuda}
+						onClick={() => {
+							if (bandeja === b.valor) return;
+							setBandeja(b.valor);
+							setConversaciones(null);
+						}}
+					>
+						{b.texto}
+					</Button>
+				))}
+			</div>
+
+			<div className="grid h-[calc(100vh-260px)] min-h-120 grid-cols-1 overflow-hidden rounded-xl border border-border bg-card md:grid-cols-[320px_1fr]">
 				{/* Conversation list */}
 				<div className={cn("flex min-h-0 flex-col border-border md:border-r", (abierta !== null || nuevo) && "hidden md:flex")}>
 					<div className="border-b border-border p-3">
@@ -280,7 +339,7 @@ export default function WhatsappInbox() {
 								<Plus className="h-4 w-4" />
 							</Button>
 						</div>
-						{soyVendedora && (
+						{soyVendedora && !consultasNuevas && (
 							<div className="mt-2 grid grid-cols-2 gap-2">
 								{[true, false].map((mias) => (
 									<Button
@@ -337,6 +396,11 @@ export default function WhatsappInbox() {
 												{c.leadId && (
 													<span className="ml-1.5 rounded bg-sky-100 px-1.5 py-px align-middle text-[10px] font-semibold text-sky-800 dark:bg-sky-900/40 dark:text-sky-300">
 														Lead
+													</span>
+												)}
+												{c.potencial && POTENCIAL[c.potencial] && (
+													<span className="ml-1.5 rounded bg-amber-100 px-1.5 py-px align-middle text-[10px] font-semibold text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+														{POTENCIAL[c.potencial]}
 													</span>
 												)}
 											</span>
@@ -478,7 +542,9 @@ export default function WhatsappInbox() {
 											))}
 											<p className="mt-1 text-right text-[11px] text-muted-foreground">
 												{m.direction === "OUTBOUND" &&
-													(m.autoReply === "CRM"
+													(m.autoReply === "BOT"
+														? "Bot de Potenciales · "
+														: m.autoReply === "CRM"
 														? "Envío automático del CRM · "
 														: m.autoReply === "CAMPANA"
 															? `Campaña${m.sentBy ? ` de ${m.sentBy.name}` : ""} · `
