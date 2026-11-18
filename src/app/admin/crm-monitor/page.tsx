@@ -60,7 +60,7 @@ const RULE_ORDER = [
 export default function CrmMonitorPage() {
 	const defaultWeek = useMemo(() => toISODate(mondayOf(new Date())), []);
 	const [weekOf, setWeekOf] = useState(defaultWeek);
-	const { data, loading, error, refresh, runNow, running } =
+	const { data, loading, error, refresh, runNow, running, marcarRevisada } =
 		useCrmMonitorReport(weekOf);
 
 	const handleRun = async () => {
@@ -167,6 +167,8 @@ export default function CrmMonitorPage() {
 								<CrmAlertsTable
 									alerts={data?.byRule[key] ?? []}
 									users={data?.users ?? []}
+									puedeRevisar={(a) => !!data?.puedeRevisar?.[a.entityType]}
+									onRevisada={(a) => marcarRevisada(a.id)}
 								/>
 							</TabsContent>
 						))}

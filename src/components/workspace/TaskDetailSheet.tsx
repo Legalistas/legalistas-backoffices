@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
 import {
 	ArrowDownUp,
@@ -24,6 +24,7 @@ import {
 	Paperclip,
 	Plus,
 	Scale,
+	Sparkles,
 	ThumbsUp,
 	Trash2,
 	UserRound,
@@ -151,6 +152,21 @@ function describeActivity(a: WorkActivity, people: Map<number, string>) {
 const caseSubtitle = (c: WorkCaseRef) => `Caso ${c.number ?? c.id} · ${resumenExpedientes(c.files)}`;
 /** Images the browser can show (they can also be the card cover). */
 const isImage = (f: WorkAttachment) => /^image\/(jpeg|png|webp|gif)$/.test(f.mimeType ?? "");
+
+/** The editor's HTML as plain text, one line per paragraph or item (mentions stay as "@Name"). */
+const textoPlano = (html: string) => {
+	const conSaltos = html.replace(/<\/(p|li|h\d)>|<br\s*\/?>/gi, "\n");
+	const texto = new DOMParser().parseFromString(conSaltos, "text/html").body.textContent ?? "";
+	return texto.replace(/\n{3,}/g, "\n\n").trim();
+};
+
+/** A pasted screenshot comes as "image.png": it gets the date and time so they do not all look alike. */
+const nombrePegado = (f: File, i: number) => {
+	if (!/^image\.\w+$/i.test(f.name)) return f;
+	const ext = f.name.split(".").pop();
+	const cuando = format(new Date(), "yyyy-MM-dd HH.mm.ss");
+	return new File([f], `Captura ${cuando}${i ? ` (${i + 1})` : ""}.${ext}`, { type: f.type });
+};
 /** "Hace 22 días". */
 const ago = (iso: string) => {
 	const s = formatDistanceToNow(new Date(iso), { addSuffix: true, locale: es });
@@ -250,6 +266,10 @@ export function TaskDetailSheet({
 	const [title, setTitle] = useState("");
 	const [description, setDescription] = useState("");
 	const [descriptionDirty, setDescriptionDirty] = useState(false);
+	// AI assistant: the editor takes its content only when mounted, so each new
+	// text (or its undo) remounts it.
+	const [iaVersion, setIaVersion] = useState(0);
+	const [ordenando, setOrdenando] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [newSubtask, setNewSubtask] = useState("");
 	const [showDoneSubtasks, setShowDoneSubtasks] = useState(false);
@@ -303,6 +323,7 @@ export function TaskDetailSheet({
 		setLoadError(null);
 		setDescriptionDirty(false);
 		setFotoId(null);
+		setIaVersion(0);
 		load();
 	}, [load]);
 
@@ -461,6 +482,37 @@ export function TaskDetailSheet({
 			return card;
 		}, "Descripción guardada");
 
+	// A couple of loose lines → a short, clear description (backend workspace/redaccion.ts).
+	// It is left unsaved: whoever wrote it reviews it and saves.
+	const ordenarConIA = async () => {
+		const anterior = description;
+		const texto = textoPlano(anterior);
+		if (texto.length < 3) return void toast.error("Escribí un par de líneas primero");
+		setOrdenando(true);
+		try {
+			const { html } = await workspaceFetch<{ html: string }>("/ai/descripcion", token, {
+				method: "POST",
+				json: { titulo: task?.title, texto },
+			});
+			setDescription(html);
+			setDescriptionDirty(true);
+			setIaVersion((v) => v + 1);
+			toast.success("Listo. Revisala y tocá Guardar.", {
+				action: {
+					label: "Deshacer",
+					onClick: () => {
+						setDescription(anterior);
+						setIaVersion((v) => v + 1);
+					},
+				},
+			});
+		} catch (e) {
+			toast.error(errorMessage(e, "No se pudo ordenar la descripción"));
+		} finally {
+			setOrdenando(false);
+		}
+	};
+
 	const addSubtask = async (e: React.FormEvent) => {
 		e.preventDefault();
 		const t = newSubtask.trim();
@@ -497,13 +549,16 @@ export function TaskDetailSheet({
 		run(() => workspaceFetch<WorkCard>(`/tasks/${taskId}/leads`, token, { method: "PUT", json: { leadIds } }));
 
 	/** One request per file; the first image becomes the cover (the backend decides). */
+	/** Uploads them as attachments; returns how many made it. */
 	const uploadFiles = async (files: FileList | File[]) => {
 		const list = [...files];
-		if (!list.length || !taskId) return;
+		if (!list.length || !taskId) return 0;
+		let ok = 0;
 		setUploading((n) => n + list.length);
 		for (const file of list) {
 			try {
 				onCardChange(await workspaceUpload<WorkCard>(`/tasks/${taskId}/attachments`, token, file));
+				ok++;
 			} catch (e) {
 				toast.error(`${file.name}: ${errorMessage(e, "no se pudo adjuntar")}`);
 			} finally {
@@ -511,6 +566,23 @@ export function TaskDetailSheet({
 			}
 		}
 		await load();
+		return ok;
+	};
+
+	// Ctrl+V of files or screenshots anywhere in the card (description and
+	// comments too): they become attachments. Caught before the editors, which
+	// would otherwise drop them; pasted text is left alone.
+	const pegarArchivos = async (e: React.ClipboardEvent) => {
+		const archivos = [...e.clipboardData.files];
+		if (!archivos.length || !task) return;
+		e.preventDefault();
+		e.stopPropagation();
+		if (!canEdit) {
+			toast.error("No podés adjuntar archivos en esta tarea");
+			return;
+		}
+		const ok = await uploadFiles(archivos.map(nombrePegado));
+		if (ok) toast.success(ok === 1 ? "Archivo adjuntado a la tarea" : `${ok} archivos adjuntados a la tarea`);
 	};
 
 	const setCover = (f: WorkAttachment, cover: boolean) =>
@@ -660,6 +732,7 @@ export function TaskDetailSheet({
 					e.preventDefault();
 					cerrarFoto();
 				}}
+				onPasteCapture={pegarArchivos}
 			>
 				<SheetTitle className="sr-only">{task?.title ?? "Tarea"}</SheetTitle>
 				<SheetDescription className="sr-only">Detalle de la tarea</SheetDescription>
@@ -1092,16 +1165,35 @@ export function TaskDetailSheet({
 								<section className="space-y-2">
 									<div className="flex items-center justify-between">
 										<h3 className="text-sm font-semibold">Descripción</h3>
-										{descriptionDirty && canEdit && (
-											<Button size="sm" onClick={saveDescription} disabled={saving}>
-												Guardar
-											</Button>
-										)}
+										<div className="flex items-center gap-2">
+											{canEdit && (
+												<Button
+													variant="ghost"
+													size="sm"
+													className="h-7 gap-1.5 px-2 text-xs text-muted-foreground"
+													onClick={ordenarConIA}
+													disabled={ordenando || !description.replace(/<[^>]*>/g, "").trim()}
+													title="Escribí un par de líneas como salgan y la IA las ordena en una descripción clara"
+												>
+													{ordenando ? (
+														<Loader2 className="size-3.5 animate-spin" />
+													) : (
+														<Sparkles className="size-3.5" />
+													)}
+													Ordenar con IA
+												</Button>
+											)}
+											{descriptionDirty && canEdit && (
+												<Button size="sm" onClick={saveDescription} disabled={saving}>
+													Guardar
+												</Button>
+											)}
+										</div>
 									</div>
 									{canEdit ? (
 										<NoteEditor
-											key={task.id}
-											content={task.description ?? ""}
+											key={`${task.id}-${iaVersion}`}
+											content={iaVersion ? description : (task.description ?? "")}
 											onChange={(html) => {
 												setDescription(html);
 												setDescriptionDirty(true);
@@ -1176,7 +1268,7 @@ export function TaskDetailSheet({
 												className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted-foreground hover:border-foreground/40 hover:text-foreground"
 											>
 												<Paperclip className="size-4" />
-												Arrastrá archivos acá o hacé clic para adjuntar (hasta 25 MB)
+												Arrastrá archivos acá, pegalos con Ctrl+V o hacé clic para adjuntar (hasta 25 MB)
 											</button>
 										)
 									) : (

@@ -39,6 +39,24 @@ export function getExpedienteLabel(
 	return `${caratula}${cuij}`;
 }
 
+/** Defendant types as loaded: the new one and the legacy ones (constant/parties.ts). */
+const TIPOS_DEMANDADO = ["DEMANDADO", "demandado", "art"];
+
+/**
+ * The case's defendants for its header, "Actor c/ …": "Prevención ART S.A.",
+ * "A y B" or "A y otros". Empty when none is loaded.
+ */
+export function demandadosLabel(parts?: { name?: string | null; partyType?: string | null }[]): string {
+	const nombres = new Map<string, string>();
+	for (const p of parts ?? []) {
+		const nombre = p.name?.trim();
+		if (nombre && TIPOS_DEMANDADO.includes(p.partyType ?? "") && !nombres.has(nombre.toUpperCase()))
+			nombres.set(nombre.toUpperCase(), nombre);
+	}
+	const lista = [...nombres.values()];
+	return lista.length <= 2 ? lista.join(" y ") : `${lista[0]} y otros`;
+}
+
 /** "2 expedientes · Nº 21-23701468-2, 21-23701470-9" (debajo del título de la causa). */
 export const resumenExpedientes = (files: { cuij?: string | null }[] | undefined) => {
 	const cantidad = files?.length ?? 0;

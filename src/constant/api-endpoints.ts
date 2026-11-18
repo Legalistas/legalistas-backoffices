@@ -197,6 +197,8 @@ export const KPI_LEGAL_ENDPOINT = `${API_BASE_URL}/kpis/legal`;
 export const CRM_MONITOR_REPORT_ENDPOINT = `${API_BASE_URL}/crm-monitor/report`;
 export const CRM_MONITOR_RUN_ENDPOINT = `${API_BASE_URL}/crm-monitor/run`;
 export const CRM_MONITOR_RULES_ENDPOINT = `${API_BASE_URL}/crm-monitor/rules`;
+export const CRM_MONITOR_REVISADA_ENDPOINT = (id: number) =>
+	`${API_BASE_URL}/crm-monitor/alerts/${id}/revisada`;
 
 // Case Analyzer (Proyecto 4) — análisis de expedientes con IA
 export const CASE_ANALYSIS_LIST_ENDPOINT = (caseId: number | string) =>

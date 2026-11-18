@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useState } from "react";
 import {
 	CRM_MONITOR_REPORT_ENDPOINT,
+	CRM_MONITOR_REVISADA_ENDPOINT,
 	CRM_MONITOR_RUN_ENDPOINT,
 } from "@/constant/api-endpoints";
 import type {
@@ -20,6 +21,8 @@ interface UseCrmMonitorReportResult {
 	// para poder mostrar "N alertas nuevas detectadas" en la UI.
 	runNow: () => Promise<EngineRunResult | null>;
 	running: boolean;
+	/** Marks an alert as reviewed (it leaves the monitor). Throws with the server's message. */
+	marcarRevisada: (id: number) => Promise<void>;
 }
 
 // `weekOf` opcional — si no viene, el backend usa la semana actual.
@@ -89,5 +92,37 @@ export function useCrmMonitorReport(
 		}
 	}, [session?.user?.accessToken, load]);
 
-	return { data, loading, error, refresh: load, runNow, running };
+	const marcarRevisada = useCallback(
+		async (id: number) => {
+			const res = await fetch(CRM_MONITOR_REVISADA_ENDPOINT(id), {
+				method: "POST",
+				headers: { Authorization: `Bearer ${session?.user?.accessToken}` },
+			});
+			const body = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(body.error || body.message || `HTTP ${res.status}`);
+			// Out of the list and the counters right away, without reloading the whole report.
+			setData((d) => {
+				if (!d) return d;
+				const [regla, alerta] =
+					Object.entries(d.byRule)
+						.map(([k, alerts]) => [k, alerts.find((a) => a.id === id)] as const)
+						.find(([, a]) => a) ?? [];
+				if (!regla || !alerta) return d;
+				const sev = alerta.severity === "CRITICAL" ? "critical" : alerta.severity === "WARN" ? "warn" : "info";
+				return {
+					...d,
+					byRule: { ...d.byRule, [regla]: d.byRule[regla].filter((a) => a.id !== id) },
+					totals: {
+						...d.totals,
+						all: d.totals.all - 1,
+						byRule: { ...d.totals.byRule, [regla]: (d.totals.byRule[regla] ?? 1) - 1 },
+						bySeverity: { ...d.totals.bySeverity, [sev]: d.totals.bySeverity[sev] - 1 },
+					},
+				};
+			});
+		},
+		[session?.user?.accessToken],
+	);
+
+	return { data, loading, error, refresh: load, runNow, running, marcarRevisada };
 }

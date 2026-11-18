@@ -15,8 +15,10 @@ import {
 	Users,
 	X,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CASES_ENDPOINT, NEGOTIATION_ABOGADOS_CONTRAPARTE_ENDPOINT } from "@/constant/api-endpoints";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { type DateRange } from "react-day-picker";
@@ -59,6 +61,12 @@ interface CasesFiltersProps {
 	/** Case-file type: 1 administrative, 2 judicial; undefined = all. */
 	selectedFileType: number | undefined;
 	setSelectedFileType: (value: number | undefined) => void;
+	/** Cases against this defendant (any spelling of it). */
+	demandado: string;
+	setDemandado: (value: string) => void;
+	/** Cases with a negotiation with this counterparty lawyer. */
+	abogadoContraparteId: number | undefined;
+	setAbogadoContraparteId: (value: number | undefined) => void;
 	hasActiveFilters: boolean;
 	handleClearSearch: () => void;
 	viewMode: "list" | "kanban";
@@ -87,6 +95,10 @@ export const CasesFilters = ({
 	setNoEvents,
 	selectedFileType,
 	setSelectedFileType,
+	demandado,
+	setDemandado,
+	abogadoContraparteId,
+	setAbogadoContraparteId,
 	hasActiveFilters,
 	handleClearSearch,
 	viewMode,
@@ -218,6 +230,8 @@ export const CasesFilters = ({
 		if (selectedStage.length > 0) count++;
 		if (dateFrom || dateTo) count++;
 		if (noEvents) count++;
+		if (demandado.trim()) count++;
+		if (abogadoContraparteId) count++;
 		return count;
 	}, [
 		selectedRepresentativeLawyer,
@@ -227,7 +241,27 @@ export const CasesFilters = ({
 		dateFrom,
 		dateTo,
 		noEvents,
+		demandado,
+		abogadoContraparteId,
 	]);
+
+	// Options of the party filters, loaded the first time the filters open.
+	const { data: session } = useSession();
+	const token = session?.user?.accessToken;
+	const [demandadosSugeridos, setDemandadosSugeridos] = useState<{ nombre: string; causas: number }[]>([]);
+	const [abogadosContraparte, setAbogadosContraparte] = useState<{ id: number; nombre: string }[]>([]);
+	const opcionesCargadas = useRef(false);
+	useEffect(() => {
+		if (!isFiltersOpen || !token || opcionesCargadas.current) return;
+		opcionesCargadas.current = true;
+		const traer = (url: string) =>
+			fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+				.then((r) => (r.ok ? r.json() : { data: [] }))
+				.catch(() => ({ data: [] }));
+		traer(`${CASES_ENDPOINT}/demandados`).then((r) => setDemandadosSugeridos(r.data ?? []));
+		traer(NEGOTIATION_ABOGADOS_CONTRAPARTE_ENDPOINT).then((r) => setAbogadosContraparte(r.data ?? []));
+	}, [isFiltersOpen, token]);
+	const abogadoElegido = abogadosContraparte.find((a) => a.id === abogadoContraparteId);
 
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
@@ -700,6 +734,53 @@ export const CasesFilters = ({
 										Sin eventos cargados (audiencias/pericias/reuniones)
 									</label>
 								</div>
+
+								{/* 7. Por parte: demandado o abogado de la contraparte */}
+								<div className="md:col-span-2">
+									<label
+										htmlFor="filtro-demandado"
+										className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+									>
+										Demandado
+									</label>
+									<Input
+										id="filtro-demandado"
+										list="demandados-sugeridos"
+										value={demandado}
+										onChange={(e) => setDemandado(e.target.value)}
+										placeholder="Ej.: Prevención ART, La Segunda…"
+										autoComplete="off"
+										className="h-10"
+									/>
+									<datalist id="demandados-sugeridos">
+										{demandadosSugeridos.map((d) => (
+											<option key={d.nombre} value={d.nombre}>
+												{`${d.causas} ${d.causas === 1 ? "causa" : "causas"}`}
+											</option>
+										))}
+									</datalist>
+								</div>
+								<div>
+									<label
+										htmlFor="filtro-abogado-contraparte"
+										className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
+									>
+										Abogado de la contraparte
+									</label>
+									<select
+										id="filtro-abogado-contraparte"
+										value={abogadoContraparteId ?? ""}
+										onChange={(e) => setAbogadoContraparteId(e.target.value ? Number(e.target.value) : undefined)}
+										className="h-10 w-full rounded-md border border-gray-200 bg-white px-3 text-sm text-gray-700 dark:border-gray-700 dark:bg-white/5 dark:text-gray-300"
+									>
+										<option value="">Todos</option>
+										{abogadosContraparte.map((a) => (
+											<option key={a.id} value={a.id}>
+												{a.nombre}
+											</option>
+										))}
+									</select>
+								</div>
 							</div>
 
 							<div className="mt-6 flex items-center justify-between">
@@ -849,6 +930,32 @@ export const CasesFilters = ({
 								type="button"
 								onClick={() => setSelectedFileType(undefined)}
 								aria-label="Quitar el filtro de tipo de expediente"
+								className="hover:opacity-70"
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</span>
+					)}
+					{demandado.trim() && (
+						<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
+							Demandado: {demandado.trim()}
+							<button
+								type="button"
+								onClick={() => setDemandado("")}
+								aria-label="Quitar el filtro de demandado"
+								className="hover:opacity-70"
+							>
+								<X className="h-3 w-3" />
+							</button>
+						</span>
+					)}
+					{abogadoContraparteId !== undefined && (
+						<span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1 text-xs text-primary">
+							Abogado contraparte: {abogadoElegido?.nombre ?? `#${abogadoContraparteId}`}
+							<button
+								type="button"
+								onClick={() => setAbogadoContraparteId(undefined)}
+								aria-label="Quitar el filtro de abogado de la contraparte"
 								className="hover:opacity-70"
 							>
 								<X className="h-3 w-3" />

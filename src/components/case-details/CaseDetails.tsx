@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { CASES_ENDPOINT } from "@/constant/api-endpoints";
 import { apiErrorMessage } from "@/lib/api-error";
+import { demandadosLabel } from "@/lib/expediente-label";
 import {
 	STUDIO_NAME,
 	STUDIO_PHONE,
@@ -338,6 +339,9 @@ export const CaseDetails = ({
 		}
 	};
 
+	// "Actor c/ Demandado" in the header (Legales, 18/11/2026).
+	const demandados = demandadosLabel(caseData.parts);
+
 	return (
 		<>
 			<div className="mb-6 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
@@ -350,8 +354,18 @@ export const CaseDetails = ({
 								<span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-semibold bg-muted text-muted-foreground shrink-0">
 									#{caseData.number ?? caseData.id}
 								</span>
-								<h2 className="text-lg font-semibold text-foreground truncate">
-									{caseData.title}
+								<h2
+									className="text-lg font-semibold text-foreground truncate"
+									title={demandados ? `${caseData.title} c/ ${demandados}` : caseData.title}
+								>
+									{caseData.title}{" "}
+									{demandados ? (
+										<>
+											<span className="font-normal text-muted-foreground">c/</span> {demandados}
+										</>
+									) : (
+										<span className="text-sm font-normal text-muted-foreground">c/ sin demandado cargado</span>
+									)}
 								</h2>
 							</div>
 						</div>

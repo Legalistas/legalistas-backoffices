@@ -266,6 +266,8 @@ export interface Cases {
 	responsibleLawyer?: User;
 	internalLawyer?: User;
 	files: CasesFiles[];
+	/** Parties of the case (actor, demandado…), as the detail returns them. */
+	parts?: { id: number; name: string; partyType: string }[];
 	notes: CasesNotes[];
 	documents: CasesDocuments[];
 	logs: CaseLogs[];

@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { ExternalLink } from "lucide-react";
+import { CheckCheck, ExternalLink, Loader2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
 	Table,
 	TableBody,
@@ -20,6 +23,9 @@ import type {
 interface Props {
 	alerts: CrmAlert[];
 	users: MonitorReportUser[];
+	/** Whether this person can mark the alert as reviewed (the head of its area). */
+	puedeRevisar?: (a: CrmAlert) => boolean;
+	onRevisada?: (a: CrmAlert) => Promise<void>;
 }
 
 // Ruta admin al detalle según entityType. El backend emite entityType/entityId
@@ -47,8 +53,23 @@ function severityVariant(
 	return "secondary";
 }
 
-export function CrmAlertsTable({ alerts, users }: Props) {
+export function CrmAlertsTable({ alerts, users, puedeRevisar, onRevisada }: Props) {
 	const usersById = new Map(users.map((u) => [u.id, u]));
+	const [revisando, setRevisando] = useState<number | null>(null);
+	const conRevision = !!onRevisada && alerts.some((a) => puedeRevisar?.(a));
+
+	const revisar = async (a: CrmAlert) => {
+		if (!onRevisada) return;
+		setRevisando(a.id);
+		try {
+			await onRevisada(a);
+			toast.success("Alerta marcada como revisada");
+		} catch (e) {
+			toast.error((e as Error).message);
+		} finally {
+			setRevisando(null);
+		}
+	};
 
 	if (alerts.length === 0) {
 		return (
@@ -68,6 +89,7 @@ export function CrmAlertsTable({ alerts, users }: Props) {
 						<TableHead>Responsable</TableHead>
 						<TableHead className="w-[100px] text-right">Días</TableHead>
 						<TableHead className="w-[60px]" />
+						{conRevision && <TableHead className="w-30" />}
 					</TableRow>
 				</TableHeader>
 				<TableBody>
@@ -103,6 +125,27 @@ export function CrmAlertsTable({ alerts, users }: Props) {
 										<ExternalLink className="h-4 w-4" />
 									</Link>
 								</TableCell>
+								{conRevision && (
+									<TableCell className="text-right">
+										{puedeRevisar?.(a) && (
+											<Button
+												variant="outline"
+												size="sm"
+												className="h-7 gap-1.5 px-2 text-xs"
+												disabled={revisando === a.id}
+												onClick={() => revisar(a)}
+												title="Ya se revisó: sale del monitor y vuelve solo si pasa otro período sin actividad"
+											>
+												{revisando === a.id ? (
+													<Loader2 className="h-3.5 w-3.5 animate-spin" />
+												) : (
+													<CheckCheck className="h-3.5 w-3.5" />
+												)}
+												Revisada
+											</Button>
+										)}
+									</TableCell>
+								)}
 							</TableRow>
 						);
 					})}

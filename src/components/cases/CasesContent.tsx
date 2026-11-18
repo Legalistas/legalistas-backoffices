@@ -73,6 +73,12 @@ export default function CasesContent() {
 	// Read by fetchCases without adding a parameter to each of its calls.
 	const fileTypeRef = useRef(selectedFileType);
 	fileTypeRef.current = selectedFileType;
+	/** By party: cases against a defendant (any spelling of it) or with a counterparty lawyer. */
+	const [demandado, setDemandado] = useState("");
+	const [abogadoContraparteId, setAbogadoContraparteId] = useState<number | undefined>(undefined);
+	// Read by fetchCases like the file type.
+	const partesRef = useRef({ demandado, abogadoContraparteId });
+	partesRef.current = { demandado, abogadoContraparteId };
 	const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
 
 	const [responsibleLawyerTypes, setResponsibleLawyerTypes] = useState<
@@ -362,6 +368,12 @@ export default function CasesContent() {
 				if (fileTypeRef.current) {
 					url.searchParams.append("fileType", String(fileTypeRef.current));
 				}
+				if (partesRef.current.demandado.trim()) {
+					url.searchParams.append("demandado", partesRef.current.demandado.trim());
+				}
+				if (partesRef.current.abogadoContraparteId) {
+					url.searchParams.append("abogadoContraparteId", String(partesRef.current.abogadoContraparteId));
+				}
 
 				const response = await fetch(url.toString(), {
 					method: "GET",
@@ -444,6 +456,8 @@ export default function CasesContent() {
 			if (toDateApi) url.searchParams.append("toDate", toDateApi);
 			if (noEvents) url.searchParams.append("noEvents", "true");
 			if (selectedFileType) url.searchParams.append("fileType", String(selectedFileType));
+			if (demandado.trim()) url.searchParams.append("demandado", demandado.trim());
+			if (abogadoContraparteId) url.searchParams.append("abogadoContraparteId", String(abogadoContraparteId));
 
 			const response = await fetch(url.toString(), {
 				headers: {
@@ -656,6 +670,8 @@ export default function CasesContent() {
 		dateTo,
 		noEvents,
 		selectedFileType,
+		demandado,
+		abogadoContraparteId,
 		formatDateForApi,
 	]);
 
@@ -907,6 +923,8 @@ export default function CasesContent() {
 		dateTo,
 		noEvents,
 		selectedFileType,
+		demandado,
+		abogadoContraparteId,
 		updateURL,
 		fetchCases,
 		formatDateForApi,
@@ -924,6 +942,8 @@ export default function CasesContent() {
 		setDateTo("");
 		setNoEvents(false);
 		setSelectedFileType(undefined);
+		setDemandado("");
+		setAbogadoContraparteId(undefined);
 		setCurrentPage(1);
 
 		try {
@@ -1340,7 +1360,9 @@ export default function CasesContent() {
 			dateFrom ||
 			dateTo ||
 			noEvents ||
-			selectedFileType !== undefined,
+			selectedFileType !== undefined ||
+			demandado.trim() !== "" ||
+			abogadoContraparteId !== undefined,
 	);
 
 	if (isLoading && cases.length === 0 && !hasSearched) {
@@ -1444,6 +1466,10 @@ export default function CasesContent() {
 					setNoEvents={setNoEvents}
 					selectedFileType={selectedFileType}
 					setSelectedFileType={setSelectedFileType}
+					demandado={demandado}
+					setDemandado={setDemandado}
+					abogadoContraparteId={abogadoContraparteId}
+					setAbogadoContraparteId={setAbogadoContraparteId}
 					hasActiveFilters={hasActiveFilters}
 					handleClearSearch={handleClearSearch}
 					viewMode={viewMode}

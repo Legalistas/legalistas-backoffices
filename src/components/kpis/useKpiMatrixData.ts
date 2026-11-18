@@ -117,7 +117,6 @@ export function useKpiMatrixData(
 			const reunionesReps = ZEROS();
 
 			const consultasBO = ZEROS();
-			const usuariosPlataforma = ZEROS();
 
 			// Sub-filas dinámicas por abogado interno.
 			const internalLawyerMap = new Map<
@@ -171,7 +170,6 @@ export function useKpiMatrixData(
 				reunionesReps[i] = d.representantes.reunionesRealizadas;
 
 				consultasBO[i] = d.cx.consultasBO;
-				usuariosPlataforma[i] = d.plataforma.usuariosActivos;
 
 				// Vista por abogado interno: acumular por mes.
 				for (const lawyer of d.porAbogadoInterno) {
@@ -314,11 +312,13 @@ export function useKpiMatrixData(
 									monthlyValues: manual("cx_google_reviews_positive"),
 								},
 								{
-									key: "usuarios-plataforma",
-									label:
-										"Cantidad de usuarios de plataforma (clientes activos)",
+									// Loaded by hand (18/11/2026); it used to count the client portal accesses.
+									key: "usuarios-app",
+									label: "Usuarios de la APP",
 									format: "number",
-									monthlyValues: usuariosPlataforma,
+									editable: true,
+									sourceKey: "legal_usuarios_app",
+									monthlyValues: manual("legal_usuarios_app"),
 								},
 							],
 						},

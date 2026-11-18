@@ -45,6 +45,8 @@ export interface MonitorReportResponse {
 	byRule: Record<string, CrmAlert[]>;
 	byResponsible: Array<{ userId: number | null; count: number }>;
 	users: MonitorReportUser[];
+	/** Which kinds of alerts this person can mark as reviewed (the head of each area). */
+	puedeRevisar?: Record<AlertEntityType, boolean>;
 }
 
 // Copia local de RUN engine result — sirve para el botón "Ejecutar ahora".
