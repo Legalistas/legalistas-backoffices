@@ -102,7 +102,7 @@ export default function NotificationCard({
 				return "Normal";
 			case "info":
 				return "Info";
-			// Espacio de trabajo (backend modules/workspace → notify).
+			// Tareas (backend modules/workspace → notify).
 			case "workspace_mencion":
 				return "Te mencionaron";
 			case "workspace_asignacion":
@@ -110,7 +110,7 @@ export default function NotificationCard({
 			case "workspace_comentario":
 				return "Comentario";
 			case "workspace_equipo":
-				return "Espacio de trabajo";
+				return "Tareas";
 			case "nota":
 				return "Te mencionaron en una nota";
 			case "nota_crm_mencion":

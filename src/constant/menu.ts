@@ -230,7 +230,7 @@ export const MENU_SECTIONS: MenuSection[] = [
       {
         // No roles: everyone sees it; the backend only returns each person's boards.
         icon: ListChecks,
-        name: "Espacio de trabajo",
+        name: "Tareas",
         path: "/admin/workspace",
       },
     ],

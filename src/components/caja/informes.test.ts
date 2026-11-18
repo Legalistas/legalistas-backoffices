@@ -4,7 +4,7 @@ import autoTable from "jspdf-autotable";
 import { CAJA_GRUPO_LABEL } from "@/constant/caja";
 import { armarPdf } from "@/lib/exportar";
 import type { Caja, CajaMovimiento, CajaResumen } from "@/types/caja";
-import { esCambio, esCompraDeDolares, formatMonto, formatUSD } from "./api";
+import { esCambio, esCompraDeDolares, formatMonto, formatUSD, limitesPeriodo } from "./api";
 import { summaryWindow, tablaMovimientos, tablaPorMes, tablaPorRubro, tablaSaldos } from "./informes";
 
 const caja = (id: number, nombre: string, extra: Partial<Caja> = {}): Caja => ({
@@ -23,7 +23,8 @@ const caja = (id: number, nombre: string, extra: Partial<Caja> = {}): Caja => ({
 	hijas: [],
 	saldo: 1000 * id,
 	saldoUsd: 0,
-	saldoApertura: 0,
+	saldoApertura: 500 * id,
+	saldoCierre: 900 * id,
 	ingresosMes: 100 * id,
 	egresosMes: 10 * id,
 	transfEntradaMes: 0,
@@ -58,7 +59,8 @@ describe("tablaSaldos", () => {
 	const general = {
 		saldo: 4000,
 		saldoUsd: 0,
-		saldoApertura: 0,
+		saldoApertura: 2000,
+		saldoCierre: 3600,
 		ingresosMes: 400,
 		egresosMes: 40,
 		transfEntradaMes: 0,
@@ -72,13 +74,19 @@ describe("tablaSaldos", () => {
 	test("agrupa por grupo (el principal primero) y pone las sub-cajas debajo de la suya", () => {
 		const t = tablaSaldos(cajas, null);
 		expect(t.filas.map((f) => f[0])).toEqual(["Caja Agustín", "   Banco Macro", "Monotributo Julieta"]);
-		expect(t.filas[0]).toEqual(["Caja Agustín", CAJA_GRUPO_LABEL.PRINCIPAL, 1000, 100, 10]);
+		expect(t.filas[0]).toEqual(["Caja Agustín", CAJA_GRUPO_LABEL.PRINCIPAL, 500, 900, 1000, 100, 10]);
 		expect(t.filas[2][1]).toBe(CAJA_GRUPO_LABEL.MONOTRIBUTO);
 		expect(t.totales).toBeUndefined();
 	});
 
 	test("con Caja General: fila de totales", () => {
-		expect(tablaSaldos(cajas, general).totales).toEqual(["Caja General", "", 4000, 400, 40]);
+		expect(tablaSaldos(cajas, general).totales).toEqual(["Caja General", "", 2000, 3600, 4000, 400, 40]);
+	});
+
+	test("la caja abre el 1° a las 00:00 y cierra el último día a las 23:59", () => {
+		expect(limitesPeriodo("2026-11")).toEqual({ apertura: "01/11/2026 00:00", cierre: "30/11/2026 23:59" });
+		expect(limitesPeriodo("2028-02").cierre).toBe("29/02/2028 23:59");
+		expect(limitesPeriodo("2026")).toEqual({ apertura: "01/01/2026 00:00", cierre: "31/12/2026 23:59" });
 	});
 
 	test("si alguna caja tiene dólares, se agrega su columna (aparte de los pesos)", () => {
@@ -90,10 +98,19 @@ describe("tablaSaldos", () => {
 			}),
 		];
 		const t = tablaSaldos(conDolares, { ...general, saldoUsd: 275 });
-		expect(t.columnas).toEqual(["Caja", "Grupo", "Saldo", "Saldo US$", "Ingresos del período", "Egresos del período"]);
-		expect(t.filas[1]).toEqual(["   Mercado Pago", CAJA_GRUPO_LABEL.PRINCIPAL, 2000, 275, 200, 20]);
-		expect(t.totales).toEqual(["Caja General", "", 4000, 275, 400, 40]);
-		expect([t.montos, t.montosUsd]).toEqual([[2, 4, 5], [3]]);
+		expect(t.columnas).toEqual([
+			"Caja",
+			"Grupo",
+			"Apertura (1° 00:00)",
+			"Cierre (último día 23:59)",
+			"Saldo hoy",
+			"Saldo US$ hoy",
+			"Ingresos del período",
+			"Egresos del período",
+		]);
+		expect(t.filas[1]).toEqual(["   Mercado Pago", CAJA_GRUPO_LABEL.PRINCIPAL, 1000, 1800, 2000, 275, 200, 20]);
+		expect(t.totales).toEqual(["Caja General", "", 2000, 3600, 4000, 275, 400, 40]);
+		expect([t.montos, t.montosUsd]).toEqual([[2, 3, 4, 6, 7], [5]]);
 	});
 });
 

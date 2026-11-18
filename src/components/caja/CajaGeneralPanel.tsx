@@ -19,7 +19,7 @@ import { CAJA_GRUPO_LABEL } from "@/constant/caja";
 import { exportarExcel, exportarPdf } from "@/lib/exportar";
 import { cn } from "@/lib/utils";
 import type { Caja, CajaGrupo, CajaResumen, CajaTotales } from "@/types/caja";
-import { cajaFetch, formatARS, formatUSD } from "./api";
+import { cajaFetch, formatARS, formatUSD, limitesPeriodo } from "./api";
 import { summaryWindow, tablaPorMes, tablaPorRubro, tablaSaldos } from "./informes";
 
 const Monto = ({ valor, className }: { valor: number; className?: string }) => (
@@ -70,6 +70,7 @@ export default function CajaGeneralPanel({
 
 	// La columna de dólares aparece cuando alguna caja tiene.
 	const hayDolares = !!general.saldoUsd;
+	const { apertura, cierre } = limitesPeriodo(mes);
 
 	const [exportando, setExportando] = useState<"xlsx" | "pdf" | null>(null);
 
@@ -89,7 +90,7 @@ export default function CajaGeneralPanel({
 			else
 				await exportarPdf(archivo, {
 					titulo: "Caja General",
-					subtitulo: `Período: ${periodo} · Saldo total ${formatARS(general.saldo)}`,
+					subtitulo: `Período: ${periodo} · Apertura ${apertura}: ${formatARS(general.saldoApertura)} · Cierre ${cierre}: ${formatARS(general.saldoCierre)} · Saldo hoy ${formatARS(general.saldo)}`,
 					tablas,
 				});
 		} catch (e) {
@@ -105,7 +106,9 @@ export default function CajaGeneralPanel({
 				<CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2">
 					<div>
 						<CardTitle className="text-base">Saldo por caja</CardTitle>
-						<CardDescription>La Caja General es la suma de todas las cajas.</CardDescription>
+						<CardDescription>
+							La Caja General es la suma de todas las cajas. Apertura: {apertura} · Cierre: {cierre}.
+						</CardDescription>
 					</div>
 					<div className="flex gap-2">
 						<Button
@@ -141,8 +144,10 @@ export default function CajaGeneralPanel({
 						<TableHeader className="bg-muted/50">
 							<TableRow>
 								<TableHead>Caja</TableHead>
-								<TableHead className="text-right">Saldo</TableHead>
-								{hayDolares && <TableHead className="text-right">Dólares</TableHead>}
+								<TableHead className="text-right">Apertura</TableHead>
+								<TableHead className="text-right">Cierre</TableHead>
+								<TableHead className="text-right">Saldo hoy</TableHead>
+								{hayDolares && <TableHead className="text-right">Dólares hoy</TableHead>}
 							</TableRow>
 						</TableHeader>
 						<TableBody>
@@ -153,6 +158,12 @@ export default function CajaGeneralPanel({
 											<TableRow>
 												<TableCell className={cn(c.esContenedora && "font-medium")}>
 													{c.nombre}
+												</TableCell>
+												<TableCell className="text-right">
+													<Monto valor={c.saldoApertura} className={cn(c.esContenedora && "font-medium")} />
+												</TableCell>
+												<TableCell className="text-right">
+													<Monto valor={c.saldoCierre} className={cn(c.esContenedora && "font-medium")} />
 												</TableCell>
 												<TableCell className="text-right">
 													<Monto valor={c.saldo} className={cn(c.esContenedora && "font-medium")} />
@@ -166,6 +177,12 @@ export default function CajaGeneralPanel({
 											{c.hijas.map((h) => (
 												<TableRow key={h.id} className="text-muted-foreground">
 													<TableCell className="pl-8">{h.nombre}</TableCell>
+													<TableCell className="text-right">
+														<Monto valor={h.saldoApertura} />
+													</TableCell>
+													<TableCell className="text-right">
+														<Monto valor={h.saldoCierre} />
+													</TableCell>
 													<TableCell className="text-right">
 														<Monto valor={h.saldo} />
 													</TableCell>
@@ -183,6 +200,12 @@ export default function CajaGeneralPanel({
 											Subtotal {CAJA_GRUPO_LABEL[grupo].toLowerCase()}
 										</TableCell>
 										<TableCell className="text-right font-medium">
+											<Monto valor={delGrupo.reduce((s, c) => s + c.saldoApertura, 0)} />
+										</TableCell>
+										<TableCell className="text-right font-medium">
+											<Monto valor={delGrupo.reduce((s, c) => s + c.saldoCierre, 0)} />
+										</TableCell>
+										<TableCell className="text-right font-medium">
 											<Monto valor={delGrupo.reduce((s, c) => s + c.saldo, 0)} />
 										</TableCell>
 										{hayDolares && (
@@ -197,6 +220,12 @@ export default function CajaGeneralPanel({
 						<TableFooter>
 							<TableRow>
 								<TableCell className="font-semibold">Caja General</TableCell>
+								<TableCell className="text-right font-semibold">
+									<Monto valor={general.saldoApertura} />
+								</TableCell>
+								<TableCell className="text-right font-semibold">
+									<Monto valor={general.saldoCierre} />
+								</TableCell>
 								<TableCell className="text-right font-semibold">
 									<Monto valor={general.saldo} />
 								</TableCell>

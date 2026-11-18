@@ -333,7 +333,7 @@ function DataRow({
 			</td>
 			{row.monthlyValues.map((v, i) => {
 				const cellKey = `${row.key}-${periodLabels[i] ?? i}`;
-				return isEditable && row.sourceKey ? (
+				return isEditable && row.sourceKey && (row.editableMonths?.[i] ?? true) ? (
 					<EditableCell
 						key={cellKey}
 						value={v}

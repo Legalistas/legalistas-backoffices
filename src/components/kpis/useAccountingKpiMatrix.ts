@@ -6,11 +6,11 @@ import { API_BASE_URL } from "@/constant/api-endpoints";
 import type { KpiMatrixRow, KpiMatrixSection, KpiResponse } from "@/types/kpi";
 import { buildPeriodAxis, type PeriodMode } from "./periodMode";
 
-// DPTO. CONTABLE as in "KPIs DTO. CONTABLE 2026" (Jona, 06/11/2026). Contable
-// loads the base figures by hand when each month closes (pencil cells, manual
-// KPIs); the backend calculates margin, result and ticket
-// (backend modules/kpis/accounting.ts). Monthly only: the weekly view shows
-// the months too.
+// DPTO. CONTABLE as in "KPIs DTO. CONTABLE 2026" (Jona, 06/11/2026). Since
+// 18/11/2026 the backend figures every month from the Caja Contable on out of
+// the caja, Gastos e Ingresos and the aportes (modules/kpis/accounting-caja.ts);
+// the months before it keep the figures loaded by hand (pencil cells, manual
+// KPIs). Monthly only: the weekly view shows the months too.
 
 /** GET /kpis/accounting: the month's figures; null = not loaded. */
 interface AccountingMonth {
@@ -27,9 +27,11 @@ interface AccountingMonth {
 	cajaCierre: number | null;
 	saldoProyectado: number | null;
 	deudaAportes: number | null;
+	/** From the Caja Contable (read only); false = loaded by hand. */
+	automatico: boolean;
 }
 
-type Field = keyof AccountingMonth;
+type Field = Exclude<keyof AccountingMonth, "automatico">;
 
 async function fetchJson<T>(url: string, token: string): Promise<T | null> {
 	try {
@@ -76,8 +78,10 @@ export function useAccountingKpiMatrix(
 			);
 			if (months.every((m) => m === null)) throw new Error("sin datos");
 			const serie = (f: Field) => months.map((m) => m?.data?.[f] ?? null);
+			// The months out of the Caja Contable are not edited by hand.
+			const editableMonths = months.map((m) => !m?.data?.automatico);
 
-			// Loaded by hand: the pencil cell saves it as a manual KPI.
+			// Loaded by hand (before the Caja Contable): the pencil cell saves it as a manual KPI.
 			const cargado = (
 				f: Field,
 				sourceKey: string,
@@ -88,7 +92,8 @@ export function useAccountingKpiMatrix(
 				label,
 				format: "currency",
 				monthlyValues: serie(f),
-				editable: true,
+				editable: editableMonths.some(Boolean),
+				editableMonths,
 				sourceKey,
 				...opts,
 			});

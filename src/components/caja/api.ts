@@ -128,3 +128,9 @@ export const rangoPeriodo = (periodo: string) =>
 	periodo.length === 4
 		? { desde: `${periodo}-01-01`, hasta: `${periodo}-12-31` }
 		: { desde: `${periodo}-01`, hasta: finDeMes(periodo) };
+
+/** La caja abre el 1° a las 00:00 y cierra el último día a las 23:59: "01/11/2026 00:00" y "30/11/2026 23:59". */
+export const limitesPeriodo = (periodo: string) => {
+	const { desde, hasta } = rangoPeriodo(periodo);
+	return { apertura: `${formatFecha(desde)} 00:00`, cierre: `${formatFecha(hasta)} 23:59` };
+};

@@ -94,7 +94,7 @@ function AddPerson({
 											<p className="truncate text-sm">{p.name ?? "Sin nombre"}</p>
 											<p className="truncate text-xs text-muted-foreground">
 												{p.orgRole === null
-													? "Nuevo en el espacio de trabajo"
+													? "Nuevo en Tareas"
 													: p.orgRole === "GUEST"
 														? "Representante"
 														: (p.email ?? "")}
@@ -194,7 +194,7 @@ export default function TeamsManager() {
 		<div className="mx-auto max-w-4xl space-y-6">
 			<header className="flex flex-wrap items-center gap-3">
 				<Button variant="ghost" size="icon" asChild>
-					<Link href="/admin/workspace" aria-label="Volver al espacio de trabajo">
+					<Link href="/admin/workspace" aria-label="Volver a Tareas">
 						<ArrowLeft className="size-4" />
 					</Link>
 				</Button>

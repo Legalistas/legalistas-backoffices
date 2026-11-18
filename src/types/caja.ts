@@ -25,8 +25,10 @@ export interface CajaTotales {
 	saldo: number;
 	/** Saldo hoy, en dólares. */
 	saldoUsd: number;
-	/** Saldo al 1° del mes (arrastre del mes anterior). */
+	/** Apertura: saldo en pesos al 1° del período a las 00:00 (arrastre del anterior). */
 	saldoApertura: number;
+	/** Cierre: saldo en pesos al último día del período a las 23:59. */
+	saldoCierre: number;
 	/** Ingresos y egresos reales del mes, sin transferencias entre cajas ni compras/ventas de dólares. En pesos: los que son en dólares, al valor del día en que se cargaron. */
 	ingresosMes: number;
 	egresosMes: number;

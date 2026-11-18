@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Board from "@/components/workspace/Board";
 
 export const metadata = {
-	title: "Tablero | Espacio de trabajo",
+	title: "Tablero | Tareas",
 };
 
 export default async function ProjectBoardPage({ params }: { params: Promise<{ id: string }> }) {

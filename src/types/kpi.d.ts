@@ -63,6 +63,8 @@ export interface KpiMatrixRow {
 	sourceUserId?: number;
 	/** The editable cell takes values below zero (balances). */
 	allowNegative?: boolean;
+	/** With `editable`: which months can be edited (by index); omitted = all. */
+	editableMonths?: boolean[];
 }
 
 export interface KpiMatrixSubSection {

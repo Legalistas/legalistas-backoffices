@@ -18,7 +18,7 @@ import { useSession } from "next-auth/react";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { KpiCard } from "@/components/accounting/CollectionsManager";
-import { formatARS, formatFecha } from "@/components/caja/api";
+import { formatARS, formatFecha, MESES } from "@/components/caja/api";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CLOSINGS_ENDPOINT } from "@/constant/api-endpoints";
@@ -57,10 +57,20 @@ interface Totales {
 	pendiente: number;
 }
 
+type Clasificacion = "ORO" | "PLATA" | "BRONCE";
+
+const CLASIFICACION: Record<Clasificacion, { texto: string; clase: string }> = {
+	ORO: { texto: "Oro", clase: "text-amber-700" },
+	PLATA: { texto: "Plata", clase: "text-slate-600" },
+	BRONCE: { texto: "Bronce", clase: "text-orange-800" },
+};
+
 interface Representante {
 	id: number;
 	name: string;
 	provincia: string | null;
+	/** Only management gets it (and can change it by hand). */
+	clasificacion: Clasificacion | null;
 	casos: Caso[];
 	totales: Totales;
 }
@@ -72,7 +82,7 @@ interface Respuesta {
 }
 
 const COLUMNAS = [
-	"Fecha", "Causa", "Tipo", "Capital", "Facturado", "Ingresos",
+	"Fecha", "Causa", "Tipo", "Capital", "Honorarios", "Cuota Litis",
 	"Ap. demandada", "Ap. abogado/a", "Ap. Legalistas", "Subtotal aportes", "Total", "Estado",
 ];
 /** Columns with amounts in COLUMNAS. */
@@ -110,6 +120,8 @@ export default function LiquidacionRepresentantes() {
 	const token = session?.user?.accessToken;
 	const anioActual = new Date().getFullYear();
 	const [year, setYear] = useState(anioActual);
+	/** 1-12; 0 = the whole year. */
+	const [month, setMonth] = useState(0);
 	const [data, setData] = useState<Respuesta | null>(null);
 	const [cargando, setCargando] = useState(true);
 	const [error, setError] = useState<string | null>(null);
@@ -122,9 +134,10 @@ export default function LiquidacionRepresentantes() {
 		setCargando(true);
 		setError(null);
 		try {
-			const res = await fetch(`${CLOSINGS_ENDPOINT}/liquidacion-representantes?year=${year}`, {
-				headers: { Authorization: `Bearer ${token}` },
-			});
+			const res = await fetch(
+				`${CLOSINGS_ENDPOINT}/liquidacion-representantes?year=${year}${month ? `&month=${month}` : ""}`,
+				{ headers: { Authorization: `Bearer ${token}` } },
+			);
 			const body = await res.json().catch(() => ({}));
 			if (!res.ok) throw new Error(body.error || `Error ${res.status}`);
 			const r = body as Respuesta;
@@ -136,11 +149,37 @@ export default function LiquidacionRepresentantes() {
 		} finally {
 			setCargando(false);
 		}
-	}, [token, year]);
+	}, [token, year, month]);
 
 	useEffect(() => {
 		cargar();
 	}, [cargar]);
+
+	const periodo = month ? `${MESES[month - 1]} ${year}` : `Año ${year}`;
+
+	// By hand for now: the table changes right away and goes back if saving fails.
+	const clasificar = async (r: Representante, valor: Clasificacion | null) => {
+		const cambiar = (c: Clasificacion | null) =>
+			setData((d) =>
+				d && {
+					...d,
+					representantes: d.representantes.map((x) => (x.id === r.id ? { ...x, clasificacion: c } : x)),
+				},
+			);
+		cambiar(valor);
+		try {
+			const res = await fetch(`${CLOSINGS_ENDPOINT}/liquidacion-representantes/${r.id}/clasificacion`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+				body: JSON.stringify({ clasificacion: valor }),
+			});
+			const body = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(body.error || body.message || `Error ${res.status}`);
+		} catch (e) {
+			cambiar(r.clasificacion);
+			toast.error((e as Error).message);
+		}
+	};
 
 	const q = search.trim().toLowerCase();
 	const representantes = (data?.representantes ?? []).filter(
@@ -160,20 +199,20 @@ export default function LiquidacionRepresentantes() {
 	const exportar = async (formato: "excel" | "pdf") => {
 		setExportando(formato);
 		try {
-			const archivo = `Liquidacion representantes ${year}`;
+			const archivo = `Liquidacion representantes ${month ? `${MESES[month - 1]} ` : ""}${year}`;
 			if (formato === "excel") await exportarExcel(archivo, tablas());
 			else
 				await exportarPdf(archivo, {
 					titulo: "Liquidación de representantes",
-					subtitulo: `Año ${year} · desde el Gestor de Cierres`,
+					subtitulo: `${periodo} · desde el Gestor de Cierres`,
 					tablas: tablas(),
 					horizontal: true,
 					resumen: totales
 						? [
-								{ etiqueta: "Facturado", valor: formatARS(totales.facturado) },
-								{ etiqueta: "Ingresos", valor: formatARS(totales.ingresos) },
+								{ etiqueta: "Honorarios", valor: formatARS(totales.facturado) },
+								{ etiqueta: "Cuota Litis", valor: formatARS(totales.ingresos) },
 								{ etiqueta: "Pendiente de cobro", valor: formatARS(totales.pendiente) },
-								{ etiqueta: "Aportes + Ingresos", valor: formatARS(totales.total) },
+								{ etiqueta: "Aportes + Cuota Litis", valor: formatARS(totales.total) },
 							]
 						: [],
 				});
@@ -191,7 +230,7 @@ export default function LiquidacionRepresentantes() {
 				<div>
 					<h1 className="text-2xl font-semibold text-foreground">Liquidación de representantes</h1>
 					<p className="text-sm text-muted-foreground">
-						Sale del Gestor de Cierres: un caso por fila, con sus honorarios y cuota litis
+						Sale del Gestor de Cierres: un cierre por fila, con sus honorarios y cuota litis
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
@@ -237,6 +276,19 @@ export default function LiquidacionRepresentantes() {
 						))}
 					</SelectContent>
 				</Select>
+				<Select value={String(month)} onValueChange={(v) => setMonth(Number(v))}>
+					<SelectTrigger className="h-10 w-44" aria-label="Mes">
+						<SelectValue />
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="0">Todo el año</SelectItem>
+						{MESES.map((m, i) => (
+							<SelectItem key={m} value={String(i + 1)}>
+								{m}
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
 				{(data?.representantes.length ?? 0) > 1 && (
 					<div className="relative min-w-64 flex-1">
 						<Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -255,16 +307,16 @@ export default function LiquidacionRepresentantes() {
 			{totales && (
 				<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
 					<KpiCard
-						label="Facturado representantes"
+						label="Honorarios representantes"
 						amount={totales.facturado}
-						hint={`${totales.casos} casos`}
+						hint={`${totales.casos} cierres`}
 						tone="teal"
 						icon={<Receipt className="h-5 w-5" />}
 					/>
 					<KpiCard
-						label="Ingresos representantes"
+						label="Cuota Litis representantes"
 						amount={totales.ingresos}
-						hint="HP + cuota litis"
+						hint="Su parte de HP + cuota litis"
 						tone="emerald"
 						icon={<Wallet className="h-5 w-5" />}
 					/>
@@ -278,12 +330,12 @@ export default function LiquidacionRepresentantes() {
 					<KpiCard
 						label="Pendiente de cobro"
 						amount={totales.pendiente}
-						hint="Ingresos sin cobrar"
+						hint="Cuota Litis sin cobrar"
 						tone="amber"
 						icon={<CalendarClock className="h-5 w-5" />}
 					/>
 					<KpiCard
-						label="Aportes + Ingresos"
+						label="Aportes + Cuota Litis"
 						amount={totales.total}
 						hint="Total de la liquidación"
 						tone="emerald"
@@ -302,7 +354,7 @@ export default function LiquidacionRepresentantes() {
 					</div>
 				) : representantes.length === 0 ? (
 					<p className="py-16 text-center text-sm text-muted-foreground">
-						No hay casos de representantes en {year}.
+						No hay cierres de representantes en {month ? `${MESES[month - 1]} ${year}` : year}.
 					</p>
 				) : (
 					<div className="overflow-x-auto">
@@ -311,9 +363,10 @@ export default function LiquidacionRepresentantes() {
 								<tr className="border-b border-border text-xs text-muted-foreground">
 									<th className={cn(th, "text-left")}>Representante</th>
 									<th className={cn(th, "text-left")}>Provincia</th>
-									<th className={cn(th, "text-right")}>Casos</th>
-									<th className={cn(th, "text-right")}>Facturado</th>
-									<th className={cn(th, "text-right")}>Ingresos</th>
+									{totales && <th className={cn(th, "text-left")}>Clasificación</th>}
+									<th className={cn(th, "text-right")}>Cierres</th>
+									<th className={cn(th, "text-right")}>Honorarios</th>
+									<th className={cn(th, "text-right")}>Cuota Litis</th>
 									<th className={cn(th, "text-right")}>Aportes</th>
 									<th className={cn(th, "text-right")}>Total</th>
 									<th className={cn(th, "text-right")}>Pendiente</th>
@@ -346,6 +399,32 @@ export default function LiquidacionRepresentantes() {
 													</button>
 												</td>
 												<td className="px-3 py-3 text-muted-foreground">{r.provincia ?? "–"}</td>
+												{totales && (
+													// Its own control: a click here does not open the row.
+													<td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+														<Select
+															value={r.clasificacion ?? "NINGUNA"}
+															onValueChange={(v) =>
+																clasificar(r, v === "NINGUNA" ? null : (v as Clasificacion))
+															}
+														>
+															<SelectTrigger
+																className={cn("h-8 w-32", r.clasificacion && CLASIFICACION[r.clasificacion].clase)}
+																aria-label={`Clasificación de ${r.name}`}
+															>
+																<SelectValue />
+															</SelectTrigger>
+															<SelectContent>
+																<SelectItem value="NINGUNA">Sin clasificar</SelectItem>
+																{(Object.keys(CLASIFICACION) as Clasificacion[]).map((k) => (
+																	<SelectItem key={k} value={k}>
+																		{CLASIFICACION[k].texto}
+																	</SelectItem>
+																))}
+															</SelectContent>
+														</Select>
+													</td>
+												)}
 												<td className={montoCls}>{r.totales.casos}</td>
 												<td className={montoCls}>{formatARS(r.totales.facturado)}</td>
 												<td className={montoCls}>{formatARS(r.totales.ingresos)}</td>
@@ -357,7 +436,7 @@ export default function LiquidacionRepresentantes() {
 											</tr>
 											{open && (
 												<tr className="border-b border-border/60">
-													<td colSpan={8} className="bg-muted/20 p-3">
+													<td colSpan={totales ? 9 : 8} className="bg-muted/20 p-3">
 														<DetalleCasos casos={r.casos} totales={r.totales} />
 													</td>
 												</tr>

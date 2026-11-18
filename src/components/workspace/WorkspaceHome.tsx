@@ -134,7 +134,7 @@ export default function WorkspaceHome() {
 		try {
 			setHome(await workspaceFetch<WorkHome>("/home", token));
 		} catch (e) {
-			setError(errorMessage(e, "No se pudo cargar el espacio de trabajo"));
+			setError(errorMessage(e, "No se pudieron cargar las tareas"));
 		}
 	}, [token]);
 
@@ -227,7 +227,7 @@ export default function WorkspaceHome() {
 				<div className="rounded-2xl border border-dashed border-border px-6 py-16 text-center">
 					<p className="font-medium">Todavía no estás en ningún equipo</p>
 					<p className="mt-1 text-sm text-muted-foreground">
-						Pedile a Sistemas o a la dirección que te sumen a un equipo del espacio de trabajo.
+						Pedile a Sistemas o a la dirección que te sumen a un equipo de Tareas.
 					</p>
 				</div>
 			) : (

@@ -8,15 +8,29 @@ import {
 	FileSpreadsheet,
 	Landmark,
 	Loader2,
+	Pencil,
+	Plus,
 	Scale,
 	Sigma,
+	Trash2,
 } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import AporteManualDialog, { type AporteManualForm } from "@/components/accounting/AporteManualDialog";
 import { KpiCard } from "@/components/accounting/CollectionsManager";
 import { formatARS, formatFecha } from "@/components/caja/api";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CLOSINGS_ENDPOINT } from "@/constant/api-endpoints";
@@ -26,7 +40,8 @@ import { cn } from "@/lib/utils";
 // Finanzas → Aportes: the aportes of the closings of Agustín (responsible) and
 // Julieta (internal lawyer, in other lawyers' cases), like
 // the representatives' liquidation, split by Caja Forense / Caja de Abogados
-// (picked per card in the Gestor de Cierres). Backend: modules/closings/aportes.ts.
+// (picked per card in the Gestor de Cierres), plus the ones loaded by hand,
+// which can be edited and deleted here. Backend: modules/closings/aportes.ts.
 
 type Destino = "FORENSE" | "ABOGADOS";
 type Estado = "PAGADO" | "PENDIENTE" | "ASEGURADORA";
@@ -40,13 +55,16 @@ interface Tarjeta {
 }
 
 interface Caso {
-	closingId: number;
+	/** One of the two: the closing it comes from, or the aporte loaded by hand. */
+	closingId: number | null;
+	manualId: number | null;
 	fecha: string;
 	causa: string;
 	/** The case's responsible lawyer (a representative, in Julieta's closings). */
 	responsable: string | null;
 	tipo: string;
-	capital: number;
+	/** Null for the ones loaded by hand. */
+	capital: number | null;
 	tarjetas: Tarjeta[];
 	forense: number;
 	abogados: number;
@@ -73,7 +91,22 @@ interface Respuesta {
 	year: number;
 	titulares: Titular[];
 	totales: Totales;
+	/** Who an aporte can be loaded for. */
+	personas: { id: number; name: string }[];
 }
+
+/** A hand-loaded row, as the dialog edits it. */
+const formDe = (c: Caso, titularId: number): AporteManualForm => ({
+	id: c.manualId ?? undefined,
+	titularId,
+	fecha: c.fecha,
+	causa: c.causa,
+	responsable: c.responsable ?? "",
+	// "Aporte" is what the backend saves when the detail is left empty.
+	concepto: c.tarjetas[0]?.etiqueta === "Aporte" ? "" : (c.tarjetas[0]?.etiqueta ?? ""),
+	destino: c.tarjetas[0]?.destino ?? "FORENSE",
+	monto: String(c.tarjetas[0]?.monto ?? "").replace(".", ","),
+});
 
 const CAJA: Record<Destino, string> = { FORENSE: "Caja Forense", ABOGADOS: "Caja de Abogados" };
 
@@ -114,6 +147,9 @@ export default function AportesTitulares() {
 	const [error, setError] = useState<string | null>(null);
 	const [abierto, setAbierto] = useState<number | null>(null);
 	const [exportando, setExportando] = useState<"excel" | "pdf" | null>(null);
+	const [editando, setEditando] = useState<AporteManualForm | null>(null);
+	const [borrando, setBorrando] = useState<Caso | null>(null);
+	const [borrandoEnCurso, setBorrandoEnCurso] = useState(false);
 
 	const cargar = useCallback(async () => {
 		if (!token) return;
@@ -139,6 +175,38 @@ export default function AportesTitulares() {
 
 	const titulares = data?.titulares ?? [];
 	const totales = data?.totales;
+	const personas = data?.personas ?? [];
+
+	const nuevo = () =>
+		setEditando({
+			titularId: personas.length === 1 ? personas[0].id : null,
+			fecha: new Date().toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }),
+			causa: "",
+			responsable: "",
+			concepto: "",
+			destino: "FORENSE",
+			monto: "",
+		});
+
+	const borrar = async () => {
+		if (!borrando?.manualId) return;
+		setBorrandoEnCurso(true);
+		try {
+			const res = await fetch(`${CLOSINGS_ENDPOINT}/aportes/manuales/${borrando.manualId}`, {
+				method: "DELETE",
+				headers: { Authorization: `Bearer ${token}` },
+			});
+			const body = await res.json().catch(() => ({}));
+			if (!res.ok) throw new Error(body.error || body.message || `Error ${res.status}`);
+			toast.success("Aporte borrado");
+			setBorrando(null);
+			cargar();
+		} catch (e) {
+			toast.error((e as Error).message);
+		} finally {
+			setBorrandoEnCurso(false);
+		}
+	};
 
 	// One row per card: what accounting pays, to which caja.
 	const filas = (t: Titular): Celda[][] =>
@@ -170,7 +238,7 @@ export default function AportesTitulares() {
 			else
 				await exportarPdf(archivo, {
 					titulo: "Aportes",
-					subtitulo: `Año ${year} · Agustín y Julieta · desde el Gestor de Cierres`,
+					subtitulo: `Año ${year} · Agustín y Julieta · Gestor de Cierres y carga manual`,
 					tablas: tablas(),
 					horizontal: true,
 					resumen: totales
@@ -195,10 +263,14 @@ export default function AportesTitulares() {
 				<div>
 					<h1 className="text-2xl font-semibold text-foreground">Aportes</h1>
 					<p className="text-sm text-muted-foreground">
-						Aportes de los cierres de Agustín y Julieta, por Caja Forense y Caja de Abogados
+						Aportes de Agustín y Julieta, de los cierres y cargados a mano, por Caja Forense y Caja de Abogados
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
+					<Button onClick={nuevo} disabled={!personas.length}>
+						<Plus className="mr-1.5 h-4 w-4" />
+						Cargar aporte
+					</Button>
 					<Button variant="outline" onClick={() => exportar("excel")} disabled={!!exportando || !titulares.length}>
 						{exportando === "excel" ? (
 							<Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -254,7 +326,7 @@ export default function AportesTitulares() {
 					<KpiCard
 						label="Total aportes"
 						amount={totales.total}
-						hint={`${totales.casos} cierres`}
+						hint={`${totales.casos} casos`}
 						tone="teal"
 						icon={<Sigma className="h-5 w-5" />}
 					/>
@@ -282,8 +354,8 @@ export default function AportesTitulares() {
 						<table className="w-full text-sm">
 							<thead>
 								<tr className="border-b border-border text-xs text-muted-foreground">
-									<th className={cn(th, "text-left")}>Titular</th>
-									<th className={cn(th, "text-right")}>Cierres</th>
+									<th className={cn(th, "text-left")}>Abogado</th>
+									<th className={cn(th, "text-right")}>Casos</th>
 									<th className={cn(th, "text-right")}>Caja Forense</th>
 									<th className={cn(th, "text-right")}>Caja de Abogados</th>
 									<th className={cn(th, "text-right")}>Total</th>
@@ -323,7 +395,13 @@ export default function AportesTitulares() {
 											{open && (
 												<tr className="border-b border-border/60">
 													<td colSpan={6} className="bg-muted/20 p-3">
-														<DetalleCasos casos={t.casos} totales={t.totales} titular={t.name} />
+														<DetalleCasos
+															casos={t.casos}
+															totales={t.totales}
+															titular={t.name}
+															onEditar={(c) => setEditando(formDe(c, t.id))}
+															onBorrar={setBorrando}
+														/>
 													</td>
 												</tr>
 											)}
@@ -335,11 +413,57 @@ export default function AportesTitulares() {
 					</div>
 				)}
 			</div>
+
+			<AporteManualDialog
+				aporte={editando}
+				personas={personas}
+				token={token}
+				onClose={() => setEditando(null)}
+				onSaved={cargar}
+			/>
+
+			<AlertDialog open={!!borrando} onOpenChange={(o) => !o && !borrandoEnCurso && setBorrando(null)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>¿Borrar el aporte?</AlertDialogTitle>
+						<AlertDialogDescription>
+							{borrando?.causa} · {borrando?.tarjetas[0]?.etiqueta} · {formatARS(borrando?.total ?? 0)}. Se borra
+							también su pago pendiente en Gastos e Ingresos. Si ya se pagó, el pago queda registrado allá.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={borrandoEnCurso}>Cancelar</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={(e) => {
+								e.preventDefault();
+								borrar();
+							}}
+							disabled={borrandoEnCurso}
+							className="bg-destructive text-white hover:bg-destructive/90"
+						>
+							{borrandoEnCurso && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+							Borrar
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</div>
 	);
 }
 
-function DetalleCasos({ casos, totales, titular }: { casos: Caso[]; totales: Totales; titular: string }) {
+function DetalleCasos({
+	casos,
+	totales,
+	titular,
+	onEditar,
+	onBorrar,
+}: {
+	casos: Caso[];
+	totales: Totales;
+	titular: string;
+	onEditar: (c: Caso) => void;
+	onBorrar: (c: Caso) => void;
+}) {
 	return (
 		<div className="overflow-x-auto rounded-lg border border-border bg-card">
 			<table className="w-full text-xs">
@@ -352,26 +476,36 @@ function DetalleCasos({ casos, totales, titular }: { casos: Caso[]; totales: Tot
 						<th className="px-3 py-2 text-right font-medium">Caja Forense</th>
 						<th className="px-3 py-2 text-right font-medium">Caja de Abogados</th>
 						<th className="px-3 py-2 text-right font-medium">Total</th>
+						<th className="px-3 py-2">
+							<span className="sr-only">Acciones</span>
+						</th>
 					</tr>
 				</thead>
 				<tbody>
 					{casos.map((c) => (
-						<tr key={c.closingId} className="border-b border-border/60 align-top last:border-0 hover:bg-muted/40">
+						<tr
+							key={c.manualId ? `m${c.manualId}` : `c${c.closingId}`}
+							className="border-b border-border/60 align-top last:border-0 hover:bg-muted/40"
+						>
 							<td className="whitespace-nowrap px-3 py-2 tabular-nums">{formatFecha(c.fecha)}</td>
 							<td className="max-w-64 px-3 py-2">
-								<Link
-									href={`/admin/closing-manager?openId=${c.closingId}`}
-									className="font-medium text-foreground hover:text-primary hover:underline"
-									title="Ver el cierre"
-								>
-									{c.causa}
-								</Link>
+								{c.closingId ? (
+									<Link
+										href={`/admin/closing-manager?openId=${c.closingId}`}
+										className="font-medium text-foreground hover:text-primary hover:underline"
+										title="Ver el cierre"
+									>
+										{c.causa}
+									</Link>
+								) : (
+									<span className="font-medium text-foreground">{c.causa}</span>
+								)}
 								{c.responsable && c.responsable !== titular && (
 									<span className="block text-[11px] text-muted-foreground">{c.responsable}</span>
 								)}
 							</td>
 							<td className="px-3 py-2">{c.tipo}</td>
-							<td className={montoCls}>{formatARS(c.capital)}</td>
+							<td className={montoCls}>{c.capital === null ? "–" : formatARS(c.capital)}</td>
 							<td className="px-3 py-2 text-right">
 								<CeldaCaja tarjetas={c.tarjetas.filter((t) => t.destino === "FORENSE")} />
 							</td>
@@ -379,6 +513,32 @@ function DetalleCasos({ casos, totales, titular }: { casos: Caso[]; totales: Tot
 								<CeldaCaja tarjetas={c.tarjetas.filter((t) => t.destino === "ABOGADOS")} />
 							</td>
 							<td className={cn(montoCls, "font-medium")}>{formatARS(c.total)}</td>
+							<td className="whitespace-nowrap px-2 py-1 text-right">
+								{c.manualId && (
+									<>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-7 w-7"
+											aria-label={`Editar el aporte de ${c.causa}`}
+											title="Editar"
+											onClick={() => onEditar(c)}
+										>
+											<Pencil className="h-3.5 w-3.5" />
+										</Button>
+										<Button
+											variant="ghost"
+											size="icon"
+											className="h-7 w-7 text-destructive hover:text-destructive"
+											aria-label={`Borrar el aporte de ${c.causa}`}
+											title="Borrar"
+											onClick={() => onBorrar(c)}
+										>
+											<Trash2 className="h-3.5 w-3.5" />
+										</Button>
+									</>
+								)}
+							</td>
 						</tr>
 					))}
 				</tbody>
@@ -390,6 +550,7 @@ function DetalleCasos({ casos, totales, titular }: { casos: Caso[]; totales: Tot
 						<td className={montoCls}>{formatARS(totales.forense)}</td>
 						<td className={montoCls}>{formatARS(totales.abogados)}</td>
 						<td className={montoCls}>{formatARS(totales.total)}</td>
+						<td />
 					</tr>
 				</tfoot>
 			</table>

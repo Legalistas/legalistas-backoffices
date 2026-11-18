@@ -23,6 +23,7 @@ import {
 	formatARS,
 	formatFecha,
 	formatUSD,
+	limitesPeriodo,
 	nombrePeriodo,
 	traerTodosLosMovimientos,
 } from "./api";
@@ -122,6 +123,8 @@ export const tablaSaldos = (cajas: Caja[], general: CajaTotales | null): TablaIn
 	const fila = (c: Caja, grupo: CajaGrupo, nombre: string): Celda[] => [
 		nombre,
 		CAJA_GRUPO_LABEL[grupo],
+		c.saldoApertura,
+		c.saldoCierre,
 		c.saldo,
 		...(hayDolares ? [c.saldoUsd] : []),
 		c.ingresosMes,
@@ -132,8 +135,10 @@ export const tablaSaldos = (cajas: Caja[], general: CajaTotales | null): TablaIn
 		columnas: [
 			"Caja",
 			"Grupo",
-			"Saldo",
-			...(hayDolares ? ["Saldo US$"] : []),
+			"Apertura (1° 00:00)",
+			"Cierre (último día 23:59)",
+			"Saldo hoy",
+			...(hayDolares ? ["Saldo US$ hoy"] : []),
 			"Ingresos del período",
 			"Egresos del período",
 		],
@@ -149,14 +154,16 @@ export const tablaSaldos = (cajas: Caja[], general: CajaTotales | null): TablaIn
 			? [
 					"Caja General",
 					"",
+					general.saldoApertura,
+					general.saldoCierre,
 					general.saldo,
 					...(hayDolares ? [general.saldoUsd] : []),
 					general.ingresosMes,
 					general.egresosMes,
 				]
 			: undefined,
-		montos: hayDolares ? [2, 4, 5] : [2, 3, 4],
-		montosUsd: hayDolares ? [3] : undefined,
+		montos: hayDolares ? [2, 3, 4, 6, 7] : [2, 3, 4, 5, 6],
+		montosUsd: hayDolares ? [5] : undefined,
 	};
 };
 
@@ -223,12 +230,15 @@ export async function exportarInformeCaja(
 	const totales = general ?? {
 		saldo: cajas.reduce((s, c) => s + c.saldo, 0),
 		saldoUsd: cajas.reduce((s, c) => s + c.saldoUsd, 0),
+		saldoApertura: cajas.reduce((s, c) => s + c.saldoApertura, 0),
+		saldoCierre: cajas.reduce((s, c) => s + c.saldoCierre, 0),
 		ingresosMes: cajas.reduce((s, c) => s + c.ingresosMes, 0),
 		egresosMes: cajas.reduce((s, c) => s + c.egresosMes, 0),
 	};
 	const diferencia = totales.ingresosMes - totales.egresosMes;
 	const etiquetaSaldo = general ? "Caja General" : "Saldo";
 	const nombre = nombrePeriodo(periodo);
+	const { apertura, cierre } = limitesPeriodo(periodo);
 	// Los dólares, aparte; en pesos solo como referencia, al MEP del día.
 	const hayDolares = !!totales.saldoUsd;
 	const mep = cotizacion?.venta ?? null;
@@ -247,6 +257,8 @@ export async function exportarInformeCaja(
 				columnas: ["Concepto", "Valor"],
 				filas: [
 					["Período", nombre],
+					[`Apertura en pesos (${apertura})`, totales.saldoApertura],
+					[`Cierre en pesos (${cierre})`, totales.saldoCierre],
 					[`${etiquetaSaldo} en pesos (saldo actual)`, totales.saldo],
 					...(hayDolares
 						? ([
@@ -275,6 +287,16 @@ export async function exportarInformeCaja(
 	}
 
 	const resumenPdf: DatoResumen[] = [
+		{
+			etiqueta: `Apertura ${apertura}`,
+			valor: formatARS(totales.saldoApertura),
+			negativo: totales.saldoApertura < 0,
+		},
+		{
+			etiqueta: `Cierre ${cierre}`,
+			valor: formatARS(totales.saldoCierre),
+			negativo: totales.saldoCierre < 0,
+		},
 		{
 			etiqueta: hayDolares ? `${etiquetaSaldo} · pesos` : etiquetaSaldo,
 			valor: formatARS(totales.saldo),

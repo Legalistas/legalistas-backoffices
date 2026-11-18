@@ -1,7 +1,7 @@
 import WorkspaceHome from "@/components/workspace/WorkspaceHome";
 
 export const metadata = {
-	title: "Espacio de trabajo | Legalistas",
+	title: "Tareas | Legalistas",
 	description: "Tus tareas y los tableros de tus equipos",
 };
 
