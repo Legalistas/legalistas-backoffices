@@ -9,6 +9,8 @@ import {
 	CalendarDays,
 	Check,
 	ChevronDown,
+	ChevronLeft,
+	ChevronRight,
 	Contact,
 	FileText,
 	ImageIcon,
@@ -261,6 +263,9 @@ export function TaskDetailSheet({
 	const [uploading, setUploading] = useState(0);
 	const [dropping, setDropping] = useState(false);
 	const fileInput = useRef<HTMLInputElement>(null);
+	// Photo enlarged in place, inside the sheet (no new tab).
+	const [fotoId, setFotoId] = useState<number | null>(null);
+	const vistaFoto = useRef<HTMLElement>(null);
 	const [feedTab, setFeedTab] = useState<"comments" | "all">("comments");
 	const [newestFirst, setNewestFirst] = useState(false);
 	const [wide, setWide] = useState(false);
@@ -297,8 +302,16 @@ export function TaskDetailSheet({
 		setTask(null);
 		setLoadError(null);
 		setDescriptionDirty(false);
+		setFotoId(null);
 		load();
 	}, [load]);
+
+	// The enlarged photo takes the keyboard (arrows, Escape) and comes into view.
+	useEffect(() => {
+		if (fotoId === null) return;
+		vistaFoto.current?.focus();
+		vistaFoto.current?.scrollIntoView({ block: "nearest" });
+	}, [fotoId]);
 
 	useEffect(() => {
 		if (task && !descriptionDirty) setDescription(task.description ?? "");
@@ -589,9 +602,65 @@ export function TaskDetailSheet({
 
 	const iconButton = "size-8 text-muted-foreground hover:text-foreground";
 
+	// Photos preview and enlarge in place; other files open in a new tab.
+	const fotos = task?.attachments.filter((f) => isImage(f) && f.url) ?? [];
+	const archivos = task?.attachments.filter((f) => !(isImage(f) && f.url)) ?? [];
+	const fotoIdx = fotos.findIndex((f) => f.id === fotoId);
+	const foto = fotoIdx >= 0 ? fotos[fotoIdx] : null;
+	const verFoto = (paso: number) => setFotoId(fotos[(fotoIdx + paso + fotos.length) % fotos.length].id);
+	const cerrarFoto = () => {
+		// Focus back on its thumbnail.
+		if (foto) document.getElementById(`adjunto-${foto.id}`)?.focus();
+		setFotoId(null);
+	};
+
+	const opcionesAdjunto = (f: WorkAttachment, className?: string) => (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button
+					variant="ghost"
+					size="icon"
+					className={cn("size-7 shrink-0 text-muted-foreground", className)}
+					aria-label={`Opciones de ${f.fileName}`}
+				>
+					<MoreHorizontal className="size-4" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" className="w-52">
+				{isImage(f) &&
+					(f.isCover ? (
+						<DropdownMenuItem onSelect={() => setCover(f, false)}>
+							<ImageOff className="size-4" />
+							Quitar de la portada
+						</DropdownMenuItem>
+					) : (
+						<DropdownMenuItem onSelect={() => setCover(f, true)}>
+							<ImageIcon className="size-4" />
+							Usar como portada
+						</DropdownMenuItem>
+					))}
+				{(f.uploadedBy?.id === myId || task?.permissions.manage) && (
+					<DropdownMenuItem variant="destructive" onSelect={() => archiveAttachment(f)}>
+						<Trash2 className="size-4" />
+						Quitar adjunto
+					</DropdownMenuItem>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
+	);
+
 	return (
 		<Sheet open={taskId !== null} onOpenChange={(open) => !open && onClose()}>
-			<SheetContent showCloseButton={false} className={cn("w-full gap-0 p-0", wide ? "sm:max-w-5xl" : "sm:max-w-2xl")}>
+			<SheetContent
+				showCloseButton={false}
+				className={cn("w-full gap-0 p-0", wide ? "sm:max-w-5xl" : "sm:max-w-2xl")}
+				// Escape closes the enlarged photo first, not the task.
+				onEscapeKeyDown={(e) => {
+					if (!foto) return;
+					e.preventDefault();
+					cerrarFoto();
+				}}
+			>
 				<SheetTitle className="sr-only">{task?.title ?? "Tarea"}</SheetTitle>
 				<SheetDescription className="sr-only">Detalle de la tarea</SheetDescription>
 
@@ -1111,8 +1180,113 @@ export function TaskDetailSheet({
 											</button>
 										)
 									) : (
+										<div className="space-y-3">
+											{foto?.url && (
+												<figure
+													ref={vistaFoto}
+													tabIndex={-1}
+													aria-label={`${foto.fileName}, ${fotoIdx + 1} de ${fotos.length}`}
+													onKeyDown={(e) => {
+														if (fotos.length < 2) return;
+														if (e.key === "ArrowLeft") verFoto(-1);
+														if (e.key === "ArrowRight") verFoto(1);
+													}}
+													className="relative overflow-hidden rounded-lg bg-zinc-950 outline-none focus-visible:ring-2 focus-visible:ring-primary"
+												>
+													{/* biome-ignore lint/performance/noImgElement: signed MinIO URL. */}
+													<img
+														src={foto.url}
+														alt={foto.fileName}
+														className="mx-auto max-h-[70vh] w-full object-contain"
+													/>
+													<div className="absolute top-2 right-2 flex gap-1">
+														<Button
+															asChild
+															size="icon"
+															variant="ghost"
+															className="size-8 bg-black/50 text-white hover:bg-black/70 hover:text-white"
+														>
+															<a href={foto.url} target="_blank" rel="noreferrer" aria-label="Abrir en otra pestaña">
+																<ArrowUpRight className="size-4" />
+															</a>
+														</Button>
+														<Button
+															size="icon"
+															variant="ghost"
+															className="size-8 bg-black/50 text-white hover:bg-black/70 hover:text-white"
+															onClick={cerrarFoto}
+															aria-label="Cerrar la foto"
+														>
+															<X className="size-4" />
+														</Button>
+													</div>
+													{fotos.length > 1 && (
+														<>
+															<Button
+																size="icon"
+																variant="ghost"
+																className="absolute top-1/2 left-2 size-9 -translate-y-1/2 rounded-full bg-black/50 text-white hover:bg-black/70 hover:text-white"
+																onClick={() => verFoto(-1)}
+																aria-label="Foto anterior"
+															>
+																<ChevronLeft className="size-5" />
+															</Button>
+															<Button
+																size="icon"
+																variant="ghost"
+																className="absolute top-1/2 right-2 size-9 -translate-y-1/2 rounded-full bg-black/50 text-white hover:bg-black/70 hover:text-white"
+																onClick={() => verFoto(1)}
+																aria-label="Foto siguiente"
+															>
+																<ChevronRight className="size-5" />
+															</Button>
+														</>
+													)}
+													<figcaption className="truncate px-3 py-2 text-xs text-white/80">
+														{foto.fileName}
+														{fotos.length > 1 && ` · ${fotoIdx + 1} de ${fotos.length}`}
+													</figcaption>
+												</figure>
+											)}
+											{fotos.length > 0 && (
+												<ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+													{fotos.map((f) => (
+														<li
+															key={f.id}
+															className={cn(
+																"group relative aspect-square overflow-hidden rounded-lg border border-border bg-muted",
+																f.id === fotoId && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+															)}
+														>
+															<button
+																id={`adjunto-${f.id}`}
+																type="button"
+																onClick={() => (f.id === fotoId ? cerrarFoto() : setFotoId(f.id))}
+																aria-pressed={f.id === fotoId}
+																aria-label={`Ver ${f.fileName}`}
+																title={f.fileName}
+																className="size-full cursor-zoom-in outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-inset"
+															>
+																{/* biome-ignore lint/performance/noImgElement: signed MinIO URL. */}
+																<img src={f.url ?? undefined} alt="" loading="lazy" className="size-full object-contain" />
+															</button>
+															{f.isCover && (
+																<span className="pointer-events-none absolute top-1 left-1 rounded bg-black/60 px-1.5 py-px text-[10px] font-medium text-white">
+																	Portada
+																</span>
+															)}
+															{canEdit &&
+																opcionesAdjunto(
+																	f,
+																	"absolute top-1 right-1 bg-background/80 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 pointer-coarse:opacity-100",
+																)}
+														</li>
+													))}
+												</ul>
+											)}
+											{archivos.length > 0 && (
 										<ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-											{task.attachments.map((f) => (
+											{archivos.map((f) => (
 												<li
 													key={f.id}
 													className="group flex items-center gap-3 rounded-lg border border-border bg-background p-2"
@@ -1150,43 +1324,12 @@ export function TaskDetailSheet({
 															{fileSize(f.size)} · {ago(f.createdAt)}
 														</p>
 													</div>
-													{canEdit && (
-														<DropdownMenu>
-															<DropdownMenuTrigger asChild>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	className="size-7 shrink-0 text-muted-foreground"
-																	aria-label={`Opciones de ${f.fileName}`}
-																>
-																	<MoreHorizontal className="size-4" />
-																</Button>
-															</DropdownMenuTrigger>
-															<DropdownMenuContent align="end" className="w-52">
-																{isImage(f) &&
-																	(f.isCover ? (
-																		<DropdownMenuItem onSelect={() => setCover(f, false)}>
-																			<ImageOff className="size-4" />
-																			Quitar de la portada
-																		</DropdownMenuItem>
-																	) : (
-																		<DropdownMenuItem onSelect={() => setCover(f, true)}>
-																			<ImageIcon className="size-4" />
-																			Usar como portada
-																		</DropdownMenuItem>
-																	))}
-																{(f.uploadedBy?.id === myId || task.permissions.manage) && (
-																	<DropdownMenuItem variant="destructive" onSelect={() => archiveAttachment(f)}>
-																		<Trash2 className="size-4" />
-																		Quitar adjunto
-																	</DropdownMenuItem>
-																)}
-															</DropdownMenuContent>
-														</DropdownMenu>
-													)}
+													{canEdit && opcionesAdjunto(f)}
 												</li>
 											))}
 										</ul>
+											)}
+										</div>
 									)}
 								</section>
 
