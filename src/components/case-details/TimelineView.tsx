@@ -10,6 +10,7 @@ import {
 	Handshake,
 	Loader2,
 	Mail,
+	MessageCircle,
 	Send,
 	StickyNote,
 	type LucideIcon,
@@ -35,6 +36,7 @@ const KINDS: Record<TimelineKind, { label: string; icon: LucideIcon; color: stri
 	documento: { label: "Documentos", icon: FileText, color: "bg-stone-500" },
 	expediente: { label: "Expedientes", icon: FolderOpen, color: "bg-emerald-600" },
 	email: { label: "Emails", icon: Mail, color: "bg-sky-500" },
+	whatsapp: { label: "WhatsApp", icon: MessageCircle, color: "bg-green-600" },
 	crm: { label: "CRM", icon: Handshake, color: "bg-orange-500" },
 };
 

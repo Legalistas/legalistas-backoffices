@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { LawyerSelectDropdown } from "@/components/cases/LawyerSelectDropdown";
 import { StageSelectDropdown } from "@/components/cases/StageSelectDropdown";
 import { SubstageSelect, subetapaDe } from "@/components/cases/SubstageSelect";
+import { PedirDocumentacion } from "@/components/case-details/PedirDocumentacion";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
@@ -515,6 +516,10 @@ export const CaseDetails = ({
 										onChange={handleSubstageChange}
 										disabled={isUpdatingStage}
 									/>
+									{subetapa.campo === "documentationSubstage" &&
+										caseData.documentationSubstage !== "COMPLETADA" && (
+											<PedirDocumentacion caseId={Number(caseData.id)} />
+										)}
 								</div>
 							</>
 						)}

@@ -66,7 +66,11 @@ const BANDEJAS = [
 	{ valor: "organicas", texto: "Orgánicas", ayuda: "Consultas nuevas sin anuncio" },
 	{ valor: "contactos", texto: "Contactos", ayuda: "Clientes, leads y números que ya estaban en la base" },
 	{ valor: "automatizaciones", texto: "Automatizaciones", ayuda: "Lo último que recibieron fue un envío automático del CRM" },
-	{ valor: "campanas", texto: "Campañas y agendas", ayuda: "Lo último que recibieron fue una campaña" },
+	{
+		valor: "campanas",
+		texto: "Campañas y agendas",
+		ayuda: "Contactos de las agendas o que recibieron una campaña: se quedan acá aunque se les conteste",
+	},
 ] as const;
 type Bandeja = (typeof BANDEJAS)[number]["valor"];
 

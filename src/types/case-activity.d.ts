@@ -46,6 +46,7 @@ export type TimelineKind =
 	| "documento"
 	| "expediente"
 	| "email"
+	| "whatsapp"
 	| "crm";
 
 export interface TimelineItem {
