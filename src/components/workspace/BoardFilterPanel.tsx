@@ -5,6 +5,7 @@ import {
 	CalendarClock,
 	CalendarDays,
 	CalendarPlus,
+	CalendarX,
 	Check,
 	CheckCircle2,
 	ChevronDown,
@@ -52,7 +53,7 @@ type RowKey = "completion" | "assignees" | "due" | "creators" | "created" | "upd
 const ROWS: { key: RowKey; label: string; icon: typeof Clock }[] = [
 	{ key: "completion", label: "Estado de finalización", icon: CheckCircle2 },
 	{ key: "assignees", label: "Responsable", icon: UserRound },
-	{ key: "due", label: "Fecha de entrega", icon: CalendarDays },
+	{ key: "due", label: "Fecha de vencimiento", icon: CalendarDays },
 	{ key: "creators", label: "Creador", icon: UserRoundPen },
 	{ key: "created", label: "Fecha de creación", icon: CalendarPlus },
 	{ key: "updated", label: "Última modificación", icon: Clock },
@@ -317,18 +318,25 @@ export function BoardFilterPanel({ filters: f, onChange, people }: Props) {
 							Solo mis tareas
 						</Chip>
 						<Chip
+							icon={CalendarX}
+							active={f.due === "overdue"}
+							onClick={() => set({ due: f.due === "overdue" ? null : "overdue" })}
+						>
+							Vencidas
+						</Chip>
+						<Chip
 							icon={CalendarClock}
 							active={f.due === "thisWeek"}
 							onClick={() => set({ due: f.due === "thisWeek" ? null : "thisWeek" })}
 						>
-							Para entregar esta semana
+							Vencen esta semana
 						</Chip>
 						<Chip
 							icon={CalendarDays}
 							active={f.due === "nextWeek"}
 							onClick={() => set({ due: f.due === "nextWeek" ? null : "nextWeek" })}
 						>
-							Para entregar la próxima semana
+							Vencen la próxima semana
 						</Chip>
 					</div>
 				</div>

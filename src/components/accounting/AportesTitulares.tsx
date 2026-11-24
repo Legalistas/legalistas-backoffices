@@ -189,10 +189,13 @@ export default function AportesTitulares() {
 		});
 
 	const borrar = async () => {
-		if (!borrando?.manualId) return;
+		if (!borrando) return;
 		setBorrandoEnCurso(true);
+		const url = borrando.manualId
+			? `${CLOSINGS_ENDPOINT}/aportes/manuales/${borrando.manualId}`
+			: `${CLOSINGS_ENDPOINT}/aportes/cierres/${borrando.closingId}`;
 		try {
-			const res = await fetch(`${CLOSINGS_ENDPOINT}/aportes/manuales/${borrando.manualId}`, {
+			const res = await fetch(url, {
 				method: "DELETE",
 				headers: { Authorization: `Bearer ${token}` },
 			});
@@ -427,8 +430,10 @@ export default function AportesTitulares() {
 					<AlertDialogHeader>
 						<AlertDialogTitle>¿Borrar el aporte?</AlertDialogTitle>
 						<AlertDialogDescription>
-							{borrando?.causa} · {borrando?.tarjetas[0]?.etiqueta} · {formatARS(borrando?.total ?? 0)}. Se borra
-							también su pago pendiente en Gastos e Ingresos. Si ya se pagó, el pago queda registrado allá.
+							{borrando?.causa} · {borrando?.tarjetas.map((t) => t.etiqueta).join(", ")} ·{" "}
+							{formatARS(borrando?.total ?? 0)}. Se borra también su pago pendiente en Gastos e Ingresos. Si ya
+							se pagó, el pago queda registrado allá.
+							{borrando?.closingId && " El cierre no se modifica."}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
@@ -515,29 +520,27 @@ function DetalleCasos({
 							<td className={cn(montoCls, "font-medium")}>{formatARS(c.total)}</td>
 							<td className="whitespace-nowrap px-2 py-1 text-right">
 								{c.manualId && (
-									<>
-										<Button
-											variant="ghost"
-											size="icon"
-											className="h-7 w-7"
-											aria-label={`Editar el aporte de ${c.causa}`}
-											title="Editar"
-											onClick={() => onEditar(c)}
-										>
-											<Pencil className="h-3.5 w-3.5" />
-										</Button>
-										<Button
-											variant="ghost"
-											size="icon"
-											className="h-7 w-7 text-destructive hover:text-destructive"
-											aria-label={`Borrar el aporte de ${c.causa}`}
-											title="Borrar"
-											onClick={() => onBorrar(c)}
-										>
-											<Trash2 className="h-3.5 w-3.5" />
-										</Button>
-									</>
+									<Button
+										variant="ghost"
+										size="icon"
+										className="h-7 w-7"
+										aria-label={`Editar el aporte de ${c.causa}`}
+										title="Editar"
+										onClick={() => onEditar(c)}
+									>
+										<Pencil className="h-3.5 w-3.5" />
+									</Button>
 								)}
+								<Button
+									variant="ghost"
+									size="icon"
+									className="h-7 w-7 text-destructive hover:text-destructive"
+									aria-label={`Borrar el aporte de ${c.causa}`}
+									title="Borrar"
+									onClick={() => onBorrar(c)}
+								>
+									<Trash2 className="h-3.5 w-3.5" />
+								</Button>
 							</td>
 						</tr>
 					))}

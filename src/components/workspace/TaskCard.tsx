@@ -237,7 +237,7 @@ export function TaskCard({ task, people, myId, onOpen, actions, onLike, expanded
 								<ul className="py-1">
 									{(
 										[
-											["due", "Fecha de entrega", CalendarDays],
+											["due", "Fecha de vencimiento", CalendarDays],
 											["assignee", "Responsable", UserRound],
 											["priority", "Prioridad", Flag],
 										] as const
@@ -345,8 +345,8 @@ export function TaskCard({ task, people, myId, onOpen, actions, onLike, expanded
 							<button
 								type="button"
 								onClick={stop()}
-								aria-label="Fecha de entrega"
-								title="Fecha de entrega"
+								aria-label="Fecha de vencimiento"
+								title="Fecha de vencimiento"
 								className={cn(dashedIcon, onHover)}
 							>
 								<CalendarDays className="size-3.5" />

@@ -117,8 +117,8 @@ export function TaskComposer({ people, onCreate, onClose }: Props) {
 					<PopoverTrigger asChild>
 						<button
 							type="button"
-							aria-label="Fecha de entrega"
-							title="Fecha de entrega"
+							aria-label="Fecha de vencimiento"
+							title="Fecha de vencimiento"
 							className={
 								due
 									? "inline-flex h-7 items-center gap-1 rounded-full border border-border px-2 text-xs tabular-nums text-foreground"

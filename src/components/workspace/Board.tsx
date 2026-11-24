@@ -81,7 +81,7 @@ import { TaskDetailSheet } from "./TaskDetailSheet";
 
 const SORT_OPTIONS: { key: SortKey; label: string; icon: typeof Clock }[] = [
 	{ key: "manual", label: "Sin ordenar (a mano)", icon: GripVertical },
-	{ key: "due", label: "Fecha de entrega", icon: CalendarDays },
+	{ key: "due", label: "Fecha de vencimiento", icon: CalendarDays },
 	{ key: "assignee", label: "Responsable", icon: UserRound },
 	{ key: "creator", label: "Creador", icon: UserRoundPen },
 	{ key: "created", label: "Fecha de creación", icon: CalendarPlus },
@@ -101,6 +101,17 @@ const readCollapsed = (projectId: number): number[] => {
 		return JSON.parse(localStorage.getItem(collapsedKey(projectId)) ?? "[]");
 	} catch {
 		return [];
+	}
+};
+
+/** The chosen order (e.g. by due date) too: it stays when coming back to the board. */
+const sortKey = (projectId: number) => `workspace-sort-${projectId}`;
+const readSort = (projectId: number): SortKey => {
+	try {
+		const saved = localStorage.getItem(sortKey(projectId));
+		return saved && saved in SORTERS ? (saved as SortKey) : "manual";
+	} catch {
+		return "manual";
 	}
 };
 
@@ -170,7 +181,17 @@ export default function Board({ projectId }: { projectId: number }) {
 
 	useEffect(() => {
 		setCollapsed(readCollapsed(projectId));
+		setSort(readSort(projectId));
 	}, [projectId]);
+
+	const chooseSort = (next: SortKey) => {
+		setSort(next);
+		try {
+			localStorage.setItem(sortKey(projectId), next);
+		} catch {
+			// Private mode or blocked storage: it just won't be remembered.
+		}
+	};
 
 	const saveCollapsed = useCallback(
 		(next: number[]) => {
@@ -330,11 +351,36 @@ export default function Board({ projectId }: { projectId: number }) {
 
 	const cardActions: CardActions = {
 		toggle: async (id, completed) => {
-			if ((await patchCard(id, { completed })) && completed) {
-				toast.success("Marcada como hecha", {
-					action: { label: "Deshacer", onClick: () => patchCard(id, { completed: false }) },
-				});
-			}
+			const before = board?.tasks.find((t) => t.id === id);
+			let movedTo: number | null = null;
+			const ok = await saveCard(id, async () => {
+				const card = await workspaceFetch<WorkCard>(`/tasks/${id}`, token, { method: "PATCH", json: { completed } });
+				if (before && card.columnId !== before.columnId) movedTo = card.columnId;
+				return card;
+			});
+			if (!ok || !completed) return;
+			const doneName = board?.columns.find((c) => c.id === movedTo)?.name;
+			toast.success(doneName ? `Marcada como hecha y pasada a "${doneName}"` : "Marcada como hecha", {
+				action: {
+					label: "Deshacer",
+					// Completing moved it to the done column: moving it back also reopens it.
+					onClick: () =>
+						movedTo && before?.columnId
+							? saveCard(id, () =>
+									workspaceFetch<WorkCard>(`/tasks/${id}/move`, token, {
+										method: "POST",
+										json: {
+											columnId: before.columnId,
+											index: board?.tasks.filter(
+												(t) =>
+													t.columnId === before.columnId && t.id !== id && t.position < before.position,
+											).length,
+										},
+									}),
+								)
+							: patchCard(id, { completed: false }),
+				},
+			});
 		},
 		rename: (id, title) => patchCard(id, { title }),
 		setDue: (id, dueDate) => patchCard(id, { dueDate }),
@@ -769,7 +815,7 @@ export default function Board({ projectId }: { projectId: number }) {
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-60">
 							{SORT_OPTIONS.map(({ key, label, icon: Icon }) => (
-								<DropdownMenuItem key={key} onSelect={() => setSort(key)}>
+								<DropdownMenuItem key={key} onSelect={() => chooseSort(key)}>
 									<Icon className="size-4" />
 									<span className="flex-1">{label}</span>
 									{sort === key && <Check className="size-4" />}

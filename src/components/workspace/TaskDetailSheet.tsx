@@ -916,7 +916,7 @@ export function TaskDetailSheet({
 										)}
 									</Row>
 
-									<Row label="Fecha de entrega">
+									<Row label="Fecha de vencimiento">
 										<Popover open={picker === "due"} onOpenChange={(o) => setPicker(o ? "due" : null)}>
 											<PopoverTrigger asChild disabled={!canEdit}>
 												<button
@@ -933,7 +933,7 @@ export function TaskDetailSheet({
 													<span className={task.dueDate ? "grid size-7 place-items-center" : dashedIcon}>
 														<CalendarDays className="size-3.5" />
 													</span>
-													{task.dueDate ? formatDay(task.dueDate) : "Sin fecha de entrega"}
+													{task.dueDate ? formatDay(task.dueDate) : "Sin fecha de vencimiento"}
 												</button>
 											</PopoverTrigger>
 											<PopoverContent className="w-auto p-0" align="start">

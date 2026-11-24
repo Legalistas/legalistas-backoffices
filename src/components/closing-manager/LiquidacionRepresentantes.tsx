@@ -37,9 +37,12 @@ interface Caso {
 	tipo: string;
 	capital: number;
 	facturado: number;
+	cuotaLitis: number;
+	/** Her share of HP + CL. */
 	ingresos: number;
 	aportes: { demandada: number; abogado: number; legalistas: number; subtotal: number };
-	total: number;
+	/** What she keeps: her share minus her aportes. */
+	leQueda: number;
 	pendiente: number;
 	estado: "COBRADO" | "PENDIENTE";
 }
@@ -48,12 +51,13 @@ interface Totales {
 	casos: number;
 	capital: number;
 	facturado: number;
+	cuotaLitis: number;
 	ingresos: number;
 	demandada: number;
 	abogado: number;
 	legalistas: number;
 	aportes: number;
-	total: number;
+	leQueda: number;
 	pendiente: number;
 }
 
@@ -82,11 +86,12 @@ interface Respuesta {
 }
 
 const COLUMNAS = [
-	"Fecha", "Causa", "Tipo", "Capital", "Honorarios", "Cuota Litis",
-	"Ap. demandada", "Ap. abogado/a", "Ap. Legalistas", "Subtotal aportes", "Total", "Estado",
+	"Fecha", "Causa", "Tipo", "Capital", "Honorarios", "Cuota Litis", "Parte repres.",
+	"Ap. demandada", "Ap. abogado/a", "Ap. Legalistas", "Subtotal aportes", "Le queda al repres.", "Estado",
 ];
-/** Columns with amounts in COLUMNAS. */
-const MONTOS = [3, 4, 5, 6, 7, 8, 9, 10];
+/** Columns with amounts in COLUMNAS (from the 4th to the one before Estado). */
+const MONTOS = [3, 4, 5, 6, 7, 8, 9, 10, 11];
+const FIN_MONTOS = 12;
 
 const valoresCaso = (c: Caso): Celda[] => [
 	formatFecha(c.fecha),
@@ -94,17 +99,18 @@ const valoresCaso = (c: Caso): Celda[] => [
 	c.tipo,
 	c.capital,
 	c.facturado,
+	c.cuotaLitis,
 	c.ingresos,
 	c.aportes.demandada,
 	c.aportes.abogado,
 	c.aportes.legalistas,
 	c.aportes.subtotal,
-	c.total,
+	c.leQueda,
 	c.estado,
 ];
 const valoresTotales = (t: Totales): Celda[] => [
-	"Subtotales", "", "", t.capital, t.facturado, t.ingresos,
-	t.demandada, t.abogado, t.legalistas, t.aportes, t.total, "",
+	"Subtotales", "", "", t.capital, t.facturado, t.cuotaLitis, t.ingresos,
+	t.demandada, t.abogado, t.legalistas, t.aportes, t.leQueda, "",
 ];
 
 const ESTADO_STYLE: Record<Caso["estado"], string> = {
@@ -210,9 +216,9 @@ export default function LiquidacionRepresentantes() {
 					resumen: totales
 						? [
 								{ etiqueta: "Honorarios", valor: formatARS(totales.facturado) },
-								{ etiqueta: "Cuota Litis", valor: formatARS(totales.ingresos) },
+								{ etiqueta: "Cuota Litis", valor: formatARS(totales.cuotaLitis) },
+								{ etiqueta: "Le queda a los representantes", valor: formatARS(totales.leQueda) },
 								{ etiqueta: "Pendiente de cobro", valor: formatARS(totales.pendiente) },
-								{ etiqueta: "Aportes + Cuota Litis", valor: formatARS(totales.total) },
 							]
 						: [],
 				});
@@ -230,7 +236,8 @@ export default function LiquidacionRepresentantes() {
 				<div>
 					<h1 className="text-2xl font-semibold text-foreground">Liquidación de representantes</h1>
 					<p className="text-sm text-muted-foreground">
-						Sale del Gestor de Cierres: un cierre por fila, con sus honorarios y cuota litis
+						Sale del Gestor de Cierres: un cierre por fila, con honorarios, cuota litis y lo que le queda
+						al representante. Cuando se cobra su parte, le llega el aviso en la campana.
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
@@ -307,16 +314,23 @@ export default function LiquidacionRepresentantes() {
 			{totales && (
 				<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
 					<KpiCard
-						label="Honorarios representantes"
+						label="Honorarios"
 						amount={totales.facturado}
-						hint={`${totales.casos} cierres`}
+						hint={`${totales.casos} cierres de representantes`}
 						tone="teal"
 						icon={<Receipt className="h-5 w-5" />}
 					/>
 					<KpiCard
-						label="Cuota Litis representantes"
-						amount={totales.ingresos}
-						hint="Su parte de HP + cuota litis"
+						label="Cuota Litis"
+						amount={totales.cuotaLitis}
+						hint="De esos cierres"
+						tone="teal"
+						icon={<Sigma className="h-5 w-5" />}
+					/>
+					<KpiCard
+						label="Le queda a los representantes"
+						amount={totales.leQueda}
+						hint={`Su parte ${formatARS(totales.ingresos)} − sus aportes ${formatARS(totales.abogado)}`}
 						tone="emerald"
 						icon={<Wallet className="h-5 w-5" />}
 					/>
@@ -330,16 +344,9 @@ export default function LiquidacionRepresentantes() {
 					<KpiCard
 						label="Pendiente de cobro"
 						amount={totales.pendiente}
-						hint="Cuota Litis sin cobrar"
+						hint="Parte de los representantes sin cobrar"
 						tone="amber"
 						icon={<CalendarClock className="h-5 w-5" />}
-					/>
-					<KpiCard
-						label="Aportes + Cuota Litis"
-						amount={totales.total}
-						hint="Total de la liquidación"
-						tone="emerald"
-						icon={<Sigma className="h-5 w-5" />}
 					/>
 				</div>
 			)}
@@ -367,8 +374,8 @@ export default function LiquidacionRepresentantes() {
 									<th className={cn(th, "text-right")}>Cierres</th>
 									<th className={cn(th, "text-right")}>Honorarios</th>
 									<th className={cn(th, "text-right")}>Cuota Litis</th>
+									<th className={cn(th, "text-right")}>Le queda</th>
 									<th className={cn(th, "text-right")}>Aportes</th>
-									<th className={cn(th, "text-right")}>Total</th>
 									<th className={cn(th, "text-right")}>Pendiente</th>
 								</tr>
 							</thead>
@@ -427,9 +434,9 @@ export default function LiquidacionRepresentantes() {
 												)}
 												<td className={montoCls}>{r.totales.casos}</td>
 												<td className={montoCls}>{formatARS(r.totales.facturado)}</td>
-												<td className={montoCls}>{formatARS(r.totales.ingresos)}</td>
+												<td className={montoCls}>{formatARS(r.totales.cuotaLitis)}</td>
+												<td className={cn(montoCls, "font-medium")}>{formatARS(r.totales.leQueda)}</td>
 												<td className={montoCls}>{formatARS(r.totales.aportes)}</td>
-												<td className={cn(montoCls, "font-medium")}>{formatARS(r.totales.total)}</td>
 												<td className={cn(montoCls, r.totales.pendiente > 0 && "text-amber-700")}>
 													{r.totales.pendiente ? formatARS(r.totales.pendiente) : "–"}
 												</td>
@@ -484,7 +491,7 @@ function DetalleCasos({ casos, totales }: { casos: Caso[]; totales: Totales }) {
 							</td>
 							<td className="px-3 py-2">{c.tipo}</td>
 							{valoresCaso(c)
-								.slice(3, 11)
+								.slice(3, FIN_MONTOS)
 								.map((v, i) => (
 									<td key={COLUMNAS[i + 3]} className={montoCls}>
 										{formatARS(Number(v))}
@@ -509,7 +516,7 @@ function DetalleCasos({ casos, totales }: { casos: Caso[]; totales: Totales }) {
 							Subtotales
 						</td>
 						{valoresTotales(totales)
-							.slice(3, 11)
+							.slice(3, FIN_MONTOS)
 							.map((v, i) => (
 								<td key={COLUMNAS[i + 3]} className={montoCls}>
 									{formatARS(Number(v))}
