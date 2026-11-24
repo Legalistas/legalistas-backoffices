@@ -2,6 +2,7 @@
 // La Planilla puede pedirse en modo "year" (12 columnas mensuales, default
 // histórico) o "month-weeks" (4-6 columnas semanales del mes elegido).
 
+import type { KpiMatrixRow, KpiMatrixSection } from "@/types/kpi";
 import { findWeekIndex, weekRangesOfMonth } from "./weekRanges";
 
 export type PeriodMode =
@@ -23,6 +24,8 @@ export interface PeriodAxis {
 	queries: string[];
 	/** Genera un array de `size` posiciones inicializado en 0. */
 	zeros: () => (number | null)[];
+	/** Columnas cuyo período ya empezó; las siguientes todavía no tienen datos. */
+	elapsed: number;
 	/**
 	 * Dado un periodStart en formato YYYY-MM-DD (de un manual KPI), devuelve
 	 * el índice de la columna en la que debe caer, o -1 si queda fuera.
@@ -45,6 +48,7 @@ export function buildPeriodAxis(year: number, mode: PeriodMode): PeriodAxis {
 			labels: ranges.map((r) => r.label),
 			queries: ranges.map((r) => `week=${r.weekNumber}&year=${r.isoYear}`),
 			zeros: () => new Array(size).fill(0),
+			elapsed: ranges.filter((r) => r.monday <= new Date()).length,
 			bucketIndex: (iso) => findWeekIndex(ranges, iso),
 			from: ranges[0]?.mondayISO ?? `${year}-01-01`,
 			to: ranges[size - 1]?.sundayISO ?? `${year}-12-31`,
@@ -70,8 +74,37 @@ export function buildPeriodAxis(year: number, mode: PeriodMode): PeriodAxis {
 		],
 		queries: Array.from({ length: 12 }, (_, i) => `month=${i + 1}&year=${year}`),
 		zeros: () => new Array(12).fill(0),
+		elapsed: Math.min(
+			12,
+			Math.max(
+				0,
+				(new Date().getFullYear() - year) * 12 + new Date().getMonth() + 1,
+			),
+		),
 		bucketIndex: (iso) => Number(iso.slice(5, 7)) - 1,
 		from: `${year}-01-01`,
 		to: `${year}-12-31`,
 	};
+}
+
+/**
+ * Deja en null las columnas de períodos que todavía no empezaron. Si quedan
+ * en 0, el VMA (último mes con dato vs el anterior) compara contra ellas.
+ */
+export function blankFuturePeriods(
+	sections: KpiMatrixSection[],
+	elapsed: number,
+): KpiMatrixSection[] {
+	const blank = (row: KpiMatrixRow): KpiMatrixRow => ({
+		...row,
+		monthlyValues: row.monthlyValues.map((v, i) => (i < elapsed ? v : null)),
+		subRows: row.subRows?.map(blank),
+	});
+	return sections.map((s) => ({
+		...s,
+		subSections: s.subSections.map((sub) => ({
+			...sub,
+			rows: sub.rows.map(blank),
+		})),
+	}));
 }

@@ -13,7 +13,11 @@ import type {
 	KpiResponse,
 	ManualKpiEntry,
 } from "@/types/kpi";
-import { buildPeriodAxis, type PeriodMode } from "./periodMode";
+import {
+	blankFuturePeriods,
+	buildPeriodAxis,
+	type PeriodMode,
+} from "./periodMode";
 
 // ─── Helpers ──────────────────────────────────────────────────────────
 
@@ -252,6 +256,11 @@ export function useKpiMatrixData(
 					(manual("legal_telegrams_tratamiento")[i] ?? 0),
 			);
 
+			// Valores del momento (sin movimiento, negociaciones activas, tasa de
+			// éxito): el acumulado es el último dato, no la suma de los meses.
+			const ultimo = (vs: (number | null)[]) =>
+				vs.slice(0, axis.elapsed).findLast((v) => v !== null) ?? null;
+
 			// Sub-filas por abogado interno (todas comparten la misma lista).
 			const internalLawyersSorted = Array.from(internalLawyerMap.entries())
 				.map(([userId, l]) => ({ userId, ...l }))
@@ -337,12 +346,14 @@ export function useKpiMatrixData(
 									label: "Casos sin movimientos por más de 60 días",
 									format: "number",
 									monthlyValues: casosSinMov60,
+									accumulated: ultimo(casosSinMov60),
 								},
 								{
 									key: "casos-sin-mov-90",
 									label: "Casos sin movimientos por más de 90 días",
 									format: "number",
 									monthlyValues: casosSinMov90,
+									accumulated: ultimo(casosSinMov90),
 								},
 								{
 									key: "casos-total",
@@ -355,6 +366,7 @@ export function useKpiMatrixData(
 									label: "Cantidad de causas en negociación (activas)",
 									format: "number",
 									monthlyValues: negocActivas,
+									accumulated: ultimo(negocActivas),
 								},
 								{
 									key: "neg-iniciadas",
@@ -367,6 +379,7 @@ export function useKpiMatrixData(
 									label: "Tasa de éxito en negociaciones",
 									format: "percent",
 									monthlyValues: tasaExito,
+									accumulated: ultimo(tasaExito),
 								},
 							],
 						},
@@ -711,7 +724,7 @@ export function useKpiMatrixData(
 				},
 			];
 
-			setSections(matrix);
+			setSections(blankFuturePeriods(matrix, axis.elapsed));
 		} catch (err) {
 			console.error("Error loading KPI matrix:", err);
 			setError("No se pudieron cargar los KPIs");

@@ -59,7 +59,8 @@ interface KpiMatrixProps {
 // ─── Formatters ────────────────────────────────────────────────────────
 
 function formatValue(value: number | null, format: KpiFormat = "number") {
-	if (value === null || value === undefined || Number.isNaN(value)) return "0";
+	// Sin dato (período futuro o sin foto guardada): no es un 0.
+	if (value === null || value === undefined || Number.isNaN(value)) return "—";
 	if (format === "currency") {
 		return new Intl.NumberFormat("es-AR", {
 			style: "currency",
@@ -80,19 +81,17 @@ function formatPercent(value: number | null) {
 	return `${sign}${value.toFixed(2)}%`;
 }
 
+const hasValue = (v: number | null | undefined): v is number =>
+	v !== null && v !== undefined && !Number.isNaN(v);
+
+// Último período con dato vs el período inmediatamente anterior (no el
+// anterior con dato: si ese falta, no hay variación que mostrar).
 function computeVMA(monthlyValues: (number | null)[]): number | null {
-	const withData: { i: number; v: number }[] = [];
-	for (let i = 0; i < monthlyValues.length; i++) {
-		const v = monthlyValues[i];
-		if (v !== null && v !== undefined && !Number.isNaN(v)) {
-			withData.push({ i, v });
-		}
-	}
-	if (withData.length < 2) return null;
-	const last = withData[withData.length - 1];
-	const prev = withData[withData.length - 2];
-	if (!prev || !last || prev.v === 0) return null;
-	return ((last.v - prev.v) / Math.abs(prev.v)) * 100;
+	const i = monthlyValues.findLastIndex(hasValue);
+	const last = monthlyValues[i];
+	const prev = monthlyValues[i - 1];
+	if (i < 1 || !hasValue(last) || !hasValue(prev) || prev === 0) return null;
+	return ((last - prev) / Math.abs(prev)) * 100;
 }
 
 function computeAccumulated(monthlyValues: (number | null)[]) {

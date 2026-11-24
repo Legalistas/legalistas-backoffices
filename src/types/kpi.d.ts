@@ -105,18 +105,20 @@ export interface KpiLegalData {
 		cobradasInterno: number;
 		cobradasReps: number;
 	};
+	// Valores del momento: en vivo para el período en curso, la foto guardada
+	// para uno cerrado; null = período sin foto o futuro.
 	negociaciones: {
-		activas: number;
+		activas: number | null;
 		iniciadas: number;
 		porEstado: Record<
 			"INICIAR" | "JMP" | "CURSO" | "SUSPENSO" | "FINALIZADAS" | "PERDIDAS",
 			number
-		>;
-		tasaExito: number;
+		> | null;
+		tasaExito: number | null;
 	};
 	causasSinMovimiento: {
-		count60Dias: number;
-		count90Dias: number;
+		count60Dias: number | null;
+		count90Dias: number | null;
 	};
 	representantes: {
 		totalActivos: number;

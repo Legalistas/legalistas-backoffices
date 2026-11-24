@@ -11,7 +11,11 @@ import type {
 	KpiResponse,
 	ManualKpiEntry,
 } from "@/types/kpi";
-import { buildPeriodAxis, type PeriodMode } from "./periodMode";
+import {
+	blankFuturePeriods,
+	buildPeriodAxis,
+	type PeriodMode,
+} from "./periodMode";
 
 // ─── Response del backend ─────────────────────────────────────────────
 
@@ -555,7 +559,7 @@ export function useMarketingKpiMatrix(
 				},
 			];
 
-			setSections(matrix);
+			setSections(blankFuturePeriods(matrix, axis.elapsed));
 		} catch (err) {
 			console.error("Error loading Marketing KPI matrix:", err);
 			setError("No se pudieron cargar los KPIs de Marketing");

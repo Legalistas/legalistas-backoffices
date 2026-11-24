@@ -13,7 +13,11 @@ import type {
 	KpiResponse,
 	ManualKpiEntry,
 } from "@/types/kpi";
-import { buildPeriodAxis, type PeriodMode } from "./periodMode";
+import {
+	blankFuturePeriods,
+	buildPeriodAxis,
+	type PeriodMode,
+} from "./periodMode";
 
 // ─────────────────────────────────────────────────────────────────────────
 // Planilla de KPIs de Ventas.
@@ -653,7 +657,7 @@ export function useSalesKpiMatrix(
 				},
 			];
 
-			setSections(matrix);
+			setSections(blankFuturePeriods(matrix, axis.elapsed));
 		} catch (err) {
 			console.error("Error loading Sales KPI matrix:", err);
 			setError("No se pudieron cargar los KPIs de Ventas");
