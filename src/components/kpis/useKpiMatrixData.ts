@@ -89,53 +89,14 @@ export function useKpiMatrixData(
 			const manualEntries = manualResp?.entries ?? [];
 
 			// ── Extraer valores mensuales del backend ───────────────────
+			// Solo las métricas estratégicas: las operativas se cargan a mano.
 			const cierres = ZEROS();
-			const cierresJudiciales = ZEROS();
-			const cierresSrt = ZEROS();
-			const cierresExtrajudiciales = ZEROS();
-			const cierresRafaela = ZEROS();
 			const cierresReps = ZEROS();
 			const capitalTotal = ZEROS();
-			const capitalRafaela = ZEROS();
 			const capitalReps = ZEROS();
-			const ticketPromedio = ZEROS();
-			const pctSobreActivas = ZEROS();
-			const cobradasInterno = ZEROS();
-			const cobradasReps = ZEROS();
 
-			const ingresosTotal = ZEROS();
-			const ingresosJudiciales = ZEROS();
-			const ingresosSrt = ZEROS();
-			const ingresosRafaela = ZEROS();
-			const ingresosReps = ZEROS();
-
-			const negocActivas = ZEROS();
-			const negocIniciadas = ZEROS();
-			const tasaExito = ZEROS();
-
-			const casosSinMov60 = ZEROS();
-			const casosSinMov90 = ZEROS();
-
-			const repsTotal = ZEROS();
-			const repsNuevos = ZEROS();
-			const reunionesReps = ZEROS();
-
-			const consultasBO = ZEROS();
-
-			// Sub-filas dinámicas por abogado interno.
-			const internalLawyerMap = new Map<
-				number,
-				{
-					name: string;
-					causasActivas: (number | null)[];
-					ingresos: (number | null)[];
-					cierres: (number | null)[];
-					capitalCerrado: (number | null)[];
-					ticketPromedio: (number | null)[];
-					reunionesRealizadas: (number | null)[];
-					tasaConversion: (number | null)[];
-				}
-			>();
+			// Abogados internos (para las sub-filas por abogado).
+			const internalLawyerNames = new Map<number, string>();
 
 			for (let i = 0; i < axis.size; i++) {
 				const result = legalResults[i];
@@ -143,68 +104,16 @@ export function useKpiMatrixData(
 				const d = result.data;
 
 				cierres[i] = d.cierres.total;
-				cierresJudiciales[i] = d.cierres.judiciales;
-				cierresSrt[i] = d.cierres.srt;
-				cierresExtrajudiciales[i] = d.cierres.extrajudiciales;
-				cierresRafaela[i] = d.cierres.rafaela;
 				cierresReps[i] = d.cierres.representantes;
 				capitalTotal[i] = d.cierres.capitalTotal;
-				capitalRafaela[i] = d.cierres.capitalRafaela;
 				capitalReps[i] = d.cierres.capitalRepresentantes;
-				ticketPromedio[i] = d.cierres.ticketPromedio;
-				pctSobreActivas[i] = d.cierres.porcentajeSobreActivas;
-				cobradasInterno[i] = d.cierres.cobradasInterno;
-				cobradasReps[i] = d.cierres.cobradasReps;
 
-				ingresosTotal[i] = d.ingresos.total;
-				ingresosJudiciales[i] = d.ingresos.judiciales;
-				ingresosSrt[i] = d.ingresos.srt;
-				ingresosRafaela[i] = d.ingresos.rafaela;
-				ingresosReps[i] = d.ingresos.representantes;
-
-				negocActivas[i] = d.negociaciones.activas;
-				negocIniciadas[i] = d.negociaciones.iniciadas;
-				tasaExito[i] = d.negociaciones.tasaExito;
-
-				casosSinMov60[i] = d.causasSinMovimiento.count60Dias;
-				casosSinMov90[i] = d.causasSinMovimiento.count90Dias;
-
-				repsTotal[i] = d.representantes.totalActivos;
-				repsNuevos[i] = d.representantes.nuevosDelPeriodo;
-				reunionesReps[i] = d.representantes.reunionesRealizadas;
-
-				consultasBO[i] = d.cx.consultasBO;
-
-				// Vista por abogado interno: acumular por mes.
 				for (const lawyer of d.porAbogadoInterno) {
-					if (!internalLawyerMap.has(lawyer.userId)) {
-						internalLawyerMap.set(lawyer.userId, {
-							name: lawyer.name,
-							causasActivas: ZEROS(),
-							ingresos: ZEROS(),
-							cierres: ZEROS(),
-							capitalCerrado: ZEROS(),
-							ticketPromedio: ZEROS(),
-							reunionesRealizadas: ZEROS(),
-							tasaConversion: ZEROS(),
-						});
-					}
-					const entry = internalLawyerMap.get(lawyer.userId);
-					if (!entry) continue;
-					entry.causasActivas[i] = lawyer.causasActivas;
-					entry.ingresos[i] = lawyer.ingresos;
-					entry.cierres[i] = lawyer.cierres;
-					entry.capitalCerrado[i] = lawyer.capitalCerrado;
-					entry.ticketPromedio[i] = lawyer.ticketPromedio;
-					entry.reunionesRealizadas[i] = lawyer.reunionesRealizadas;
-					entry.tasaConversion[i] = lawyer.tasaConversion;
+					internalLawyerNames.set(lawyer.userId, lawyer.name);
 				}
 			}
 
-			// ── Manuales — solo los 11 realmente manuales ───────────────
-			// Ya no hay lecturas "manual(legal_cierres_*)" etc — todo viene
-			// del backend arriba. Los únicos manuales acá son los que están
-			// en el catálogo: 4 sales + 6 legales + 1 cx.
+			// ── Manuales (catálogo MANUAL_KPIS del backend) ─────────────
 			const manualByKey = new Map<string, (number | null)[]>();
 			const manualByKeyUser = new Map<
 				string,
@@ -261,57 +170,45 @@ export function useKpiMatrixData(
 			const ultimo = (vs: (number | null)[]) =>
 				vs.slice(0, axis.elapsed).findLast((v) => v !== null) ?? null;
 
-			// Métricas operativas: además de automáticas son editables; lo cargado
-			// a mano (KPI manual "legal_ajuste_<clave>") se suma al automático.
-			const ajustado = (
-				clave: string,
-				auto: (number | null)[],
-				userId?: number,
-			) => {
+			// Métricas operativas: manuales (24/11/2026, pedido de Legales). Arrancan
+			// en 0 y se cargan en la planilla con las claves "legal_ajuste_<clave>".
+			const cargaManual = (clave: string, userId?: number) => {
 				const sourceKey = `legal_ajuste_${clave}`;
-				const cargado =
-					userId === undefined
-						? manual(sourceKey)
-						: (manualByKeyUser.get(sourceKey)?.get(userId)?.monthly ?? ZEROS());
 				return {
 					editable: true,
 					sourceKey,
 					sourceUserId: userId,
-					autoValues: auto,
-					monthlyValues: auto.map((v, i) => {
-						const m = cargado[i] ?? 0;
-						return v === null && m === 0 ? null : (v ?? 0) + m;
-					}),
+					monthlyValues:
+						userId === undefined
+							? manual(sourceKey)
+							: (manualByKeyUser.get(sourceKey)?.get(userId)?.monthly ??
+								ZEROS()),
 				};
 			};
-			const aSinMov60 = ajustado("casos_sin_mov_60", casosSinMov60);
-			const aSinMov90 = ajustado("casos_sin_mov_90", casosSinMov90);
+			const mSinMov60 = cargaManual("casos_sin_mov_60");
+			const mSinMov90 = cargaManual("casos_sin_mov_90");
 			// Mismo dato en "Control del sistema legal" e "Impacto en ingresos".
-			const aIngresosTotal = ajustado("ingresos_total", ingresosTotal);
-			const aNegocActivas = ajustado("negociaciones_activas", negocActivas);
-			const aTasaExito = ajustado("tasa_exito", tasaExito);
-			const aCobradasInterno = ajustado("cobradas_interno", cobradasInterno);
-			const aCobradasReps = ajustado("cobradas_reps", cobradasReps);
+			const mIngresosTotal = cargaManual("ingresos_total");
+			const mNegocActivas = cargaManual("negociaciones_activas");
+			const mTasaExito = cargaManual("tasa_exito");
+			const mCobradasInterno = cargaManual("cobradas_interno");
+			const mCobradasReps = cargaManual("cobradas_reps");
 
 			// Sub-filas por abogado interno (todas comparten la misma lista).
-			const internalLawyersSorted = Array.from(internalLawyerMap.entries())
-				.map(([userId, l]) => ({ userId, ...l }))
+			const internalLawyersSorted = Array.from(internalLawyerNames.entries())
+				.map(([userId, name]) => ({ userId, name }))
 				.sort((a, b) => a.name.localeCompare(b.name));
 
 			const buildLawyerSubRows = (
-				fieldKey: keyof (typeof internalLawyersSorted)[number],
+				campo: string,
 				format: "number" | "currency" | "percent" = "number",
 			): KpiMatrixRow[] =>
 				internalLawyersSorted.map((l) => ({
-					key: `${String(fieldKey)}-${l.userId}`,
+					key: `${campo}-${l.userId}`,
 					label: l.name,
 					indentLevel: 2,
 					format,
-					...ajustado(
-						`abogado_${String(fieldKey)}`,
-						l[fieldKey] as (number | null)[],
-						l.userId,
-					),
+					...cargaManual(`abogado_${campo}`, l.userId),
 				}));
 
 			// ── Armar secciones ─────────────────────────────────────────
@@ -381,41 +278,41 @@ export function useKpiMatrixData(
 									key: "casos-sin-mov-60",
 									label: "Casos sin movimientos por más de 60 días",
 									format: "number",
-									...aSinMov60,
-									accumulated: ultimo(aSinMov60.monthlyValues),
+									...mSinMov60,
+									accumulated: ultimo(mSinMov60.monthlyValues),
 								},
 								{
 									key: "casos-sin-mov-90",
 									label: "Casos sin movimientos por más de 90 días",
 									format: "number",
-									...aSinMov90,
-									accumulated: ultimo(aSinMov90.monthlyValues),
+									...mSinMov90,
+									accumulated: ultimo(mSinMov90.monthlyValues),
 								},
 								{
 									key: "casos-total",
 									label: "Cantidad de casos legalistas (ingresos del período)",
 									format: "number",
-									...aIngresosTotal,
+									...mIngresosTotal,
 								},
 								{
 									key: "causas-neg",
 									label: "Cantidad de causas en negociación (activas)",
 									format: "number",
-									...aNegocActivas,
-									accumulated: ultimo(aNegocActivas.monthlyValues),
+									...mNegocActivas,
+									accumulated: ultimo(mNegocActivas.monthlyValues),
 								},
 								{
 									key: "neg-iniciadas",
 									label: "Negociaciones iniciadas en el período",
 									format: "number",
-									...ajustado("negociaciones_iniciadas", negocIniciadas),
+									...cargaManual("negociaciones_iniciadas"),
 								},
 								{
 									key: "neg-tasa-exito",
 									label: "Tasa de éxito en negociaciones",
 									format: "percent",
-									...aTasaExito,
-									accumulated: ultimo(aTasaExito.monthlyValues),
+									...mTasaExito,
+									accumulated: ultimo(mTasaExito.monthlyValues),
 								},
 							],
 						},
@@ -427,31 +324,31 @@ export function useKpiMatrixData(
 									key: "ing-casos-nuevos",
 									label: "Ingresos de casos nuevos",
 									format: "number",
-									...aIngresosTotal,
+									...mIngresosTotal,
 								},
 								{
 									key: "ing-judiciales",
 									label: "Ingresos judiciales",
 									format: "number",
-									...ajustado("ingresos_judiciales", ingresosJudiciales),
+									...cargaManual("ingresos_judiciales"),
 								},
 								{
 									key: "ing-srt",
 									label: "Ingresos SRT",
 									format: "number",
-									...ajustado("ingresos_srt", ingresosSrt),
+									...cargaManual("ingresos_srt"),
 								},
 								{
 									key: "ing-rafaela",
 									label: "Rafaela",
 									format: "number",
-									...ajustado("ingresos_rafaela", ingresosRafaela),
+									...cargaManual("ingresos_rafaela"),
 								},
 								{
 									key: "ing-reps",
 									label: "Representantes",
 									format: "number",
-									...ajustado("ingresos_reps", ingresosReps),
+									...cargaManual("ingresos_reps"),
 								},
 							],
 						},
@@ -463,39 +360,39 @@ export function useKpiMatrixData(
 									key: "c-jud",
 									label: "Cierres judiciales",
 									format: "number",
-									...ajustado("cierres_judiciales", cierresJudiciales),
+									...cargaManual("cierres_judiciales"),
 								},
 								{
 									key: "c-srt",
 									label: "Cierres SRT",
 									format: "number",
-									...ajustado("cierres_srt", cierresSrt),
+									...cargaManual("cierres_srt"),
 								},
 								{
 									key: "c-extra",
 									label: "Cierres extrajudiciales",
 									format: "number",
-									...ajustado("cierres_extrajudiciales", cierresExtrajudiciales),
+									...cargaManual("cierres_extrajudiciales"),
 								},
 								{
 									key: "c-rafa",
 									label: "Cierres Rafaela",
 									format: "number",
-									...ajustado("cierres_rafaela", cierresRafaela),
+									...cargaManual("cierres_rafaela"),
 								},
 								{
 									key: "capital-rafa",
 									label: "Capital Rafaela",
 									format: "currency",
-									...ajustado("capital_rafaela", capitalRafaela),
+									...cargaManual("capital_rafaela"),
 								},
 								{
 									// Total = Interno + Representantes, con lo cargado a mano en cada una.
 									key: "cobradas",
 									label: "Cantidad de causas cobradas",
 									format: "number",
-									monthlyValues: aCobradasInterno.monthlyValues.map(
-										(v, i) => (v ?? 0) + (aCobradasReps.monthlyValues[i] ?? 0),
+									monthlyValues: mCobradasInterno.monthlyValues.map(
+										(v, i) => (v ?? 0) + (mCobradasReps.monthlyValues[i] ?? 0),
 									),
 									subRows: [
 										{
@@ -503,14 +400,14 @@ export function useKpiMatrixData(
 											label: "Interno",
 											indentLevel: 2,
 											format: "number",
-											...aCobradasInterno,
+											...mCobradasInterno,
 										},
 										{
 											key: "cobradas-reps",
 											label: "Representantes",
 											indentLevel: 2,
 											format: "number",
-											...aCobradasReps,
+											...mCobradasReps,
 										},
 									],
 								},
@@ -518,13 +415,13 @@ export function useKpiMatrixData(
 									key: "pct-cierres-activas",
 									label: "Porcentaje de cierres sobre causas activas",
 									format: "percent",
-									...ajustado("pct_cierres_activas", pctSobreActivas),
+									...cargaManual("pct_cierres_activas"),
 								},
 								{
 									key: "ticket-promedio",
 									label: "Ticket promedio por cierre",
 									format: "currency",
-									...ajustado("ticket_promedio", ticketPromedio),
+									...cargaManual("ticket_promedio"),
 								},
 							],
 						},
@@ -536,7 +433,7 @@ export function useKpiMatrixData(
 									key: "consultas-bo",
 									label: "Consultas atendidas por BO",
 									format: "number",
-									...ajustado("consultas_bo", consultasBO),
+									...cargaManual("consultas_bo"),
 								},
 								{
 									key: "reclamos-neg",
@@ -564,19 +461,19 @@ export function useKpiMatrixData(
 									key: "reps-total",
 									label: "Total de representantes",
 									format: "number",
-									...ajustado("reps_total", repsTotal),
+									...cargaManual("reps_total"),
 								},
 								{
 									key: "reps-nuevos",
 									label: "Cantidad de representantes nuevos",
 									format: "number",
-									...ajustado("reps_nuevos", repsNuevos),
+									...cargaManual("reps_nuevos"),
 								},
 								{
 									key: "reuniones-reps",
 									label: "Cantidad de reuniones realizadas con representantes",
 									format: "number",
-									...ajustado("reuniones_reps", reunionesReps),
+									...cargaManual("reuniones_reps"),
 								},
 								{
 									key: "videos-reps",
