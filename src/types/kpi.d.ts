@@ -13,6 +13,8 @@ export interface ManualKpiDef {
 	 * global. Estos KPIs no usan el form genérico: van en su propia grilla.
 	 */
 	perProvince?: boolean;
+	/** Se suma a un KPI automático; se carga en la planilla, no en "Cargar valores". */
+	ajuste?: boolean;
 	description?: string;
 }
 
@@ -65,6 +67,11 @@ export interface KpiMatrixRow {
 	allowNegative?: boolean;
 	/** With `editable`: which months can be edited (by index); omitted = all. */
 	editableMonths?: boolean[];
+	/**
+	 * Parte automática de una fila editable: la celda muestra automático +
+	 * cargado a mano, y al editar se carga solo lo que se suma.
+	 */
+	autoValues?: (number | null)[];
 }
 
 export interface KpiMatrixSubSection {

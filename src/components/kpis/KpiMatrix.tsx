@@ -132,6 +132,7 @@ function EditableCell({
 	monthIdx,
 	sourceUserId,
 	allowNegative = false,
+	autoValue,
 	onSaved,
 }: {
 	value: number | null;
@@ -142,14 +143,19 @@ function EditableCell({
 	/** userId cuando la fila representa a un vendedor/abogado (perUser). */
 	sourceUserId?: number;
 	allowNegative?: boolean;
+	/** Parte automática: se muestra auto + cargado y se edita solo lo cargado. */
+	autoValue?: number | null;
 	onSaved: () => void;
 }) {
 	const { data: session } = useSession();
+	const base = autoValue ?? 0;
 	const [editing, setEditing] = useState(false);
-	const [draft, setDraft] = useState(String(value ?? 0));
+	const [draft, setDraft] = useState(String((value ?? 0) - base));
 	const [displayValue, setDisplayValue] = useState<number | null>(value);
 	const [saving, setSaving] = useState(false);
 	const inputRef = useRef<HTMLInputElement>(null);
+	// Lo cargado a mano (sin la parte automática).
+	const cargado = (displayValue ?? 0) - base;
 
 	useEffect(() => {
 		setDisplayValue(value);
@@ -161,12 +167,12 @@ function EditableCell({
 
 	const startEdit = () => {
 		if (saving) return;
-		setDraft(String(displayValue ?? 0));
+		setDraft(String(cargado));
 		setEditing(true);
 	};
 
 	const cancel = () => {
-		setDraft(String(displayValue ?? 0));
+		setDraft(String(cargado));
 		setEditing(false);
 	};
 
@@ -178,7 +184,7 @@ function EditableCell({
 			return;
 		}
 		// Sin cambios: no hacemos nada.
-		if (numValue === (displayValue ?? 0)) {
+		if (numValue === cargado) {
 			setEditing(false);
 			return;
 		}
@@ -213,7 +219,7 @@ function EditableCell({
 			});
 			if (!res.ok)
 				throw new Error(await apiErrorMessage(res, "Error al guardar"));
-			setDisplayValue(numValue);
+			setDisplayValue(base + numValue);
 			toast.success("Guardado");
 			onSaved();
 		} catch (err) {
@@ -238,7 +244,14 @@ function EditableCell({
 						if (e.key === "Escape") cancel();
 					}}
 					onBlur={() => save()}
-					title="Enter para guardar · Esc para cancelar"
+					aria-label={
+						autoValue !== undefined ? "Valor a sumar al automático" : undefined
+					}
+					title={
+						autoValue !== undefined
+							? `Automático: ${formatValue(autoValue, format)} — lo que cargues se suma. Enter para guardar · Esc para cancelar`
+							: "Enter para guardar · Esc para cancelar"
+					}
 					className="w-full h-full text-right text-xs tabular-nums bg-transparent border-0 outline-none focus:ring-0 px-2 py-1.5 font-semibold text-amber-900 dark:text-amber-100 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
 				/>
 			</td>
@@ -263,7 +276,11 @@ function EditableCell({
 						? "cursor-wait"
 						: "cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30",
 				)}
-				title="Click para editar"
+				title={
+					autoValue !== undefined
+						? `Automático ${formatValue(autoValue, format)} + cargado a mano ${formatValue(cargado, format)}. Click para editar lo cargado`
+						: "Click para editar"
+				}
 				disabled={saving}
 			>
 				{saving ? (
@@ -342,6 +359,7 @@ function DataRow({
 						monthIdx={i}
 						sourceUserId={row.sourceUserId}
 						allowNegative={row.allowNegative}
+						autoValue={row.autoValues ? (row.autoValues[i] ?? null) : undefined}
 						onSaved={() => onValueChanged?.()}
 					/>
 				) : (

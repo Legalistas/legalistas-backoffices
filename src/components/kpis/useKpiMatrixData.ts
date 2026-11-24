@@ -261,6 +261,38 @@ export function useKpiMatrixData(
 			const ultimo = (vs: (number | null)[]) =>
 				vs.slice(0, axis.elapsed).findLast((v) => v !== null) ?? null;
 
+			// Métricas operativas: además de automáticas son editables; lo cargado
+			// a mano (KPI manual "legal_ajuste_<clave>") se suma al automático.
+			const ajustado = (
+				clave: string,
+				auto: (number | null)[],
+				userId?: number,
+			) => {
+				const sourceKey = `legal_ajuste_${clave}`;
+				const cargado =
+					userId === undefined
+						? manual(sourceKey)
+						: (manualByKeyUser.get(sourceKey)?.get(userId)?.monthly ?? ZEROS());
+				return {
+					editable: true,
+					sourceKey,
+					sourceUserId: userId,
+					autoValues: auto,
+					monthlyValues: auto.map((v, i) => {
+						const m = cargado[i] ?? 0;
+						return v === null && m === 0 ? null : (v ?? 0) + m;
+					}),
+				};
+			};
+			const aSinMov60 = ajustado("casos_sin_mov_60", casosSinMov60);
+			const aSinMov90 = ajustado("casos_sin_mov_90", casosSinMov90);
+			// Mismo dato en "Control del sistema legal" e "Impacto en ingresos".
+			const aIngresosTotal = ajustado("ingresos_total", ingresosTotal);
+			const aNegocActivas = ajustado("negociaciones_activas", negocActivas);
+			const aTasaExito = ajustado("tasa_exito", tasaExito);
+			const aCobradasInterno = ajustado("cobradas_interno", cobradasInterno);
+			const aCobradasReps = ajustado("cobradas_reps", cobradasReps);
+
 			// Sub-filas por abogado interno (todas comparten la misma lista).
 			const internalLawyersSorted = Array.from(internalLawyerMap.entries())
 				.map(([userId, l]) => ({ userId, ...l }))
@@ -275,7 +307,11 @@ export function useKpiMatrixData(
 					label: l.name,
 					indentLevel: 2,
 					format,
-					monthlyValues: l[fieldKey] as (number | null)[],
+					...ajustado(
+						`abogado_${String(fieldKey)}`,
+						l[fieldKey] as (number | null)[],
+						l.userId,
+					),
 				}));
 
 			// ── Armar secciones ─────────────────────────────────────────
@@ -345,41 +381,41 @@ export function useKpiMatrixData(
 									key: "casos-sin-mov-60",
 									label: "Casos sin movimientos por más de 60 días",
 									format: "number",
-									monthlyValues: casosSinMov60,
-									accumulated: ultimo(casosSinMov60),
+									...aSinMov60,
+									accumulated: ultimo(aSinMov60.monthlyValues),
 								},
 								{
 									key: "casos-sin-mov-90",
 									label: "Casos sin movimientos por más de 90 días",
 									format: "number",
-									monthlyValues: casosSinMov90,
-									accumulated: ultimo(casosSinMov90),
+									...aSinMov90,
+									accumulated: ultimo(aSinMov90.monthlyValues),
 								},
 								{
 									key: "casos-total",
 									label: "Cantidad de casos legalistas (ingresos del período)",
 									format: "number",
-									monthlyValues: ingresosTotal,
+									...aIngresosTotal,
 								},
 								{
 									key: "causas-neg",
 									label: "Cantidad de causas en negociación (activas)",
 									format: "number",
-									monthlyValues: negocActivas,
-									accumulated: ultimo(negocActivas),
+									...aNegocActivas,
+									accumulated: ultimo(aNegocActivas.monthlyValues),
 								},
 								{
 									key: "neg-iniciadas",
 									label: "Negociaciones iniciadas en el período",
 									format: "number",
-									monthlyValues: negocIniciadas,
+									...ajustado("negociaciones_iniciadas", negocIniciadas),
 								},
 								{
 									key: "neg-tasa-exito",
 									label: "Tasa de éxito en negociaciones",
 									format: "percent",
-									monthlyValues: tasaExito,
-									accumulated: ultimo(tasaExito),
+									...aTasaExito,
+									accumulated: ultimo(aTasaExito.monthlyValues),
 								},
 							],
 						},
@@ -391,31 +427,31 @@ export function useKpiMatrixData(
 									key: "ing-casos-nuevos",
 									label: "Ingresos de casos nuevos",
 									format: "number",
-									monthlyValues: ingresosTotal,
+									...aIngresosTotal,
 								},
 								{
 									key: "ing-judiciales",
 									label: "Ingresos judiciales",
 									format: "number",
-									monthlyValues: ingresosJudiciales,
+									...ajustado("ingresos_judiciales", ingresosJudiciales),
 								},
 								{
 									key: "ing-srt",
 									label: "Ingresos SRT",
 									format: "number",
-									monthlyValues: ingresosSrt,
+									...ajustado("ingresos_srt", ingresosSrt),
 								},
 								{
 									key: "ing-rafaela",
 									label: "Rafaela",
 									format: "number",
-									monthlyValues: ingresosRafaela,
+									...ajustado("ingresos_rafaela", ingresosRafaela),
 								},
 								{
 									key: "ing-reps",
 									label: "Representantes",
 									format: "number",
-									monthlyValues: ingresosReps,
+									...ajustado("ingresos_reps", ingresosReps),
 								},
 							],
 						},
@@ -427,38 +463,39 @@ export function useKpiMatrixData(
 									key: "c-jud",
 									label: "Cierres judiciales",
 									format: "number",
-									monthlyValues: cierresJudiciales,
+									...ajustado("cierres_judiciales", cierresJudiciales),
 								},
 								{
 									key: "c-srt",
 									label: "Cierres SRT",
 									format: "number",
-									monthlyValues: cierresSrt,
+									...ajustado("cierres_srt", cierresSrt),
 								},
 								{
 									key: "c-extra",
 									label: "Cierres extrajudiciales",
 									format: "number",
-									monthlyValues: cierresExtrajudiciales,
+									...ajustado("cierres_extrajudiciales", cierresExtrajudiciales),
 								},
 								{
 									key: "c-rafa",
 									label: "Cierres Rafaela",
 									format: "number",
-									monthlyValues: cierresRafaela,
+									...ajustado("cierres_rafaela", cierresRafaela),
 								},
 								{
 									key: "capital-rafa",
 									label: "Capital Rafaela",
 									format: "currency",
-									monthlyValues: capitalRafaela,
+									...ajustado("capital_rafaela", capitalRafaela),
 								},
 								{
+									// Total = Interno + Representantes, con lo cargado a mano en cada una.
 									key: "cobradas",
 									label: "Cantidad de causas cobradas",
 									format: "number",
-									monthlyValues: cobradasInterno.map(
-										(v, i) => (v ?? 0) + (cobradasReps[i] ?? 0),
+									monthlyValues: aCobradasInterno.monthlyValues.map(
+										(v, i) => (v ?? 0) + (aCobradasReps.monthlyValues[i] ?? 0),
 									),
 									subRows: [
 										{
@@ -466,14 +503,14 @@ export function useKpiMatrixData(
 											label: "Interno",
 											indentLevel: 2,
 											format: "number",
-											monthlyValues: cobradasInterno,
+											...aCobradasInterno,
 										},
 										{
 											key: "cobradas-reps",
 											label: "Representantes",
 											indentLevel: 2,
 											format: "number",
-											monthlyValues: cobradasReps,
+											...aCobradasReps,
 										},
 									],
 								},
@@ -481,13 +518,13 @@ export function useKpiMatrixData(
 									key: "pct-cierres-activas",
 									label: "Porcentaje de cierres sobre causas activas",
 									format: "percent",
-									monthlyValues: pctSobreActivas,
+									...ajustado("pct_cierres_activas", pctSobreActivas),
 								},
 								{
 									key: "ticket-promedio",
 									label: "Ticket promedio por cierre",
 									format: "currency",
-									monthlyValues: ticketPromedio,
+									...ajustado("ticket_promedio", ticketPromedio),
 								},
 							],
 						},
@@ -499,7 +536,7 @@ export function useKpiMatrixData(
 									key: "consultas-bo",
 									label: "Consultas atendidas por BO",
 									format: "number",
-									monthlyValues: consultasBO,
+									...ajustado("consultas_bo", consultasBO),
 								},
 								{
 									key: "reclamos-neg",
@@ -527,19 +564,19 @@ export function useKpiMatrixData(
 									key: "reps-total",
 									label: "Total de representantes",
 									format: "number",
-									monthlyValues: repsTotal,
+									...ajustado("reps_total", repsTotal),
 								},
 								{
 									key: "reps-nuevos",
 									label: "Cantidad de representantes nuevos",
 									format: "number",
-									monthlyValues: repsNuevos,
+									...ajustado("reps_nuevos", repsNuevos),
 								},
 								{
 									key: "reuniones-reps",
 									label: "Cantidad de reuniones realizadas con representantes",
 									format: "number",
-									monthlyValues: reunionesReps,
+									...ajustado("reuniones_reps", reunionesReps),
 								},
 								{
 									key: "videos-reps",

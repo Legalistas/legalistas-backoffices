@@ -166,7 +166,8 @@ export default function ManualKpiPanel() {
 	// Los KPIs por provincia (punto 7.4) no entran en el form genérico: son
 	// 24 valores por métrica y van en su propia grilla, más abajo.
 	const kpisOfArea = useMemo(
-		() => catalog.filter((k) => k.area === area && !k.perProvince),
+		() =>
+			catalog.filter((k) => k.area === area && !k.perProvince && !k.ajuste),
 		[catalog, area],
 	);
 

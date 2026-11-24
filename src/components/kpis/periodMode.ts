@@ -95,9 +95,12 @@ export function blankFuturePeriods(
 	sections: KpiMatrixSection[],
 	elapsed: number,
 ): KpiMatrixSection[] {
+	const cut = (vs: (number | null)[]) =>
+		vs.map((v, i) => (i < elapsed ? v : null));
 	const blank = (row: KpiMatrixRow): KpiMatrixRow => ({
 		...row,
-		monthlyValues: row.monthlyValues.map((v, i) => (i < elapsed ? v : null)),
+		monthlyValues: cut(row.monthlyValues),
+		autoValues: row.autoValues && cut(row.autoValues),
 		subRows: row.subRows?.map(blank),
 	});
 	return sections.map((s) => ({
