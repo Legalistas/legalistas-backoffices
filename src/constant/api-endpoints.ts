@@ -17,11 +17,10 @@ export const CLOSE_OTHER_SESSIONS_ENDPOINT = `${API_BASE_URL}/auth/sessions/clos
 // antes era /api/notifications/email propio del frontend con SMTP directo)
 export const MAILER_SEND_ENDPOINT = `${API_BASE_URL}/mailer/send`;
 
-// Activity Logs Endpoints
-export const ACTIVITY_LOGS_ENDPOINT = `${API_BASE_URL}/activity-logs`;
-export const ACTIVITY_LOGS_STATS_ENDPOINT = `${API_BASE_URL}/activity-logs/stats`;
+// Sesiones propias (Mi perfil) y auditoría del equipo (Equipo → Auditoría)
 export const ACTIVITY_LOGS_BY_USER_ENDPOINT = (userId: number) =>
 	`${API_BASE_URL}/activity-logs/user/${userId}`;
+export const AUDITORIA_ENDPOINT = `${API_BASE_URL}/activity-logs/auditoria`;
 
 // RRHH — Ficha de empleado (UserEmployment)
 export const EMPLOYMENT_ENDPOINT = `${API_BASE_URL}/employment`;

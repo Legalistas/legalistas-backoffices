@@ -1,4 +1,4 @@
-import { Activity, Briefcase, Lock, MapPin, Pencil, Trash2, Unlock } from "lucide-react";
+import { Briefcase, Lock, MapPin, Pencil, Phone, Trash2, Unlock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { User } from "@/types/users";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -97,20 +97,21 @@ export default function MembersTable({
 	return (
 		<Table>
 			<TableHeader>
-				<TableRow className="hover:bg-transparent">
-					<TableHead>Miembro</TableHead>
+				<TableRow className="hover:bg-transparent [&>th]:h-9 [&>th]:text-[11px] [&>th]:font-medium [&>th]:uppercase [&>th]:tracking-wide [&>th]:text-muted-foreground">
+					<TableHead className="pl-4">Miembro</TableHead>
 					<TableHead>Rol</TableHead>
-					<TableHead>Contacto</TableHead>
-					<TableHead>Ubicación</TableHead>
-					<TableHead>Estado</TableHead>
-					<TableHead className="text-right">Acciones</TableHead>
+					<TableHead className="hidden md:table-cell">Teléfono</TableHead>
+					<TableHead className="hidden lg:table-cell">Ubicación</TableHead>
+					<TableHead className="pr-4 text-right">Acciones</TableHead>
 				</TableRow>
 			</TableHeader>
 			<TableBody>
 				{[...members]
-					.sort((a, b) => a.id - b.id)
+					.sort((a, b) => a.name.localeCompare(b.name, "es"))
 					.map((member) => {
 						const role = member.roleUser?.[0]?.role;
+						const puesto = member.employment?.position?.trim();
+						const phone = member.userProfile?.phone?.trim();
 						const location = [
 							member.userAddresses?.[0]?.city,
 							member.userAddresses?.[0]?.state?.name,
@@ -120,42 +121,62 @@ export default function MembersTable({
 						return (
 							<TableRow
 								key={member.id}
-								className="group transition-colors hover:bg-muted/40"
+								className={`group transition-colors hover:bg-muted/40 ${member.isBlocked ? "opacity-60" : ""}`}
 							>
-								<TableCell>
+								<TableCell className="py-2.5 pl-4">
 									<div className="flex items-center gap-3">
-										<Avatar>
+										<Avatar className="h-9 w-9">
 											{member.image && (
 												<AvatarImage src={member.image} alt={member.name} />
 											)}
-											<AvatarFallback className="bg-linear-to-br from-primary/20 to-primary/10 text-primary font-medium">
+											<AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">
 												{getInitials(member.name)}
 											</AvatarFallback>
 										</Avatar>
-										<div className="flex flex-col min-w-0">
-											<span className="font-medium text-foreground truncate">
+										<div className="flex min-w-0 flex-col">
+											<span className="flex items-center gap-2 truncate font-medium text-foreground">
 												{member.name}
+												{member.isBlocked && (
+													<span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">
+														Bloqueado
+													</span>
+												)}
 											</span>
-											<span className="text-xs text-muted-foreground truncate">
+											<span className="truncate text-xs text-muted-foreground">
 												{member.email || "Sin email"}
 											</span>
 										</div>
 									</div>
 								</TableCell>
-								<TableCell>
-									<Badge
-										variant="outline"
-										className={`font-medium ${roleColorFor(role?.name)}`}
-									>
-										{role?.displayName || role?.name || "—"}
-									</Badge>
+								<TableCell className="py-2.5">
+									<div className="flex flex-col items-start gap-0.5">
+										<Badge
+											variant="outline"
+											className={`font-medium ${roleColorFor(role?.name)}`}
+										>
+											{role?.displayName || role?.name || "—"}
+										</Badge>
+										{puesto && (
+											<span className="truncate text-[11px] text-muted-foreground">
+												{puesto}
+											</span>
+										)}
+									</div>
 								</TableCell>
-								<TableCell>
-									<span className="text-sm text-muted-foreground">
-										{member.userProfile?.phone || "—"}
-									</span>
+								<TableCell className="hidden py-2.5 md:table-cell">
+									{phone ? (
+										<a
+											href={`tel:${phone.replace(/[^\d+]/g, "")}`}
+											className="inline-flex items-center gap-1.5 text-sm text-muted-foreground tabular-nums hover:text-foreground"
+										>
+											<Phone className="h-3.5 w-3.5 shrink-0" />
+											{phone}
+										</a>
+									) : (
+										<span className="text-sm text-muted-foreground">—</span>
+									)}
 								</TableCell>
-								<TableCell>
+								<TableCell className="hidden py-2.5 lg:table-cell">
 									{location ? (
 										<div className="flex items-center gap-1.5 text-sm text-muted-foreground">
 											<MapPin className="h-3.5 w-3.5 shrink-0" />
@@ -165,26 +186,14 @@ export default function MembersTable({
 										<span className="text-sm text-muted-foreground">—</span>
 									)}
 								</TableCell>
-								<TableCell>
-									{member.isBlocked ? (
-										<span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full bg-destructive/10 text-destructive">
-											<span className="h-1.5 w-1.5 rounded-full bg-destructive" />
-											Bloqueado
-										</span>
-									) : (
-										<span className="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-											<span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-											Activo
-										</span>
-									)}
-								</TableCell>
-								<TableCell>
-									<div className="flex items-center justify-end gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+								<TableCell className="py-2.5 pr-4">
+									<div className="flex items-center justify-end gap-0.5 opacity-60 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
 										<Button
 											size="icon"
 											variant="ghost"
 											onClick={() => handleEdit(member)}
 											title="Editar"
+											aria-label={`Editar a ${member.name}`}
 											className="h-8 w-8"
 										>
 											<Pencil className="h-3.5 w-3.5" />
@@ -195,24 +204,12 @@ export default function MembersTable({
 												variant="ghost"
 												onClick={() => router.push(`/admin/rrhh/${member.id}`)}
 												title="Ficha RRHH"
+												aria-label={`Ficha RRHH de ${member.name}`}
 												className="h-8 w-8"
 											>
 												<Briefcase className="h-3.5 w-3.5" />
 											</Button>
 										</Can>
-										<Button
-											size="icon"
-											variant="ghost"
-											onClick={() =>
-												router.push(
-													`/admin/activity-logs?userId=${member.id}&userName=${encodeURIComponent(member.name)}`,
-												)
-											}
-											title="Ver historial"
-											className="h-8 w-8"
-										>
-											<Activity className="h-3.5 w-3.5" />
-										</Button>
 										<Button
 											size="icon"
 											variant="ghost"

@@ -1,12 +1,12 @@
 "use client";
 import {
-	Activity,
 	Briefcase,
 	Filter,
 	Network,
 	Plus,
 	Scale,
 	Search,
+	ShieldCheck,
 	UserCog,
 	Users,
 	X,
@@ -54,7 +54,7 @@ import { Can } from "@/components/auth/Can";
 import { Role } from "@/constant/user";
 import { SUPERADMIN } from "@/constant/menu";
 import { getRoleIdentifier, INTERNAL_TEAM_ROLES, isInternalTeamMember } from "@/constant/team";
-import { SEGMENTO_LABEL, segmentoDe } from "@/constant/rrhh";
+import { RRHH_REPORTE_ROLES, SEGMENTO_LABEL, segmentoDe } from "@/constant/rrhh";
 
 const EMPLOYMENT_ALLOWED_ROLES = [
 	...SUPERADMIN,
@@ -75,16 +75,24 @@ const LAWYER_ROLES = [
 	"asistente_legal",
 ];
 
-type TabType = "all" | "internos" | "representantes" | "lawyers" | "staff";
+// "Todos" va última: todo el equipo Legalistas (Jona, 25/11/2026).
+type TabType = "internos" | "representantes" | "all";
 
 function isLawyer(member: any): boolean {
 	return LAWYER_ROLES.includes(getRoleIdentifier(member));
 }
 
 // Equipo interno vs. representantes: lo cargado en la ficha laboral, o el rol.
+// Las abogadas internas (rol abogado_interno) quedan en el equipo interno.
 function esRepresentante(member: any): boolean {
 	return segmentoDe(member.employment?.segmento, getRoleIdentifier(member)) === "REPRESENTANTE";
 }
+
+// La cuenta compartida "Legalistas Equipo" no es una persona: no se lista.
+const CUENTA_COMPARTIDA = "sistemas@legalistas.ar";
+const esDelEquipo = (member: any) =>
+	isInternalTeamMember(member) &&
+	member.email?.trim().toLowerCase() !== CUENTA_COMPARTIDA;
 
 export default function MembersContent() {
 	const { data: session } = useSession();
@@ -104,7 +112,7 @@ export default function MembersContent() {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
 	const [showFilters, setShowFilters] = useState(false);
-	const [activeTab, setActiveTab] = useState<TabType>("all");
+	const [activeTab, setActiveTab] = useState<TabType>("internos");
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editingMember, setEditingMember] = useState<User | null>(null);
 	const [modalMode, setModalMode] = useState<"create" | "edit">("create");
@@ -123,24 +131,24 @@ export default function MembersContent() {
 	// como parte del equipo.
 	const memberStats = useMemo(() => {
 		const internalMembers = allMembers.filter(
-			(m) => isInternalTeamMember(m) && !m.isBlocked,
+			(m) => esDelEquipo(m) && !m.isBlocked,
 		);
+		const internos = internalMembers.filter((m) => !esRepresentante(m));
 		return {
 			total: internalMembers.length,
-			lawyers: internalMembers.filter(isLawyer).length,
-			staff: internalMembers.filter((m) => !isLawyer(m)).length,
-			internos: internalMembers.filter((m) => !esRepresentante(m)).length,
+			internos: internos.length,
+			abogadosInternos: internos.filter(isLawyer).length,
+			personalInterno: internos.filter((m) => !isLawyer(m)).length,
 			representantes: internalMembers.filter(esRepresentante).length,
 			hr: internalMembers.filter((m) => m.employment).length,
-			inactivos: allMembers.filter(
-				(m) => isInternalTeamMember(m) && m.isBlocked,
-			).length,
+			inactivos: allMembers.filter((m) => esDelEquipo(m) && m.isBlocked)
+				.length,
 		};
 	}, [allMembers]);
 
 	// Filtrado - solo miembros internos, sin clientes
 	const filteredMembers = useMemo(() => {
-		let filtered = allMembers.filter(isInternalTeamMember);
+		let filtered = allMembers.filter(esDelEquipo);
 
 		// Los dados de baja quedan fuera salvo que se pidan explícitamente:
 		// siguen existiendo para conservar sus métricas, pero no son parte
@@ -153,10 +161,6 @@ export default function MembersContent() {
 			filtered = filtered.filter((m) => !esRepresentante(m));
 		} else if (activeTab === "representantes") {
 			filtered = filtered.filter(esRepresentante);
-		} else if (activeTab === "lawyers") {
-			filtered = filtered.filter(isLawyer);
-		} else if (activeTab === "staff") {
-			filtered = filtered.filter((m) => !isLawyer(m));
 		}
 
 		if (searchTerm.trim()) {
@@ -180,11 +184,12 @@ export default function MembersContent() {
 		return filtered;
 	}, [allMembers, searchTerm, selectedRoles, activeTab, showInactive]);
 
+	// La pestaña no cuenta como filtro: siempre hay una elegida.
 	const hasActiveFilters = Boolean(
-		searchTerm.trim() || selectedRoles.length > 0 || activeTab !== "all",
+		searchTerm.trim() || selectedRoles.length > 0,
 	);
 
-	const ITEMS_PER_PAGE = 10;
+	const ITEMS_PER_PAGE = 15;
 
 	const paginatedMembers = useMemo(() => {
 		const start = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -716,13 +721,15 @@ export default function MembersContent() {
 							Organigrama
 						</Button>
 					</Can>
-					<Button
-						variant="outline"
-						onClick={() => router.push("/admin/activity-logs")}
-					>
-						<Activity className="h-4 w-4 mr-2" />
-						Historial de sesiones
-					</Button>
+					<Can role={RRHH_REPORTE_ROLES}>
+						<Button
+							variant="outline"
+							onClick={() => router.push("/admin/auditoria")}
+						>
+							<ShieldCheck className="h-4 w-4 mr-2" />
+							Auditoría
+						</Button>
+					</Can>
 					<Button onClick={openCreateDialog}>
 						<Plus className="h-4 w-4 mr-2" />
 						Nuevo miembro
@@ -732,7 +739,10 @@ export default function MembersContent() {
 
 			{/* Stats Cards */}
 			<div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-				<Card className="border-l-2 border-l-blue-500 py-0">
+				<Card
+					className={`border-l-2 border-l-blue-500 py-0 cursor-pointer transition-colors hover:bg-muted/40 ${activeTab === "all" ? "ring-1 ring-blue-500/40" : ""}`}
+					onClick={() => setActiveTab("all")}
+				>
 					<div className="flex items-center justify-between px-3 py-2">
 						<div>
 							<p className="text-[11px] font-medium text-muted-foreground">Total Equipo</p>
@@ -744,14 +754,14 @@ export default function MembersContent() {
 
 				<Card
 					className={`border-l-2 border-l-purple-500 py-0 cursor-pointer transition-colors hover:bg-muted/40 ${activeTab === "internos" ? "ring-1 ring-purple-500/40" : ""}`}
-					onClick={() => setActiveTab(activeTab === "internos" ? "all" : "internos")}
+					onClick={() => setActiveTab("internos")}
 				>
 					<div className="flex items-center justify-between px-3 py-2">
 						<div>
 							<p className="text-[11px] font-medium text-muted-foreground">{SEGMENTO_LABEL.INTERNO}</p>
 							<p className="text-lg font-bold text-foreground leading-none mt-1">{memberStats.internos}</p>
 							<p className="text-[10px] text-muted-foreground mt-1">
-								{memberStats.lawyers} abogados · {memberStats.staff} personal
+								{memberStats.abogadosInternos} abogados internos · {memberStats.personalInterno} personal
 							</p>
 						</div>
 						<UserCog className="h-4 w-4 text-purple-500 shrink-0" />
@@ -760,7 +770,7 @@ export default function MembersContent() {
 
 				<Card
 					className={`border-l-2 border-l-orange-500 py-0 cursor-pointer transition-colors hover:bg-muted/40 ${activeTab === "representantes" ? "ring-1 ring-orange-500/40" : ""}`}
-					onClick={() => setActiveTab(activeTab === "representantes" ? "all" : "representantes")}
+					onClick={() => setActiveTab("representantes")}
 				>
 					<div className="flex items-center justify-between px-3 py-2">
 						<div>
@@ -795,12 +805,6 @@ export default function MembersContent() {
 						onValueChange={(v) => setActiveTab(v as TabType)}
 					>
 						<TabsList>
-							<TabsTrigger value="all">
-								Todos
-								<Badge variant="secondary" className="ml-2">
-									{memberStats.total}
-								</Badge>
-							</TabsTrigger>
 							<TabsTrigger value="internos">
 								{SEGMENTO_LABEL.INTERNO}
 								<Badge variant="secondary" className="ml-2">
@@ -813,16 +817,10 @@ export default function MembersContent() {
 									{memberStats.representantes}
 								</Badge>
 							</TabsTrigger>
-							<TabsTrigger value="lawyers">
-								Abogados
+							<TabsTrigger value="all">
+								Todos
 								<Badge variant="secondary" className="ml-2">
-									{memberStats.lawyers}
-								</Badge>
-							</TabsTrigger>
-							<TabsTrigger value="staff">
-								Personal
-								<Badge variant="secondary" className="ml-2">
-									{memberStats.staff}
+									{memberStats.total}
 								</Badge>
 							</TabsTrigger>
 						</TabsList>
