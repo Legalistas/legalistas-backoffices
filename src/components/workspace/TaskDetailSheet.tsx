@@ -12,6 +12,7 @@ import {
 	ChevronLeft,
 	ChevronRight,
 	Contact,
+	FileAudio,
 	FileText,
 	ImageIcon,
 	ImageOff,
@@ -152,6 +153,7 @@ function describeActivity(a: WorkActivity, people: Map<number, string>) {
 const caseSubtitle = (c: WorkCaseRef) => `Caso ${c.number ?? c.id} · ${resumenExpedientes(c.files)}`;
 /** Images the browser can show (they can also be the card cover). */
 const isImage = (f: WorkAttachment) => /^image\/(jpeg|png|webp|gif)$/.test(f.mimeType ?? "");
+const isAudio = (f: WorkAttachment) => (f.mimeType ?? "").startsWith("audio/");
 
 /** The editor's HTML as plain text, one line per paragraph or item (mentions stay as "@Name"). */
 const textoPlano = (html: string) => {
@@ -1251,7 +1253,7 @@ export function TaskDetailSheet({
 													type="file"
 													multiple
 													hidden
-													accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.heic,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt"
+													accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.heic,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.mp3,.m4a,.ogg,.opus,.wav,.webm"
 													onChange={(e) => {
 														if (e.target.files) uploadFiles(e.target.files);
 														e.target.value = "";
@@ -1393,6 +1395,8 @@ export function TaskDetailSheet({
 														{isImage(f) && f.url ? (
 															// biome-ignore lint/performance/noImgElement: signed MinIO URL.
 															<img src={f.url} alt="" loading="lazy" className="size-full object-cover" />
+														) : isAudio(f) ? (
+															<FileAudio className="size-5" />
 														) : (
 															<FileText className="size-5" />
 														)}
@@ -1415,6 +1419,10 @@ export function TaskDetailSheet({
 														<p className="truncate text-xs text-muted-foreground">
 															{fileSize(f.size)} · {ago(f.createdAt)}
 														</p>
+														{isAudio(f) && f.url && (
+															// biome-ignore lint/a11y/useMediaCaption: voice notes; the card's description has the text.
+															<audio controls preload="none" src={f.url} className="mt-1.5 h-8 w-full" />
+														)}
 													</div>
 													{canEdit && opcionesAdjunto(f)}
 												</li>

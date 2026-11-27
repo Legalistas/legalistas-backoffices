@@ -72,6 +72,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { WorkBoard, WorkCard, WorkColumn, WorkPriority } from "@/types/workspace";
 import { BoardFilterPanel } from "./BoardFilterPanel";
+import { DictarTarea } from "./DictarTarea";
 import { ProjectIcon } from "./ProjectLook";
 import { ProjectSettingsDialog } from "./ProjectSettingsDialog";
 import { ShareDialog } from "./ShareDialog";
@@ -803,6 +804,16 @@ export default function Board({ projectId }: { projectId: number }) {
 						<Plus className="size-4" />
 						Agregar tarea
 					</Button>
+				)}
+				{permissions.edit && (
+					<DictarTarea
+						projectId={projectId}
+						token={token}
+						onCreated={(card) => {
+							load();
+							openTask(card.id);
+						}}
+					/>
 				)}
 				<div className="ml-auto flex flex-wrap items-center gap-1">
 					<BoardFilterPanel filters={filters} onChange={setFilters} people={people} />
