@@ -23,6 +23,9 @@ export interface WorkHomeProject {
 	organizationId: number;
 	team: { id: number; name: string; color: string | null } | null;
 	openTasks: number;
+	description: string | null;
+	/** Can edit or delete the board (same rule as the board's "Opciones"). */
+	canManage: boolean;
 }
 
 export interface WorkMyTask {

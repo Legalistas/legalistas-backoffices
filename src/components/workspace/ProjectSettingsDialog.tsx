@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -23,14 +23,16 @@ import { ProjectLookPicker } from "./ProjectLook";
 
 interface Props {
 	open: boolean;
-	project: WorkBoard["project"];
+	project: Pick<WorkBoard["project"], "id" | "name" | "description" | "color" | "icon">;
 	token: string | undefined;
 	onOpenChange: (open: boolean) => void;
 	onSaved: () => void;
+	/** After deleting it; by default goes back to the workspace home. */
+	onArchived?: () => void;
 }
 
-/** Name, description, color and icon of the project; archive it. */
-export function ProjectSettingsDialog({ open, project, token, onOpenChange, onSaved }: Props) {
+/** Name, description, color and icon of the project; delete (archive) it. */
+export function ProjectSettingsDialog({ open, project, token, onOpenChange, onSaved, onArchived }: Props) {
 	const router = useRouter();
 	const [name, setName] = useState(project.name);
 	const [description, setDescription] = useState(project.description ?? "");
@@ -68,18 +70,20 @@ export function ProjectSettingsDialog({ open, project, token, onOpenChange, onSa
 
 	const archive = async () => {
 		const ok = await confirm({
-			title: "Archivar proyecto",
-			description: `"${project.name}" deja de aparecer en el inicio y en los equipos. No se borra nada.`,
-			confirmLabel: "Archivar",
+			title: "Eliminar proyecto",
+			description: `"${project.name}" deja de aparecer en el inicio y en los equipos. Sus tareas no se pierden.`,
+			confirmLabel: "Eliminar",
 			variant: "destructive",
 		});
 		if (!ok) return;
 		try {
 			await workspaceFetch(`/projects/${project.id}/archive`, token, { method: "POST" });
-			toast.success("Proyecto archivado");
-			router.push("/admin/workspace");
+			toast.success("Proyecto eliminado");
+			onOpenChange(false);
+			if (onArchived) onArchived();
+			else router.push("/admin/workspace");
 		} catch (err) {
-			toast.error(errorMessage(err, "No se pudo archivar"));
+			toast.error(errorMessage(err, "No se pudo eliminar"));
 		}
 	};
 
@@ -108,8 +112,8 @@ export function ProjectSettingsDialog({ open, project, token, onOpenChange, onSa
 					<ProjectLookPicker color={color} icon={icon} onColor={setColor} onIcon={setIcon} />
 					<DialogFooter className="items-center gap-2 sm:justify-between">
 						<Button type="button" variant="ghost" onClick={archive} className="text-muted-foreground hover:text-destructive">
-							<Archive className="size-4" />
-							Archivar proyecto
+							<Trash2 className="size-4" />
+							Eliminar proyecto
 						</Button>
 						<Button type="submit" disabled={busy || !name.trim()}>
 							Guardar

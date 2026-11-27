@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { CalendarDays, Check, Lock, Plus, Users } from "lucide-react";
+import { CalendarDays, Check, Lock, Plus, Settings2, Users } from "lucide-react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -26,6 +26,7 @@ import { CompleteToggle } from "./CompleteToggle";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { NewTaskDialog } from "./NewTaskDialog";
 import { ProjectIcon } from "./ProjectLook";
+import { ProjectSettingsDialog } from "./ProjectSettingsDialog";
 
 type Tab = "upcoming" | "late" | "done";
 
@@ -90,32 +91,50 @@ function TaskRow({ task, late, onToggle }: { task: WorkMyTask; late: boolean; on
 	);
 }
 
-function ProjectTile({ project }: { project: WorkHomeProject }) {
+function ProjectTile({ project, onEdit }: { project: WorkHomeProject; onEdit: () => void }) {
 	return (
-		<Link
-			href={`/admin/workspace/projects/${project.id}`}
-			className="flex items-center gap-3 rounded-xl p-2 hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-primary"
-		>
-			<span
-				className="grid size-12 shrink-0 place-items-center rounded-xl text-white shadow-[0_2px_6px_-2px_rgba(15,23,42,0.35)]"
-				style={{ backgroundColor: projectColor(project) }}
-				aria-hidden
+		<div className="group relative">
+			<Link
+				href={`/admin/workspace/projects/${project.id}`}
+				className={cn(
+					"flex items-center gap-3 rounded-xl p-2 hover:bg-muted/60 focus-visible:outline-2 focus-visible:outline-primary",
+					project.canManage && "pr-11",
+				)}
 			>
-				<ProjectIcon icon={project.icon} className="size-6" />
-			</span>
-			<span className="min-w-0">
-				<span className="flex items-center gap-1.5">
-					<span className="truncate text-sm font-semibold">{project.name}</span>
-					{project.privacy === "PRIVATE" && (
-						<Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Privado" />
-					)}
+				<span
+					className="grid size-12 shrink-0 place-items-center rounded-xl text-white shadow-[0_2px_6px_-2px_rgba(15,23,42,0.35)]"
+					style={{ backgroundColor: projectColor(project) }}
+					aria-hidden
+				>
+					<ProjectIcon icon={project.icon} className="size-6" />
 				</span>
-				<span className="block truncate text-xs text-muted-foreground">
-					{project.team?.name ?? "Sin equipo"} · {project.openTasks}{" "}
-					{project.openTasks === 1 ? "abierta" : "abiertas"}
+				<span className="min-w-0">
+					<span className="flex items-center gap-1.5">
+						<span className="truncate text-sm font-semibold">{project.name}</span>
+						{project.privacy === "PRIVATE" && (
+							<Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Privado" />
+						)}
+					</span>
+					<span className="block truncate text-xs text-muted-foreground">
+						{project.team?.name ?? "Sin equipo"} · {project.openTasks}{" "}
+						{project.openTasks === 1 ? "abierta" : "abiertas"}
+					</span>
 				</span>
-			</span>
-		</Link>
+			</Link>
+			{project.canManage && (
+				<Button
+					type="button"
+					variant="ghost"
+					size="icon"
+					onClick={onEdit}
+					aria-label={`Editar o eliminar ${project.name}`}
+					title="Editar o eliminar"
+					className="absolute top-1/2 right-1.5 size-8 -translate-y-1/2 text-muted-foreground transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 group-focus-within:opacity-100"
+				>
+					<Settings2 className="size-4" />
+				</Button>
+			)}
+		</div>
 	);
 }
 
@@ -128,6 +147,7 @@ export default function WorkspaceHome() {
 	const [tab, setTab] = useState<Tab>("upcoming");
 	const [newProjectOpen, setNewProjectOpen] = useState(false);
 	const [newTaskOpen, setNewTaskOpen] = useState(false);
+	const [editing, setEditing] = useState<WorkHomeProject | null>(null);
 
 	const load = useCallback(async () => {
 		if (!token) return;
@@ -304,7 +324,7 @@ export default function WorkspaceHome() {
 									</button>
 								)}
 								{home.projects.map((p) => (
-									<ProjectTile key={p.id} project={p} />
+									<ProjectTile key={p.id} project={p} onEdit={() => setEditing(p)} />
 								))}
 							</div>
 						</Panel>
@@ -348,6 +368,16 @@ export default function WorkspaceHome() {
 				onOpenChange={setNewTaskOpen}
 				onCreated={load}
 			/>
+			{editing && (
+				<ProjectSettingsDialog
+					open
+					project={editing}
+					token={token}
+					onOpenChange={(open) => !open && setEditing(null)}
+					onSaved={load}
+					onArchived={load}
+				/>
+			)}
 		</div>
 	);
 }
